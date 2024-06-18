@@ -73,7 +73,7 @@ func main() {
 	db.Create(&budgetItems)
 
 	t := &Template{
-		templates: template.Must(template.ParseGlob("public/views/*.html")),
+		templates: template.Must(template.ParseGlob("public/views/*.gohtml")),
 	}
 
 	e := echo.New()
