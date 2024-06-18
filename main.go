@@ -9,6 +9,10 @@ import (
 	"net/http"
 )
 
+var (
+	Database *gorm.DB
+)
+
 type Template struct {
 	templates *template.Template
 }
@@ -18,16 +22,36 @@ func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Con
 }
 
 func Budget(c echo.Context) error {
-	return c.Render(http.StatusOK, "budget", "World")
+
+	var budgetItems []BudgetItem
+	Database.Find(&budgetItems)
+	return c.Render(http.StatusOK, "budget", budgetItems)
 }
 
 func main() {
 
 	// github.com/mattn/go-sqlite3
 	db, err := gorm.Open(sqlite.Open("budge.db"), &gorm.Config{})
+	Database = db
+
 	err = db.AutoMigrate(
 		&BudgetItem{},
 	)
+
+	budgetItems := []BudgetItem{
+		{
+			Name:      "Car",
+			Cost:      50,
+			Frequency: Weekly,
+		},
+		{
+			Name:      "Insurance",
+			Cost:      1300,
+			Frequency: Yearly,
+		},
+	}
+
+	db.Create(&budgetItems)
 
 	t := &Template{
 		templates: template.Must(template.ParseGlob("public/views/*.html")),
