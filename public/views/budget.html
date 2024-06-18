@@ -1,10 +1,22 @@
 {{define "budget"}}
 
-Hello, {{.}}!
+<!--Hello, {{.}}!-->
 
-{{ range . }}
-
-{{ end }}
-
+<table>
+    <thead>
+        <td>Name</td>
+        <td>Cost</td>
+        <td>Frequency</td>
+    </thead>
+<tbody>
+    {{ range . }}
+    <tr>
+        <td>{{ .Name }}<td></td>
+        <td>{{ .Cost }}<td></td>
+        <td>{{ .Frequency }}<td></td>
+    </tr>
+    {{ end }}
+</tbody>
+</table>
 
 {{end}}

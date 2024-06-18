@@ -21,6 +21,22 @@ func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Con
 	return t.templates.ExecuteTemplate(w, name, data)
 }
 
+type BudgetFrequency string
+
+const (
+	Weekly  BudgetFrequency = "w"
+	Monthly BudgetFrequency = "m"
+	Yearly  BudgetFrequency = "y"
+)
+
+type BudgetItem struct {
+	gorm.Model
+
+	Name      string          `goorm:"name"`
+	Cost      float64         `goorm:"cost"`
+	Frequency BudgetFrequency `goorm:"frequency"`
+}
+
 func Budget(c echo.Context) error {
 
 	var budgetItems []BudgetItem
@@ -64,7 +80,7 @@ func main() {
 	})
 	e.GET("/budget", Budget)
 
-	err = e.Start(":8080")
+	err = e.Start(":1337")
 	if err != nil {
 		panic(err)
 	}
