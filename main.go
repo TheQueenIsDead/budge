@@ -48,6 +48,9 @@ func main() {
 
 	// github.com/mattn/go-sqlite3
 	db, err := gorm.Open(sqlite.Open("budge.db"), &gorm.Config{})
+	if err != nil {
+		panic(err)
+	}
 	Database = db
 
 	err = db.AutoMigrate(
