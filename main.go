@@ -2,6 +2,8 @@ package main
 
 import (
 	"github.com/labstack/echo/v4"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 	"html/template"
 	"io"
 	"net/http"
@@ -21,6 +23,12 @@ func Budget(c echo.Context) error {
 
 func main() {
 
+	// github.com/mattn/go-sqlite3
+	db, err := gorm.Open(sqlite.Open("budge.db"), &gorm.Config{})
+	err = db.AutoMigrate(
+		&BudgetItem{},
+	)
+
 	t := &Template{
 		templates: template.Must(template.ParseGlob("public/views/*.html")),
 	}
@@ -32,7 +40,7 @@ func main() {
 	})
 	e.GET("/budget", Budget)
 
-	err := e.Start(":8080")
+	err = e.Start(":8080")
 	if err != nil {
 		panic(err)
 	}
