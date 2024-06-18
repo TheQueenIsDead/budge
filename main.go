@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/TheQueenIsDead/budge/pkg"
 	"github.com/labstack/echo/v4"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -35,6 +36,10 @@ type BudgetItem struct {
 	Name      string          `goorm:"name"`
 	Cost      float64         `goorm:"cost"`
 	Frequency BudgetFrequency `goorm:"frequency"`
+}
+
+func Index(c echo.Context) error {
+	return c.Render(http.StatusOK, "index", nil)
 }
 
 func Budget(c echo.Context) error {
@@ -78,10 +83,9 @@ func main() {
 
 	e := echo.New()
 	e.Renderer = t
-	e.GET("/", func(c echo.Context) error {
-		return c.Redirect(http.StatusTemporaryRedirect, "/budget")
-	})
+	e.GET("/", Index)
 	e.GET("/budget", Budget)
+	e.POST("/upload", pkg.Upload)
 
 	err = e.Start(":1337")
 	if err != nil {
