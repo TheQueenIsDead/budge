@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"io"
-	"net/http"
 	"os"
 )
 
@@ -43,24 +42,4 @@ func saveFile(c echo.Context) (string, error) {
 
 func parseFile(c echo.Context, filepath string) ([]KiwibankExportRow, error) {
 	return KiwibankParser{}.ParseCSV(filepath)
-}
-
-func Upload(c echo.Context) error {
-
-	filepath, err := saveFile(c)
-	if err != nil {
-		c.Logger().Error(err)
-		return c.HTML(http.StatusInternalServerError, err.Error())
-	}
-
-	transactions, err := parseFile(c, filepath)
-	if err != nil {
-		c.Logger().Error(err)
-		return c.HTML(http.StatusInternalServerError, err.Error())
-	}
-
-	return c.Render(http.StatusOK, "partial_budget_items", transactions)
-
-	//return c.HTML(http.StatusOK, strconv.Itoa(len(transactions)))
-	//return c.HTML(http.StatusOK, fmt.Sprintf("<p>File %s uploaded successfully.</p>", file.Filename))
 }

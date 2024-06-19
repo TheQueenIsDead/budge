@@ -1,0 +1,21 @@
+{{define "merchant"}}
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th> Name </th>
+                <th> Description </th>
+            </tr>
+        </thead>
+        <tbody>
+        {{- /*gotype:github.com/TheQueenIsDead/budge/pkg.Merchant*/ -}}
+        {{ range . }}
+            <tr>
+                <td>{{ .Name }}</td>
+                <td>{{ .Description }}</td>
+            </tr>
+        {{ end }}
+        </tbody>
+    </table>
+
+{{end}}

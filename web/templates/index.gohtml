@@ -1,5 +1,10 @@
 {{define "index"}}
-    <script src="https://unpkg.com/htmx.org@2.0.0"></script>
+
+
+    <div class="starter-template">
+        <h1>Budge</h1>
+        <p class="lead">Upload files exported as CSV from your bank.<br> Analyse spending trends and predict future savings.</p>
+    </div>
 
     <form id='form' hx-encoding='multipart/form-data' hx-post='/upload'>
         <input type='file' name='file'>

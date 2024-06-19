@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"github.com/TheQueenIsDead/budge/pkg"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
@@ -11,39 +13,62 @@ import (
 	"net/http"
 )
 
-var (
-	Database *gorm.DB
-)
-
 type Template struct {
 	templates *template.Template
 }
 
 func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
-	return t.templates.ExecuteTemplate(w, name, data)
-}
 
-func Index(c echo.Context) error {
-	return c.Render(http.StatusOK, "index", nil)
-}
+	var found bool
+	for _, t := range t.templates.Templates() {
+		if t.Name() == name {
+			c.Logger().Debug("template found for ", name)
+			found = true
+		}
+	}
 
-func Budget(c echo.Context) error {
+	if !found {
+		c.Logger().Error("could not find template for", name)
+		return echo.NewHTTPError(http.StatusNotFound, "could not find template for")
+	}
 
-	var budgetItems []pkg.BudgetItem
-	Database.Find(&budgetItems)
-	return c.Render(http.StatusOK, "budget", budgetItems)
+	var buf bytes.Buffer
+	bw := bufio.NewWriter(&buf)
+	err := t.templates.ExecuteTemplate(bw, name, data)
+	if err != nil {
+		c.Logger().Error(err)
+		return err
+	}
+	err = bw.Flush()
+	if err != nil {
+		return err
+	}
+
+	content := map[string]interface{}{
+		"content": template.HTML(buf.String()),
+	}
+
+	return t.templates.ExecuteTemplate(w, "layout", content)
 }
 
 func main() {
+
+	// Setup application container
+	app := pkg.Application{}
 
 	db, err := gorm.Open(sqlite.Open("budge.db"), &gorm.Config{})
 	if err != nil {
 		panic(err)
 	}
-	Database = db
+	app.DB = db
 
-	err = db.AutoMigrate(
+	e := echo.New()
+	app.HTTP = e
+
+	// Setup DB tables and data
+	err = app.DB.AutoMigrate(
 		&pkg.BudgetItem{},
+		&pkg.Merchant{},
 	)
 
 	budgetItems := []pkg.BudgetItem{
@@ -59,22 +84,25 @@ func main() {
 		},
 	}
 
-	db.Create(&budgetItems)
+	app.DB.Create(&budgetItems)
 
+	// Setup HTTP server
 	t := &Template{
 		templates: template.Must(template.ParseGlob("web/templates/*.gohtml")),
 	}
 
-	e := echo.New()
-
 	e.Logger.SetLevel(log.DEBUG)
 
 	e.Renderer = t
-	e.GET("/", Index)
-	e.GET("/budget", Budget)
-	e.POST("/upload", pkg.Upload)
+	e.GET("/", app.Index)
+	e.GET("/budget", app.Budget)
+	e.GET("/merchant", app.Merchant)
+	e.POST("/upload", app.Upload)
+	e.GET("/layout", app.Layout)
 
-	err = e.Start(":1337")
+	e.Static("/assets", "./web/public")
+
+	err = app.HTTP.Start(":1337")
 	if err != nil {
 		panic(err)
 	}
