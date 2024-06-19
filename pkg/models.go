@@ -30,6 +30,7 @@ type BudgetItem struct {
 	Name      string          `goorm:"name"`
 	Cost      float64         `goorm:"cost"`
 	Frequency BudgetFrequency `goorm:"frequency"`
+	Account   string          `goorm:"account"`
 }
 
 type KiwibankExportRow struct {
