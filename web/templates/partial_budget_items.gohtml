@@ -1,0 +1,21 @@
+{{define "partial_budget_items"}}
+
+    <table>
+        <thead>
+        <tr>Name</tr>
+        <tr>Cost</tr>
+        <tr>Frequency</tr>
+        </thead>
+        <tbody>
+        {{- /*gotype:github.com/TheQueenIsDead/budge/pkg.KiwibankExportRow*/ -}}
+        {{ range . }}
+            <tr>
+                <td>{{ . }}<td></td>
+{{/*                <td>{{ .Cost }}<td></td>*/}}
+{{/*                <td>{{ .Frequency }}<td></td>*/}}
+            </tr>
+        {{ end }}
+        </tbody>
+    </table>
+
+{{end}}
