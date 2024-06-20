@@ -13,6 +13,20 @@ const (
 	Yearly  BudgetFrequency = "y"
 )
 
+type Account struct {
+	gorm.Model
+
+	Number string
+}
+
+type Transactions struct {
+	gorm.Model
+
+	Account         string
+	MerchantAccount string
+	Value           float64
+}
+
 type Merchant struct {
 	gorm.Model
 
@@ -22,6 +36,7 @@ type Merchant struct {
 	// For example, if "Pak N Save Wainoni Wainoni ;" is the description, then this will be "Pak N Save"
 	Name     string
 	Category string
+	Account  string
 }
 
 type BudgetItem struct {
