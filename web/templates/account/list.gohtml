@@ -1,0 +1,6 @@
+{{ define "account.list" }}
+        {{- /*gotype:github.com/TheQueenIsDead/budge/pkg.Account*/ -}}
+        {{ range . }}
+            <li> {{ .Number }} </li>
+        {{ end }}
+{{ end }}

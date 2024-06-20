@@ -85,6 +85,7 @@ func main() {
 	err = app.DB.AutoMigrate(
 		&pkg.BudgetItem{},
 		&pkg.Merchant{},
+		&pkg.Account{},
 	)
 
 	budgetItems := []pkg.BudgetItem{
@@ -103,8 +104,10 @@ func main() {
 	app.DB.Create(&budgetItems)
 
 	// Setup HTTP server
+	tpl := template.Must(template.ParseGlob("web/templates/*.gohtml"))
+	tpl = template.Must(tpl.ParseGlob("web/templates/account/*.gohtml"))
 	t := &Template{
-		templates: template.Must(template.ParseGlob("web/templates/*.gohtml")),
+		templates: tpl,
 	}
 
 	e.Logger.SetLevel(log.DEBUG)
@@ -113,6 +116,7 @@ func main() {
 	e.GET("/", app.Index)
 	e.GET("/budget", app.Budget)
 	e.GET("/merchant", app.Merchant)
+	e.GET("/account", app.ListAccounts)
 	e.GET("/merchant/:id/edit", app.EditMerchant)
 	e.PUT("/merchant/:id", app.PutMerchant)
 	e.GET("/merchant/:id", app.GetMerchant)

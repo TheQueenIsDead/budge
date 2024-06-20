@@ -28,6 +28,12 @@ func (app *Application) Merchant(c echo.Context) error {
 	return c.Render(http.StatusOK, "merchant", merchants)
 }
 
+func (app *Application) ListAccounts(c echo.Context) error {
+	var account []Account
+	app.DB.Find(&account)
+	return c.Render(http.StatusOK, "account.list", account)
+}
+
 func (app *Application) EditMerchant(c echo.Context) error {
 
 	id, err := strconv.Atoi(c.Param("id"))
@@ -101,10 +107,17 @@ func (app *Application) Upload(c echo.Context) error {
 		return c.HTML(http.StatusInternalServerError, err.Error())
 	}
 
-	// Persist merchant if description is not unique
 	for _, transaction := range transactions {
+
+		// Persist merchant if description is not unique
 		var m Merchant
 		app.DB.FirstOrCreate(&m, Merchant{Description: transaction.Description})
+
+		// Persist accounts if new
+		var a Account
+		app.DB.FirstOrCreate(&a, Account{
+			Number: transaction.AccountNumber,
+		})
 	}
 
 	return c.Render(http.StatusOK, "partial_budget_items", transactions)
