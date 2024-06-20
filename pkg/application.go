@@ -34,6 +34,12 @@ func (app *Application) ListAccounts(c echo.Context) error {
 	return c.Render(http.StatusOK, "account.list", account)
 }
 
+func (app *Application) ListTransactions(c echo.Context) error {
+	var transactions []Transaction
+	app.DB.Find(&transactions)
+	return c.Render(http.StatusOK, "transaction.list", transactions)
+}
+
 func (app *Application) EditMerchant(c echo.Context) error {
 
 	id, err := strconv.Atoi(c.Param("id"))
@@ -117,6 +123,15 @@ func (app *Application) Upload(c echo.Context) error {
 		var a Account
 		app.DB.FirstOrCreate(&a, Account{
 			Number: transaction.AccountNumber,
+		})
+
+		// Persist transaction if new
+		var t Transaction
+		app.DB.FirstOrCreate(&t, Transaction{
+			Date:     transaction.Date,
+			Account:  a,
+			Merchant: transaction.Description,
+			Value:    transaction.Amount,
 		})
 	}
 
