@@ -1,0 +1,51 @@
+{{define "home"}}
+<div class="row">
+    <div class="starter-template">
+        <h1>Budge</h1>
+        <p class="lead">Upload files exported as CSV from your bank.<br> Analyse spending trends and predict future savings.</p>
+    </div>
+</div>
+<div class="row">
+    <form id='form' hx-encoding='multipart/form-data' hx-post='/upload'>
+        <input type='file' name='file'>
+        <button>
+            Upload
+        </button>
+        <progress id='progress' value='0' max='100'></progress>
+    </form>
+    <script>
+        htmx.on('#form', 'htmx:xhr:progress', function(evt) {
+            htmx.find('#progress').setAttribute('value', evt.detail.loaded/evt.detail.total * 100)
+        });
+    </script>
+</div>
+<div class="row">
+    <div class="col-sm-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Accounts</h5>
+                <p class="card-text"> {{ .accountCount }}</p>
+                <a href="/account" class="btn btn-primary">View</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Merchants</h5>
+                <p class="card-text"> {{ .merchantCount }}</p>
+                <a href="/merchant" class="btn btn-primary">View</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Transactions</h5>
+                <p class="card-text"> {{ .transactionCount }}</p>
+                <a href="/transaction" class="btn btn-primary">View</a>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}

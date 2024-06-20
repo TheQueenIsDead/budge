@@ -13,7 +13,18 @@ type Application struct {
 }
 
 func (app *Application) Index(c echo.Context) error {
-	return c.Render(http.StatusOK, "index", nil)
+
+	var accountCount, transactionCount, merchantCount int64
+
+	app.DB.Model(&Account{}).Count(&accountCount)
+	app.DB.Model(&Transaction{}).Count(&transactionCount)
+	app.DB.Model(&Merchant{}).Count(&merchantCount)
+
+	return c.Render(http.StatusOK, "home", map[string]interface{}{
+		"accountCount":     accountCount,
+		"transactionCount": transactionCount,
+		"merchantCount":    merchantCount,
+	})
 }
 
 func (app *Application) Budget(c echo.Context) error {
