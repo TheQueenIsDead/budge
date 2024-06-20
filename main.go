@@ -86,6 +86,7 @@ func main() {
 		&pkg.BudgetItem{},
 		&pkg.Merchant{},
 		&pkg.Account{},
+		&pkg.Transaction{},
 	)
 
 	budgetItems := []pkg.BudgetItem{
@@ -106,6 +107,7 @@ func main() {
 	// Setup HTTP server
 	tpl := template.Must(template.ParseGlob("web/templates/*.gohtml"))
 	tpl = template.Must(tpl.ParseGlob("web/templates/account/*.gohtml"))
+	tpl = template.Must(tpl.ParseGlob("web/templates/transaction/*.gohtml"))
 	t := &Template{
 		templates: tpl,
 	}
@@ -117,6 +119,7 @@ func main() {
 	e.GET("/budget", app.Budget)
 	e.GET("/merchant", app.Merchant)
 	e.GET("/account", app.ListAccounts)
+	e.GET("/transaction", app.ListTransactions)
 	e.GET("/merchant/:id/edit", app.EditMerchant)
 	e.PUT("/merchant/:id", app.PutMerchant)
 	e.GET("/merchant/:id", app.GetMerchant)

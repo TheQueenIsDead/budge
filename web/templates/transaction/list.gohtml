@@ -1,0 +1,6 @@
+{{ define "transaction.list" }}
+        {{- /*gotype:github.com/TheQueenIsDead/budge/pkg.Transaction*/ -}}
+        {{ range . }}
+            <li> {{ .Date }} - {{ .Account }} - {{ .Merchant }} - {{ .Value }} </li>
+        {{ end }}
+{{ end }}

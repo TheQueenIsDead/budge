@@ -19,12 +19,15 @@ type Account struct {
 	Number string
 }
 
-type Transactions struct {
+type Transaction struct {
 	gorm.Model
 
-	Account         string
-	MerchantAccount string
-	Value           float64
+	Account   Account
+	AccountID int
+
+	Date     time.Time
+	Merchant string
+	Value    string
 }
 
 type Merchant struct {
