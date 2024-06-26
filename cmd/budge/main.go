@@ -108,6 +108,7 @@ func main() {
 	tpl := template.Must(template.ParseGlob("web/templates/*.gohtml"))
 	tpl = template.Must(tpl.ParseGlob("web/templates/account/*.gohtml"))
 	tpl = template.Must(tpl.ParseGlob("web/templates/transaction/*.gohtml"))
+	tpl = template.Must(tpl.ParseGlob("web/templates/merchant/*.gohtml"))
 	t := &Template{
 		templates: tpl,
 	}

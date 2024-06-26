@@ -2,5 +2,7 @@
         {{- /*gotype:github.com/TheQueenIsDead/budge/pkg.Transaction*/ -}}
         {{ range . }}
             <li> {{ .Date }} - {{ .Account }} - {{ .Merchant }} - {{ .Value }} </li>
+        {{ else }}
+            <h2> No transactions imported.</h2>
         {{ end }}
 {{ end }}

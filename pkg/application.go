@@ -36,7 +36,7 @@ func (app *Application) Budget(c echo.Context) error {
 func (app *Application) Merchant(c echo.Context) error {
 	var merchants []Merchant
 	app.DB.Find(&merchants)
-	return c.Render(http.StatusOK, "merchant", merchants)
+	return c.Render(http.StatusOK, "merchant.list", merchants)
 }
 
 func (app *Application) ListAccounts(c echo.Context) error {
