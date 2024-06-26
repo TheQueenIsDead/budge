@@ -4,8 +4,7 @@
         <thead>
         <tr>
             <th> Date </th>
-            <th> Account </th>
-            <th> Account Number </th>
+            <th> Account ID </th>
             <th> Merchant </th>
             <th> Value </th>
         </tr>
@@ -15,8 +14,7 @@
         {{ range . }}
             <tr>
                 <td>{{ .Date }}</td>
-                <td>{{ .Account }}</td>
-                <td>{{ .Account.Number }}</td>
+                <td>{{ .AccountID }}</td>
                 <td>{{ .Merchant }}</td>
                 <td>{{ .Value }}</td>
             </tr>

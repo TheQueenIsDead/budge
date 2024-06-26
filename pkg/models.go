@@ -22,7 +22,7 @@ type Account struct {
 
 type Transaction struct {
 	gorm.Model
-	AccountID int
+	AccountID uint
 
 	Date     time.Time
 	Merchant string

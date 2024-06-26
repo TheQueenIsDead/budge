@@ -139,10 +139,10 @@ func (app *Application) Upload(c echo.Context) error {
 		// Persist transaction if new
 		var t Transaction
 		app.DB.FirstOrCreate(&t, Transaction{
-			Date: transaction.Date,
-			//AccountID: a.ID, // FIXME: Account is being set to the default value of 0, not the actual id of the record.
-			Merchant: transaction.Description,
-			Value:    transaction.Amount,
+			Date:      transaction.Date,
+			AccountID: a.ID,
+			Merchant:  transaction.Description,
+			Value:     transaction.Amount,
 		})
 	}
 
