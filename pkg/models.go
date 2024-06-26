@@ -16,13 +16,12 @@ const (
 type Account struct {
 	gorm.Model
 
-	Number string
+	Number       string
+	Transactions []Transaction
 }
 
 type Transaction struct {
 	gorm.Model
-
-	Account   Account
 	AccountID int
 
 	Date     time.Time

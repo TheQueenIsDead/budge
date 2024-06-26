@@ -1,8 +1,30 @@
 {{ define "transaction.list" }}
+{{if . }}
+    <table class="table">
+        <thead>
+        <tr>
+            <th> Date </th>
+            <th> Account </th>
+            <th> Account Number </th>
+            <th> Merchant </th>
+            <th> Value </th>
+        </tr>
+        </thead>
+        <tbody>
         {{- /*gotype:github.com/TheQueenIsDead/budge/pkg.Transaction*/ -}}
         {{ range . }}
-            <li> {{ .Date }} - {{ .Account }} - {{ .Merchant }} - {{ .Value }} </li>
-        {{ else }}
-            <h2> No transactions imported.</h2>
+            <tr>
+                <td>{{ .Date }}</td>
+                <td>{{ .Account }}</td>
+                <td>{{ .Account.Number }}</td>
+                <td>{{ .Merchant }}</td>
+                <td>{{ .Value }}</td>
+            </tr>
         {{ end }}
+        </tbody>
+    </table>
+{{else}}
+    <h2> No transactions imported.</h2>
+{{end}}
+
 {{ end }}
