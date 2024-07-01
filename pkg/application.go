@@ -118,7 +118,7 @@ func (app *Application) Upload(c echo.Context) error {
 		return c.HTML(http.StatusInternalServerError, err.Error())
 	}
 
-	transactions, err := parseFile(c, filepath)
+	transactions, err := ParseCSV(filepath)
 	if err != nil {
 		c.Logger().Error(err)
 		return c.HTML(http.StatusInternalServerError, err.Error())
@@ -134,6 +134,7 @@ func (app *Application) Upload(c echo.Context) error {
 		var a Account
 		app.DB.FirstOrCreate(&a, Account{
 			Number: transaction.AccountNumber,
+			Bank:   transaction.Bank,
 		})
 
 		// Persist transaction if new

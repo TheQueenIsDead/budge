@@ -39,7 +39,3 @@ func saveFile(c echo.Context) (string, error) {
 
 	return filepath, nil
 }
-
-func parseFile(c echo.Context, filepath string) ([]KiwibankExportRow, error) {
-	return KiwibankParser{}.ParseCSV(filepath)
-}
