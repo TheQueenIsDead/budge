@@ -20,6 +20,23 @@ func (app *Application) Index(c echo.Context) error {
 	app.DB.Model(&Transaction{}).Count(&transactionCount)
 	app.DB.Model(&Merchant{}).Count(&merchantCount)
 
+	var transactions []Transaction
+	tx := app.DB.Find(&transactions).Limit(1)
+	if err := tx.Error; err != nil {
+		c.Logger().Error(err)
+		return err
+	}
+
+	//var in, out uint32
+	//for _, transaction := range transactions {
+	//	switch transaction.Type {
+	//	case TransactionTypeDebit:
+	//		in += transaction.Value
+	//	case TransactionTypeCredit:
+	//		out += transaction.Value
+	//	}
+	//}
+
 	return c.Render(http.StatusOK, "home", map[string]interface{}{
 		"accountCount":     accountCount,
 		"transactionCount": transactionCount,
@@ -118,7 +135,7 @@ func (app *Application) Upload(c echo.Context) error {
 		return c.HTML(http.StatusInternalServerError, err.Error())
 	}
 
-	transactions, err := ParseCSV(filepath)
+	transactions, err := ParseCSV(c, filepath)
 	if err != nil {
 		c.Logger().Error(err)
 		return c.HTML(http.StatusInternalServerError, err.Error())
@@ -127,24 +144,18 @@ func (app *Application) Upload(c echo.Context) error {
 	for _, transaction := range transactions {
 
 		// Persist merchant if description is not unique
+		// TODO: Fix merchants not being created
 		var m Merchant
-		app.DB.FirstOrCreate(&m, Merchant{Description: transaction.Description})
+		app.DB.FirstOrCreate(&m, transaction.Merchant)
 
 		// Persist accounts if new
 		var a Account
-		app.DB.FirstOrCreate(&a, Account{
-			Number: transaction.AccountNumber,
-			Bank:   transaction.Bank,
-		})
+		app.DB.FirstOrCreate(&a, transaction.Account)
+		transaction.AccountID = a.ID
 
 		// Persist transaction if new
 		var t Transaction
-		app.DB.FirstOrCreate(&t, Transaction{
-			Date:      transaction.Date,
-			AccountID: a.ID,
-			Merchant:  transaction.Description,
-			Value:     transaction.Amount,
-		})
+		app.DB.FirstOrCreate(&t, transaction)
 	}
 
 	return c.Render(http.StatusOK, "partial_budget_items", transactions)
