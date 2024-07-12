@@ -18,11 +18,13 @@ type Account struct {
 
 	Number       string
 	Transactions []Transaction
+	Bank         Bank
 }
 
 type Transaction struct {
 	gorm.Model
-	AccountID int
+	AccountID uint
+	Account   Account
 
 	Date     time.Time
 	Merchant string
@@ -50,7 +52,10 @@ type BudgetItem struct {
 	Account   string          `goorm:"account"`
 }
 
-type KiwibankExportRow struct {
+// CsvImportRow is a struct based on a Kiwibank CSV export folder.
+// It includes all the data from the imported CSV file, and later gets persisted as a Transaction.
+// As new banks are added, their own CSV exports will need to conform to this import struct.
+type CsvImportRow struct {
 	AccountNumber             string
 	Date                      time.Time
 	Description               string
@@ -66,4 +71,5 @@ type KiwibankExportRow struct {
 	OPBankAccountNumberAmount string // (credit)
 	Amount                    string // (debit)
 	AmountBalance             string
+	Bank                      Bank
 }

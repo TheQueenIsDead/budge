@@ -118,7 +118,7 @@ func (app *Application) Upload(c echo.Context) error {
 		return c.HTML(http.StatusInternalServerError, err.Error())
 	}
 
-	transactions, err := parseFile(c, filepath)
+	transactions, err := ParseCSV(filepath)
 	if err != nil {
 		c.Logger().Error(err)
 		return c.HTML(http.StatusInternalServerError, err.Error())
@@ -134,15 +134,16 @@ func (app *Application) Upload(c echo.Context) error {
 		var a Account
 		app.DB.FirstOrCreate(&a, Account{
 			Number: transaction.AccountNumber,
+			Bank:   transaction.Bank,
 		})
 
 		// Persist transaction if new
 		var t Transaction
 		app.DB.FirstOrCreate(&t, Transaction{
-			Date: transaction.Date,
-			//AccountID: a.ID, // FIXME: Account is being set to the default value of 0, not the actual id of the record.
-			Merchant: transaction.Description,
-			Value:    transaction.Amount,
+			Date:      transaction.Date,
+			AccountID: a.ID,
+			Merchant:  transaction.Description,
+			Value:     transaction.Amount,
 		})
 	}
 

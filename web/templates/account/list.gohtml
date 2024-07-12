@@ -1,9 +1,25 @@
 {{ define "account.list" }}
+
+{{if . }}
+    <table class="table">
+        <thead>
+        <tr>
+            <th> Number </th>
+            <th> Bank </th>
+        </tr>
+        </thead>
+        <tbody>
         {{- /*gotype:github.com/TheQueenIsDead/budge/pkg.Account*/ -}}
         {{ range . }}
-            <li> {{ .Number }} </li>
-        {{ else }}
-            <h2>No accounts imported.</h2>
+            <tr>
+                <td>{{ .Number }}</td>
+                <td>{{ .Bank }}</td>
+            </tr>
         {{ end }}
+        </tbody>
+    </table>
+{{else}}
+    <h2>No accounts imported.</h2>
+{{end}}
 
 {{ end }}
