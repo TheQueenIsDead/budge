@@ -35,16 +35,17 @@ func (t *Template) renderPartial(name string, data interface{}) (string, error) 
 func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
 
 	var found bool
+	c.Logger().Debug("Rendering template:", t.templates.Templates())
 	for _, t := range t.templates.Templates() {
 		if t.Name() == name {
-			c.Logger().Debug("template found for ", name)
+			c.Logger().Debug("template found for '", name, "'")
 			found = true
 		}
 	}
 
 	if !found {
-		c.Logger().Error("could not find template for", name)
-		return echo.NewHTTPError(http.StatusNotFound, "could not find template for")
+		c.Logger().Error("could not find template for '", name, "'")
+		return echo.NewHTTPError(http.StatusNotFound, "could not find template")
 	}
 
 	// If the request was initiated by HTMX, return a standalone partial
@@ -107,8 +108,8 @@ func main() {
 	// Setup HTTP server
 	tpl := template.Must(template.ParseGlob("web/templates/*.gohtml"))
 	tpl = template.Must(tpl.ParseGlob("web/templates/account/*.gohtml"))
-	tpl = template.Must(tpl.ParseGlob("web/templates/transaction/*.gohtml"))
 	tpl = template.Must(tpl.ParseGlob("web/templates/merchant/*.gohtml"))
+	tpl = template.Must(tpl.ParseGlob("web/templates/transaction/*.gohtml"))
 	t := &Template{
 		templates: tpl,
 	}
