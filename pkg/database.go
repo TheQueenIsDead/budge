@@ -10,6 +10,21 @@ var (
 	MerchantBucket = []byte("merchants")
 )
 
+func PutAccount(db *bolt.DB, account *Account) error {
+	return db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(AccountBucket)
+		buf, err := json.Marshal(account)
+		if err != nil {
+			return err
+		}
+		err = b.Put([]byte(account.Number), buf)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
 func GetAccounts(db *bolt.DB) []Account {
 
 	var accounts []Account

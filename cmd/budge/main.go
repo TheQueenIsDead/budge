@@ -11,6 +11,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"time"
 )
 
 type Template struct {
@@ -72,9 +73,11 @@ func main() {
 	// Setup application container
 	app := pkg.Application{}
 
-	db, err := bolt.Open("budge.bolt.db", 0600, nil)
+	opts := bolt.DefaultOptions
+	opts.Timeout = 5 * time.Second
+	db, err := bolt.Open("budge.bolt.db", 0600, opts)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	defer db.Close()
 	app.DB = db
@@ -111,15 +114,15 @@ func main() {
 
 	e.Renderer = t
 	e.GET("/", app.Index)
-	e.GET("/budget", app.Budget)
-	e.GET("/merchant", app.Merchant)
-	e.GET("/account", app.ListAccounts)
-	e.GET("/transaction", app.ListTransactions)
-	e.GET("/merchant/:id/edit", app.EditMerchant)
-	e.PUT("/merchant/:id", app.PutMerchant)
-	e.GET("/merchant/:id", app.GetMerchant)
-	e.POST("/upload", app.Upload)
-	e.GET("/layout", app.Layout)
+	//e.GET("/budget", app.Budget)
+	//e.GET("/merchant", app.Merchant)
+	e.GET("/accounts", app.ListAccounts)
+	//e.GET("/transaction", app.ListTransactions)
+	//e.GET("/merchant/:id/edit", app.EditMerchant)
+	//e.PUT("/merchant/:id", app.PutMerchant)
+	//e.GET("/merchant/:id", app.GetMerchant)
+	//e.POST("/upload", app.Upload)
+	//e.GET("/layout", app.Layout)
 
 	e.Static("/assets", "./web/public")
 
