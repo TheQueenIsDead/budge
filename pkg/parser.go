@@ -3,9 +3,9 @@ package pkg
 import (
 	"bufio"
 	"encoding/csv"
+	"github.com/labstack/echo/v4"
 	"io"
 	"os"
-	"time"
 )
 
 type Bank int
@@ -23,28 +23,10 @@ var (
 		"Account number,Date,Memo/Description,Source Code (payment type),TP ref,TP part,TP code,OP ref,OP part,OP code,OP name,OP Bank Account Number,Amount (credit),Amount (debit),Amount,Balance": Kiwibank,
 	}
 
-	BankParsingStrategy = map[Bank]func(io.Reader) ([]CsvImportRow, error){
+	BankParsingStrategy = map[Bank]func(echo.Context, io.Reader) ([]Transaction, error){
 		Kiwibank: parseKiwibankCSV,
 	}
 )
-
-type KiwibankExportRow struct {
-	AccountNumber             string
-	Date                      time.Time
-	Description               string
-	Source                    string
-	Code                      string // (payment type)
-	TPref                     string
-	TPpart                    string
-	TPcode                    string
-	OPref                     string
-	OPpart                    string
-	OPcode                    string
-	OPname                    string
-	OPBankAccountNumberAmount string // (credit)
-	Amount                    string // (debit)
-	AmountBalance             string
-}
 
 func classifyCSV(in io.Reader) (Bank, error) {
 
@@ -64,81 +46,66 @@ func classifyCSV(in io.Reader) (Bank, error) {
 	return bank, nil
 }
 
-func ParseCSV(filepath string) ([]CsvImportRow, error) {
+func ParseCSV(ctx echo.Context, filepath string) ([]Transaction, error) {
 	file, _ := os.Open(filepath)
 	defer file.Close()
 
 	bank, err := classifyCSV(file)
 	if err != nil {
+		ctx.Logger().Error(err)
 		return nil, err
 	}
 
 	parseFunc, ok := BankParsingStrategy[bank]
 	if !ok {
+		ctx.Logger().Error(NoBankParsingStrategyError)
 		return nil, NoBankParsingStrategyError
 	}
 
-	return parseFunc(file)
+	return parseFunc(ctx, file)
 }
 
-// parseKiwibankCSV reads a CSV file of ransactions expoerted from a Kiwibank account via the "Full CSV" export.
-// It parses and validates the fields, and returns an array of Transaction.
-// The record fields are as such:
-// [0]  Account number
-// [1]  Date
-// [2]  Memo/Description
-// [3]  Source Code (payment type)
-// [4]  TP ref
-// [5]  TP part
-// [6]  TP code
-// [7]  OP ref
-// [8]  OP part
-// [9]  OP code
-// [10] OP name
-// [11] OP Bank Account Number
-// [12] Amount (credit)
-// [13] Amount (debit)
-// [14] Amount
-// [15] Balance
-func parseKiwibankCSV(in io.Reader) ([]CsvImportRow, error) {
+func parseKiwibankCSV(ctx echo.Context, in io.Reader) (transactions []Transaction, err error) {
 
 	r := csv.NewReader(in)
-	records, err := r.ReadAll()
+
+	// Skip Header
+	//_, err = r.Read()
+	//if err != nil {
+	//	ctx.Logger().Error(err)
+	//	return nil, err
+	//}
+
+	rows, err := r.ReadAll()
 	if err != nil {
+		ctx.Logger().Error(err)
 		return nil, err
 	}
 
-	var transactions []CsvImportRow
-	for i, record := range records {
-
-		// Skip header
-		if i == 0 {
-			continue
+	for _, row := range rows {
+		kiwibank := KiwibankExportRow{
+			AccountNumber:         row[0],
+			Date:                  row[1],
+			MemoDescription:       row[2],
+			SourceCodePaymentType: row[3],
+			TPref:                 row[4],
+			TPpart:                row[5],
+			TPcode:                row[6],
+			OPref:                 row[7],
+			OPpart:                row[8],
+			OPcode:                row[9],
+			OPname:                row[10],
+			OPBankAccountNumber:   row[11],
+			AmountCredit:          row[12],
+			AmountDebit:           row[13],
+			Amount:                row[14],
+			Balance:               row[15],
 		}
-
-		t, err := time.Parse("02-01-2006", record[1])
+		tx, err := kiwibank.toTransaction()
 		if err != nil {
 			return nil, err
 		}
-
-		exp := CsvImportRow{
-			AccountNumber:             record[0],
-			Date:                      t,
-			Description:               record[2],
-			Source:                    record[3],
-			Code:                      record[4],
-			TPref:                     record[5],
-			TPpart:                    record[6],
-			TPcode:                    record[7],
-			OPref:                     record[8],
-			OPpart:                    record[9],
-			OPcode:                    record[10],
-			OPname:                    record[11],
-			OPBankAccountNumberAmount: record[12],
-			Amount:                    record[13],
-			AmountBalance:             record[14],
-		}
-		transactions = append(transactions, exp)
+		transactions = append(transactions, tx)
 	}
 
 	return transactions, nil

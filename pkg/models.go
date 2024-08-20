@@ -1,7 +1,16 @@
 package pkg
 
 import (
+	"fmt"
 	"time"
+)
+
+
+type TransactionType int
+
+const (
+	TransactionTypeDebit TransactionType = iota
+	TransactionTypeCredit
 )
 
 type Account struct {
@@ -14,9 +23,15 @@ type Transaction struct {
 	AccountID uint
 	Account   Account
 
-	Date     time.Time
-	Merchant string
-	Value    string
+	Date      time.Time
+	Merchant  string
+	Value     uint32
+	Precision uint8
+	Type      TransactionType
+}
+
+func (t *Transaction) String() string {
+	return fmt.Sprintf("$%.2f", float64(t.Value)/float64(t.Precision))
 }
 
 type Merchant struct {
@@ -28,26 +43,4 @@ type Merchant struct {
 	Name     string
 	Category string
 	Account  string
-}
-
-// CsvImportRow is a struct based on a Kiwibank CSV export folder.
-// It includes all the data from the imported CSV file, and later gets persisted as a Transaction.
-// As new banks are added, their own CSV exports will need to conform to this import struct.
-type CsvImportRow struct {
-	AccountNumber             string
-	Date                      time.Time
-	Description               string
-	Source                    string
-	Code                      string // (payment type)
-	TPref                     string
-	TPpart                    string
-	TPcode                    string
-	OPref                     string
-	OPpart                    string
-	OPcode                    string
-	OPname                    string
-	OPBankAccountNumberAmount string // (credit)
-	Amount                    string // (debit)
-	AmountBalance             string
-	Bank                      Bank
 }
