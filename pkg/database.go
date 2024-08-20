@@ -25,7 +25,34 @@ func PutAccount(db *bolt.DB, account *Account) error {
 	})
 }
 
-func GetAccounts(db *bolt.DB) []Account {
+func ListMerchants(db *bolt.DB) []Merchant {
+
+	var merchants []Merchant
+
+	err := db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(AccountBucket)
+		err := b.ForEach(func(k, v []byte) error {
+			var m Merchant
+			err := json.Unmarshal(v, &m)
+			if err != nil {
+				return err
+			}
+			merchants = append(merchants, m)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil
+	}
+
+	return merchants
+}
+
+func ListAccounts(db *bolt.DB) []Account {
 
 	var accounts []Account
 
@@ -50,4 +77,31 @@ func GetAccounts(db *bolt.DB) []Account {
 	}
 
 	return accounts
+}
+
+func ListTransactions(db *bolt.DB) []Transaction {
+
+	var transactions []Transaction
+
+	err := db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(MerchantBucket)
+		err := b.ForEach(func(k, v []byte) error {
+			var m Merchant
+			err := json.Unmarshal(v, &m)
+			if err != nil {
+				return err
+			}
+			transactions = append(transactions, m.Transactions...)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil
+	}
+
+	return transactions
 }

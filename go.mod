@@ -7,13 +7,10 @@ require (
 	github.com/labstack/gommon v0.4.2
 	github.com/stretchr/testify v1.8.4
 	go.etcd.io/bbolt v1.3.10
-	gorm.io/gorm v1.25.10
 )
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/jinzhu/inflection v1.0.0 // indirect
-	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect

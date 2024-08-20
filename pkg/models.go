@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-
 type TransactionType int
 
 const (
@@ -43,4 +42,6 @@ type Merchant struct {
 	Name     string
 	Category string
 	Account  string
+
+	Transactions []Transaction
 }

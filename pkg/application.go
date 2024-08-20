@@ -55,6 +55,7 @@ func (app *Application) Index(c echo.Context) error {
 //		return c.Render(http.StatusOK, "merchant.list", merchants)
 //	}
 func (app *Application) ListAccounts(c echo.Context) error {
+	// TODO: Remove insert of dummy accounts
 	err := PutAccount(app.DB, &Account{
 		Number:       "6969",
 		Transactions: nil,
@@ -63,17 +64,20 @@ func (app *Application) ListAccounts(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	accounts := GetAccounts(app.DB)
+	accounts := ListAccounts(app.DB)
 	return c.Render(http.StatusOK, "account.list", accounts)
 }
 
-//
-//func (app *Application) ListTransactions(c echo.Context) error {
-//	var transactions []Transaction
-//	app.DB.Model(&Transaction{}).Preload("Account").Find(&transactions)
-//	return c.Render(http.StatusOK, "transaction.list", transactions)
-//}
-//
+func (app *Application) ListMerchants(c echo.Context) error {
+	merchants := ListMerchants(app.DB)
+	return c.Render(http.StatusOK, "merchant.list", merchants)
+}
+
+func (app *Application) ListTransactions(c echo.Context) error {
+	transactions := ListTransactions(app.DB)
+	return c.Render(http.StatusOK, "transaction.list", transactions)
+}
+
 //func (app *Application) EditMerchant(c echo.Context) error {
 //
 //	id, err := strconv.Atoi(c.Param("id"))

@@ -1,7 +1,7 @@
 {{define "merchant.list"}}
 
 {{if .}}
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{{/*<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>*/}}
 
 <table class="table">
     <thead>
@@ -19,26 +19,26 @@
             <td>{{ .Name }}</td>
             <td>{{ .Description }}</td>
             <td>
-                <button class="btn danger"
-                        hx-get="/merchant/{{ .ID }}/edit"
-                        hx-trigger="edit"
-                        onClick="let editing = document.querySelector('.editing')
-                     if(editing) {
-                       Swal.fire({title: 'Already Editing',
-                                  showCancelButton: true,
-                                  confirmButtonText: 'Yep, Edit This Row!',
-                                  text:'Hey!  You are already editing a row!  Do you want to cancel that edit and continue?'})
-                       .then((result) => {
-                            if(result.isConfirmed) {
-                               htmx.trigger(editing, 'cancel')
-                               htmx.trigger(this, 'edit')
-                            }
-                        })
-                     } else {
-                        htmx.trigger(this, 'edit')
-                     }">
-                    Edit
-                </button>
+{{/*                <button class="btn danger"*/}}
+{{/*                        hx-get="/merchant/{{ .ID }}/edit"*/}}
+{{/*                        hx-trigger="edit"*/}}
+{{/*                        onClick="let editing = document.querySelector('.editing')*/}}
+{{/*                     if(editing) {*/}}
+{{/*                       Swal.fire({title: 'Already Editing',*/}}
+{{/*                                  showCancelButton: true,*/}}
+{{/*                                  confirmButtonText: 'Yep, Edit This Row!',*/}}
+{{/*                                  text:'Hey!  You are already editing a row!  Do you want to cancel that edit and continue?'})*/}}
+{{/*                       .then((result) => {*/}}
+{{/*                            if(result.isConfirmed) {*/}}
+{{/*                               htmx.trigger(editing, 'cancel')*/}}
+{{/*                               htmx.trigger(this, 'edit')*/}}
+{{/*                            }*/}}
+{{/*                        })*/}}
+{{/*                     } else {*/}}
+{{/*                        htmx.trigger(this, 'edit')*/}}
+{{/*                     }">*/}}
+{{/*                    Edit*/}}
+{{/*                </button>*/}}
             </td>
         </tr>
     {{ end }}

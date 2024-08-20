@@ -115,9 +115,9 @@ func main() {
 	e.Renderer = t
 	e.GET("/", app.Index)
 	//e.GET("/budget", app.Budget)
-	//e.GET("/merchant", app.Merchant)
+	e.GET("/merchants", app.ListMerchants)
 	e.GET("/accounts", app.ListAccounts)
-	//e.GET("/transaction", app.ListTransactions)
+	e.GET("/transactions", app.ListTransactions)
 	//e.GET("/merchant/:id/edit", app.EditMerchant)
 	//e.PUT("/merchant/:id", app.PutMerchant)
 	//e.GET("/merchant/:id", app.GetMerchant)
