@@ -2,13 +2,13 @@ package pkg
 
 import (
 	"github.com/labstack/echo/v4"
-	"gorm.io/gorm"
+	bolt "go.etcd.io/bbolt"
 	"net/http"
 	"strconv"
 )
 
 type Application struct {
-	DB   *gorm.DB
+	DB   *bolt.DB
 	HTTP *echo.Echo
 }
 
@@ -40,9 +40,8 @@ func (app *Application) Merchant(c echo.Context) error {
 }
 
 func (app *Application) ListAccounts(c echo.Context) error {
-	var account []Account
-	app.DB.Find(&account)
-	return c.Render(http.StatusOK, "account.list", account)
+	accounts := GetAccounts(app.DB)
+	return c.Render(http.StatusOK, "account.list", accounts)
 }
 
 func (app *Application) ListTransactions(c echo.Context) error {

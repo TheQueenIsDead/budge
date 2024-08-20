@@ -1,28 +1,16 @@
 package pkg
 
 import (
-	"gorm.io/gorm"
 	"time"
 )
 
-type BudgetFrequency string
-
-const (
-	Weekly  BudgetFrequency = "w"
-	Monthly BudgetFrequency = "m"
-	Yearly  BudgetFrequency = "y"
-)
-
 type Account struct {
-	gorm.Model
-
 	Number       string
 	Transactions []Transaction
 	Bank         Bank
 }
 
 type Transaction struct {
-	gorm.Model
 	AccountID uint
 	Account   Account
 
@@ -32,7 +20,6 @@ type Transaction struct {
 }
 
 type Merchant struct {
-	gorm.Model
 
 	// Description is the raw description of the merchant as parsed directly from a CSV
 	Description string
@@ -41,15 +28,6 @@ type Merchant struct {
 	Name     string
 	Category string
 	Account  string
-}
-
-type BudgetItem struct {
-	gorm.Model
-
-	Name      string          `goorm:"name"`
-	Cost      float64         `goorm:"cost"`
-	Frequency BudgetFrequency `goorm:"frequency"`
-	Account   string          `goorm:"account"`
 }
 
 // CsvImportRow is a struct based on a Kiwibank CSV export folder.

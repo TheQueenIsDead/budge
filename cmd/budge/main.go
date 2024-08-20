@@ -3,11 +3,11 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"github.com/TheQueenIsDead/budge/pkg"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
+	bolt "go.etcd.io/bbolt"
 	"html/template"
 	"io"
 	"net/http"
@@ -71,38 +71,31 @@ func main() {
 	// Setup application container
 	app := pkg.Application{}
 
-	db, err := gorm.Open(sqlite.Open("budge.db"), &gorm.Config{})
+	db, err := bolt.Open("budge.bolt.db", 0600, nil)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
+	defer db.Close()
 	app.DB = db
+
+	// Setup DB tables and data
+	buckets := [][]byte{
+		pkg.AccountBucket,
+		pkg.MerchantBucket,
+	}
+	for _, bucket := range buckets {
+		db.Update(func(tx *bolt.Tx) error {
+			_, err := tx.CreateBucketIfNotExists(bucket)
+			if err != nil {
+				return fmt.Errorf("create bucket: %s", err)
+			}
+			return nil
+		})
+	}
 
 	e := echo.New()
 	e.Debug = true
 	app.HTTP = e
-
-	// Setup DB tables and data
-	err = app.DB.AutoMigrate(
-		&pkg.BudgetItem{},
-		&pkg.Merchant{},
-		&pkg.Account{},
-		&pkg.Transaction{},
-	)
-
-	budgetItems := []pkg.BudgetItem{
-		{
-			Name:      "Car",
-			Cost:      50,
-			Frequency: pkg.Weekly,
-		},
-		{
-			Name:      "Insurance",
-			Cost:      1300,
-			Frequency: pkg.Yearly,
-		},
-	}
-
-	app.DB.Create(&budgetItems)
 
 	// Setup HTTP server
 	tpl := template.Must(template.ParseGlob("web/templates/*.gohtml"))
