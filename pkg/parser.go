@@ -19,11 +19,11 @@ func (b Bank) String() string {
 }
 
 var (
-	BankHeaders = map[string]Bank{
+	BankCsvHeaders = map[string]Bank{
 		"Account number,Date,Memo/Description,Source Code (payment type),TP ref,TP part,TP code,OP ref,OP part,OP code,OP name,OP Bank Account Number,Amount (credit),Amount (debit),Amount,Balance": Kiwibank,
 	}
 
-	BankParsingStrategy = map[Bank]func(echo.Context, io.Reader) ([]Transaction, error){
+	BankParsingStrategy = map[Bank]func(echo.Context, io.Reader) ([]Account, []Merchant, error){
 		Kiwibank: parseKiwibankCSV,
 	}
 )
@@ -38,7 +38,7 @@ func classifyCSV(in io.Reader) (Bank, error) {
 		return -1, EmptyFileClassifierError
 	}
 
-	bank, ok := BankHeaders[header]
+	bank, ok := BankCsvHeaders[header]
 	if !ok {
 		return -1, BankHeaderNotFoundClassifierError
 	}
@@ -46,41 +46,36 @@ func classifyCSV(in io.Reader) (Bank, error) {
 	return bank, nil
 }
 
-func ParseCSV(ctx echo.Context, filepath string) ([]Transaction, error) {
+func ParseCSV(ctx echo.Context, filepath string) ([]Account, []Merchant, error) {
 	file, _ := os.Open(filepath)
 	defer file.Close()
 
 	bank, err := classifyCSV(file)
 	if err != nil {
 		ctx.Logger().Error(err)
-		return nil, err
+		return nil, nil, err
 	}
 
 	parseFunc, ok := BankParsingStrategy[bank]
 	if !ok {
 		ctx.Logger().Error(NoBankParsingStrategyError)
-		return nil, NoBankParsingStrategyError
+		return nil, nil, NoBankParsingStrategyError
 	}
 
 	return parseFunc(ctx, file)
 }
 
-func parseKiwibankCSV(ctx echo.Context, in io.Reader) (transactions []Transaction, err error) {
+func parseKiwibankCSV(ctx echo.Context, in io.Reader) ([]Account, []Merchant, error) {
 
 	r := csv.NewReader(in)
-
-	// Skip Header
-	//_, err = r.Read()
-	//if err != nil {
-	//	ctx.Logger().Error(err)
-	//	return nil, err
-	//}
-
 	rows, err := r.ReadAll()
 	if err != nil {
 		ctx.Logger().Error(err)
-		return nil, err
+		return nil, nil, err
 	}
+
+	accounts := make(map[string]Account)
+	merchants := make([]Merchant, 0)
 
 	for _, row := range rows {
 		kiwibank := KiwibankExportRow{
@@ -103,10 +98,33 @@ func parseKiwibankCSV(ctx echo.Context, in io.Reader) (transactions []Transactio
 		}
 		tx, err := kiwibank.toTransaction()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		transactions = append(transactions, tx)
+
+		// Add transaction to account if exists
+		if account, ok := accounts[kiwibank.AccountNumber]; ok {
+			account.Transactions = append(account.Transactions, tx)
+		} else {
+			accounts[kiwibank.AccountNumber] = Account{
+				Bank:         Kiwibank,
+				Number:       kiwibank.AccountNumber,
+				Transactions: []Transaction{},
+			}
+		}
+
+		// Create merchant if unique
+		merchants = append(merchants, Merchant{
+			Description: "",
+			Name:        "",
+			Category:    "",
+			Account:     tx.Merchant,
+		})
 	}
 
-	return transactions, nil
+	var accountList []Account
+	for _, v := range accounts {
+		accountList = append(accountList, v)
+	}
+
+	return accountList, merchants, nil
 }

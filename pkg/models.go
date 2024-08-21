@@ -1,6 +1,9 @@
 package pkg
 
 import (
+	"bytes"
+	"crypto/md5"
+	"encoding/gob"
 	"fmt"
 	"time"
 )
@@ -13,20 +16,17 @@ const (
 )
 
 type Account struct {
+	Bank         Bank
 	Number       string
 	Transactions []Transaction
-	Bank         Bank
 }
 
 type Transaction struct {
-	AccountID uint
-	Account   Account
-
 	Date      time.Time
 	Merchant  string
-	Value     uint32
 	Precision uint8
 	Type      TransactionType
+	Value     uint32
 }
 
 func (t *Transaction) String() string {
@@ -34,14 +34,20 @@ func (t *Transaction) String() string {
 }
 
 type Merchant struct {
-
 	// Description is the raw description of the merchant as parsed directly from a CSV
 	Description string
 	// Name is the display / friendly name for the merchant.
 	// For example, if "Pak N Save Wainoni Wainoni ;" is the description, then this will be "Pak N Save"
-	Name     string
+	Name string
+	// TODO: Add the ability to set categories for a merchant
 	Category string
-	Account  string
+	// If the merchant was not a POS payment, and was a bank transfer, then we will have a receiving bank account number.
+	Account string
+}
 
-	Transactions []Transaction
+func HashModel(m any) [16]byte {
+	var b bytes.Buffer
+	gob.NewEncoder(&b).Encode(m)
+	return md5.Sum(b.Bytes())
+	//return hex.EncodeToString(md[:])
 }

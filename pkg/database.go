@@ -25,6 +25,21 @@ func PutAccount(db *bolt.DB, account *Account) error {
 	})
 }
 
+func PutMerchant(db *bolt.DB, merchant *Merchant) error {
+	return db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(AccountBucket)
+		buf, err := json.Marshal(merchant)
+		if err != nil {
+			return err
+		}
+		err = b.Put([]byte(merchant.Name), buf)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
 func ListMerchants(db *bolt.DB) []Merchant {
 
 	var merchants []Merchant
@@ -84,14 +99,14 @@ func ListTransactions(db *bolt.DB) []Transaction {
 	var transactions []Transaction
 
 	err := db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket(MerchantBucket)
+		b := tx.Bucket(AccountBucket)
 		err := b.ForEach(func(k, v []byte) error {
-			var m Merchant
-			err := json.Unmarshal(v, &m)
+			var a Account
+			err := json.Unmarshal(v, &a)
 			if err != nil {
 				return err
 			}
-			transactions = append(transactions, m.Transactions...)
+			transactions = append(transactions, a.Transactions...)
 			return nil
 		})
 		if err != nil {
@@ -104,4 +119,62 @@ func ListTransactions(db *bolt.DB) []Transaction {
 	}
 
 	return transactions
+}
+
+func ImportAccounts(db *bolt.DB, accounts []Account) error {
+	tx, err := db.Begin(true)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	b := tx.Bucket(AccountBucket)
+
+	for _, a := range accounts {
+		buf, err := json.Marshal(a)
+		if err != nil {
+			return err
+		}
+		key := HashModel(buf)
+		err = b.Put(key[:], buf)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Commit the transaction and check for error.
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	return err
+}
+
+func ImportMerchants(db *bolt.DB, merchants []Merchant) error {
+	tx, err := db.Begin(true)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	b := tx.Bucket(MerchantBucket)
+
+	for _, m := range merchants {
+		buf, err := json.Marshal(m)
+		if err != nil {
+			return err
+		}
+		key := HashModel(buf)
+		err = b.Put(key[:], buf)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Commit the transaction and check for error.
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	return err
 }

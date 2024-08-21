@@ -28,17 +28,11 @@ type KiwibankExportRow struct {
 func (k *KiwibankExportRow) toTransaction() (tx Transaction, err error) {
 
 	tx = Transaction{
-		//Model:     gorm.Model{},
-		//AccountID: 0,
-		Account: Account{
-			Number: k.AccountNumber,
-			Bank:   Kiwibank,
-		},
 		//Date:      time.Time{},
 		Merchant:  k.MemoDescription,
-		Value:     0,
 		Precision: 100,
 		//Type:      false,
+		Value: 0,
 	}
 
 	// Parse time

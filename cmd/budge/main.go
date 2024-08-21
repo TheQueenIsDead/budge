@@ -121,7 +121,7 @@ func main() {
 	//e.GET("/merchant/:id/edit", app.EditMerchant)
 	//e.PUT("/merchant/:id", app.PutMerchant)
 	//e.GET("/merchant/:id", app.GetMerchant)
-	//e.POST("/upload", app.Upload)
+	e.POST("/upload", app.Upload)
 	//e.GET("/layout", app.Layout)
 
 	e.Static("/assets", "./web/public")

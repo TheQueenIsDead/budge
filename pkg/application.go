@@ -137,42 +137,40 @@ func (app *Application) ListTransactions(c echo.Context) error {
 //	return c.Render(http.StatusOK, "merchant_row", merchant)
 //}
 //
-//func (app *Application) Upload(c echo.Context) error {
-//
-//	filepath, err := saveFile(c)
-//	if err != nil {
-//		c.Logger().Error(err)
-//		return c.HTML(http.StatusInternalServerError, err.Error())
-//	}
-//
-//	transactions, err := ParseCSV(c, filepath)
-//	if err != nil {
-//		c.Logger().Error(err)
-//		return c.HTML(http.StatusInternalServerError, err.Error())
-//	}
-//
-//	for _, transaction := range transactions {
-//
-//		// Persist merchant if description is not unique
-//		// TODO: Fix merchants not being created
-//		var m Merchant
-//		app.DB.FirstOrCreate(&m, transaction.Merchant)
-//
-//		// Persist accounts if new
-//		var a Account
-//		app.DB.FirstOrCreate(&a, transaction.Account)
-//		transaction.AccountID = a.ID
-//
-//		// Persist transaction if new
-//		var t Transaction
-//		app.DB.FirstOrCreate(&t, transaction)
-//	}
-//
-//	return c.Render(http.StatusOK, "partial_budget_items", transactions)
-//
-//	//return c.HTML(http.StatusOK, strconv.Itoa(len(transactions)))
-//	//return c.HTML(http.StatusOK, fmt.Sprintf("<p>File %s uploaded successfully.</p>", file.Filename))
-//}
+
+func (app *Application) Upload(c echo.Context) error {
+
+	filepath, err := saveFile(c)
+	if err != nil {
+		c.Logger().Error(err)
+		return c.HTML(http.StatusInternalServerError, err.Error())
+	}
+
+	accounts, merchants, err := ParseCSV(c, filepath)
+	if err != nil {
+		c.Logger().Error(err)
+		return c.HTML(http.StatusInternalServerError, err.Error())
+	}
+
+	err = ImportAccounts(app.DB, accounts)
+	if err != nil {
+		c.Logger().Error(err)
+		return err
+	}
+
+	err = ImportMerchants(app.DB, merchants)
+	if err != nil {
+		c.Logger().Error(err)
+		return err
+	}
+
+	// TODO: Redirect the user to a more pertinent page.
+	return c.Render(http.StatusOK, "partial_budget_items", nil)
+
+	//return c.HTML(http.StatusOK, strconv.Itoa(len(transactions)))
+	//return c.HTML(http.StatusOK, fmt.Sprintf("<p>File %s uploaded successfully.</p>", file.Filename))
+}
+
 //
 //func (app *Application) Layout(c echo.Context) error {
 //	data := map[string]interface{}{
