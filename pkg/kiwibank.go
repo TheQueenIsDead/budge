@@ -25,11 +25,18 @@ type KiwibankExportRow struct {
 	Balance               string
 }
 
+func (k *KiwibankExportRow) MerchantName() string {
+	if k.OPname != "" && k.OPBankAccountNumber != "" {
+		return k.OPname
+	}
+	return k.MemoDescription
+}
+
 func (k *KiwibankExportRow) toTransaction() (tx Transaction, err error) {
 
 	tx = Transaction{
 		//Date:      time.Time{},
-		Merchant:  k.MemoDescription,
+		Merchant:  k.MerchantName(),
 		Precision: 100,
 		//Type:      false,
 		Value: 0,

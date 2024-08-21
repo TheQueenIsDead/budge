@@ -6,8 +6,9 @@ import (
 )
 
 var (
-	AccountBucket  = []byte("accounts")
-	MerchantBucket = []byte("merchants")
+	AccountBucket     = []byte("accounts")
+	MerchantBucket    = []byte("merchants")
+	TransactionBucket = []byte("transactions")
 )
 
 func PutAccount(db *bolt.DB, account *Account) error {
@@ -45,7 +46,7 @@ func ListMerchants(db *bolt.DB) []Merchant {
 	var merchants []Merchant
 
 	err := db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket(AccountBucket)
+		b := tx.Bucket(MerchantBucket)
 		err := b.ForEach(func(k, v []byte) error {
 			var m Merchant
 			err := json.Unmarshal(v, &m)
@@ -121,22 +122,47 @@ func ListTransactions(db *bolt.DB) []Transaction {
 	return transactions
 }
 
-func ImportAccounts(db *bolt.DB, accounts []Account) error {
+func Import(db *bolt.DB, account *Account, merchants []Merchant, transactions []Transaction) error {
 	tx, err := db.Begin(true)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
+	// Import Account
 	b := tx.Bucket(AccountBucket)
 
-	for _, a := range accounts {
-		buf, err := json.Marshal(a)
+	buf, err := json.Marshal(account)
+	if err != nil {
+		return err
+	}
+	err = b.Put([]byte(account.Number), buf)
+	if err != nil {
+		return err
+	}
+
+	// Import Merchants
+	b = tx.Bucket(MerchantBucket)
+	for _, m := range merchants {
+		buf, err = json.Marshal(m)
 		if err != nil {
 			return err
 		}
-		key := HashModel(buf)
-		err = b.Put(key[:], buf)
+		err = b.Put([]byte(m.Description), buf)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Import Transactions
+	b = tx.Bucket(TransactionBucket)
+	for _, t := range transactions {
+		buf, err = json.Marshal(t)
+		if err != nil {
+			return err
+		}
+		hash := HashModel(t)
+		err = b.Put(hash[:], buf)
 		if err != nil {
 			return err
 		}

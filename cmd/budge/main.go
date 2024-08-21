@@ -86,6 +86,7 @@ func main() {
 	buckets := [][]byte{
 		pkg.AccountBucket,
 		pkg.MerchantBucket,
+		pkg.TransactionBucket,
 	}
 	for _, bucket := range buckets {
 		db.Update(func(tx *bolt.Tx) error {

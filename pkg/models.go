@@ -49,5 +49,4 @@ func HashModel(m any) [16]byte {
 	var b bytes.Buffer
 	gob.NewEncoder(&b).Encode(m)
 	return md5.Sum(b.Bytes())
-	//return hex.EncodeToString(md[:])
 }

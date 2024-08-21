@@ -1,11 +1,11 @@
 package pkg
 
 import (
-	"bufio"
 	"encoding/csv"
 	"github.com/labstack/echo/v4"
-	"io"
+	"github.com/scylladb/go-set/strset"
 	"os"
+	"strings"
 )
 
 type Bank int
@@ -23,22 +23,15 @@ var (
 		"Account number,Date,Memo/Description,Source Code (payment type),TP ref,TP part,TP code,OP ref,OP part,OP code,OP name,OP Bank Account Number,Amount (credit),Amount (debit),Amount,Balance": Kiwibank,
 	}
 
-	BankParsingStrategy = map[Bank]func(echo.Context, io.Reader) ([]Account, []Merchant, error){
+	BankParsingStrategy = map[Bank]func(echo.Context, *csv.Reader) (*Account, []Merchant, []Transaction, error){
 		Kiwibank: parseKiwibankCSV,
 	}
 )
 
-func classifyCSV(in io.Reader) (Bank, error) {
+func classifyCSV(header []string) (Bank, error) {
 
-	s := bufio.NewScanner(in)
-	s.Scan()
-	header := s.Text()
-
-	if header == "" {
-		return -1, EmptyFileClassifierError
-	}
-
-	bank, ok := BankCsvHeaders[header]
+	joinedHeader := strings.Join(header, ",")
+	bank, ok := BankCsvHeaders[joinedHeader]
 	if !ok {
 		return -1, BankHeaderNotFoundClassifierError
 	}
@@ -46,37 +39,42 @@ func classifyCSV(in io.Reader) (Bank, error) {
 	return bank, nil
 }
 
-func ParseCSV(ctx echo.Context, filepath string) ([]Account, []Merchant, error) {
+func ParseCSV(ctx echo.Context, filepath string) (*Account, []Merchant, []Transaction, error) {
 	file, _ := os.Open(filepath)
 	defer file.Close()
 
-	bank, err := classifyCSV(file)
+	r := csv.NewReader(file)
+	header, err := r.Read()
+
+	bank, err := classifyCSV(header)
 	if err != nil {
 		ctx.Logger().Error(err)
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	parseFunc, ok := BankParsingStrategy[bank]
 	if !ok {
 		ctx.Logger().Error(NoBankParsingStrategyError)
-		return nil, nil, NoBankParsingStrategyError
+		return nil, nil, nil, NoBankParsingStrategyError
 	}
 
-	return parseFunc(ctx, file)
+	return parseFunc(ctx, r)
 }
 
-func parseKiwibankCSV(ctx echo.Context, in io.Reader) ([]Account, []Merchant, error) {
+func parseKiwibankCSV(ctx echo.Context, r *csv.Reader) (*Account, []Merchant, []Transaction, error) {
 
-	r := csv.NewReader(in)
+	var account = Account{
+		Bank: Kiwibank,
+	}
+	var merchants []Merchant
+	merchantSet := strset.New()
+	var transactions []Transaction
+
 	rows, err := r.ReadAll()
 	if err != nil {
 		ctx.Logger().Error(err)
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-
-	accounts := make(map[string]Account)
-	merchants := make([]Merchant, 0)
-
 	for _, row := range rows {
 		kiwibank := KiwibankExportRow{
 			AccountNumber:         row[0],
@@ -98,33 +96,29 @@ func parseKiwibankCSV(ctx echo.Context, in io.Reader) ([]Account, []Merchant, er
 		}
 		tx, err := kiwibank.toTransaction()
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 
-		// Add transaction to account if exists
-		if account, ok := accounts[kiwibank.AccountNumber]; ok {
-			account.Transactions = append(account.Transactions, tx)
-		} else {
-			accounts[kiwibank.AccountNumber] = Account{
-				Bank:         Kiwibank,
-				Number:       kiwibank.AccountNumber,
-				Transactions: []Transaction{},
-			}
+		// Add the transaction to the return list
+		transactions = append(transactions, tx)
+
+		// Build up an array of unique merchants
+		if !merchantSet.Has(kiwibank.MerchantName()) {
+			merchantSet.Add(kiwibank.MerchantName())
+			merchants = append(merchants, Merchant{
+				Description: kiwibank.MerchantName(),
+				Name:        "",
+				Category:    "",
+				Account:     kiwibank.OPBankAccountNumber,
+			})
 		}
 
-		// Create merchant if unique
-		merchants = append(merchants, Merchant{
-			Description: "",
-			Name:        "",
-			Category:    "",
-			Account:     tx.Merchant,
-		})
+		// Adjust the account number now that we're iterating fields and able to determine it
+		account.Number = kiwibank.AccountNumber
 	}
 
-	var accountList []Account
-	for _, v := range accounts {
-		accountList = append(accountList, v)
-	}
+	// Tidy up the final attributes on the account
+	account.Transactions = transactions
 
-	return accountList, merchants, nil
+	return &account, merchants, transactions, nil
 }

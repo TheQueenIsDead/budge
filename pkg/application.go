@@ -146,26 +146,20 @@ func (app *Application) Upload(c echo.Context) error {
 		return c.HTML(http.StatusInternalServerError, err.Error())
 	}
 
-	accounts, merchants, err := ParseCSV(c, filepath)
+	account, merchants, transactions, err := ParseCSV(c, filepath)
 	if err != nil {
 		c.Logger().Error(err)
 		return c.HTML(http.StatusInternalServerError, err.Error())
 	}
 
-	err = ImportAccounts(app.DB, accounts)
-	if err != nil {
-		c.Logger().Error(err)
-		return err
-	}
-
-	err = ImportMerchants(app.DB, merchants)
+	err = Import(app.DB, account, merchants, transactions)
 	if err != nil {
 		c.Logger().Error(err)
 		return err
 	}
 
 	// TODO: Redirect the user to a more pertinent page.
-	return c.Render(http.StatusOK, "partial_budget_items", nil)
+	return c.Render(http.StatusOK, "home", nil)
 
 	//return c.HTML(http.StatusOK, strconv.Itoa(len(transactions)))
 	//return c.HTML(http.StatusOK, fmt.Sprintf("<p>File %s uploaded successfully.</p>", file.Filename))
