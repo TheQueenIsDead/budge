@@ -1,19 +1,19 @@
-package pkg
+package models
 
 import (
-	"bytes"
-	"crypto/md5"
-	"encoding/gob"
 	"fmt"
 	"time"
 )
 
-type TransactionType int
+type Bank int
 
 const (
-	TransactionTypeDebit TransactionType = iota
-	TransactionTypeCredit
+	Kiwibank Bank = iota
 )
+
+func (b Bank) String() string {
+	return [...]string{"Kiwibank"}[b]
+}
 
 type Account struct {
 	Bank         Bank
@@ -21,19 +21,8 @@ type Account struct {
 	Transactions []Transaction
 }
 
-type Transaction struct {
-	Date      time.Time
-	Merchant  string
-	Precision uint8
-	Type      TransactionType
-	Value     uint32
-}
-
-func (t *Transaction) String() string {
-	return fmt.Sprintf("$%.2f", float64(t.Value)/float64(t.Precision))
-}
-
 type Merchant struct {
+	Id uint64
 	// Description is the raw description of the merchant as parsed directly from a CSV
 	Description string
 	// Name is the display / friendly name for the merchant.
@@ -45,8 +34,22 @@ type Merchant struct {
 	Account string
 }
 
-func HashModel(m any) [16]byte {
-	var b bytes.Buffer
-	gob.NewEncoder(&b).Encode(m)
-	return md5.Sum(b.Bytes())
+type TransactionType int
+
+const (
+	TransactionTypeDebit TransactionType = iota
+	TransactionTypeCredit
+)
+
+type Transaction struct {
+	Id        uint64
+	Date      time.Time
+	Merchant  string
+	Precision uint8
+	Type      TransactionType
+	Value     uint32
+}
+
+func (t *Transaction) String() string {
+	return fmt.Sprintf("$%.2f", float64(t.Value)/float64(t.Precision))
 }

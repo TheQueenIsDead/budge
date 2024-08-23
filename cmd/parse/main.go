@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
-	"github.com/TheQueenIsDead/budge/pkg"
+	"github.com/TheQueenIsDead/budge/pkg/bank"
 	"os"
 	"time"
 )
@@ -29,7 +29,7 @@ func main() {
 			panic(err)
 		}
 
-		exp := pkg.KiwibankExportRow{
+		exp := bank.KiwibankExportRow{
 			AccountNumber:             record[0],
 			Date:                      t,
 			Description:               record[2],

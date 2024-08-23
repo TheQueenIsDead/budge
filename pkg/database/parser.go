@@ -1,34 +1,26 @@
-package pkg
+package database
 
 import (
 	"encoding/csv"
+	"github.com/TheQueenIsDead/budge/pkg/bank"
+	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v4"
 	"github.com/scylladb/go-set/strset"
 	"os"
 	"strings"
 )
 
-type Bank int
-
-const (
-	Kiwibank Bank = iota
-)
-
-func (b Bank) String() string {
-	return [...]string{"Kiwibank"}[b]
-}
-
 var (
-	BankCsvHeaders = map[string]Bank{
-		"Account number,Date,Memo/Description,Source Code (payment type),TP ref,TP part,TP code,OP ref,OP part,OP code,OP name,OP Bank Account Number,Amount (credit),Amount (debit),Amount,Balance": Kiwibank,
+	BankCsvHeaders = map[string]models.Bank{
+		"Account number,Date,Memo/Description,Source Code (payment type),TP ref,TP part,TP code,OP ref,OP part,OP code,OP name,OP Bank Account Number,Amount (credit),Amount (debit),Amount,Balance": models.Kiwibank,
 	}
 
-	BankParsingStrategy = map[Bank]func(echo.Context, *csv.Reader) (*Account, []Merchant, []Transaction, error){
-		Kiwibank: parseKiwibankCSV,
+	BankParsingStrategy = map[models.Bank]func(echo.Context, *csv.Reader) (*models.Account, []models.Merchant, []models.Transaction, error){
+		models.Kiwibank: parseKiwibankCSV,
 	}
 )
 
-func classifyCSV(header []string) (Bank, error) {
+func classifyCSV(header []string) (models.Bank, error) {
 
 	joinedHeader := strings.Join(header, ",")
 	bank, ok := BankCsvHeaders[joinedHeader]
@@ -39,7 +31,7 @@ func classifyCSV(header []string) (Bank, error) {
 	return bank, nil
 }
 
-func ParseCSV(ctx echo.Context, filepath string) (*Account, []Merchant, []Transaction, error) {
+func ParseCSV(ctx echo.Context, filepath string) (*models.Account, []models.Merchant, []models.Transaction, error) {
 	file, _ := os.Open(filepath)
 	defer file.Close()
 
@@ -61,14 +53,14 @@ func ParseCSV(ctx echo.Context, filepath string) (*Account, []Merchant, []Transa
 	return parseFunc(ctx, r)
 }
 
-func parseKiwibankCSV(ctx echo.Context, r *csv.Reader) (*Account, []Merchant, []Transaction, error) {
+func parseKiwibankCSV(ctx echo.Context, r *csv.Reader) (*models.Account, []models.Merchant, []models.Transaction, error) {
 
-	var account = Account{
-		Bank: Kiwibank,
+	var account = models.Account{
+		Bank: models.Kiwibank,
 	}
-	var merchants []Merchant
+	var merchants []models.Merchant
 	merchantSet := strset.New()
-	var transactions []Transaction
+	var transactions []models.Transaction
 
 	rows, err := r.ReadAll()
 	if err != nil {
@@ -76,7 +68,7 @@ func parseKiwibankCSV(ctx echo.Context, r *csv.Reader) (*Account, []Merchant, []
 		return nil, nil, nil, err
 	}
 	for _, row := range rows {
-		kiwibank := KiwibankExportRow{
+		kiwibank := bank.KiwibankExportRow{
 			AccountNumber:         row[0],
 			Date:                  row[1],
 			MemoDescription:       row[2],
@@ -94,18 +86,20 @@ func parseKiwibankCSV(ctx echo.Context, r *csv.Reader) (*Account, []Merchant, []
 			Amount:                row[14],
 			Balance:               row[15],
 		}
-		tx, err := kiwibank.toTransaction()
-		if err != nil {
-			return nil, nil, nil, err
-		}
+
+		// TODO: reimplement
+		//tx, err := kiwibank.toTransaction()
+		//if err != nil {
+		//	return nil, nil, nil, err
+		//}
 
 		// Add the transaction to the return list
-		transactions = append(transactions, tx)
+		//transactions = append(transactions, tx)
 
 		// Build up an array of unique merchants
 		if !merchantSet.Has(kiwibank.MerchantName()) {
 			merchantSet.Add(kiwibank.MerchantName())
-			merchants = append(merchants, Merchant{
+			merchants = append(merchants, models.Merchant{
 				Description: kiwibank.MerchantName(),
 				Name:        "",
 				Category:    "",

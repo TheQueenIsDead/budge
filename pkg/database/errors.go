@@ -1,11 +1,9 @@
-package pkg
+package database
 
-import (
-	"errors"
-)
+import "errors"
 
 var (
-	EmptyFileClassifierError          = errors.New("empty file parsed")
 	BankHeaderNotFoundClassifierError = errors.New("bank header not found")
+	EmptyFileClassifierError          = errors.New("empty file parsed")
 	NoBankParsingStrategyError        = errors.New("no bank parsing strategy")
 )
