@@ -6,6 +6,10 @@ import (
 )
 
 func (app *Application) ListTransactions(c echo.Context) error {
-	transactions, _ := app.store.Transactions.List()
+	transactions, err := app.store.Transactions.List()
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err)
+	}
 	return c.Render(http.StatusOK, "transaction.list", transactions)
 }

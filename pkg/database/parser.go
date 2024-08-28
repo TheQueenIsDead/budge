@@ -7,7 +7,9 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/scylladb/go-set/strset"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -38,19 +40,50 @@ func ParseCSV(ctx echo.Context, filepath string) (*models.Account, []models.Merc
 	r := csv.NewReader(file)
 	header, err := r.Read()
 
-	bank, err := classifyCSV(header)
+	bankType, err := classifyCSV(header)
 	if err != nil {
 		ctx.Logger().Error(err)
 		return nil, nil, nil, err
 	}
 
-	parseFunc, ok := BankParsingStrategy[bank]
+	parseFunc, ok := BankParsingStrategy[bankType]
 	if !ok {
 		ctx.Logger().Error(NoBankParsingStrategyError)
 		return nil, nil, nil, NoBankParsingStrategyError
 	}
 
 	return parseFunc(ctx, r)
+}
+
+func convertKiwibankExportRowToTransaction(k bank.KiwibankExportRow) (*models.Transaction, error) {
+
+	var err error
+	var tx *models.Transaction
+	tx = new(models.Transaction)
+
+	tx.Merchant = k.MerchantName()
+	tx.Precision = 100
+	tx.Value = 0
+
+	// Parse time
+	tx.Date, err = time.Parse("02-01-2006", k.Date)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse value
+	if len(k.Amount) > 0 && k.Amount[0] != '-' {
+		tx.Type = models.TransactionTypeDebit
+	} else {
+		tx.Type = models.TransactionTypeCredit
+		k.Amount = strings.ReplaceAll(k.Amount, "-", "")
+	}
+
+	value := strings.ReplaceAll(k.Amount, ".", "")
+	intValue, err := strconv.ParseUint(value, 10, 32)
+	tx.Value = uint32(intValue)
+
+	return tx, nil
 }
 
 func parseKiwibankCSV(ctx echo.Context, r *csv.Reader) (*models.Account, []models.Merchant, []models.Transaction, error) {
@@ -87,14 +120,12 @@ func parseKiwibankCSV(ctx echo.Context, r *csv.Reader) (*models.Account, []model
 			Balance:               row[15],
 		}
 
-		// TODO: reimplement
-		//tx, err := kiwibank.toTransaction()
-		//if err != nil {
-		//	return nil, nil, nil, err
-		//}
-
 		// Add the transaction to the return list
-		//transactions = append(transactions, tx)
+		tx, err := convertKiwibankExportRowToTransaction(kiwibank)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		transactions = append(transactions, *tx)
 
 		// Build up an array of unique merchants
 		if !merchantSet.Has(kiwibank.MerchantName()) {

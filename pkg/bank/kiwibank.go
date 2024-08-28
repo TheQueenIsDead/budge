@@ -56,35 +56,3 @@ func (k *KiwibankExportRow) MerchantName() string {
 
 	return k.MemoDescription
 }
-
-// TODO: Uncomment
-//func (k *KiwibankExportRow) toTransaction() (tx database.Transaction, err error) {
-//
-//	tx = database.Transaction{
-//		//Date:      time.Time{},
-//		Merchant:  k.MerchantName(),
-//		Precision: 100,
-//		//Type:      false,
-//		Value: 0,
-//	}
-//
-//	// Parse time
-//	tx.Date, err = time.Parse("02-01-2006", k.Date)
-//	if err != nil {
-//		return
-//	}
-//
-//	// Parse value
-//	if len(k.Amount) > 0 && k.Amount[0] != '-' {
-//		tx.Type = database.TransactionTypeDebit
-//	} else {
-//		tx.Type = database.TransactionTypeCredit
-//		k.Amount = strings.ReplaceAll(k.Amount, "-", "")
-//	}
-//
-//	value := strings.ReplaceAll(k.Amount, ".", "")
-//	intValue, err := strconv.ParseUint(value, 10, 32)
-//	tx.Value = uint32(intValue)
-//
-//	return tx, nil
-//}

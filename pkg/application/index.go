@@ -8,15 +8,12 @@ import (
 func (app *Application) Index(c echo.Context) error {
 
 	var accountCount, transactionCount, merchantCount int
+	var err error
 
 	// TODO: reenable
-	//accountCount = GetAccountCount(app.DB)
-	//transactionCount = GetTransactionCount(app.DB)
-	//merchantCount = GetMerchantCount(app.DB)
-
-	//app.DB.Model(&Account{}).Count(&accountCount)
-	//app.DB.Model(&Transaction{}).Count(&transactionCount)
-	//app.DB.Model(&Merchant{}).Count(&merchantCount)
+	accountCount, err = app.store.Accounts.Count()
+	transactionCount, err = app.store.Transactions.Count()
+	merchantCount, err = app.store.Merchants.Count()
 
 	//var transactions []Transaction
 	//tx := app.DB.Find(&transactions).Limit(1)
@@ -34,6 +31,10 @@ func (app *Application) Index(c echo.Context) error {
 	//		out += transaction.Value
 	//	}
 	//}
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
 
 	return c.Render(http.StatusOK, "home", map[string]interface{}{
 		"accountCount":     accountCount,

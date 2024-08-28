@@ -61,12 +61,12 @@ func (s *TransactionStorer) List() ([]models.Transaction, error) {
 	err := s.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(s.bucket)
 		err := b.ForEach(func(k, v []byte) error {
-			var a models.Account
-			err := json.Unmarshal(v, &a)
+			var t models.Transaction
+			err := json.Unmarshal(v, &t)
 			if err != nil {
 				return err
 			}
-			transactions = append(transactions, a.Transactions...)
+			transactions = append(transactions, t)
 			return nil
 		})
 		if err != nil {

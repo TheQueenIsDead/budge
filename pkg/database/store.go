@@ -13,6 +13,7 @@ import (
 )
 
 type Store struct {
+	db           *bolt.DB
 	Accounts     AccountStore
 	Merchants    MerchantStore
 	Transactions TransactionStore
@@ -26,7 +27,7 @@ func NewStore() (*Store, error) {
 	if err != nil {
 		panic(err)
 	}
-	defer db.Close()
+	//defer db.Close()
 
 	// Setup DB tables and data
 	buckets := [][]byte{
@@ -48,10 +49,15 @@ func NewStore() (*Store, error) {
 	merchantStore := NewMerchantStorer(db)
 	transactionStore := NewTransactionStorer(db)
 	return &Store{
+		db:           db,
 		Accounts:     accountStore,
 		Merchants:    merchantStore,
 		Transactions: transactionStore,
 	}, nil
+}
+
+func (s *Store) Close() error {
+	return s.db.Close()
 }
 
 func HashModel(m any) [16]byte {
@@ -60,8 +66,8 @@ func HashModel(m any) [16]byte {
 	return md5.Sum(b.Bytes())
 }
 
-func Import(db *bolt.DB, account *models.Account, merchants []models.Merchant, transactions []models.Transaction) error {
-	tx, err := db.Begin(true)
+func (s *Store) Import(account *models.Account, merchants []models.Merchant, transactions []models.Transaction) error {
+	tx, err := s.db.Begin(true)
 	if err != nil {
 		return err
 	}

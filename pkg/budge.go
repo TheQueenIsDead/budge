@@ -42,6 +42,16 @@ func (b *Budge) Start() error {
 	return b.Application.Start()
 }
 
-func (b *Budge) Teardown() {
-	panic("not implemented")
+func (b *Budge) Teardown() error {
+
+	funcs := []func() error{
+		b.Application.Close,
+		b.Store.Close,
+	}
+	for _, f := range funcs {
+		if err := f(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

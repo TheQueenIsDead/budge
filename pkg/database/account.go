@@ -81,7 +81,8 @@ func (s *AccountStorer) List() ([]models.Account, error) {
 
 func (s *AccountStorer) Put(a models.Account) (string, error) {
 	// TODO: Catch err
-	s.db.Update(func(tx *bolt.Tx) error {
+	var err error
+	err = s.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(s.bucket)
 		buf, err := json.Marshal(a)
 		if err != nil {
@@ -93,5 +94,5 @@ func (s *AccountStorer) Put(a models.Account) (string, error) {
 		}
 		return nil
 	})
-	return "", nil
+	return "", err
 }

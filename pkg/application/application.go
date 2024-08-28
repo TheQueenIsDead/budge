@@ -47,8 +47,7 @@ func NewApplication(store *database.Store) (*Application, error) {
 	//e.PUT("/merchant/:id", app.PutMerchant)
 	//e.GET("/merchant/:id", app.GetMerchant)
 
-	// TODO: Reenable....
-	//e.POST("/upload", app.Upload)
+	app.http.POST("/upload", app.Upload)
 
 	//e.GET("/layout", app.Layout)
 
@@ -59,6 +58,11 @@ func NewApplication(store *database.Store) (*Application, error) {
 
 func (app *Application) Start() error {
 	return app.http.Start(":1337")
+}
+
+func (app *Application) Close() error {
+	// TODO: Change this to close down gracefully
+	return app.http.Close()
 }
 
 type Template struct {
