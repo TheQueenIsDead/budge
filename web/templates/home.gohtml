@@ -27,6 +27,10 @@
     </div>
 </div>
 <div class="container">
+    <h1>Incoming: {{ .outgoing | printf "%.2s" }}</h1>
+    <h1>Outgoing: {{ .incoming | printf "%.2s" }}</h1>
+</div>
+<div class="container">
     <div class="row">
         <div class="col-sm-3">
             <div class="card">

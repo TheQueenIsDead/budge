@@ -1,11 +1,12 @@
 package application
 
 import (
+	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v4"
 	"net/http"
 )
 
-func (app *Application) Index(c echo.Context) error {
+func (app *Application) Home(c echo.Context) error {
 
 	var accountCount, transactionCount, merchantCount int
 	var err error
@@ -15,31 +16,29 @@ func (app *Application) Index(c echo.Context) error {
 	transactionCount, err = app.store.Transactions.Count()
 	merchantCount, err = app.store.Merchants.Count()
 
-	//var transactions []Transaction
-	//tx := app.DB.Find(&transactions).Limit(1)
-	//if err := tx.Error; err != nil {
-	//	c.Logger().Error(err)
-	//	return err
-	//}
-
-	//var in, out uint32
-	//for _, transaction := range transactions {
-	//	switch transaction.Type {
-	//	case TransactionTypeDebit:
-	//		in += transaction.Value
-	//	case TransactionTypeCredit:
-	//		out += transaction.Value
-	//	}
-	//}
-
+	var transactions []models.Transaction
+	transactions, err = app.store.Transactions.List()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		c.Logger().Error(err)
+		return err
+	}
+
+	var in, out float64
+	for _, transaction := range transactions {
+		switch transaction.Type {
+		case models.TransactionTypeDebit:
+			in += transaction.Float()
+		case models.TransactionTypeCredit:
+			out += transaction.Float()
+		}
 	}
 
 	return c.Render(http.StatusOK, "home", map[string]interface{}{
 		"accountCount":     accountCount,
 		"transactionCount": transactionCount,
 		"merchantCount":    merchantCount,
+		"incoming":         in,
+		"outgoing":         out,
 	})
 }
 

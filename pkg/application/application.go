@@ -37,7 +37,7 @@ func NewApplication(store *database.Store) (*Application, error) {
 	app.http.Logger.SetLevel(log.DEBUG)
 
 	app.http.Renderer = t
-	app.http.GET("/", app.Index)
+	app.http.GET("/", app.Home)
 	//app.http.GET("/budget", app.Budget)
 	app.http.GET("/merchants", app.ListMerchants)
 	app.http.GET("/merchants/:id", app.GetMerchant)
