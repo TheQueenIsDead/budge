@@ -13,7 +13,6 @@ type TransactionStore interface {
 	Get(id string) (models.Transaction, error)
 	List() ([]models.Transaction, error)
 	Put(t models.Transaction) (string, error)
-	Bucket() ([]byte, error)
 }
 
 type TransactionStorer struct {
@@ -82,11 +81,6 @@ func (s *TransactionStorer) List() ([]models.Transaction, error) {
 }
 
 func (s *TransactionStorer) Put(t models.Transaction) (string, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (s *TransactionStorer) Bucket() ([]byte, error) {
 	//TODO implement me
 	panic("implement me")
 }

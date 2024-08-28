@@ -14,7 +14,6 @@ type MerchantStore interface {
 	Get(string) (models.Merchant, error)
 	List() ([]models.Merchant, error)
 	Put(models.Merchant) (string, error)
-	Bucket() []byte
 }
 
 type MerchantStorer struct {
@@ -114,9 +113,4 @@ func (s *MerchantStorer) Put(m models.Merchant) (string, error) {
 		return nil
 	})
 	return "", nil
-}
-
-func (s *MerchantStorer) Bucket() []byte {
-	//TODO implement me
-	panic("implement me")
 }
