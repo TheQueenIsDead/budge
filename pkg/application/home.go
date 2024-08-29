@@ -3,6 +3,8 @@ package application
 import (
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v4"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 	"net/http"
 )
 
@@ -33,12 +35,19 @@ func (app *Application) Home(c echo.Context) error {
 		}
 	}
 
+	var incomingString, outgoingString string
+	p := message.NewPrinter(language.English)
+	incomingString = p.Sprintf("%.2f", in)
+	outgoingString = p.Sprintf("%.2f", out)
+
 	return c.Render(http.StatusOK, "home", map[string]interface{}{
 		"accountCount":     accountCount,
 		"transactionCount": transactionCount,
 		"merchantCount":    merchantCount,
 		"incoming":         in,
+		"incomingString":   incomingString,
 		"outgoing":         out,
+		"outgoingString":   outgoingString,
 	})
 }
 

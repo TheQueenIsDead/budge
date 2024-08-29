@@ -26,9 +26,16 @@
     </div>
     </div>
 </div>
+
+
 <div class="container">
-    <h1>Incoming: {{ .outgoing | printf "%.2s" }}</h1>
-    <h1>Outgoing: {{ .incoming | printf "%.2s" }}</h1>
+    <h1>Incoming: ${{ .incoming | printf "%.2f" }}</h1>
+    <h1>Outgoing: ${{ .outgoing | printf "%.2f" }}</h1>
+    <h1>Incoming: ${{ .incomingString }}</h1>
+    <h1>Outgoing: ${{ .outgoingString }}</h1>
+
+
+    <canvas id="chart"></canvas>
 </div>
 <div class="container">
     <div class="row">
@@ -61,4 +68,32 @@
         </div>
     </div>
 </div>
+
+
+<script>
+    const data = {
+        labels: [
+            'Incoming',
+            'Outgoing'
+        ],
+        datasets: [{
+            label: 'Expenditure',
+            data: [{{.incoming}}, {{.outgoing}}],
+            backgroundColor: [
+                'rgb(54, 255, 132)',
+                'rgb(255, 205, 52)'
+            ],
+            hoverOffset: 4,
+            circumference: 180,
+            rotation: -90
+        }]
+    };
+    const config = {
+        type: 'doughnut',
+        data: data,
+    };
+
+    new Chart(document.getElementById('chart'), config);
+</script>
+
 {{end}}
