@@ -1,45 +1,48 @@
 {{define "home"}}
 <div class="container">
     <div class="row">
-        <div class="starter-template">
-            <h1>Budge</h1>
-            <p class="lead">Upload files exported as CSV from your bank.<br> Analyse spending trends and predict future savings.</p>
+        <div class="col">
+            <div class="starter-template">
+                <h1>Budge</h1>
+                <p class="lead">Upload files exported as CSV from your bank.<br> Analyse spending trends and predict future savings.</p>
+            </div>
         </div>
     </div>
-</div>
-<div class="container">
-{{/*    TODO: Add errror handling when upload fails.*/}}
+
+    {{/*    TODO: Add errror handling when upload fails.*/}}
     <div class="row">
         <div class="col">
-        <form id='form' hx-encoding='multipart/form-data' hx-post='/upload'>
-            <input type='file' name='file'>
-            <button>
-                Upload
-            </button>
-            <progress id='progress' value='0' max='100'></progress>
-        </form>
-        <script>
-            htmx.on('#form', 'htmx:xhr:progress', function(evt) {
-                htmx.find('#progress').setAttribute('value', evt.detail.loaded/evt.detail.total * 100)
-            });
-        </script>
+            <form id='form' hx-encoding='multipart/form-data' hx-post='/upload'>
+                <input type='file' name='file'>
+                <button>
+                    Upload
+                </button>
+                <progress id='progress' value='0' max='100'></progress>
+            </form>
+            <script>
+                htmx.on('#form', 'htmx:xhr:progress', function(evt) {
+                    htmx.find('#progress').setAttribute('value', evt.detail.loaded/evt.detail.total * 100)
+                });
+            </script>
+        </div>
     </div>
-    </div>
-</div>
 
 
-<div class="container">
-    <h1>Incoming: ${{ .incoming | printf "%.2f" }}</h1>
-    <h1>Outgoing: ${{ .outgoing | printf "%.2f" }}</h1>
-    <h1>Incoming: ${{ .incomingString }}</h1>
-    <h1>Outgoing: ${{ .outgoingString }}</h1>
-
-
-    <canvas id="chart"></canvas>
-</div>
-<div class="container">
     <div class="row">
-        <div class="col-sm-3">
+        <div class="col">
+            <h1>Incoming: ${{ .incomingString }}</h1>
+        </div>
+        <div class="col">
+            <h1>Outgoing: ${{ .outgoingString }}</h1>
+        </div>
+        <div class="col">
+            <canvas style="max-width: 400px; max-height: 400px" id="chart"></canvas>
+        </div>
+
+    </div>
+
+    <div class="row">
+        <div class="col">
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">Accounts</h5>
@@ -48,7 +51,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-3">
+        <div class="col">
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">Merchants</h5>
@@ -57,7 +60,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-3">
+        <div class="col">
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">Transactions</h5>
@@ -67,6 +70,7 @@
             </div>
         </div>
     </div>
+
 </div>
 
 
