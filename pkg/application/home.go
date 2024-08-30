@@ -6,14 +6,38 @@ import (
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 	"net/http"
+	"sort"
 )
+
+func topMerchants(transactions []models.Transaction, n int) []models.MerchantTotal {
+
+	merchants := make(map[string]float64)
+	for _, tx := range transactions {
+		if tx.Type == models.TransactionTypeCredit {
+			merchants[tx.Merchant] += tx.Float()
+		}
+	}
+
+	var top []models.MerchantTotal
+	for merchant, total := range merchants {
+		top = append(top, models.MerchantTotal{
+			Merchant: merchant,
+			Total:    total,
+		})
+	}
+
+	sort.Slice(top, func(i, j int) bool {
+		return top[i].Total > top[j].Total
+	})
+
+	return top[:n]
+}
 
 func (app *Application) Home(c echo.Context) error {
 
 	var accountCount, transactionCount, merchantCount int
 	var err error
 
-	// TODO: reenable
 	accountCount, err = app.store.Accounts.Count()
 	transactionCount, err = app.store.Transactions.Count()
 	merchantCount, err = app.store.Merchants.Count()
@@ -24,6 +48,8 @@ func (app *Application) Home(c echo.Context) error {
 		c.Logger().Error(err)
 		return err
 	}
+
+	top := topMerchants(transactions, 5)
 
 	var in, out float64
 	for _, transaction := range transactions {
@@ -48,6 +74,7 @@ func (app *Application) Home(c echo.Context) error {
 		"incomingString":   incomingString,
 		"outgoing":         out,
 		"outgoingString":   outgoingString,
+		"topMerchants":     top,
 	})
 }
 

@@ -9,37 +9,76 @@
         </div>
     </div>
 
-    {{/*    TODO: Add errror handling when upload fails.*/}}
-    <div class="row">
-        <div class="col">
-            <form id='form' hx-encoding='multipart/form-data' hx-post='/upload'>
-                <input type='file' name='file'>
-                <button>
-                    Upload
-                </button>
-                <progress id='progress' value='0' max='100'></progress>
-            </form>
-            <script>
-                htmx.on('#form', 'htmx:xhr:progress', function(evt) {
-                    htmx.find('#progress').setAttribute('value', evt.detail.loaded/evt.detail.total * 100)
-                });
-            </script>
+{{/*    <div class="row">*/}}
+{{/*        <div class="card">*/}}
+{{/*            <div class="card-body">*/}}
+{{/*                <h5 class="card-title">Upload</h5>*/}}
+{{/*                <p class="card-text">*/}}
+{{/*                    Select a file to start reporting on your spending.*/}}
+{{/*                </p>*/}}
+{{/*                <form id='form' hx-encoding='multipart/form-data' hx-post='/upload'>*/}}
+{{/*                    <input class="form-control" type='file' name='file'>*/}}
+{{/*                    <button class="form-control"> Upload </button>*/}}
+{{/*                    <progress id='progress' value='0' max='100'></progress>*/}}
+{{/*                </form>*/}}
+{{/*                <script>*/}}
+{{/*                    htmx.on('#form', 'htmx:xhr:progress', function(evt) {*/}}
+{{/*                        htmx.find('#progress').setAttribute('value', evt.detail.loaded/evt.detail.total * 100)*/}}
+{{/*                    });*/}}
+{{/*                </script>*/}}
+{{/*            </div>*/}}
+{{/*        </div>*/}}
+{{/*    </div>*/}}
+
+
+
+    <div class="row justify-content-center">
+        <div class="col-6">
+        <form id='form' class="form" hx-encoding='multipart/form-data' hx-post='/upload'>
+            <div class="form-group mb-2">
+                <input class="form-control" type='file' name='file'>
+            </div>
+            <div class="form-group">
+                <button class="btn-primary btn form-control"> Upload </button>
+            </div>
+    {{/*        <div class="form-group mb-2">*/}}
+    {{/*            <progress id='progress' class="progress" value='0' max='100'></progress>*/}}
+    {{/*        </div>*/}}
+
+        </form>
+        <script>
+            htmx.on('#form', 'htmx:xhr:progress', function(evt) {
+                htmx.find('#progress').setAttribute('value', evt.detail.loaded/evt.detail.total * 100)
+            });
+        </script>
         </div>
     </div>
 
+    <hr>
+
 
     <div class="row">
         <div class="col">
-            <h1>Incoming: ${{ .incomingString }}</h1>
+            {{/* Incoming */}}
+            <h3><i class="bi bi-box-arrow-in-right flex-column">
+                    ${{ .incomingString }}
+                </i></h3>
+            {{/* Outgoing */}}
+            <h3><i class="bi bi-box-arrow-right flex-column">
+                    ${{ .outgoingString }}
+                </i></h3>
+            <h3><i class="bi bi-plus-slash-minus">
+                    Diff
+                </i></h3>
         </div>
-        <div class="col">
-            <h1>Outgoing: ${{ .outgoingString }}</h1>
-        </div>
+
         <div class="col">
             <canvas style="max-width: 400px; max-height: 400px" id="chart"></canvas>
         </div>
 
     </div>
+
+    <hr/>
 
     <div class="row">
         <div class="col">
@@ -71,6 +110,26 @@
         </div>
     </div>
 
+
+    <hr>
+
+    <h1> Top Merchants </h1>
+    <table class="table">
+        <thead>
+        <tr>
+            <th>Merchant</th>
+            <th>Total</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{ range .topMerchants }}
+            <tr>
+                <td>{{ .Merchant }}</td>
+                <td>{{ .Total | printf "%.2f" }}</td>
+            </tr>
+        {{ end }}
+        </tbody>
+    </table>
 </div>
 
 
@@ -84,7 +143,7 @@
             label: 'Expenditure',
             data: [{{.incoming}}, {{.outgoing}}],
             backgroundColor: [
-                'rgb(54, 255, 132)',
+                'rgb(26, 188, 156)',
                 'rgb(255, 205, 52)'
             ],
             hoverOffset: 4,
@@ -95,6 +154,14 @@
     const config = {
         type: 'doughnut',
         data: data,
+        options: {
+            plugins: {
+                title: {
+                    display: true,
+                    text: "Incoming vs Outgoing"
+                }
+            }
+        }
     };
 
     new Chart(document.getElementById('chart'), config);

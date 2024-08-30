@@ -34,6 +34,11 @@ type Merchant struct {
 	Account string
 }
 
+type MerchantTotal struct {
+	Merchant string
+	Total    float64
+}
+
 type TransactionType int
 
 const (

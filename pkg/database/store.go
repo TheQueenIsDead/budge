@@ -9,11 +9,13 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	bolt "go.etcd.io/bbolt"
+	"log/slog"
 	"time"
 )
 
 type Store struct {
 	db           *bolt.DB
+	logger       *slog.Logger
 	Accounts     AccountStore
 	Merchants    MerchantStore
 	Transactions TransactionStore
@@ -25,24 +27,23 @@ func NewStore() (*Store, error) {
 	opts.Timeout = 5 * time.Second
 	db, err := bolt.Open("budge.bolt.db", 0600, opts)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+	// TODO: Ensure this is called on server close.
 	//defer db.Close()
 
-	// Setup DB tables and data
-	buckets := [][]byte{
-		buckets.AccountBucket,
-		buckets.MerchantBucket,
-		buckets.TransactionBucket,
-	}
-	for _, bucket := range buckets {
-		db.Update(func(tx *bolt.Tx) error {
+	// TODO: Create buckets in a transaction.
+	for _, bucket := range buckets.All() {
+		err := db.Update(func(tx *bolt.Tx) error {
 			_, err := tx.CreateBucketIfNotExists(bucket)
 			if err != nil {
 				return fmt.Errorf("create bucket: %s", err)
 			}
 			return nil
 		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	accountStore := NewAccountStorer(db)
