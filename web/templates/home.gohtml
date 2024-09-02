@@ -57,26 +57,32 @@
     <hr>
 
     {{/*TODO: Add the diff in here and make this look better aestheticaly*/}}
-    <div class="row">
-        <div class="col">
-            {{/* Incoming */}}
-            <h3><i class="bi bi-box-arrow-in-right flex-column">
-                    ${{ .incomingString }}
-                </i></h3>
-            {{/* Outgoing */}}
-            <h3><i class="bi bi-box-arrow-right flex-column">
-                    ${{ .outgoingString }}
-                </i></h3>
-            <h3><i class="bi bi-plus-slash-minus">
-                    Diff
-                </i></h3>
-        </div>
 
-        <div class="col">
-            <canvas style="max-width: 400px; max-height: 400px" id="chart"></canvas>
+
+{{/*    <div class="container">*/}}
+    <div class="container">
+        <div class="row">
+            <div class="col-12 col-md-6 d-flex flex-column justify-content-between">
+                <h3>
+                    <i class="bi bi-graph-up text-success"> ${{ .incomingString }} </i>
+                </h3>
+                <h3>
+                    <i class="bi bi-graph-down text-danger"> ${{ .outgoingString }} </i>
+                </h3>
+                <h3>
+                    <i class="bi bi-plus-slash-minus"> Diff </i>
+                </h3>
+            </div>
+
+            <div class="col-12 col-md-6">
+{{/*                <canvas style="max-width: 400px; height: 250px" id="chart"></canvas>*/}}
+                <canvas id="chart" style="min-width: 300px"></canvas>
+            </div>
         </div>
 
     </div>
+
+
 
     <hr/>
 
@@ -156,11 +162,19 @@
         type: 'doughnut',
         data: data,
         options: {
+            layout: {
+                padding: {
+                    bottom: -200
+                }
+            },
             plugins: {
                 title: {
                     display: true,
                     text: "Incoming vs Outgoing"
                 }
+            },
+            legend: {
+                display: false,
             }
         }
     };
