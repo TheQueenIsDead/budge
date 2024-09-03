@@ -77,11 +77,3 @@ func (app *Application) Home(c echo.Context) error {
 		"topMerchants":     top,
 	})
 }
-
-//
-//func (app *Application) Layout(c echo.Context) error {
-//	data := map[string]interface{}{
-//		"content": "huzzah, this is the beans",
-//	}
-//	return c.Render(http.StatusOK, "budget", data)
-//}

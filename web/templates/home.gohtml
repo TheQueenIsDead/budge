@@ -9,29 +9,6 @@
         </div>
     </div>
 
-{{/*    <div class="row">*/}}
-{{/*        <div class="card">*/}}
-{{/*            <div class="card-body">*/}}
-{{/*                <h5 class="card-title">Upload</h5>*/}}
-{{/*                <p class="card-text">*/}}
-{{/*                    Select a file to start reporting on your spending.*/}}
-{{/*                </p>*/}}
-{{/*                <form id='form' hx-encoding='multipart/form-data' hx-post='/upload'>*/}}
-{{/*                    <input class="form-control" type='file' name='file'>*/}}
-{{/*                    <button class="form-control"> Upload </button>*/}}
-{{/*                    <progress id='progress' value='0' max='100'></progress>*/}}
-{{/*                </form>*/}}
-{{/*                <script>*/}}
-{{/*                    htmx.on('#form', 'htmx:xhr:progress', function(evt) {*/}}
-{{/*                        htmx.find('#progress').setAttribute('value', evt.detail.loaded/evt.detail.total * 100)*/}}
-{{/*                    });*/}}
-{{/*                </script>*/}}
-{{/*            </div>*/}}
-{{/*        </div>*/}}
-{{/*    </div>*/}}
-
-
-
     <div class="row justify-content-center">
         <div class="col-6">
         <form id='form' class="form" hx-encoding='multipart/form-data' hx-post='/upload'>
@@ -41,10 +18,6 @@
             <div class="form-group">
                 <button class="btn-primary btn form-control"> Upload </button>
             </div>
-    {{/*        <div class="form-group mb-2">*/}}
-    {{/*            <progress id='progress' class="progress" value='0' max='100'></progress>*/}}
-    {{/*        </div>*/}}
-
         </form>
         <script>
             htmx.on('#form', 'htmx:xhr:progress', function(evt) {
@@ -56,10 +29,6 @@
 
     <hr>
 
-    {{/*TODO: Add the diff in here and make this look better aestheticaly*/}}
-
-
-{{/*    <div class="container">*/}}
     <div class="container">
         <div class="row">
             <div class="col-12 col-md-6 d-flex flex-column justify-content-between">
@@ -75,14 +44,11 @@
             </div>
 
             <div class="col-12 col-md-6">
-{{/*                <canvas style="max-width: 400px; height: 250px" id="chart"></canvas>*/}}
-                <canvas id="chart" style="min-width: 300px"></canvas>
+                <canvas id="chart" style="min-width: 300px; max-width: 400px"></canvas>
             </div>
         </div>
 
     </div>
-
-
 
     <hr/>
 
