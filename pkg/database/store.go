@@ -29,10 +29,7 @@ func NewStore() (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Ensure this is called on server close.
-	//defer db.Close()
 
-	// TODO: Create buckets in a transaction.
 	for _, bucket := range buckets.All() {
 		err := db.Update(func(tx *bolt.Tx) error {
 			_, err := tx.CreateBucketIfNotExists(bucket)
