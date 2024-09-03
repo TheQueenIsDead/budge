@@ -6,6 +6,7 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	bolt "go.etcd.io/bbolt"
+	"log/slog"
 )
 
 type AccountStore interface {
@@ -17,8 +18,9 @@ type AccountStore interface {
 }
 
 type AccountStorer struct {
-	db     *bolt.DB
 	bucket []byte
+	db     *bolt.DB
+	logger *slog.Logger
 }
 
 var _ AccountStore = (*AccountStorer)(nil)
@@ -27,6 +29,7 @@ func NewAccountStorer(db *bolt.DB) *AccountStorer {
 	return &AccountStorer{
 		db:     db,
 		bucket: buckets.AccountBucket,
+		logger: &slog.Logger{},
 	}
 }
 

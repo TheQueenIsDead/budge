@@ -1,34 +1,59 @@
 {{define "home"}}
 <div class="container">
     <div class="row">
-        <div class="starter-template">
-            <h1>Budge</h1>
-            <p class="lead">Upload files exported as CSV from your bank.<br> Analyse spending trends and predict future savings.</p>
+        <div class="col">
+            <div class="starter-template">
+                <h1>Budge</h1>
+                <p class="lead">Upload files exported as CSV from your bank.<br> Analyse spending trends and predict future savings.</p>
+            </div>
         </div>
     </div>
-</div>
-<div class="container">
-{{/*    TODO: Add errror handling when upload fails.*/}}
-    <div class="row">
-        <div class="col">
-        <form id='form' hx-encoding='multipart/form-data' hx-post='/upload'>
-            <input type='file' name='file'>
-            <button>
-                Upload
-            </button>
-            <progress id='progress' value='0' max='100'></progress>
+
+    <div class="row justify-content-center">
+        <div class="col-6">
+        <form id='form' class="form" hx-encoding='multipart/form-data' hx-post='/upload'>
+            <div class="form-group mb-2">
+                <input class="form-control" type='file' name='file'>
+            </div>
+            <div class="form-group">
+                <button class="btn-primary btn form-control"> Upload </button>
+            </div>
         </form>
         <script>
             htmx.on('#form', 'htmx:xhr:progress', function(evt) {
                 htmx.find('#progress').setAttribute('value', evt.detail.loaded/evt.detail.total * 100)
             });
         </script>
+        </div>
     </div>
+
+    <hr>
+
+    <div class="container">
+        <div class="row">
+            <div class="col-12 col-md-6 d-flex flex-column justify-content-between">
+                <h3>
+                    <i class="bi bi-graph-up text-success"> ${{ .incomingString }} </i>
+                </h3>
+                <h3>
+                    <i class="bi bi-graph-down text-danger"> ${{ .outgoingString }} </i>
+                </h3>
+                <h3>
+                    <i class="bi bi-plus-slash-minus"> Diff </i>
+                </h3>
+            </div>
+
+            <div class="col-12 col-md-6">
+                <canvas id="chart" style="min-width: 300px; max-width: 400px"></canvas>
+            </div>
+        </div>
+
     </div>
-</div>
-<div class="container">
+
+    <hr/>
+
     <div class="row">
-        <div class="col-sm-3">
+        <div class="col">
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">Accounts</h5>
@@ -37,7 +62,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-3">
+        <div class="col">
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">Merchants</h5>
@@ -46,7 +71,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-3">
+        <div class="col">
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">Transactions</h5>
@@ -56,5 +81,71 @@
             </div>
         </div>
     </div>
+
+
+    <hr>
+
+    {{/*TODO: Instead of showing this in a table, we could use progress bars to display relative spends.*/}}
+    <h1> Top Merchants </h1>
+    <table class="table">
+        <thead>
+        <tr>
+            <th>Merchant</th>
+            <th>Total</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{ range .topMerchants }}
+            <tr>
+                <td>{{ .Merchant }}</td>
+                <td>{{ .Total | printf "%.2f" }}</td>
+            </tr>
+        {{ end }}
+        </tbody>
+    </table>
 </div>
+
+
+<script>
+    const data = {
+        labels: [
+            'Incoming',
+            'Outgoing'
+        ],
+        datasets: [{
+            label: 'Expenditure',
+            data: [{{.incoming}}, {{.outgoing}}],
+            backgroundColor: [
+                'rgb(26, 188, 156)',
+                'rgb(255, 205, 52)'
+            ],
+            hoverOffset: 4,
+            circumference: 180,
+            rotation: -90
+        }]
+    };
+    const config = {
+        type: 'doughnut',
+        data: data,
+        options: {
+            layout: {
+                padding: {
+                    bottom: -200
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: "Incoming vs Outgoing"
+                }
+            },
+            legend: {
+                display: false,
+            }
+        }
+    };
+
+    new Chart(document.getElementById('chart'), config);
+</script>
+
 {{end}}

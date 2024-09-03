@@ -34,6 +34,11 @@ type Merchant struct {
 	Account string
 }
 
+type MerchantTotal struct {
+	Merchant string
+	Total    float64
+}
+
 type TransactionType int
 
 const (
@@ -52,4 +57,13 @@ type Transaction struct {
 
 func (t *Transaction) String() string {
 	return fmt.Sprintf("$%.2f", float64(t.Value)/float64(t.Precision))
+}
+
+func (t *Transaction) Float() float64 {
+	res := float64(t.Value) / float64(t.Precision)
+	return res
+}
+
+func (t *Transaction) Add(tx *Transaction) float64 {
+	return float64(t.Value+tx.Value) / float64(t.Precision)
 }
