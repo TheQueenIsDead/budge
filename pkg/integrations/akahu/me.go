@@ -1,4 +1,4 @@
-package pkg
+package akahu
 
 import (
 	"encoding/json"
@@ -16,7 +16,7 @@ type Me struct {
 	} `json:"item"`
 }
 
-func (a AkahuClient) Me() {
+func (a *AkahuClient) Me() {
 	res, err := a.Get("/me")
 	if err != nil {
 		return

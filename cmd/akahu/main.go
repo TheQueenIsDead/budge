@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/TheQueenIsDead/akahu/pkg"
 	log "github.com/sirupsen/logrus"
 	"os"
 )
@@ -16,13 +15,13 @@ func main() {
 		return
 	}
 
-	akahu := pkg.NewClient(
-		pkg.WithApptoken(appToken),
-		pkg.WithUserToken(userToken),
+	client := akahu.NewClient(
+		akahu.WithApptoken(appToken),
+		akahu.WithUserToken(userToken),
 	)
 
-	akahu.Me()
-	accounts := akahu.Accounts()
+	client.Me()
+	accounts := client.Accounts()
 	for _, a := range accounts.Items {
 		fmt.Println(a)
 	}

@@ -3,14 +3,15 @@ package pkg
 import (
 	"github.com/TheQueenIsDead/budge/pkg/application"
 	"github.com/TheQueenIsDead/budge/pkg/database"
-
+	"github.com/TheQueenIsDead/budge/pkg/integrations"
 	"log/slog"
 )
 
 type Budge struct {
-	Application *application.Application
-	Store       *database.Store
-	Logger      *slog.Logger
+	Application  *application.Application
+	Store        *database.Store
+	Logger       *slog.Logger
+	Integrations *integrations.Integrations
 }
 
 func NewBudge() (*Budge, error) {
@@ -23,7 +24,9 @@ func NewBudge() (*Budge, error) {
 		return nil, err
 	}
 
-	app, err := application.NewApplication(store)
+	integrations := integrations.NewIntegrations()
+
+	app, err := application.NewApplication(store, integrations)
 	if err != nil {
 		logger.Error(err.Error())
 		return nil, err

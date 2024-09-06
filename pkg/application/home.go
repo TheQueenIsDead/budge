@@ -30,7 +30,10 @@ func topMerchants(transactions []models.Transaction, n int) []models.MerchantTot
 		return top[i].Total > top[j].Total
 	})
 
-	return top[:n]
+	if len(top) >= n {
+		return top[:n]
+	}
+	return top[:]
 }
 
 func (app *Application) Home(c echo.Context) error {

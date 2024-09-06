@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"github.com/TheQueenIsDead/budge/pkg/database"
+	"github.com/TheQueenIsDead/budge/pkg/integrations"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 	"html/template"
@@ -12,13 +13,16 @@ import (
 )
 
 type Application struct {
-	http  *echo.Echo
-	store *database.Store
+	http         *echo.Echo
+	store        *database.Store
+	integrations *integrations.Integrations
 }
 
-func NewApplication(store *database.Store) (*Application, error) {
+func NewApplication(store *database.Store, integrations *integrations.Integrations) (*Application, error) {
 
 	app := new(Application)
+
+	app.integrations = integrations
 
 	app.store = store
 	app.http = echo.New()
@@ -38,6 +42,7 @@ func NewApplication(store *database.Store) (*Application, error) {
 
 	app.http.Renderer = t
 	app.http.GET("/", app.Home)
+	app.http.GET("/settings", app.Settings)
 	app.http.GET("/merchants", app.ListMerchants)
 	app.http.GET("/merchants/:id", app.GetMerchant)
 	app.http.GET("/accounts", app.ListAccounts)

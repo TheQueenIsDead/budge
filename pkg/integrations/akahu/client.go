@@ -1,18 +1,26 @@
-package pkg
+package akahu
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 )
 
 type AkahuClient struct {
-	BaseURL   string
-	UserToken string
-	AppToken  string
+	BaseURL   string `json: json:"baseURL"`
+	UserToken string `json: json:"userToken"`
+	AppToken  string `json: json:"appToken"`
 }
 
 type AkahuOption func(*AkahuClient)
+
+func (a *AkahuClient) Config() map[string]interface{} {
+	var config map[string]interface{}
+	bytes, _ := json.Marshal(a)
+	json.Unmarshal(bytes, &config)
+	return config
+}
 
 func NewClient(options ...func(client *AkahuClient)) *AkahuClient {
 	client := &AkahuClient{
