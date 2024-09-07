@@ -42,6 +42,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	app.http.Renderer = t
 	app.http.GET("/", app.Home)
+	app.http.GET("/inventory", app.Inventory)
 	app.http.GET("/settings", app.Settings)
 	app.http.GET("/merchants", app.ListMerchants)
 	app.http.GET("/merchants/:id", app.GetMerchant)

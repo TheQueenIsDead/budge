@@ -142,3 +142,20 @@ func (t *Transaction) Float() float64 {
 func (t *Transaction) Add(tx *Transaction) float64 {
 	return t.Amount + tx.Amount
 }
+
+type Inventory struct {
+	Id          string    `json:"_id"`
+	CreatedAt   time.Time `json:"created_at"`
+	Description string    `json:"description"`
+	Cost        float64   `json:"amount"`
+	Category    string    `json:"type"`
+	// TODO: Upload media, like receipts
+}
+
+func (i *Inventory) Key() []byte {
+	return []byte(i.Id)
+}
+
+func (i *Inventory) Value() ([]byte, error) {
+	return json.Marshal(i)
+}

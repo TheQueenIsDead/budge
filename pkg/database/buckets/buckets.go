@@ -2,6 +2,7 @@ package buckets
 
 var (
 	AccountBucket     = []byte("accounts")
+	InventoryBucket   = []byte("inventory")
 	MerchantBucket    = []byte("merchants")
 	TransactionBucket = []byte("transactions")
 )
@@ -10,6 +11,7 @@ var (
 func All() [][]byte {
 	return [][]byte{
 		AccountBucket,
+		InventoryBucket,
 		MerchantBucket,
 		TransactionBucket,
 	}
