@@ -10,7 +10,9 @@ import (
 type Store struct {
 	db *bolt.DB
 	//logger       *slog.Logger // TODO: Use me
+
 	Accounts     AccountStore
+	Inventory    InventoryStore
 	Merchants    MerchantStore
 	Transactions TransactionStore
 	Settings     SettingsStore
@@ -39,12 +41,14 @@ func NewStore() (*Store, error) {
 	}
 
 	accountStore := NewAccountStorer(db)
+	inventoryStore := NewInventoryStorer(db)
 	merchantStore := NewMerchantStorer(db)
 	transactionStore := NewTransactionStorer(db)
 	settingsStore := NewSettingsStorer(db)
 	return &Store{
 		db:           db,
 		Accounts:     accountStore,
+		Inventory:    inventoryStore,
 		Merchants:    merchantStore,
 		Transactions: transactionStore,
 		Settings:     settingsStore,
