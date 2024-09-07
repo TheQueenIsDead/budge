@@ -35,8 +35,7 @@ func NewAccountStorer(db *bolt.DB) *AccountStorer {
 
 func (s *AccountStorer) Count() (int, error) {
 	var count int
-	var err error
-	err = s.db.View(func(tx *bolt.Tx) error {
+	err := s.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(s.bucket)
 		if b == nil {
 			return errors.New("no account bucket")
@@ -83,9 +82,8 @@ func (s *AccountStorer) List() ([]models.Account, error) {
 }
 
 func (s *AccountStorer) Put(a models.Account) (string, error) {
-	var err error
 	var key, value []byte
-	err = s.db.Update(func(tx *bolt.Tx) (txErr error) {
+	err := s.db.Update(func(tx *bolt.Tx) (txErr error) {
 		b := tx.Bucket(s.bucket)
 		key = a.Key()
 		value, txErr = a.Value()

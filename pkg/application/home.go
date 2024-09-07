@@ -40,8 +40,17 @@ func (app *Application) Home(c echo.Context) error {
 	var err error
 
 	accountCount, err = app.store.Accounts.Count()
+	if err != nil {
+		return err
+	}
 	transactionCount, err = app.store.Transactions.Count()
+	if err != nil {
+		return err
+	}
 	merchantCount, err = app.store.Merchants.Count()
+	if err != nil {
+		return err
+	}
 
 	var transactions []models.Transaction
 	transactions, err = app.store.Transactions.List()

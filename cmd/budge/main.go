@@ -13,6 +13,9 @@ func main() {
 	err = budge.Start()
 	if err != nil {
 		budge.Logger.Error(err.Error())
-		budge.Teardown()
+		err := budge.Teardown()
+		if err != nil {
+			panic(err)
+		}
 	}
 }

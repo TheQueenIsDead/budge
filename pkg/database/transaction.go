@@ -31,8 +31,7 @@ func NewTransactionStorer(db *bolt.DB) *TransactionStorer {
 
 func (s *TransactionStorer) Count() (int, error) {
 	var count int
-	var err error
-	err = s.db.View(func(tx *bolt.Tx) error {
+	err := s.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(s.bucket)
 		if b == nil {
 			return errors.New("no transaction bucket")
@@ -81,9 +80,8 @@ func (s *TransactionStorer) List() ([]models.Transaction, error) {
 }
 
 func (s *TransactionStorer) Put(t models.Transaction) (string, error) {
-	var err error
 	var key, value []byte
-	err = s.db.Update(func(tx *bolt.Tx) (txErr error) {
+	err := s.db.Update(func(tx *bolt.Tx) (txErr error) {
 		b := tx.Bucket(s.bucket)
 		key = t.Key()
 		value, txErr = t.Value()
