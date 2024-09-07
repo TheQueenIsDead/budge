@@ -8,7 +8,10 @@ import (
 func (app *Application) Settings(c echo.Context) error {
 
 	config := app.integrations.Config()
-	accounts := app.integrations.AkahuAccounts()
+	accounts, err := app.integrations.AkahuAccounts()
+	if err != nil {
+		return err
+	}
 	return c.Render(http.StatusOK, "settings", map[string]interface{}{
 		"config":   config,
 		"accounts": accounts,

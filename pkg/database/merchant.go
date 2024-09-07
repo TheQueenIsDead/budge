@@ -32,8 +32,7 @@ func NewMerchantStorer(db *bolt.DB) *MerchantStorer {
 
 func (s *MerchantStorer) Count() (int, error) {
 	var count int
-	var err error
-	err = s.db.View(func(tx *bolt.Tx) error {
+	err := s.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(s.bucket)
 		if b == nil {
 			return errors.New("no merchant bucket")
@@ -100,9 +99,8 @@ func (s *MerchantStorer) List() ([]models.Merchant, error) {
 }
 
 func (s *MerchantStorer) Put(m models.Merchant) (string, error) {
-	var err error
 	var key, value []byte
-	err = s.db.Update(func(tx *bolt.Tx) (txErr error) {
+	err := s.db.Update(func(tx *bolt.Tx) (txErr error) {
 		b := tx.Bucket(s.bucket)
 		key = m.Key()
 		value, txErr = m.Value()

@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 	bolt "go.etcd.io/bbolt"
-	"log/slog"
 	"time"
 )
 
 type Store struct {
-	db           *bolt.DB
-	logger       *slog.Logger
+	db *bolt.DB
+	//logger       *slog.Logger // TODO: Use me
 	Accounts     AccountStore
 	Merchants    MerchantStore
 	Transactions TransactionStore

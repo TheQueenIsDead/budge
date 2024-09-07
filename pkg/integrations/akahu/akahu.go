@@ -9,9 +9,9 @@ import (
 )
 
 type AkahuClient struct {
-	BaseURL   string `json: json:"baseURL"`
-	UserToken string `json: json:"userToken"`
-	AppToken  string `json: json:"appToken"`
+	BaseURL   string `json:"baseURL"`
+	UserToken string `json:"userToken"`
+	AppToken  string `json:"appToken"`
 }
 
 type AkahuOption func(*AkahuClient)
@@ -19,7 +19,10 @@ type AkahuOption func(*AkahuClient)
 func (a *AkahuClient) Config() map[string]interface{} {
 	var config map[string]interface{}
 	bytes, _ := json.Marshal(a)
-	json.Unmarshal(bytes, &config)
+	err := json.Unmarshal(bytes, &config)
+	if err != nil {
+		return nil
+	}
 	return config
 }
 
@@ -73,17 +76,19 @@ func (a *AkahuClient) Get(path string) (*http.Response, error) {
 }
 
 // TODO: Paginate all transactions
-func (a *AkahuClient) GetTransactions() *AkahuTransactions {
+func (a *AkahuClient) GetTransactions() (*AkahuTransactions, error) {
 	res, err := a.Get("/transactions")
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	body, _ := io.ReadAll(res.Body)
 	var transactions *AkahuTransactions
-	json.Unmarshal(body, &transactions)
-	//fmt.Println(string(body))
-	return transactions
+	err = json.Unmarshal(body, &transactions)
+	if err != nil {
+		return nil, err
+	}
+	return transactions, nil
 
 }
 
@@ -91,27 +96,34 @@ func (a *AkahuClient) GetTransactions() *AkahuTransactions {
 // TODO: Add support for pagination
 // TIP: To access subsequent pages, simply take the cursor.next value from each response and make a new request, supplying this value using the cursor query parameter. In response, you will receive the next page of results, along with a new cursor.next value.
 
-func (a *AkahuClient) GetAccounts() *AkahuAccounts {
+func (a *AkahuClient) GetAccounts() (*AkahuAccounts, error) {
 	res, err := a.Get("/accounts")
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	body, _ := io.ReadAll(res.Body)
 	var accounts *AkahuAccounts
-	json.Unmarshal(body, &accounts)
-	return accounts
+	err = json.Unmarshal(body, &accounts)
+	if err != nil {
+		return nil, err
+	}
+	return accounts, nil
 
 }
 
-func (a *AkahuClient) Me() {
+func (a *AkahuClient) Me() (*AkahuMe, error) {
 	res, err := a.Get("/me")
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	body, _ := io.ReadAll(res.Body)
 	var me *AkahuMe
-	json.Unmarshal(body, &me)
-	fmt.Println(me) // TODO: Actually return something
+	err = json.Unmarshal(body, &me)
+	if err != nil {
+		return nil, err
+	}
+
+	return me, nil
 }
