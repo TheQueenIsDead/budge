@@ -22,7 +22,10 @@ func main() {
 	)
 
 	client.Me()
-	accounts := client.GetAccounts()
+	accounts, err := client.GetAccounts()
+	if err != nil {
+		panic(err)
+	}
 	for _, a := range accounts.Items {
 		fmt.Println(a)
 	}

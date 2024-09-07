@@ -42,10 +42,16 @@ func (i *Integrations) Config() map[string]interface{} {
 
 func (i *Integrations) SyncAkahu() error {
 
-	accounts := i.AkahuAccounts().Items
-	transactions := i.AkahuTransactions().Items
+	accounts, err := i.AkahuAccounts()
+	if err != nil {
+		return err
+	}
+	transactions, err := i.AkahuTransactions()
+	if err != nil {
+		return err
+	}
 
-	for _, account := range accounts {
+	for _, account := range accounts.Items {
 		_, err := i.store.Accounts.Put(account)
 		if err != nil {
 			return err
@@ -54,7 +60,7 @@ func (i *Integrations) SyncAkahu() error {
 
 	var merchants []models.Merchant
 
-	for _, transaction := range transactions {
+	for _, transaction := range transactions.Items {
 
 		tx := models.Transaction(transaction)
 		_, err := i.store.Transactions.Put(transaction)
@@ -81,10 +87,10 @@ func (i *Integrations) SyncAkahu() error {
 
 }
 
-func (i *Integrations) AkahuAccounts() *akahu.AkahuAccounts {
+func (i *Integrations) AkahuAccounts() (*akahu.AkahuAccounts, error) {
 	return i.akahu.GetAccounts()
 }
 
-func (i *Integrations) AkahuTransactions() *akahu.AkahuTransactions {
+func (i *Integrations) AkahuTransactions() (*akahu.AkahuTransactions, error) {
 	return i.akahu.GetTransactions()
 }
