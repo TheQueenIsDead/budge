@@ -4,16 +4,23 @@
     <table class="table">
         <thead>
         <tr>
-            <th> Number </th>
-            <th> Bank </th>
+            <th> Connection </th>
+            <th> Name </th>
+            <th> Account </th>
+            <th> Type </th>
+            <th> Loan Type </th>
+            <th> Loan Interest </th>
         </tr>
         </thead>
-        <tbody>
-        {{- /*gotype:github.com/TheQueenIsDead/budge/pkg.Account*/ -}}
+        <tbody >
         {{ range . }}
             <tr>
-                <td>{{ .Number }}</td>
-                <td>{{ .Bank }}</td>
+                <td> <img class="rounded-circle" style="height:1em; margin-top: -0.25em" src="{{.Connection.Logo}}" /> {{ .Connection.Name }}</td>
+                <td>{{ .Name }}</td>
+                <td>{{ .FormattedAccount }}</td>
+                <td>{{ .Type }}</td>
+                <td>{{ .Meta.LoanDetails.Interest.Type }}</td>
+                <td>{{ .Meta.LoanDetails.Interest.Rate }}%</td>
             </tr>
         {{ end }}
         </tbody>

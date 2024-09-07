@@ -83,19 +83,16 @@ func (s *AccountStorer) List() ([]models.Account, error) {
 }
 
 func (s *AccountStorer) Put(a models.Account) (string, error) {
-	// TODO: Catch err
 	var err error
-	err = s.db.Update(func(tx *bolt.Tx) error {
+	var key, value []byte
+	err = s.db.Update(func(tx *bolt.Tx) (txErr error) {
 		b := tx.Bucket(s.bucket)
-		buf, err := json.Marshal(a)
-		if err != nil {
-			return err
+		key = a.Key()
+		value, txErr = a.Value()
+		if txErr != nil {
+			return
 		}
-		err = b.Put([]byte(a.Number), buf)
-		if err != nil {
-			return err
-		}
-		return nil
+		return b.Put(key, value)
 	})
-	return "", err
+	return string(key), err
 }

@@ -1,37 +1,81 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/scylladb/go-set/strset"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+	"regexp"
+	"strings"
 	"time"
 )
 
-type Bank int
-
-const (
-	Kiwibank Bank = iota
-)
-
-func (b Bank) String() string {
-	return [...]string{"Kiwibank"}[b]
+type Account struct {
+	Id          string `json:"_id"`
+	Credentials string `json:"_credentials"`
+	Connection  struct {
+		Name string `json:"name"`
+		Logo string `json:"logo"`
+		Id   string `json:"_id"`
+	} `json:"connection"`
+	Name             string   `json:"name"`
+	FormattedAccount string   `json:"formatted_account"`
+	Status           string   `json:"status"`
+	Type             string   `json:"type"`
+	Attributes       []string `json:"attributes"`
+	Balance          struct {
+		Currency  string  `json:"currency"`
+		Current   float64 `json:"current"`
+		Available float64 `json:"available"`
+		Overdrawn bool    `json:"overdrawn"`
+	} `json:"balance"`
+	Meta struct {
+		Holder      string `json:"holder"`
+		LoanDetails struct {
+			Purpose  string `json:"purpose"`
+			Type     string `json:"type"`
+			Interest struct {
+				Type string  `json:"type"`
+				Rate float64 `json:"rate"`
+			} `json:"interest"`
+			IsInterestOnly bool `json:"is_interest_only"`
+			Repayment      struct {
+				Frequency  string    `json:"frequency"`
+				NextAmount float64   `json:"next_amount"`
+				NextDate   time.Time `json:"next_date,omitempty"`
+			} `json:"repayment"`
+		} `json:"loan_details,omitempty"`
+	} `json:"meta"`
+	Refreshed struct {
+		Balance      time.Time `json:"balance"`
+		Meta         time.Time `json:"meta"`
+		Transactions time.Time `json:"transactions"`
+		Party        time.Time `json:"party"`
+	} `json:"refreshed"`
 }
 
-type Account struct {
-	Bank         Bank
-	Number       string
-	Transactions []Transaction
+func (a *Account) Key() []byte {
+	return []byte(a.Id)
+}
+
+func (a *Account) Value() ([]byte, error) {
+	return json.Marshal(a)
 }
 
 type Merchant struct {
-	Id uint64
-	// Description is the raw description of the merchant as parsed directly from a CSV
-	Description string
-	// Name is the display / friendly name for the merchant.
-	// For example, if "Pak N Save Wainoni Wainoni ;" is the description, then this will be "Pak N Save"
-	Name string
-	// TODO: Add the ability to set categories for a merchant
-	Category string
-	// If the merchant was not a POS payment, and was a bank transfer, then we will have a receiving bank account number.
-	Account string
+	Id      string `json:"_id"`
+	Name    string `json:"name"`
+	Logo    string `json:"logo"`
+	Website string `json:"website"`
+}
+
+func (m *Merchant) Key() []byte {
+	return []byte(m.Id)
+}
+
+func (m *Merchant) Value() ([]byte, error) {
+	return json.Marshal(m)
 }
 
 type MerchantTotal struct {
@@ -39,31 +83,62 @@ type MerchantTotal struct {
 	Total    float64
 }
 
-type TransactionType int
-
-const (
-	TransactionTypeDebit TransactionType = iota
-	TransactionTypeCredit
-)
-
 type Transaction struct {
-	Id        uint64
-	Date      time.Time
-	Merchant  string
-	Precision uint8
-	Type      TransactionType
-	Value     uint32
+	Id          string    `json:"_id"`
+	Account     string    `json:"_account"`
+	Connection  string    `json:"_connection"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	Date        time.Time `json:"date"`
+	Description string    `json:"description"`
+	Amount      float64   `json:"amount"`
+	Balance     int       `json:"balance"`
+	Type        string    `json:"type"`
+}
+
+func (t *Transaction) Key() []byte {
+	return []byte(t.Id)
+}
+
+func (t *Transaction) Value() ([]byte, error) {
+	return json.Marshal(t)
+}
+
+func (t *Transaction) Merchant() string {
+
+	// Try tidy up the memo into a passable name
+	name := ""
+	parts := strings.Split(t.Description, " ")
+	dropParts := strset.New("POS", "W/D", ";")
+	for _, part := range parts {
+		if dropParts.Has(part) {
+			continue
+		}
+		caser := cases.Title(language.English)
+		name = fmt.Sprintf("%s %s", name, caser.String(part))
+	}
+
+	re := regexp.MustCompile(`-[0-9]{2}:[0-9]{2}`)
+	name = re.ReplaceAllString(name, "")
+
+	name = strings.Replace(name, ";", "", -1)
+
+	if name != "" {
+		return name
+	}
+
+	return t.Description
+
 }
 
 func (t *Transaction) String() string {
-	return fmt.Sprintf("$%.2f", float64(t.Value)/float64(t.Precision))
+	return fmt.Sprintf("$%.2f", t.Amount)
 }
 
 func (t *Transaction) Float() float64 {
-	res := float64(t.Value) / float64(t.Precision)
-	return res
+	return t.Amount
 }
 
 func (t *Transaction) Add(tx *Transaction) float64 {
-	return float64(t.Value+tx.Value) / float64(t.Precision)
+	return t.Amount + tx.Amount
 }

@@ -8,55 +8,75 @@
     <div id="akahu">
 
         <div class="row">
-        <picture>
-            <source srcset="assets/akahu.svg" type="image/svg+xml">
-            <img src="assets/akahu.svg" class="img-fluid img-thumbnail rounded-circle" alt="" style="max-width: 50px">
-        </picture>
-        <h2>Akahu</h2>
+            <picture>
+                <source srcset="assets/akahu.svg" type="image/svg+xml">
+
+            </picture>
+            <h2>Akahu <img src="assets/akahu.svg" class="img-fluid rounded-circle" alt="" style="height: 1em; margin-top: -0.25em"></h2>
+            <p>
+                Akahu is New Zealand's open finance platform. We use Akahu to fetch transaction data from your connected bank account. Find out <a href="https://www.akahu.nz/consumer"> more about Akahu here.</a>
+            </p>
         </div>
 
-        <p>
-            Akahu is New Zealand's open finance platform. We use Akahu to fetch transaction data from your connected bank account. Find out <a href="https://www.akahu.nz/consumer"> more about Akahu here.</a>
-        </p>
+        {{/* Akahu Client Config */}}
+        <h3>Config</h3>
+        <div class="row">
+            <div class="input-group mb-3">
+                <label for="akahuUserToken" class="input-group-text">App Token</label>
+                <input class="form-control" id="akahuUserToken" name="akahuUserToken" placeholder="" value="{{ .config.akahu.AppToken }}" type="password">
+                <span class="input-group-text">
+                    <i class="bi bi-eye-fill" id="toggleUserToken" style="cursor: pointer">  </i>
+                </span>
+            </div>
 
-        <div class="input-group mb-3">
-            <label for="akahuUserToken" class="input-group-text">App Token</label>
-            <input class="form-control" id="akahuUserToken" name="akahuUserToken" placeholder="" value="{{ .akahu.AppToken }}" type="password">
-            <span class="input-group-text">
-                <i class="bi bi-eye-fill" id="toggleUserToken" style="cursor: pointer">  </i>
-            </span>
+            <div class="input-group mb-3">
+                <label for="akahuAppToken" class="input-group-text"> User Token </label>
+                <input class="form-control" id="akahuAppToken" name="akahuAppToken" placeholder="" value="{{ .config.akahu.UserToken }}" type="password">
+                <span class="input-group-text">
+                    <i class="bi bi-eye-fill" id="toggleAppToken" style="cursor: pointer">  </i>
+                </span>
+            </div>
+
+            <div class="row">
+                <div class="col-md-2 col-12">
+                    <button class="btn btn-primary" hx-post="/integrations/akahu/sync"> Sync </button>
+                </div>
+                <div class="col-md-2 col-12 ml-auto text-right disabled">
+                    <button class="btn disabled"> Save </button>
+                </div>
+            </div>
         </div>
 
-        <div class="input-group mb-3">
-            <label for="akahuAppToken" class="input-group-text"> User Token </label>
-            <input class="form-control" id="akahuAppToken" name="akahuAppToken" placeholder="" value="{{ .akahu.UserToken }}" type="password">
-            <span class="input-group-text">
-                <i class="bi bi-eye-fill" id="toggleAppToken" style="cursor: pointer">  </i>
-            </span>
-        </div>
+        <br>
+
+{{/*        TODO: Allow the ability to disconnect from the app**/}}
+        {{/* Akahu Connected Accounts*/}}
+        <h3>Connected Accounts</h3>
+        <ul class="list-group">
+            {{ range .accounts.Items }}
+            <li class="list-group-item"> <img class="rounded-circle" style="height:1em; margin-top: -0.25em" src="{{.Connection.Logo}}" /> {{ .FormattedAccount }}</li>
+            {{ end }}
+        </ul>
 
     </div>
 </div>
 
-    <script>
+<script>
+    // TODO: Rewrite in actionscript?
+    const toggle = function (evt) {
+        const field = document.querySelector(evt.currentTarget.toggleTarget);
+        const type = field.getAttribute("type") === "password" ? "text" : "password";
+        field.setAttribute("type", type);
+        this.classList.toggle('bi-eye-fill');
+        this.classList.toggle('bi-eye-slash-fill');
+    }
 
-        const toggle = function (evt) {
+    const toggleAppToken = document.querySelector("#toggleAppToken");
+    toggleAppToken.toggleTarget = "#akahuAppToken"
+    const toggleUserToken = document.querySelector("#toggleUserToken");
+    toggleUserToken.toggleTarget = "#akahuUserToken"
 
-            const field = document.querySelector(evt.currentTarget.toggleTarget);
-            const type = field.getAttribute("type") === "password" ? "text" : "password";
-            field.setAttribute("type", type);
-            // toggle the eye icon
-            this.classList.toggle('bi-eye-fill');
-            this.classList.toggle('bi-eye-slash-fill');
-        }
-
-        const toggleAppToken = document.querySelector("#toggleAppToken");
-        toggleAppToken.toggleTarget = "#akahuAppToken"
-        const toggleUserToken = document.querySelector("#toggleUserToken");
-        toggleUserToken.toggleTarget = "#akahuUserToken"
-
-        toggleAppToken.addEventListener("click", toggle, false)
-        toggleUserToken.addEventListener("click", toggle, false);
-
-    </script>
+    toggleAppToken.addEventListener("click", toggle, false)
+    toggleUserToken.addEventListener("click", toggle, false);
+</script>
 {{end}}

@@ -5,8 +5,8 @@
         <tr>
             <th> Date </th>
 {{/*            <th> Account Number </th>*/}}
-            <th> Merchant </th>
-            <th> Value </th>
+            <th> Description </th>
+            <th> Amount </th>
         </tr>
         </thead>
         <tbody>
@@ -15,8 +15,8 @@
             <tr>
                 <td>{{ .Date }}</td>
 {{/*                <td>{{ .Account.Number }}</td>*/}}
-                <td>{{ .Merchant }}</td>
-                <td>{{ .String }}</td>
+                <td>{{ .Description }}</td>
+                <td>{{ .Amount }}</td>
             </tr>
         {{ end }}
         </tbody>

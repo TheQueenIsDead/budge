@@ -47,11 +47,8 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.GET("/merchants/:id", app.GetMerchant)
 	app.http.GET("/accounts", app.ListAccounts)
 	app.http.GET("/transactions", app.ListTransactions)
-	//e.GET("/merchant/:id/edit", app.EditMerchant)
-	//e.PUT("/merchant/:id", app.PutMerchant)
-	//e.GET("/merchant/:id", app.GetMerchant)
 
-	app.http.POST("/upload", app.Upload)
+	app.http.POST("/integrations/akahu/sync", app.SyncAkahu)
 
 	app.http.Static("/assets", "./web/public")
 

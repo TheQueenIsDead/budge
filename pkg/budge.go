@@ -24,9 +24,10 @@ func NewBudge() (*Budge, error) {
 		return nil, err
 	}
 
-	integrations := integrations.NewIntegrations()
-
-	app, err := application.NewApplication(store, integrations)
+	app, err := application.NewApplication(
+		store,
+		integrations.NewIntegrations(store),
+	)
 	if err != nil {
 		logger.Error(err.Error())
 		return nil, err

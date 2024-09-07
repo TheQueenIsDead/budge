@@ -3,6 +3,7 @@ package akahu
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 )
@@ -69,4 +70,48 @@ func (a *AkahuClient) Get(path string) (*http.Response, error) {
 		URL:    url,
 		Header: header,
 	})
+}
+
+// TODO: Paginate all transactions
+func (a *AkahuClient) GetTransactions() *AkahuTransactions {
+	res, err := a.Get("/transactions")
+	if err != nil {
+		return nil
+	}
+
+	body, _ := io.ReadAll(res.Body)
+	var transactions *AkahuTransactions
+	json.Unmarshal(body, &transactions)
+	//fmt.Println(string(body))
+	return transactions
+
+}
+
+// TODO: Get transactions for a specific account
+// TODO: Add support for pagination
+// TIP: To access subsequent pages, simply take the cursor.next value from each response and make a new request, supplying this value using the cursor query parameter. In response, you will receive the next page of results, along with a new cursor.next value.
+
+func (a *AkahuClient) GetAccounts() *AkahuAccounts {
+	res, err := a.Get("/accounts")
+	if err != nil {
+		return nil
+	}
+
+	body, _ := io.ReadAll(res.Body)
+	var accounts *AkahuAccounts
+	json.Unmarshal(body, &accounts)
+	return accounts
+
+}
+
+func (a *AkahuClient) Me() {
+	res, err := a.Get("/me")
+	if err != nil {
+		return
+	}
+
+	body, _ := io.ReadAll(res.Body)
+	var me *AkahuMe
+	json.Unmarshal(body, &me)
+	fmt.Println(me) // TODO: Actually return something
 }

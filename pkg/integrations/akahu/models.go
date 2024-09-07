@@ -1,12 +1,36 @@
 package akahu
 
-import (
-	"encoding/json"
-	"io"
-	"time"
-)
+import "time"
 
-type Accounts struct {
+type AkahuTransactions struct {
+	Success bool `json:"success"`
+	Items   []struct {
+		Id          string    `json:"_id"`
+		Account     string    `json:"_account"`
+		Connection  string    `json:"_connection"`
+		CreatedAt   time.Time `json:"created_at"`
+		UpdatedAt   time.Time `json:"updated_at"`
+		Date        time.Time `json:"date"`
+		Description string    `json:"description"`
+		Amount      float64   `json:"amount"`
+		Balance     int       `json:"balance"`
+		Type        string    `json:"type"`
+	} `json:"items"`
+	Cursor struct {
+		Next string `json:"next"`
+	} `json:"cursor"`
+}
+
+type AkahuMe struct {
+	Success bool `json:"success"`
+	Item    struct {
+		Id              string    `json:"_id"`
+		AccessGrantedAt time.Time `json:"access_granted_at"`
+		Email           string    `json:"email"`
+	} `json:"item"`
+}
+
+type AkahuAccounts struct {
 	Success bool `json:"success"`
 	Items   []struct {
 		Id          string `json:"_id"`
@@ -51,17 +75,4 @@ type Accounts struct {
 			Party        time.Time `json:"party"`
 		} `json:"refreshed"`
 	} `json:"items"`
-}
-
-func (a *AkahuClient) Accounts() *Accounts {
-	res, err := a.Get("/accounts")
-	if err != nil {
-		return nil
-	}
-
-	body, _ := io.ReadAll(res.Body)
-	var accounts *Accounts
-	json.Unmarshal(body, &accounts)
-	return accounts
-
 }
