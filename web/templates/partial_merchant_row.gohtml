@@ -1,12 +1,12 @@
 {{ define "merchant_row" }}
-<tr>
-    <td>{{ .Name }}</td>
-    <td>{{ .Description }}</td>
-    <td>
-        <button class="btn danger"
-                hx-get="/merchant/{{ .ID }}/edit"
-                hx-trigger="edit"
-                onClick="let editing = document.querySelector('.editing')
+    <tr>
+        <td>{{ .Name }}</td>
+        <td>{{ .Description }}</td>
+        <td>
+            <button class="btn danger"
+                    hx-get="/merchant/{{ .ID }}/edit"
+                    hx-trigger="edit"
+                    onClick="let editing = document.querySelector('.editing')
                      if(editing) {
                        Swal.fire({title: 'Already Editing',
                                   showCancelButton: true,
@@ -21,8 +21,8 @@
                      } else {
                         htmx.trigger(this, 'edit')
                      }">
-            Edit
-        </button>
-    </td>
-</tr>
+                Edit
+            </button>
+        </td>
+    </tr>
 {{ end }}
