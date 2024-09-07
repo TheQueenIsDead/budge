@@ -12,6 +12,7 @@ type TransactionStore interface {
 	Delete(id string) error
 	Get(id string) (models.Transaction, error)
 	List() ([]models.Transaction, error)
+	ListByAccount(string) ([]models.Transaction, error)
 	Put(t models.Transaction) (string, error)
 }
 
@@ -65,6 +66,35 @@ func (s *TransactionStorer) List() ([]models.Transaction, error) {
 				return err
 			}
 			transactions = append(transactions, t)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return transactions, nil
+	}
+
+	return transactions, nil
+}
+
+func (s *TransactionStorer) ListByAccount(account string) ([]models.Transaction, error) {
+
+	var transactions []models.Transaction
+
+	err := s.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(s.bucket)
+		err := b.ForEach(func(k, v []byte) error {
+			var t models.Transaction
+			err := json.Unmarshal(v, &t)
+			if err != nil {
+				return err
+			}
+			if t.Account == account {
+				transactions = append(transactions, t)
+			}
 			return nil
 		})
 		if err != nil {

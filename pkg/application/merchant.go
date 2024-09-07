@@ -17,12 +17,12 @@ func (app *Application) GetMerchant(c echo.Context) error {
 		return c.HTML(500, err.Error())
 	}
 
-	return c.Render(http.StatusOK, "merchant.list", merchants)
+	return c.Render(http.StatusOK, "merchants", merchants)
 }
 
 func (app *Application) ListMerchants(c echo.Context) error {
 	merchants, _ := app.store.Merchants.List()
-	return c.Render(http.StatusOK, "merchant.list", merchants)
+	return c.Render(http.StatusOK, "merchants", merchants)
 }
 
 //func (app *Application) EditMerchant(c echo.Context) error {

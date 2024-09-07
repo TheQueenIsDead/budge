@@ -31,9 +31,6 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	// Setup HTTP server
 	tpl := template.Must(template.ParseGlob("web/templates/*.gohtml"))
-	tpl = template.Must(tpl.ParseGlob("web/templates/account/*.gohtml"))
-	tpl = template.Must(tpl.ParseGlob("web/templates/merchant/*.gohtml"))
-	tpl = template.Must(tpl.ParseGlob("web/templates/transaction/*.gohtml"))
 	t := &Template{
 		templates: tpl,
 	}

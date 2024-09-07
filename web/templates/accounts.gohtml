@@ -1,0 +1,33 @@
+{{ define "accounts" }}
+
+    {{if . }}
+        <table class="table">
+            <thead>
+            <tr>
+                <th> Connection</th>
+                <th> Name</th>
+                <th> Account</th>
+                <th> Type</th>
+                <th> Loan Type</th>
+                <th> Loan Interest</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{ range . }}
+                <tr>
+                    <td><img class="rounded-circle" style="height:1em; margin-top: -0.25em"
+                             src="{{.Connection.Logo}}"/> {{ .Connection.Name }}</td>
+                    <td>{{ .Name }}</td>
+                    <td>{{ .FormattedAccount }}</td>
+                    <td>{{ .Type }}</td>
+                    <td>{{ .Meta.LoanDetails.Interest.Type }}</td>
+                    <td>{{ .Meta.LoanDetails.Interest.Rate }}%</td>
+                </tr>
+            {{ end }}
+            </tbody>
+        </table>
+    {{else}}
+        <h2>No accounts imported.</h2>
+    {{end}}
+
+{{ end }}

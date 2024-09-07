@@ -1,138 +1,139 @@
 {{define "home"}}
-<div class="container">
-    <div class="row">
-        <div class="col">
-            <div class="starter-template">
-                <h1>Budge</h1>
-
-                <div class="row justify-content-center">
-                    <img class="img rounded-circle" style="max-height: 300px; max-width: 300px" src="/assets/budge.jpeg">
-                </div>
-
-                <p class="lead">
-                    Connect your accounts with Akahu.<br>
-                    Analyse spending trends and predict future savings.<br/>
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <hr>
-
     <div class="container">
         <div class="row">
-            <div class="col-12 col-md-6 d-flex flex-column justify-content-between">
-                <h3>
-                    <i class="bi bi-graph-up text-success"> ${{ .incomingString }} </i>
-                </h3>
-                <h3>
-                    <i class="bi bi-graph-down text-danger"> ${{ .outgoingString }} </i>
-                </h3>
-                <h3>
-                    <i class="bi bi-plus-slash-minus"> Diff </i>
-                </h3>
-            </div>
+            <div class="col">
+                <div class="starter-template">
+                    <h1>Budge</h1>
 
-            <div class="col-12 col-md-6">
-                <canvas id="chart" style="min-width: 300px; max-width: 400px"></canvas>
-            </div>
-        </div>
+                    <div class="row justify-content-center">
+                        <img class="img rounded-circle" style="max-height: 300px; max-width: 300px"
+                             src="/assets/budge.jpeg">
+                    </div>
 
-    </div>
-
-    <hr/>
-
-    <div class="row">
-        <div class="col">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Accounts</h5>
-                    <p class="card-text"> {{ .accountCount }}</p>
-                    <a href="/accounts" class="btn btn-primary">View</a>
+                    <p class="lead">
+                        Connect your accounts with Akahu.<br>
+                        Analyse spending trends and predict future savings.<br/>
+                    </p>
                 </div>
             </div>
         </div>
-        <div class="col">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Merchants</h5>
-                    <p class="card-text"> {{ .merchantCount }}</p>
-                    <a href="/merchants" class="btn btn-primary">View</a>
+
+        <hr>
+
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-md-6 d-flex flex-column justify-content-between">
+                    <h3>
+                        <i class="bi bi-graph-up text-success"> ${{ .incomingString }} </i>
+                    </h3>
+                    <h3>
+                        <i class="bi bi-graph-down text-danger"> ${{ .outgoingString }} </i>
+                    </h3>
+                    <h3>
+                        <i class="bi bi-plus-slash-minus"> Diff </i>
+                    </h3>
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <canvas id="chart" style="min-width: 300px; max-width: 400px"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+        <hr/>
+
+        <div class="row">
+            <div class="col">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Accounts</h5>
+                        <p class="card-text"> {{ .accountCount }}</p>
+                        <a href="/accounts" class="btn btn-primary">View</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Merchants</h5>
+                        <p class="card-text"> {{ .merchantCount }}</p>
+                        <a href="/merchants" class="btn btn-primary">View</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Transactions</h5>
+                        <p class="card-text"> {{ .transactionCount }}</p>
+                        <a href="/transactions" class="btn btn-primary">View</a>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Transactions</h5>
-                    <p class="card-text"> {{ .transactionCount }}</p>
-                    <a href="/transactions" class="btn btn-primary">View</a>
-                </div>
-            </div>
-        </div>
-    </div>
 
 
-    <hr>
+        <hr>
 
-    {{/*TODO: Instead of showing this in a table, we could use progress bars to display relative spends.*/}}
-    <h1> Top Merchants </h1>
-    <table class="table">
-        <thead>
-        <tr>
-            <th>Merchant</th>
-            <th>Total</th>
-        </tr>
-        </thead>
-        <tbody>
-        {{ range .topMerchants }}
+        {{/*TODO: Instead of showing this in a table, we could use progress bars to display relative spends.*/}}
+        <h1> Top Merchants </h1>
+        <table class="table">
+            <thead>
             <tr>
-                <td>{{ .Merchant }}</td>
-                <td>{{ .Total | printf "%.2f" }}</td>
+                <th>Merchant</th>
+                <th>Total</th>
             </tr>
-        {{ end }}
-        </tbody>
-    </table>
-</div>
+            </thead>
+            <tbody>
+            {{ range .topMerchants }}
+                <tr>
+                    <td>{{ .Merchant }}</td>
+                    <td>{{ .Total | printf "%.2f" }}</td>
+                </tr>
+            {{ end }}
+            </tbody>
+        </table>
+    </div>
 
 
-<script>
-    const data = {
-        labels: [
-            'Incoming',
-            'Outgoing'
-        ],
-        datasets: [{
-            label: 'Expenditure',
-            data: [{{.incoming}}, {{.outgoing}}],
-            backgroundColor: [
-                'rgb(26, 188, 156)',
-                'rgb(255, 205, 52)'
+    <script>
+        const data = {
+            labels: [
+                'Incoming',
+                'Outgoing'
             ],
-            hoverOffset: 4,
-            circumference: 180,
-            rotation: -90
-        }]
-    };
-    const config = {
-        type: 'doughnut',
-        data: data,
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                title: {
-                    display: true,
-                    text: "Incoming vs Outgoing"
+            datasets: [{
+                label: 'Expenditure',
+                data: [{{.incoming}}, {{.outgoing}}],
+                backgroundColor: [
+                    'rgb(26, 188, 156)',
+                    'rgb(255, 205, 52)'
+                ],
+                hoverOffset: 4,
+                circumference: 180,
+                rotation: -90
+            }]
+        };
+        const config = {
+            type: 'doughnut',
+            data: data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: "Incoming vs Outgoing"
+                    }
+                },
+                legend: {
+                    display: false,
                 }
-            },
-            legend: {
-                display: false,
             }
-        }
-    };
+        };
 
-    new Chart(document.getElementById('chart'), config);
-</script>
+        new Chart(document.getElementById('chart'), config);
+    </script>
 
 {{end}}
