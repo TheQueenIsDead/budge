@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/TheQueenIsDead/budge/pkg/integrations/akahu"
 	log "github.com/sirupsen/logrus"
 	"os"
 )
@@ -21,7 +22,7 @@ func main() {
 	)
 
 	client.Me()
-	accounts := client.Accounts()
+	accounts := client.GetAccounts()
 	for _, a := range accounts.Items {
 		fmt.Println(a)
 	}
