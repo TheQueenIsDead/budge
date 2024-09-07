@@ -7,9 +7,16 @@ import (
 
 func (app *Application) ListTransactions(c echo.Context) error {
 	transactions, err := app.store.Transactions.List()
-
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, err)
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	return c.Render(http.StatusOK, "transaction.list", transactions)
+	accounts, err := app.store.Accounts.List()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.Render(http.StatusOK, "transactions", map[string]interface{}{
+		"accounts":     accounts,
+		"transactions": transactions,
+	})
 }
