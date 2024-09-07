@@ -7,5 +7,5 @@ import (
 
 func (app *Application) ListAccounts(c echo.Context) error {
 	accounts, _ := app.store.Accounts.List()
-	return c.Render(http.StatusOK, "account.list", accounts)
+	return c.Render(http.StatusOK, "accounts", accounts)
 }
