@@ -22,18 +22,19 @@
         <h3>Config</h3>
         <div class="row">
             <div class="input-group mb-3">
-                <label for="akahuUserToken" class="input-group-text">App Token</label>
-                <input class="form-control" id="akahuUserToken" name="akahuUserToken" placeholder="" value="{{ .config.akahu.appToken }}" type="password">
+                <label for="akahuAppToken" class="input-group-text">App Token</label>
+                <input class="form-control" id="akahuAppToken" name="akahuUserToken" placeholder="" value="{{ .config.akahu.appToken }}" type="password">
                 <span class="input-group-text">
-                    <i class="bi bi-eye-fill" id="toggleUserToken" style="cursor: pointer">  </i>
+                    {{/* TODO: Toggle from bi-eye-fill to bi-eye-slash-fill at the same time. */}}
+                    <i class="bi bi-eye-fill" id="toggleAppToken" style="cursor: pointer" _="on click if #akahuAppToken.type is 'password' set #akahuAppToken.type to 'text' else set #akahuAppToken.type to 'password'">  </i>
                 </span>
             </div>
 
             <div class="input-group mb-3">
-                <label for="akahuAppToken" class="input-group-text"> User Token </label>
-                <input class="form-control" id="akahuAppToken" name="akahuAppToken" placeholder="" value="{{ .config.akahu.userToken }}" type="password">
+                <label for="akahuUserToken" class="input-group-text"> User Token </label>
+                <input class="form-control" id="akahuUserToken" name="akahuAppToken" placeholder="" value="{{ .config.akahu.userToken }}" type="password">
                 <span class="input-group-text">
-                    <i class="bi bi-eye-fill" id="toggleAppToken" style="cursor: pointer">  </i>
+                    <i class="bi bi-eye-fill" id="toggleUserToken" style="cursor: pointer" _="on click if #akahuUserToken.type is 'password' set #akahuUserToken.type to 'text' else set #akahuUserToken.type to 'password'"></i>
                 </span>
             </div>
 
@@ -60,23 +61,4 @@
 
     </div>
 </div>
-
-<script>
-    // TODO: Rewrite in actionscript?
-    const toggle = function (evt) {
-        const field = document.querySelector(evt.currentTarget.toggleTarget);
-        const type = field.getAttribute("type") === "password" ? "text" : "password";
-        field.setAttribute("type", type);
-        this.classList.toggle('bi-eye-fill');
-        this.classList.toggle('bi-eye-slash-fill');
-    }
-
-    const toggleAppToken = document.querySelector("#toggleAppToken");
-    toggleAppToken.toggleTarget = "#akahuAppToken"
-    const toggleUserToken = document.querySelector("#toggleUserToken");
-    toggleUserToken.toggleTarget = "#akahuUserToken"
-
-    toggleAppToken.addEventListener("click", toggle, false)
-    toggleUserToken.addEventListener("click", toggle, false);
-</script>
 {{end}}
