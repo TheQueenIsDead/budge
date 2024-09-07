@@ -21,7 +21,12 @@ func main() {
 		akahu.WithUserToken(userToken),
 	)
 
-	client.Me()
+	me, err := client.Me()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(me)
+
 	accounts, err := client.GetAccounts()
 	if err != nil {
 		panic(err)

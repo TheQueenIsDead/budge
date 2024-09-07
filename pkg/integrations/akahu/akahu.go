@@ -112,14 +112,18 @@ func (a *AkahuClient) GetAccounts() (*AkahuAccounts, error) {
 
 }
 
-func (a *AkahuClient) Me() {
+func (a *AkahuClient) Me() (*AkahuMe, error) {
 	res, err := a.Get("/me")
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	body, _ := io.ReadAll(res.Body)
 	var me *AkahuMe
-	json.Unmarshal(body, &me)
-	fmt.Println(me) // TODO: Actually return something
+	err = json.Unmarshal(body, &me)
+	if err != nil {
+		return nil, err
+	}
+
+	return me, nil
 }
