@@ -81,6 +81,16 @@ func (s *TransactionStorer) List() ([]models.Transaction, error) {
 }
 
 func (s *TransactionStorer) Put(t models.Transaction) (string, error) {
-	//TODO implement me
-	panic("implement me")
+	var err error
+	var key, value []byte
+	err = s.db.Update(func(tx *bolt.Tx) (txErr error) {
+		b := tx.Bucket(s.bucket)
+		key = t.Key()
+		value, txErr = t.Value()
+		if txErr != nil {
+			return
+		}
+		return b.Put(key, value)
+	})
+	return string(key), err
 }

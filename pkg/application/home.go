@@ -13,9 +13,7 @@ func topMerchants(transactions []models.Transaction, n int) []models.MerchantTot
 
 	merchants := make(map[string]float64)
 	for _, tx := range transactions {
-		if tx.Type == models.TransactionTypeCredit {
-			merchants[tx.Merchant] += tx.Float()
-		}
+		merchants[tx.Description] += tx.Float()
 	}
 
 	var top []models.MerchantTotal
@@ -30,7 +28,10 @@ func topMerchants(transactions []models.Transaction, n int) []models.MerchantTot
 		return top[i].Total > top[j].Total
 	})
 
-	return top[:n]
+	if len(top) >= n {
+		return top[:n]
+	}
+	return top[:]
 }
 
 func (app *Application) Home(c echo.Context) error {
@@ -53,11 +54,10 @@ func (app *Application) Home(c echo.Context) error {
 
 	var in, out float64
 	for _, transaction := range transactions {
-		switch transaction.Type {
-		case models.TransactionTypeDebit:
-			in += transaction.Float()
-		case models.TransactionTypeCredit:
+		if transaction.Amount < 0 {
 			out += transaction.Float()
+		} else {
+			in += transaction.Float()
 		}
 	}
 

@@ -16,8 +16,8 @@
     {{- /*gotype:github.com/TheQueenIsDead/budge/pkg.Merchant*/ -}}
     {{ range . }}
         <tr>
+            <td>{{ .Id }}</td>
             <td>{{ .Name }}</td>
-            <td>{{ .Description }}</td>
             <td>
 {{/*                <button class="btn danger"*/}}
 {{/*                        hx-get="/merchant/{{ .ID }}/edit"*/}}

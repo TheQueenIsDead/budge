@@ -53,7 +53,7 @@ func (s *MerchantStorer) Get(id string) (models.Merchant, error) {
 	var m models.Merchant
 
 	err := s.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket(buckets.MerchantBucket)
+		b := tx.Bucket(s.bucket)
 		buf := b.Get([]byte(id))
 		if buf == nil {
 			return errors.New("not found")
@@ -100,17 +100,16 @@ func (s *MerchantStorer) List() ([]models.Merchant, error) {
 }
 
 func (s *MerchantStorer) Put(m models.Merchant) (string, error) {
-	s.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket(buckets.AccountBucket)
-		buf, err := json.Marshal(m)
-		if err != nil {
-			return err
+	var err error
+	var key, value []byte
+	err = s.db.Update(func(tx *bolt.Tx) (txErr error) {
+		b := tx.Bucket(s.bucket)
+		key = m.Key()
+		value, txErr = m.Value()
+		if txErr != nil {
+			return
 		}
-		err = b.Put([]byte(m.Name), buf)
-		if err != nil {
-			return err
-		}
-		return nil
+		return b.Put(key, value)
 	})
-	return "", nil
+	return string(key), err
 }
