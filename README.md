@@ -13,7 +13,7 @@ Budge integrates with [Akahu](https://www.akahu.nz/) in order to allow you to se
 
 ## Features
 
-To see what is in the pipeline, have a look at the [roadmap](./docs/roadmap)
+To see what is in the pipeline, have a look at the [roadmap](./docs/ROADMAP.md)
 
 ## Getting Started
 
