@@ -5,15 +5,25 @@ import "time"
 type AkahuTransactions struct {
 	Success bool `json:"success"`
 	Items   []struct {
-		Id          string    `json:"_id"`
-		Account     string    `json:"_account"`
-		Connection  string    `json:"_connection"`
+		Id         string `json:"_id"`
+		Account    string `json:"_account"`
+		Connection string `json:"_connection"`
+		Category   struct {
+			Id     string `json:"_id"`
+			Name   string `json:"name"`
+			Groups struct {
+				PersonalFinance struct {
+					Id   string `json:"_id"`
+					Name string `json:"name"`
+				} `json:"personal_finance"`
+			} `json:"groups"`
+		} `json:"category"`
 		CreatedAt   time.Time `json:"created_at"`
 		UpdatedAt   time.Time `json:"updated_at"`
 		Date        time.Time `json:"date"`
 		Description string    `json:"description"`
 		Amount      float64   `json:"amount"`
-		Balance     int       `json:"balance"`
+		Balance     float64   `json:"balance"`
 		Type        string    `json:"type"`
 	} `json:"items"`
 	Cursor struct {

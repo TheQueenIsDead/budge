@@ -19,7 +19,7 @@ func (app *Application) Settings(c echo.Context) error {
 }
 
 func (app *Application) SyncAkahu(c echo.Context) error {
-	err := app.integrations.SyncAkahu()
+	err := app.integrations.SyncAkahu(c)
 	if err != nil {
 		return err
 	}

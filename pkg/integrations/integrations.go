@@ -4,6 +4,7 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/TheQueenIsDead/budge/pkg/integrations/akahu"
+	"github.com/labstack/echo/v4"
 	"os"
 )
 
@@ -40,14 +41,16 @@ func (i *Integrations) Config() map[string]interface{} {
 	}
 }
 
-func (i *Integrations) SyncAkahu() error {
+func (i *Integrations) SyncAkahu(c echo.Context) error {
 
 	accounts, err := i.AkahuAccounts()
 	if err != nil {
+		c.Logger().Error(err)
 		return err
 	}
 	transactions, err := i.AkahuTransactions()
 	if err != nil {
+		c.Logger().Error(err)
 		return err
 	}
 
@@ -65,6 +68,7 @@ func (i *Integrations) SyncAkahu() error {
 		tx := models.Transaction(transaction)
 		_, err := i.store.Transactions.Put(transaction)
 		if err != nil {
+			c.Logger().Error(err)
 			return err
 		}
 		m := models.Merchant{
@@ -79,12 +83,12 @@ func (i *Integrations) SyncAkahu() error {
 	for _, merchant := range merchants {
 		_, err := i.store.Merchants.Put(merchant)
 		if err != nil {
+			c.Logger().Error(err)
 			return err
 		}
 	}
 
 	return nil
-
 }
 
 func (i *Integrations) AkahuAccounts() (*akahu.AkahuAccounts, error) {
