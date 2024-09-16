@@ -37,6 +37,20 @@
                 <div class="col-12 col-md-6">
                     <canvas id="chart" style="min-width: 300px; max-width: 400px"></canvas>
                 </div>
+
+                <div class="col-12 col-md-6">
+                    <canvas id="categories_chart" style="min-width: 300px; max-width: 400px"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="container">
+            <div class="row">
+                <div class="col-12">
+{{/*                    <canvas id="categories_chart" style="min-width: 300px; max-width: 400px"></canvas>*/}}
+                    <canvas id="categories_chart" ></canvas>
+                </div>
             </div>
 
         </div>
@@ -96,7 +110,7 @@
         </table>
     </div>
 
-
+    {{/*Categories Chart*/}}
     <script>
         const data = {
             labels: [
@@ -134,6 +148,41 @@
         };
 
         new Chart(document.getElementById('chart'), config);
+    </script>
+
+    {{/*Categories Chart*/}}
+    <script>
+        const categories_data = {
+            labels: {{.category_labels}},
+            datasets: [{
+                // label: 'Expenditure',
+                data: {{ .category_data }},
+                // backgroundColor: [
+                //     'rgb(26, 188, 156)',
+                //     'rgb(255, 205, 52)'
+                // ],
+                hoverOffset: 4,
+            }]
+        };
+        const categories_config = {
+            type: 'doughnut',
+            data: categories_data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: "Spend By Category"
+                    }
+                },
+                legend: {
+                    display: true,
+                }
+            }
+        };
+
+        new Chart(document.getElementById('categories_chart'), categories_config);
     </script>
 
 {{end}}

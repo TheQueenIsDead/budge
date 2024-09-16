@@ -61,13 +61,25 @@ func (app *Application) Home(c echo.Context) error {
 
 	top := topMerchants(transactions, 5)
 
+	categories := make(map[string]float64)
 	var in, out float64
 	for _, transaction := range transactions {
 		if transaction.Amount < 0 {
 			out += transaction.Float()
+			category := transaction.Category.Groups.PersonalFinance.Name
+			if category != "" {
+				categories[category] += transaction.Amount
+			}
 		} else {
 			in += transaction.Float()
 		}
+	}
+
+	var categoryLabels []string
+	var categoryData []float64
+	for k, v := range categories {
+		categoryLabels = append(categoryLabels, k)
+		categoryData = append(categoryData, v)
 	}
 
 	var incomingString, outgoingString string
@@ -84,5 +96,7 @@ func (app *Application) Home(c echo.Context) error {
 		"outgoing":         out,
 		"outgoingString":   outgoingString,
 		"topMerchants":     top,
+		"category_labels":  categoryLabels,
+		"category_data":    categoryData,
 	})
 }
