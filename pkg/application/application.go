@@ -48,6 +48,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.GET("/transactions", app.ListTransactions)
 
 	app.http.POST("/integrations/akahu/sync", app.SyncAkahu)
+	app.http.POST("/integrations/akahu/save", app.PutAkahuSettings)
 
 	app.http.Static("/assets", "./web/public")
 
