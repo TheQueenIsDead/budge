@@ -26,7 +26,7 @@
                 <form>
                 <div class="input-group mb-3">
                     <label for="akahuAppToken" class="input-group-text">App Token</label>
-                    <input class="form-control" id="akahuAppToken" name="akahuUserToken" placeholder=""
+                    <input class="form-control" id="akahuAppToken" name="akahuAppToken" placeholder=""
                            value="{{ .config.akahu.appToken }}" type="password">
                     <span class="input-group-text">
                     {{/* TODO: Toggle from bi-eye-fill to bi-eye-slash-fill at the same time. */}}
@@ -37,7 +37,7 @@
 
                 <div class="input-group mb-3">
                     <label for="akahuUserToken" class="input-group-text"> User Token </label>
-                    <input class="form-control" id="akahuUserToken" name="akahuAppToken" placeholder=""
+                    <input class="form-control" id="akahuUserToken" name="akahuUserToken" placeholder=""
                            value="{{ .config.akahu.userToken }}" type="password">
                     <span class="input-group-text">
                     <i class="bi bi-eye-fill" id="toggleUserToken" style="cursor: pointer"
