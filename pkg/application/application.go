@@ -37,6 +37,8 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	app.http.Logger.SetLevel(log.DEBUG)
 
+	app.http.Use(LoggingMiddleware)
+
 	app.http.Renderer = t
 	app.http.GET("/", app.Home)
 	app.http.GET("/settings", app.Settings)
