@@ -7,6 +7,7 @@
                 <th> Connection</th>
                 <th> Name</th>
                 <th> Account</th>
+                <th> Balance</th>
                 <th> Type</th>
                 <th> Loan Type</th>
                 <th> Loan Interest</th>
@@ -19,6 +20,7 @@
                              src="{{.Connection.Logo}}"/> {{ .Connection.Name }}</td>
                     <td>{{ .Name }}</td>
                     <td>{{ .FormattedAccount }}</td>
+                    <td>${{ .Balance.Current | printf "%.2f" }}</td>
                     <td>{{ .Type }}</td>
                     <td>{{ .Meta.LoanDetails.Interest.Type }}</td>
                     <td>{{ .Meta.LoanDetails.Interest.Rate }}%</td>
