@@ -65,6 +65,7 @@
             {{/*        TODO: Allow the ability to disconnect from the app**/}}
             {{/*        TODO: Do not display if there are no connected accounts**/}}
             {{/* Akahu Connected Accounts*/}}
+            {{ if .accounts.Items }}
             <h3>Connected Accounts</h3>
             <ul class="list-group">
                 {{ range .accounts.Items }}
@@ -72,6 +73,7 @@
                                                      src="{{.Connection.Logo}}"/> {{ .FormattedAccount }}</li>
                 {{ end }}
             </ul>
+            {{ end}}
 
         </div>
     </div>
