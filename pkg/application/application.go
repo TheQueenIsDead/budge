@@ -47,6 +47,14 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 		}
 		c.Logger().Error(err)
 
+		switch code {
+		case http.StatusNotFound:
+			err = c.Redirect(http.StatusTemporaryRedirect, "/4XX")
+			if err != nil {
+				c.Logger().Error(err)
+			}
+		}
+
 		// Set an HTMX Error even via headers
 		event := map[string]interface{}{
 			"error": message,
@@ -59,7 +67,6 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 		c.Response().Header().Add("Hx-Reswap", "none")
 
 		// On error, return JSON with the inherited code
-		// TODO: Capture 404 and other pages
 		if err := c.JSON(code, message); err != nil {
 			c.Logger().Error(err)
 		}
@@ -67,6 +74,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	app.http.Renderer = t
 	app.http.GET("/", app.Home)
+	app.http.GET("/4XX", app._4XX)
 	app.http.GET("/settings", app.Settings)
 	app.http.GET("/merchants", app.ListMerchants)
 	app.http.GET("/merchants/:id", app.GetMerchant)

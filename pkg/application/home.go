@@ -100,3 +100,6 @@ func (app *Application) Home(c echo.Context) error {
 		"category_data":    categoryData,
 	})
 }
+func (app *Application) _4XX(c echo.Context) error {
+	return c.Render(http.StatusOK, "4XX", nil)
+}
