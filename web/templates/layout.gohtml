@@ -29,6 +29,7 @@
         <!-- Theme: https://github.com/startbootstrap/startbootstrap-freelancer -->
         <link href="assets/theme.css" rel="stylesheet"/>
         <script src="assets/theme.js"></script>
+        <script defer src="assets/toast.js"></script>
         <link rel="stylesheet" href="assets/styles.css">
 
         <!-- HTMX -->
@@ -37,15 +38,14 @@
         <!-- Hyperscript -->
         <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
 
-
-        {{/*    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>*/}}
-        {{/*    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>*/}}
         <script>
             htmx.config.useTemplateFragments = true
         </script>
     </head>
 
     <body>
+
+
     <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
         <a class="navbar-brand" href="/">Budge</a>
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar">
@@ -83,6 +83,21 @@
             </ul>
         </div>
     </nav>
+
+    <div aria-live="polite" aria-atomic="true" class="bg-body-secondary position-relative bd-example-toasts rounded-3">
+        <div class="toast-container p-3" id="toastPlacement">
+            <div id="toast" class="toast">
+                <div class="toast-header">
+{{/*                    <img src="..." class="rounded me-2" alt="...">*/}}
+                    <strong class="me-auto">Error</strong>
+{{/*                    <small>11 mins ago</small>*/}}
+                </div>
+                <div id="toast-body" class="toast-body">
+{{/*                Message Here*/}}
+                </div>
+            </div>
+        </div>
+    </div>
 
     <main id="main" class="container">
         {{ .content }}

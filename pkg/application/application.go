@@ -38,6 +38,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.Logger.SetLevel(log.DEBUG)
 
 	app.http.Use(LoggingMiddleware)
+	app.http.Use(ErrorToast)
 
 	app.http.Renderer = t
 	app.http.GET("/", app.Home)

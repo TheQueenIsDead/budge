@@ -1,6 +1,9 @@
 package models
 
-import "errors"
+import (
+	"errors"
+	"strings"
+)
 
 type IntegrationAkahuSettings struct {
 	AppToken  string
@@ -14,6 +17,12 @@ func (ias *IntegrationAkahuSettings) Validate() error {
 	}
 	if ias.UserToken == "" {
 		return errors.New("UserToken is required but was empty")
+	}
+	if !strings.HasPrefix(ias.AppToken, "app_") {
+		return errors.New("AppToken does not start with 'app_'")
+	}
+	if !strings.HasPrefix(ias.UserToken, "user_") {
+		return errors.New("UserToken does not start with 'user_'")
 	}
 	return nil
 }
