@@ -36,24 +36,6 @@ func NewSettingsStorer(db *bolt.DB) *SettingsStorer {
 	}
 }
 
-func (s *SettingsStorer) Count() (int, error) {
-	var count int
-	err := s.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket(s.bucket)
-		if b == nil {
-			return errors.New("no settings bucket")
-		}
-		count = b.Stats().KeyN
-		return nil
-	})
-	return count, err
-}
-
-func (s *SettingsStorer) Delete(id string) error {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (s *SettingsStorer) GetAkahuSettings() (models.IntegrationAkahuSettings, error) {
 	var akahuSettings models.IntegrationAkahuSettings
 
