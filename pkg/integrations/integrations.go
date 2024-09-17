@@ -5,6 +5,7 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/TheQueenIsDead/budge/pkg/integrations/akahu"
 	"github.com/labstack/echo/v4"
+	log "github.com/sirupsen/logrus"
 	"os"
 )
 
@@ -29,9 +30,16 @@ func NewIntegrations(store *database.Store) *Integrations {
 }
 
 func (i *Integrations) RegisterAkahu() {
+
+	settings, err := i.store.Settings.GetAkahuSettings()
+	if err != nil {
+		log.Error("Could not retrieve akahu settings, falling back to ENV")
+		settings.UserToken = os.Getenv("AKAHU_USER_TOKEN")
+		settings.AppToken = os.Getenv("AKAHU_APP_TOKEN")
+	}
 	i.akahu = akahu.NewClient(
-		akahu.WithUserToken(os.Getenv("AKAHU_USER_TOKEN")),
-		akahu.WithApptoken(os.Getenv("AKAHU_APP_TOKEN")),
+		akahu.WithUserToken(settings.UserToken),
+		akahu.WithApptoken(settings.AppToken),
 	)
 }
 
@@ -88,6 +96,16 @@ func (i *Integrations) SyncAkahu(c echo.Context) error {
 		}
 	}
 
+	return nil
+}
+
+func (i *Integrations) PutAkahuSettings(settings models.IntegrationAkahuSettings) error {
+	err := i.store.Settings.PutAkahuSettings(settings)
+	if err != nil {
+		return err
+	}
+	i.akahu.UserToken = settings.UserToken
+	i.akahu.AppToken = settings.AppToken
 	return nil
 }
 

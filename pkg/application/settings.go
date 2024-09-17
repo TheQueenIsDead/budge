@@ -1,6 +1,7 @@
 package application
 
 import (
+	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v4"
 	"net/http"
 )
@@ -23,5 +24,24 @@ func (app *Application) SyncAkahu(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (app *Application) PutAkahuSettings(c echo.Context) error {
+
+	settings := models.IntegrationAkahuSettings{
+		AppToken:  c.FormValue("akahuAppToken"),
+		UserToken: c.FormValue("akahuUserToken"),
+	}
+
+	if err := settings.Validate(); err != nil {
+		return err
+	}
+
+	err := app.integrations.PutAkahuSettings(settings)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

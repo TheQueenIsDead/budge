@@ -13,6 +13,7 @@ type Store struct {
 	Accounts     AccountStore
 	Merchants    MerchantStore
 	Transactions TransactionStore
+	Settings     SettingsStore
 }
 
 func NewStore() (*Store, error) {
@@ -40,11 +41,13 @@ func NewStore() (*Store, error) {
 	accountStore := NewAccountStorer(db)
 	merchantStore := NewMerchantStorer(db)
 	transactionStore := NewTransactionStorer(db)
+	settingsStore := NewSettingsStorer(db)
 	return &Store{
 		db:           db,
 		Accounts:     accountStore,
 		Merchants:    merchantStore,
 		Transactions: transactionStore,
+		Settings:     settingsStore,
 	}, nil
 }
 

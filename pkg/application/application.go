@@ -3,6 +3,7 @@ package application
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/integrations"
 	"github.com/labstack/echo/v4"
@@ -37,10 +38,43 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	app.http.Logger.SetLevel(log.DEBUG)
 
-	app.http.Use(LoggingMiddleware)
+	app.http.HTTPErrorHandler = func(err error, c echo.Context) {
+		// Extract the code from the HTTPError
+		code := http.StatusInternalServerError
+		message := err.Error()
+		if he, ok := err.(*echo.HTTPError); ok {
+			code = he.Code
+		}
+		c.Logger().Error(err)
+
+		switch code {
+		case http.StatusNotFound:
+			err = c.Redirect(http.StatusTemporaryRedirect, "/4XX")
+			if err != nil {
+				c.Logger().Error(err)
+			}
+		}
+
+		// Set an HTMX Error even via headers
+		event := map[string]interface{}{
+			"error": message,
+		}
+		buf, err := json.Marshal(event)
+		if err != nil {
+			c.Logger().Error(err)
+		}
+		c.Response().Header().Add("Hx-Trigger", string(buf))
+		c.Response().Header().Add("Hx-Reswap", "none")
+
+		// On error, return JSON with the inherited code
+		if err := c.JSON(code, message); err != nil {
+			c.Logger().Error(err)
+		}
+	}
 
 	app.http.Renderer = t
 	app.http.GET("/", app.Home)
+	app.http.GET("/4XX", app._4XX)
 	app.http.GET("/settings", app.Settings)
 	app.http.GET("/merchants", app.ListMerchants)
 	app.http.GET("/merchants/:id", app.GetMerchant)
@@ -48,6 +82,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.GET("/transactions", app.ListTransactions)
 
 	app.http.POST("/integrations/akahu/sync", app.SyncAkahu)
+	app.http.POST("/integrations/akahu/save", app.PutAkahuSettings)
 
 	app.http.Static("/assets", "./web/public")
 

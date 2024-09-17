@@ -23,9 +23,10 @@
             {{/* Akahu Client Config */}}
             <h3>Config</h3>
             <div class="row">
+                <form>
                 <div class="input-group mb-3">
                     <label for="akahuAppToken" class="input-group-text">App Token</label>
-                    <input class="form-control" id="akahuAppToken" name="akahuUserToken" placeholder=""
+                    <input class="form-control" id="akahuAppToken" name="akahuAppToken" placeholder=""
                            value="{{ .config.akahu.appToken }}" type="password">
                     <span class="input-group-text">
                     {{/* TODO: Toggle from bi-eye-fill to bi-eye-slash-fill at the same time. */}}
@@ -36,7 +37,7 @@
 
                 <div class="input-group mb-3">
                     <label for="akahuUserToken" class="input-group-text"> User Token </label>
-                    <input class="form-control" id="akahuUserToken" name="akahuAppToken" placeholder=""
+                    <input class="form-control" id="akahuUserToken" name="akahuUserToken" placeholder=""
                            value="{{ .config.akahu.userToken }}" type="password">
                     <span class="input-group-text">
                     <i class="bi bi-eye-fill" id="toggleUserToken" style="cursor: pointer"
@@ -45,27 +46,34 @@
                 </div>
 
                 <div class="row">
+                    {{/*TODO: Disable if integration not configured*/}}
                     <div class="col-md-2 col-12">
                         <button class="btn btn-primary" hx-post="/integrations/akahu/sync" hx-indicator="#spinner"> Sync </button>
                         <svg id="spinner" class="htmx-indicator" width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><style>.spinner_P7sC{transform-origin:center;animation:spinner_svv2 .75s infinite linear}@keyframes spinner_svv2{100%{transform:rotate(360deg)}}</style><path d="M10.14,1.16a11,11,0,0,0-9,8.92A1.59,1.59,0,0,0,2.46,12,1.52,1.52,0,0,0,4.11,10.7a8,8,0,0,1,6.66-6.61A1.42,1.42,0,0,0,12,2.69h0A1.57,1.57,0,0,0,10.14,1.16Z" class="spinner_P7sC"/></svg>
                     </div>
-                    <div class="col-md-2 col-12 ml-auto text-right disabled">
+                    {{/*TODO: Don't nuke the button on success*/}}
+                    <div class="col-md-2 col-12 ml-auto text-right" hx-post="/integrations/akahu/save">
                         <button class="btn disabled"> Save</button>
                     </div>
                 </div>
+                </form>
             </div>
 
             <br>
 
-            {{/*        TODO: Allow the ability to disconnect from the app**/}}
+            {{/*TODO: Allow the ability to disconnect from the app**/}}
             {{/* Akahu Connected Accounts*/}}
+            {{ if .accounts.Items }}
             <h3>Connected Accounts</h3>
             <ul class="list-group">
                 {{ range .accounts.Items }}
-                    <li class="list-group-item"><img class="rounded-circle" style="height:1em; margin-top: -0.25em"
-                                                     src="{{.Connection.Logo}}"/> {{ .FormattedAccount }}</li>
+                    <li class="list-group-item">
+                        <img class="rounded-circle" style="height:1em; margin-top: -0.25em" src="{{.Connection.Logo}}"/>
+                        {{ .FormattedAccount }}
+                    </li>
                 {{ end }}
             </ul>
+            {{ end}}
 
         </div>
     </div>
