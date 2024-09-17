@@ -41,17 +41,17 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.HTTPErrorHandler = func(err error, c echo.Context) {
 		// Extract the code from the HTTPError
 		code := http.StatusInternalServerError
-		error := err.Error()
+		message := err.Error()
 		if he, ok := err.(*echo.HTTPError); ok {
 			code = he.Code
 		}
 		c.Logger().Error(err)
 
 		// Set an HTMX Error even via headers
-		toast := map[string]interface{}{
-			"error": err.Error(),
+		event := map[string]interface{}{
+			"error": message,
 		}
-		buf, err := json.Marshal(toast)
+		buf, err := json.Marshal(event)
 		if err != nil {
 			c.Logger().Error(err)
 		}
@@ -60,7 +60,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 		// On error, return JSON with the inherited code
 		// TODO: Capture 404 and other pages
-		if err := c.JSON(code, error); err != nil {
+		if err := c.JSON(code, message); err != nil {
 			c.Logger().Error(err)
 		}
 	}
