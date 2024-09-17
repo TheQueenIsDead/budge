@@ -29,12 +29,9 @@ func (app *Application) SyncAkahu(c echo.Context) error {
 
 func (app *Application) PutAkahuSettings(c echo.Context) error {
 
-	appToken := c.FormValue("akahuAppToken")
-	userToken := c.FormValue("akahuUserToken")
-
 	settings := models.IntegrationAkahuSettings{
-		AppToken:  appToken,
-		UserToken: userToken,
+		AppToken:  c.FormValue("akahuAppToken"),
+		UserToken: c.FormValue("akahuUserToken"),
 	}
 
 	if err := settings.Validate(); err != nil {
