@@ -3,6 +3,7 @@ package application
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/integrations"
 	"github.com/labstack/echo/v4"
@@ -37,8 +38,32 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	app.http.Logger.SetLevel(log.DEBUG)
 
-	app.http.Use(LoggingMiddleware)
-	app.http.Use(ErrorToast)
+	app.http.HTTPErrorHandler = func(err error, c echo.Context) {
+		// Extract the code from the HTTPError
+		code := http.StatusInternalServerError
+		error := err.Error()
+		if he, ok := err.(*echo.HTTPError); ok {
+			code = he.Code
+		}
+		c.Logger().Error(err)
+
+		// Set an HTMX Error even via headers
+		toast := map[string]interface{}{
+			"error": err.Error(),
+		}
+		buf, err := json.Marshal(toast)
+		if err != nil {
+			c.Logger().Error(err)
+		}
+		c.Response().Header().Add("Hx-Trigger", string(buf))
+		c.Response().Header().Add("Hx-Reswap", "none")
+
+		// On error, return JSON with the inherited code
+		// TODO: Capture 404 and other pages
+		if err := c.JSON(code, error); err != nil {
+			c.Logger().Error(err)
+		}
+	}
 
 	app.http.Renderer = t
 	app.http.GET("/", app.Home)
