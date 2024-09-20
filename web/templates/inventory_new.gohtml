@@ -1,0 +1,65 @@
+{{define "inventory.new"}}
+    <h1>New Item 🎉</h1>
+
+    <hr>
+
+    <form id="form" hx-post="/inventory/new" hx-include="[class='form-control']">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="name">Name</label>
+                <input type="text" class="form-control" id="name" name="name" placeholder="Name">
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="form-group col-4">
+                <label for="cost">Cost</label>
+                <input type="number" class="form-control" id="cost" name="cost" placeholder="$0.00">
+            </div>
+            <div class="form-group col-4">
+                <label for="quantity">Quantity</label>
+                <input type="number" class="form-control" id="quantity" name="quantity" placeholder="0">
+            </div>
+            <div class="form-group col-4">
+                <label for="date">Date</label>
+                <input type="date" class="form-control" id="date" name="date" placeholder="dd/mm/yyyy">
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea type="text" class="form-control" id="description" name="description" placeholder="Optional extra details"></textarea>
+            </div>
+        </div>
+
+        <hr>
+
+        <h2> Attachments </h2>
+
+{{/*        TODO: Wire this up*/}}
+
+        <h3> Upload </h3>
+
+        <div class="mb-3">
+            <label for="receipt" class="form-label">Receipt</label>
+            <input class="form-control" type="file" id="receipt">
+        </div>
+        <div class="mb-3">
+            <label for="item" class="form-label">Item</label>
+            <input class="form-control" type="file" id="item" multiple>
+        </div>
+
+
+        <h3>Images</h3>
+        <!-- Uploaded image area-->
+        <div class="image-area mt-4"><img id="imageResult" src="#" alt="" class="img-fluid rounded shadow-sm mx-auto d-block"></div>
+        <div class="image-area mt-4"><img id="imageResult" src="#" alt="" class="img-fluid rounded shadow-sm mx-auto d-block"></div>
+
+
+        <hr>
+
+        <button type="submit" class="btn btn-primary">Create</button>
+
+    </form>
+{{end}}

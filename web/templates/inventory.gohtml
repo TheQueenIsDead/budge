@@ -1,6 +1,11 @@
 {{define "inventory"}}
-<div class="container">
-    Assets
+    <h1>Assets</h1>
+
+
+    <a hx-get="/inventory/new" hx-target="#main" hx-push-url="true">
+        <button class="btn" > New </button>
+    </a>
+    <hr>
 
     {{ if .assets }}
     <div class="row">
@@ -26,5 +31,4 @@
     {{else}}
         Nothing to see here 🥃
     {{end}}
-</div>
 {{end}}
