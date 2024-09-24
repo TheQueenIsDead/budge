@@ -1,12 +1,16 @@
 {{define "inventory"}}
-    <h1>Assets</h1>
 
+    <div class="d-flex flex-row justify-content-between align-items-center">
+        <h1>Inventory</h1>
 
-    <a hx-get="/inventory/new" hx-target="#main" hx-push-url="true">
-        <button class="btn" > New </button>
-    </a>
+        <button type="button" class="btn" hx-get="/inventory/new" hx-target="#main" hx-push-url="true">
+            <i class="bi bi-plus-square fs-2"></i>
+        </button>
+    </div>
+
     <hr>
 
+    {{/*TODO: Figure out why the cards overflow the main container, check index for example reference*/}}
     {{ if .inventory }}
     <div class="row">
         {{ range .inventory }}
@@ -25,6 +29,11 @@
                     <a href="#" class="card-link">
                         <button class="btn btn-primary">
                             Card link
+                        </button>
+                    </a>
+                    <a href="#" class="card-link">
+                        <button class="btn btn-danger">
+                            <i class="bi bi-trash-fill"></i>
                         </button>
                     </a>
 {{/*                    <a href="#" class="card-link">Another link</a>*/}}
