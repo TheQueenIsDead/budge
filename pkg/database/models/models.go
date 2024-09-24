@@ -159,6 +159,10 @@ type Inventory struct {
 	Description string    `json:"description"`
 	Cost        float64   `json:"amount"`
 	Category    string    `json:"type"`
+	Date        time.Time `json:"date"`
+	Name        string    `json:"name"`
+	Quantity    int       `json:"quantity"`
+
 	// TODO: Upload media, like receipts
 }
 

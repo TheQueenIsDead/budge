@@ -7,23 +7,27 @@
     </a>
     <hr>
 
-    {{ if .assets }}
+    {{ if .inventory }}
     <div class="row">
-        {{ range .assets }}
-            <div class="card" style="width: 18rem;">
-                <img src="..." class="card-img-top" alt="...">
+        {{ range .inventory }}
+            <div class="card hover-shadow" style="width: 18rem;">
+{{/*                <img src="..." class="card-img-top" alt="...">*/}}
                 <div class="card-body">
-                    <h5 class="card-title">Card title</h5>
-                    <p class="card-text">Some quick example text to build on the card title and make up the bulk of the card's content.</p>
+                    <h5 class="card-title">{{.Name}}</h5>
+                    <p class="card-text">{{.Description}}</p>
                 </div>
                 <ul class="list-group list-group-flush">
-                    <li class="list-group-item">An item</li>
-                    <li class="list-group-item">A second item</li>
-                    <li class="list-group-item">A third item</li>
+                    <li class="list-group-item">${{.Cost}}</li>
+                    <li class="list-group-item">{{.Quantity}}</li>
+                    <li class="list-group-item">{{.Date}}</li>
                 </ul>
                 <div class="card-body">
-                    <a href="#" class="card-link">Card link</a>
-                    <a href="#" class="card-link">Another link</a>
+                    <a href="#" class="card-link">
+                        <button class="btn btn-primary">
+                            Card link
+                        </button>
+                    </a>
+{{/*                    <a href="#" class="card-link">Another link</a>*/}}
                 </div>
             </div>
         {{ end }}
