@@ -173,3 +173,7 @@ func (i *Inventory) Key() []byte {
 func (i *Inventory) Value() ([]byte, error) {
 	return json.Marshal(i)
 }
+
+func (i *Inventory) ISODateString() string {
+	return i.Date.Format("2006-01-02")
+}

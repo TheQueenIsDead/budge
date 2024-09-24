@@ -3,7 +3,7 @@
     <div class="d-flex flex-row justify-content-between align-items-center">
         <h1>Inventory</h1>
 
-        <button type="button" class="btn" hx-get="/inventory/new" hx-target="#main" hx-push-url="true">
+        <button class="btn btn-secondary" type="button" hx-get="/inventory/new" hx-target="#main" hx-push-url="true">
             <i class="bi bi-plus-square fs-2"></i>
         </button>
     </div>
@@ -23,7 +23,7 @@
                 <ul class="list-group list-group-flush">
                     <li class="list-group-item">${{.Cost}}</li>
                     <li class="list-group-item">{{.Quantity}}</li>
-                    <li class="list-group-item">{{.Date}}</li>
+                    <li class="list-group-item">{{.ISODateString }}</li>
                 </ul>
                 <div class="card-body">
                     <a href="#" class="card-link">
