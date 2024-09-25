@@ -10,36 +10,28 @@
 
     <hr>
 
+
+
+
     {{/*TODO: Figure out why the cards overflow the main container, check index for example reference*/}}
     {{ if .inventory }}
-        <div class="row">
+{{/*        <ol class="list-group list-group-numbered">*/}}
+        <ol class="list-group">
+
             {{ range .inventory }}
-                <div class="card hover-shadow" style="width: 18rem;">
-                    {{/*                <img src="..." class="card-img-top" alt="...">*/}}
-                    <div class="card-body">
-                        <h5 class="card-title">{{.Name}}</h5>
-                        <p class="card-text">{{.Description}}</p>
+                <li class="list-group-item d-flex justify-content-between align-items-start">
+                    <div class="ms-2 me-auto">
+                        <div class="fw-bold">{{.Name}}</div>
+                        {{.Description}}
                     </div>
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item">${{.Cost}}</li>
-                        <li class="list-group-item">{{.Quantity}}</li>
-                        <li class="list-group-item">{{.ISODateString }}</li>
-                    </ul>
-                    <div class="card-body">
-                        <a href="#" class="card-link">
-                            <button class="btn btn-primary">
-                                Card link
-                            </button>
-                        </a>
-                        <a href="#" class="card-link">
-                            <button class="btn btn-danger">
-                                <i class="bi bi-trash-fill"></i>
-                            </button>
-                        </a>
-                        {{/*                    <a href="#" class="card-link">Another link</a>*/}}
-                    </div>
-                </div>
+                    <span class="badge bg-secondary rounded-pill">{{.Quantity}}</span>
+                    <span class="badge bg-primary rounded-pill">${{.Cost}}</span>
+                    <button class="btn btn-danger"><i class="bi bi-trash-fill"></i> </button>
+                </li>
             {{ end }}
+        </ol>
+        <div class="row">
+
         </div>
     {{else}}
         Nothing to see here 🥃

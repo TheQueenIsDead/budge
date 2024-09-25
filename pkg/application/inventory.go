@@ -56,6 +56,6 @@ func (app *Application) InventoryCreate(c echo.Context) error {
 		c.Logger().Error(err)
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
-	// TODO: Wire this up
-	return c.JSON(http.StatusOK, "OK!")
+
+	return c.Redirect(http.StatusFound, "/inventory")
 }
