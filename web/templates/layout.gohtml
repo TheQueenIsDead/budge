@@ -46,46 +46,34 @@
     <body>
 
 
-    <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
-        <a class="navbar-brand" href="/" style="padding-left: 10px">🐦</a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-
-        {{/*TODO: Apply .active on full page refresh */}}}}
-        <div class="collapse navbar-collapse" id="navbar" hx-boost="true" hx-target="#main">
-            <ul class="navbar-nav mr-auto">
-                <li class="nav-item active">
+    <nav class="navbar navbar-expand-md navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">🐦</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbar" hx-boost="true" hx-target="#main">
+                <div class="navbar-nav">
                     <a class="nav-link" href="/" _="on click remove .active from <a/> add .active">
                         Home
                     </a>
-                </li>
-                <li class="nav-item">
                     <a class="nav-link" href="/accounts" _="on click remove .active from <a/> add .active">
                         Accounts
                     </a>
-                </li>
-                <li class="nav-item">
                     <a class="nav-link" href="/inventory" _="on click remove .active from <a/> add .active">
                         Inventory
                     </a>
-                </li>
-                <li class="nav-item">
                     <a class="nav-link" href="/merchants" _="on click remove .active from <a/> add .active">
                         Merchants
                     </a>
-                </li>
-                <li class="nav-item" _="on click remove .active from <a/> add .active">
                     <a class="nav-link" href="/transactions">
                         Transactions
                     </a>
-                </li>
-                <li class="nav-item">
                     <a class="nav-link" href="/settings" _="on click remove .active from <a/> add .active">
                         Settings
                     </a>
-                </li>
-            </ul>
+                </div>
+            </div>
         </div>
     </nav>
 
@@ -93,12 +81,12 @@
         <div class="toast-container p-3" id="toastPlacement">
             <div id="toast" class="toast">
                 <div class="toast-header">
-{{/*                    <img src="..." class="rounded me-2" alt="...">*/}}
+                    {{/*                    <img src="..." class="rounded me-2" alt="...">*/}}
                     <strong class="me-auto">Error</strong>
-{{/*                    <small>11 mins ago</small>*/}}
+                    {{/*                    <small>11 mins ago</small>*/}}
                 </div>
                 <div id="toast-body" class="toast-body">
-{{/*                Message Here*/}}
+                    {{/*                Message Here*/}}
                 </div>
             </div>
         </div>
