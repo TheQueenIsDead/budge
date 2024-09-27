@@ -4,6 +4,7 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v4"
 	"net/http"
+	"slices"
 )
 
 func (app *Application) ListTransactions(c echo.Context) error {
@@ -19,6 +20,10 @@ func (app *Application) ListTransactions(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
+	slices.SortFunc(transactions, func(a, b models.Transaction) int {
+		return b.Date.Compare(a.Date)
+	})
 
 	accounts, err := app.store.ReadAccounts()
 	if err != nil {
