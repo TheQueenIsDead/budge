@@ -48,7 +48,7 @@
                     <div class="row">
                         {{/*TODO: Disable if integration not configured*/}}
                         <div class="col-md-2 col-12">
-                            <button class="btn btn-primary" hx-post="/integrations/akahu/sync" hx-indicator="#spinner">
+                            <button class="btn btn-primary" hx-post="/integrations/akahu/sync" hx-indicator="#spinner" hx-disabled-elt="this" hx-swap="none">
                                 Sync
                             </button>
                             <svg id="spinner" class="htmx-indicator" width="24" height="24" viewBox="0 0 24 24"

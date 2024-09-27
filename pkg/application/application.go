@@ -61,7 +61,10 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 		// Set an HTMX Error even via headers
 		event := map[string]interface{}{
-			"error": message,
+			"toast": map[string]string{
+				"level":   "error",
+				"message": message,
+			},
 		}
 		buf, err := json.Marshal(event)
 		if err != nil {

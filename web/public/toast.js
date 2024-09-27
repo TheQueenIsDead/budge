@@ -1,9 +1,11 @@
 const showToast =function (evt) {
     const toastLiveExample = document.getElementById('toast')
-    const toastText = document.getElementById('toast-body')
+    const toastBody = document.getElementById('toast-body')
+    const toastHeader = document.getElementById('toast-header')
     const toastBootstrap = bootstrap.Toast.getOrCreateInstance(toastLiveExample)
-    toastText.innerText = evt.detail.value
-    console.log(evt.detail.value)
+    toastBody.innerText = evt.detail.message
+    toastHeader.innerText = evt.detail.level
+    console.log(evt.detail.message)
     toastBootstrap.show()
 }
-document.body.addEventListener("error", showToast)
+document.body.addEventListener("toast", showToast)
