@@ -14,6 +14,18 @@ func (s *Store) ReadAccounts() ([]models.Account, error) {
 	return Read[models.Account](s.db)
 }
 
+/* Inventory */
+
+func (s *Store) CreateInventory(inventory models.Inventory) error {
+	return Create[models.Inventory](s.db, inventory)
+}
+func (s *Store) ReadInventory() ([]models.Inventory, error) {
+	return Read[models.Inventory](s.db)
+}
+func (s *Store) DeleteInventory(id []byte) error {
+	return Delete[models.Inventory](s.db, id)
+}
+
 /* Merchants */
 
 func (s *Store) CountMerchant() (int, error) {

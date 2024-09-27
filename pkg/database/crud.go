@@ -116,6 +116,12 @@ func Update[T Storable](db *bolt.DB, item T) error {
 	})
 }
 
-func Delete(item Storable) error {
-	panic("not implemented")
+// Delete removes an object of type T given an identifier. The identifier should correspond to the returned value
+// of the Storable.Key() method.
+func Delete[T Storable](db *bolt.DB, id []byte) error {
+	return db.Update(func(tx *bolt.Tx) error {
+		t := *(new(T))
+		b := tx.Bucket(t.Bucket())
+		return b.Delete(id)
+	})
 }

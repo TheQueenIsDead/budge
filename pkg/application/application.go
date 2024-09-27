@@ -81,6 +81,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.GET("/4XX", app._4XX)
 	app.http.GET("/inventory", app.Inventory)
 	app.http.GET("/inventory/new", app.InventoryNew)
+	app.http.POST("/inventory/new", app.InventoryCreate)
 	app.http.POST("/inventory/:id/delete", app.DeleteInventory)
 	app.http.GET("/settings", app.Settings)
 	app.http.GET("/merchants", app.ListMerchants)
