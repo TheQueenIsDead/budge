@@ -88,20 +88,6 @@ func ReadFilter[T Storable](db *bolt.DB, filter func(T) bool) ([]T, error) {
 	return result, err
 }
 
-//func ReadById(db *bolt.DB, item Storable) (Storable, error) {
-//	var result Storable
-//	err := db.View(func(tx *bolt.Tx) error {
-//		b := tx.Bucket(item.Bucket())
-//		value := b.Get(item.Key())
-//		value, err := json.Marshal(&item)
-//		if err != nil {
-//			return err
-//		}
-//		return b.Put(item.Key(), value)
-//	})
-//	return result, err
-//}
-
 // Update overwrites a pre-existing Storable object and returns an error if the Key does not exist.
 func Update[T Storable](db *bolt.DB, item T) error {
 	// TODO: Error if the item does not exist.
