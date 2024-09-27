@@ -1,0 +1,14 @@
+{{ define "akahu.accounts" }}
+    {{ if .accounts.Items }}
+        <h3>Connected Accounts</h3>
+        <ul class="list-group">
+            {{ range .accounts.Items }}
+                <li class="list-group-item">
+                    <img class="rounded-circle" style="height:1em; margin-top: -0.25em"
+                         src="{{.Connection.Logo}}"/>
+                    {{ .FormattedAccount }}
+                </li>
+            {{ end }}
+        </ul>
+    {{ end}}
+{{ end }}

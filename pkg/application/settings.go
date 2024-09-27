@@ -9,13 +9,8 @@ import (
 func (app *Application) Settings(c echo.Context) error {
 
 	config := app.integrations.Config()
-	accounts, err := app.integrations.AkahuAccounts()
-	if err != nil {
-		return err
-	}
 	return c.Render(http.StatusOK, "settings", map[string]interface{}{
-		"config":   config,
-		"accounts": accounts,
+		"config": config,
 	})
 }
 
@@ -47,4 +42,14 @@ func (app *Application) PutAkahuSettings(c echo.Context) error {
 	}
 	app.Toast(c, "Success", "Akahu settings saved successfully!")
 	return nil
+}
+
+func (app *Application) ListAkahuAccounts(c echo.Context) error {
+	accounts, err := app.integrations.AkahuAccounts()
+	if err != nil {
+		return err
+	}
+	return c.Render(http.StatusOK, "akahu.accounts", map[string]interface{}{
+		"accounts": accounts,
+	})
 }
