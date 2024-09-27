@@ -10,7 +10,7 @@ import (
 )
 
 func (app *Application) Inventory(c echo.Context) error {
-	inventory, _ := app.store.Inventory.List()
+	inventory, _ := app.store.ReadInventory()
 	return c.Render(http.StatusOK, "inventory", map[string]interface{}{
 		"inventory": inventory,
 	})
@@ -51,7 +51,7 @@ func (app *Application) InventoryCreate(c echo.Context) error {
 		Quantity:    int(quantity),
 	}
 
-	_, err = app.store.Inventory.Put(item)
+	err = app.store.CreateInventory(item)
 	if err != nil {
 		c.Logger().Error(err)
 		return c.JSON(http.StatusInternalServerError, err.Error())
@@ -66,7 +66,7 @@ func (app *Application) DeleteInventory(c echo.Context) error {
 	if id == "" {
 		return c.String(http.StatusBadRequest, "id is required")
 	}
-	err := app.store.Inventory.Delete(id)
+	err := app.store.DeleteInventory([]byte(id))
 	if err != nil {
 		c.Logger().Error(err)
 		return c.JSON(http.StatusInternalServerError, err.Error())

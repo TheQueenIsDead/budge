@@ -11,7 +11,7 @@ func (app *Application) GetMerchant(c echo.Context) error {
 	if id != "" {
 		return c.HTML(http.StatusBadRequest, "id is required")
 	}
-	merchants, err := app.store.Merchants.Get(id)
+	merchants, err := app.store.GetMerchant([]byte(id))
 	if err != nil {
 		// TODO: Nice error handling
 		return c.HTML(500, err.Error())
@@ -21,7 +21,7 @@ func (app *Application) GetMerchant(c echo.Context) error {
 }
 
 func (app *Application) ListMerchants(c echo.Context) error {
-	merchants, _ := app.store.Merchants.List()
+	merchants, _ := app.store.ReadMerchants()
 	return c.Render(http.StatusOK, "merchants", merchants)
 }
 

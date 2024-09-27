@@ -39,21 +39,21 @@ func (app *Application) Home(c echo.Context) error {
 	var accountCount, transactionCount, merchantCount int
 	var err error
 
-	accountCount, err = app.store.Accounts.Count()
+	accountCount, err = app.store.CountAccount()
 	if err != nil {
 		return err
 	}
-	transactionCount, err = app.store.Transactions.Count()
+	transactionCount, err = app.store.CountTransactions()
 	if err != nil {
 		return err
 	}
-	merchantCount, err = app.store.Merchants.Count()
+	merchantCount, err = app.store.CountMerchant()
 	if err != nil {
 		return err
 	}
 
 	var transactions []models.Transaction
-	transactions, err = app.store.Transactions.List()
+	transactions, err = app.store.ReadTransactions()
 	if err != nil {
 		c.Logger().Error(err)
 		return err

@@ -2,12 +2,20 @@ package models
 
 import (
 	"errors"
+	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 	"strings"
 )
 
 type IntegrationAkahuSettings struct {
 	AppToken  string
 	UserToken string
+}
+
+func (ias IntegrationAkahuSettings) Key() []byte {
+	return []byte("akahu")
+}
+func (ias IntegrationAkahuSettings) Bucket() []byte {
+	return buckets.SettingsBucket
 }
 
 func (ias *IntegrationAkahuSettings) Validate() error {

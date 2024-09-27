@@ -31,7 +31,7 @@ func NewIntegrations(store *database.Store) *Integrations {
 
 func (i *Integrations) RegisterAkahu() {
 
-	settings, err := i.store.Settings.GetAkahuSettings()
+	settings, err := i.store.GetAkahuSettings()
 	if err != nil {
 		log.Error("Could not retrieve akahu settings, falling back to ENV")
 		settings.UserToken = os.Getenv("AKAHU_USER_TOKEN")
@@ -63,7 +63,7 @@ func (i *Integrations) SyncAkahu(c echo.Context) error {
 	}
 
 	for _, account := range accounts.Items {
-		_, err := i.store.Accounts.Put(account)
+		err := i.store.CreateAccount(account)
 		if err != nil {
 			return err
 		}
@@ -74,7 +74,7 @@ func (i *Integrations) SyncAkahu(c echo.Context) error {
 	for _, transaction := range transactions.Items {
 
 		tx := models.Transaction(transaction)
-		_, err := i.store.Transactions.Put(transaction)
+		err := i.store.CreateTransaction(transaction)
 		if err != nil {
 			c.Logger().Error(err)
 			return err
@@ -89,7 +89,7 @@ func (i *Integrations) SyncAkahu(c echo.Context) error {
 	}
 
 	for _, merchant := range merchants {
-		_, err := i.store.Merchants.Put(merchant)
+		err := i.store.CreateMerchant(merchant)
 		if err != nil {
 			c.Logger().Error(err)
 			return err
@@ -100,7 +100,7 @@ func (i *Integrations) SyncAkahu(c echo.Context) error {
 }
 
 func (i *Integrations) PutAkahuSettings(settings models.IntegrationAkahuSettings) error {
-	err := i.store.Settings.PutAkahuSettings(settings)
+	err := i.store.UpdateAkahuSettings(settings)
 	if err != nil {
 		return err
 	}
