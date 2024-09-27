@@ -36,7 +36,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 		templates: tpl,
 	}
 
-	app.http.Logger.SetLevel(log.DEBUG)
+	app.http.Logger.SetLevel(log.INFO)
 
 	app.http.HTTPErrorHandler = func(err error, c echo.Context) {
 		// Extract the code from the HTTPError
@@ -49,6 +49,10 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 		switch code {
 		case http.StatusNotFound:
+			c.Logger().Errorj(log.JSON{
+				"err": err.Error(),
+				"uri": c.Request().RequestURI,
+			})
 			err = c.Redirect(http.StatusTemporaryRedirect, "/4XX")
 			if err != nil {
 				c.Logger().Error(err)
@@ -75,6 +79,9 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.Renderer = t
 	app.http.GET("/", app.Home)
 	app.http.GET("/4XX", app._4XX)
+	app.http.GET("/inventory", app.Inventory)
+	app.http.GET("/inventory/new", app.InventoryNew)
+	app.http.POST("/inventory/:id/delete", app.DeleteInventory)
 	app.http.GET("/settings", app.Settings)
 	app.http.GET("/merchants", app.ListMerchants)
 	app.http.GET("/merchants/:id", app.GetMerchant)
@@ -125,6 +132,7 @@ func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Con
 		if t.Name() == name {
 			c.Logger().Debug("template found for '", name, "'")
 			found = true
+			break
 		}
 	}
 

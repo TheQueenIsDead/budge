@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/dustin/go-humanize"
 	"github.com/scylladb/go-set/strset"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -151,4 +152,33 @@ func (t *Transaction) Float() float64 {
 
 func (t *Transaction) Add(tx *Transaction) float64 {
 	return t.Amount + tx.Amount
+}
+
+type Inventory struct {
+	Id          string    `json:"_id"`
+	CreatedAt   time.Time `json:"created_at"`
+	Description string    `json:"description"`
+	Cost        float64   `json:"amount"`
+	Category    string    `json:"type"`
+	Date        time.Time `json:"date"`
+	Name        string    `json:"name"`
+	Quantity    int       `json:"quantity"`
+
+	// TODO: Upload media, like receipts
+}
+
+func (i *Inventory) Key() []byte {
+	return []byte(i.Id)
+}
+
+func (i *Inventory) Value() ([]byte, error) {
+	return json.Marshal(i)
+}
+
+func (i *Inventory) ISODateString() string {
+	return i.Date.Format("2006-01-02")
+}
+
+func (i *Inventory) Purchased() string {
+	return humanize.Time(i.Date)
 }

@@ -7,7 +7,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
         <meta name="description" content="">
         <meta name="author" content="">
-        <link rel="icon" href="assets/favicon.ico">
+        <link rel="icon" href="/assets/favicon.ico">
 
         <title>Budge</title>
 
@@ -27,10 +27,10 @@
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 
         <!-- Theme: https://github.com/startbootstrap/startbootstrap-freelancer -->
-        <link href="assets/theme.css" rel="stylesheet"/>
-        <script src="assets/theme.js"></script>
-        <script defer src="assets/toast.js"></script>
-        <link rel="stylesheet" href="assets/styles.css">
+        <link href="/assets/theme.css" rel="stylesheet"/>
+        <script src="/assets/theme.js"></script>
+        <script defer src="/assets/toast.js"></script>
+        <link rel="stylesheet" href="/assets/styles.css">
 
         <!-- HTMX -->
         <script src="https://unpkg.com/htmx.org@2.0.0"></script>
@@ -46,41 +46,34 @@
     <body>
 
 
-    <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
-        <a class="navbar-brand" href="/" style="padding-left: 10px">🐦</a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-
-        {{/*TODO: Apply .active on full page refresh */}}}}
-        <div class="collapse navbar-collapse" id="navbar" hx-boost="true" hx-target="#main">
-            <ul class="navbar-nav mr-auto">
-                <li class="nav-item active">
+    <nav class="navbar navbar-expand-md navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">🐦</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbar" hx-boost="true" hx-target="#main">
+                <div class="navbar-nav">
                     <a class="nav-link" href="/" _="on click remove .active from <a/> add .active">
                         Home
                     </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/accounts" _="on click remove .active from <a/> add .active">
+                    <a class="nav-link" href="/accounts" _="on click remove .active from <a/> add .active" data-bs-toggle="collapse" data-bs-target=".navbar-collapse.show">
                         Accounts
                     </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/merchants" _="on click remove .active from <a/> add .active">
+                    <a class="nav-link" href="/inventory" _="on click remove .active from <a/> add .active" data-bs-toggle="collapse" data-bs-target=".navbar-collapse.show">
+                        Inventory
+                    </a>
+                    <a class="nav-link" href="/merchants" _="on click remove .active from <a/> add .active" data-bs-toggle="collapse" data-bs-target=".navbar-collapse.show">
                         Merchants
                     </a>
-                </li>
-                <li class="nav-item" _="on click remove .active from <a/> add .active">
-                    <a class="nav-link" href="/transactions">
+                    <a class="nav-link" href="/transactions" _="on click remove .active from <a/> add .active" data-bs-toggle="collapse" data-bs-target=".navbar-collapse.show">
                         Transactions
                     </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/settings" _="on click remove .active from <a/> add .active">
+                    <a class="nav-link" href="/settings" _="on click remove .active from <a/> add .active" data-bs-toggle="collapse" data-bs-target=".navbar-collapse.show">
                         Settings
                     </a>
-                </li>
-            </ul>
+                </div>
+            </div>
         </div>
     </nav>
 
@@ -88,18 +81,18 @@
         <div class="toast-container p-3" id="toastPlacement">
             <div id="toast" class="toast">
                 <div class="toast-header">
-{{/*                    <img src="..." class="rounded me-2" alt="...">*/}}
+                    {{/*                    <img src="..." class="rounded me-2" alt="...">*/}}
                     <strong class="me-auto">Error</strong>
-{{/*                    <small>11 mins ago</small>*/}}
+                    {{/*                    <small>11 mins ago</small>*/}}
                 </div>
                 <div id="toast-body" class="toast-body">
-{{/*                Message Here*/}}
+                    {{/*                Message Here*/}}
                 </div>
             </div>
         </div>
     </div>
 
-    <main id="main" class="container">
+    <main id="main" class="container" style="margin-top: 1rem">
         {{ .content }}
     </main>
 

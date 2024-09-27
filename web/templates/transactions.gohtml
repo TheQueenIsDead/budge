@@ -13,7 +13,8 @@
                     </li>
                     {{ range .accounts }}
                         <li>
-                            <button class="dropdown-item" type="button" hx-get="/transactions?account={{.Id}}"> {{ .Name }}</button>
+                            <button class="dropdown-item" type="button"
+                                    hx-get="/transactions?account={{.Id}}"> {{ .Name }}</button>
                         </li>
                     {{ end }}
                 </ul>
