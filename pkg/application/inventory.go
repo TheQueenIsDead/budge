@@ -17,7 +17,9 @@ func (app *Application) Inventory(c echo.Context) error {
 }
 
 func (app *Application) InventoryNew(c echo.Context) error {
-	return c.Render(http.StatusOK, "inventory.new", nil)
+	return c.Render(http.StatusOK, "inventory.new", map[string]interface{}{
+		"today": time.Now().Format("2006-01-02"),
+	})
 }
 
 func (app *Application) InventoryCreate(c echo.Context) error {
