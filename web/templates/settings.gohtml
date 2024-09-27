@@ -67,8 +67,7 @@
                                       class="spinner_P7sC"/>
                             </svg>
                         </div>
-                        {{/*TODO: Don't nuke the button on success*/}}
-                        <div class="col-md-2 col-12 ml-auto text-right" hx-post="/integrations/akahu/save">
+                        <div class="col-md-2 col-12 ml-auto text-right" hx-post="/integrations/akahu/save" hx-disabled-elt="this" hx-swap="none">
                             <button class="btn disabled"> Save</button>
                         </div>
                     </div>

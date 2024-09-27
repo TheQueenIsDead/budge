@@ -163,3 +163,19 @@ func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Con
 	})
 
 }
+
+func (app *Application) Toast(c echo.Context, level string, message string) {
+	// Set an HTMX Error even via headers
+	event := map[string]interface{}{
+		"toast": map[string]string{
+			"level":   level,
+			"message": message,
+		},
+	}
+	buf, err := json.Marshal(event)
+	if err != nil {
+		c.Logger().Error(err)
+		return
+	}
+	c.Response().Header().Add("Hx-Trigger", string(buf))
+}
