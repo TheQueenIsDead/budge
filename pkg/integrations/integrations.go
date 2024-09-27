@@ -80,10 +80,11 @@ func (i *Integrations) SyncAkahu(c echo.Context) error {
 			return err
 		}
 		m := models.Merchant{
-			Id:      tx.Id,
-			Name:    tx.Merchant(),
-			Logo:    "",
-			Website: "",
+			Id:       tx.Id,
+			Name:     tx.Merchant(),
+			Category: tx.Category.Groups.PersonalFinance.Name,
+			Logo:     "",
+			Website:  "",
 		}
 		merchants = append(merchants, m)
 	}

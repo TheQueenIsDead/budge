@@ -7,7 +7,7 @@
             <thead>
             <tr>
                 <th> Name</th>
-                <th> Description</th>
+                <th> Category</th>
                 <th> Edit</th>
 
             </tr>
@@ -16,8 +16,8 @@
             {{- /*gotype:github.com/TheQueenIsDead/budge/pkg.Merchant*/ -}}
             {{ range . }}
                 <tr>
-                    <td>{{ .Id }}</td>
                     <td>{{ .Name }}</td>
+                    <td>{{ .Category }}</td>
                     <td>
                         {{/*                <button class="btn danger"*/}}
                         {{/*                        hx-get="/merchant/{{ .ID }}/edit"*/}}

@@ -70,10 +70,11 @@ func (a *Account) Value() ([]byte, error) {
 }
 
 type Merchant struct {
-	Id      string `json:"_id"`
-	Name    string `json:"name"`
-	Logo    string `json:"logo"`
-	Website string `json:"website"`
+	Id       string `json:"_id"`
+	Category string `json:"category"`
+	Name     string `json:"name"`
+	Logo     string `json:"logo"`
+	Website  string `json:"website"`
 }
 
 func (m Merchant) Key() []byte {
