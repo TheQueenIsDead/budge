@@ -45,10 +45,10 @@
                 </span>
                     </div>
 
-                    <div class="row">
+                    <div class="row justify-content-between">
                         {{/*TODO: Disable if integration not configured*/}}
                         <div class="col-md-2 col-12">
-                            <button class="btn btn-primary" hx-post="/integrations/akahu/sync" hx-indicator="#spinner" hx-disabled-elt="this" hx-swap="none">
+                            <button class="btn btn-primary w-100" hx-post="/integrations/akahu/sync" hx-indicator="#spinner" hx-disabled-elt="this" hx-swap="none">
                                 Sync
                             </button>
                             <svg id="spinner" class="htmx-indicator" width="24" height="24" viewBox="0 0 24 24"
@@ -67,14 +67,14 @@
                                       class="spinner_P7sC"/>
                             </svg>
                         </div>
-                        <div class="col-md-2 col-12 ml-auto text-right" hx-post="/integrations/akahu/save" hx-disabled-elt="this" hx-swap="none">
-                            <button class="btn disabled"> Save</button>
+                        <div class="col-md-2 col-12">
+                            <button class="btn btn-secondary w-100" hx-post="/integrations/akahu/save" hx-disabled-elt="this" hx-swap="none">
+                                Save
+                            </button>
                         </div>
                     </div>
                 </form>
             </div>
-
-            <br>
 
             {{/*TODO: Allow the ability to disconnect from the app**/}}
             {{/* Akahu Connected Accounts*/}}
