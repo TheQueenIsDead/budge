@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 	"github.com/dustin/go-humanize"
 	"github.com/scylladb/go-set/strset"
 	"golang.org/x/text/cases"
@@ -56,8 +57,12 @@ type Account struct {
 	} `json:"refreshed"`
 }
 
-func (a *Account) Key() []byte {
+func (a Account) Key() []byte {
 	return []byte(a.Id)
+}
+
+func (a Account) Bucket() []byte {
+	return buckets.AccountBucket
 }
 
 func (a *Account) Value() ([]byte, error) {
@@ -71,8 +76,12 @@ type Merchant struct {
 	Website string `json:"website"`
 }
 
-func (m *Merchant) Key() []byte {
+func (m Merchant) Key() []byte {
 	return []byte(m.Id)
+}
+
+func (m Merchant) Bucket() []byte {
+	return buckets.MerchantBucket
 }
 
 func (m *Merchant) Value() ([]byte, error) {
@@ -107,8 +116,12 @@ type Transaction struct {
 	Type        string    `json:"type"`
 }
 
-func (t *Transaction) Key() []byte {
+func (t Transaction) Key() []byte {
 	return []byte(t.Id)
+}
+
+func (t Transaction) Bucket() []byte {
+	return buckets.TransactionBucket
 }
 
 func (t *Transaction) Value() ([]byte, error) {
@@ -167,8 +180,12 @@ type Inventory struct {
 	// TODO: Upload media, like receipts
 }
 
-func (i *Inventory) Key() []byte {
+func (i Inventory) Key() []byte {
 	return []byte(i.Id)
+}
+
+func (i Inventory) Bucket() []byte {
+	return buckets.InventoryBucket
 }
 
 func (i *Inventory) Value() ([]byte, error) {

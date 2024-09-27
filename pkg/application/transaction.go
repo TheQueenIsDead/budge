@@ -12,15 +12,15 @@ func (app *Application) ListTransactions(c echo.Context) error {
 	var transactions []models.Transaction
 	var err error
 	if account == "" {
-		transactions, err = app.store.Transactions.List()
+		transactions, err = app.store.ReadTransactions()
 	} else {
-		transactions, err = app.store.Transactions.ListByAccount(account)
+		transactions, err = app.store.ReadTransactionsByAccount(account)
 	}
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	accounts, err := app.store.Accounts.List()
+	accounts, err := app.store.ReadAccounts()
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

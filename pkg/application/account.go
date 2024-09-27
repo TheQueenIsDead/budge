@@ -6,6 +6,6 @@ import (
 )
 
 func (app *Application) ListAccounts(c echo.Context) error {
-	accounts, _ := app.store.Accounts.List()
+	accounts, _ := app.store.ReadAccounts()
 	return c.Render(http.StatusOK, "accounts", accounts)
 }
