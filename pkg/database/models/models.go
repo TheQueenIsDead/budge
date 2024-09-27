@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/dustin/go-humanize"
 	"github.com/scylladb/go-set/strset"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -176,4 +177,8 @@ func (i *Inventory) Value() ([]byte, error) {
 
 func (i *Inventory) ISODateString() string {
 	return i.Date.Format("2006-01-02")
+}
+
+func (i *Inventory) Purchased() string {
+	return humanize.Time(i.Date)
 }

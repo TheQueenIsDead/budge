@@ -59,3 +59,17 @@ func (app *Application) InventoryCreate(c echo.Context) error {
 
 	return c.Redirect(http.StatusFound, "/inventory")
 }
+
+func (app *Application) DeleteInventory(c echo.Context) error {
+
+	id := c.Param("id")
+	if id == "" {
+		return c.String(http.StatusBadRequest, "id is required")
+	}
+	err := app.store.Inventory.Delete(id)
+	if err != nil {
+		c.Logger().Error(err)
+		return c.JSON(http.StatusInternalServerError, err.Error())
+	}
+	return c.JSON(http.StatusOK, "Inventory deleted")
+}

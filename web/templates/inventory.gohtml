@@ -15,13 +15,16 @@
             {{ range .inventory }}
                 <li class="list-group-item d-flex justify-content-between align-items-start">
                     <div class="ms-2 me-auto">
-                        <div class="fw-bold">{{.Name}}</div>
+                        <div class="fw-bold">{{.Name}}</div><small class="text-muted">Purchased {{.Purchased}}</small>
                         {{.Description}}
+
                     </div>
                     <span class="badge bg-secondary rounded-pill">{{.Quantity}}</span>
                     <span class="badge bg-primary rounded-pill">${{.Cost}}</span>
                     {{/* TODO: Wire up delete button, and modal */}}
-                    <button class="btn btn-danger"><i class="bi bi-trash-fill"></i></button>
+                    <button class="btn btn-danger" hx-post="/inventory/{{.Id}}/delete">
+                        <i class="bi bi-trash-fill"></i>
+                    </button>
                 </li>
             {{ end }}
         </ol>

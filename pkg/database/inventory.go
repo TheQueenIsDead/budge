@@ -47,7 +47,10 @@ func (s *InventoryStorer) Count() (int, error) {
 }
 
 func (s *InventoryStorer) Delete(id string) error {
-	panic("implement me")
+	return s.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(s.bucket)
+		return b.Delete([]byte(id))
+	})
 }
 
 func (s *InventoryStorer) Get(id string) (models.Inventory, error) {
