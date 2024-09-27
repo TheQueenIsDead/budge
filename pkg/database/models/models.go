@@ -197,5 +197,8 @@ func (i *Inventory) ISODateString() string {
 }
 
 func (i *Inventory) Purchased() string {
+	if i.Date.Format(time.DateOnly) == time.Now().Format(time.DateOnly) {
+		return "today"
+	}
 	return humanize.Time(i.Date)
 }
