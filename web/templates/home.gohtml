@@ -98,80 +98,81 @@
         </table>
     </div>
 
-    {{/*Categories Chart*/}}
-    {{/*        TODO: Fix 'Uncaught SyntaxError: redeclaration of const categories_data' when navigating via HTMX back and forth to the main page*/}}
+    {{/* Incoming vs Outgoing Chart*/}}
     <script>
-        const data = {
-            labels: [
-                'Incoming',
-                'Outgoing'
-            ],
-            datasets: [{
-                label: 'Expenditure',
-                data: [{{.incoming}}, {{.outgoing}}],
-                backgroundColor: [
-                    'rgb(26, 188, 156)',
-                    'rgb(255, 205, 52)'
+        function incomingOutgoingChart() {
+            const data = {
+                labels: [
+                    'Incoming',
+                    'Outgoing'
                 ],
-                hoverOffset: 4,
-                circumference: 180,
-                rotation: -90
-            }]
-        };
-        const config = {
-            type: 'doughnut',
-            data: data,
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: "Incoming vs Outgoing"
+                datasets: [{
+                    label: 'Expenditure',
+                    data: [{{.incoming}}, {{.outgoing}}],
+                    backgroundColor: [
+                        'rgb(26, 188, 156)',
+                        'rgb(255, 205, 52)'
+                    ],
+                    hoverOffset: 4,
+                    circumference: 180,
+                    rotation: -90
+                }]
+            };
+            const config = {
+                type: 'doughnut',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: "Incoming vs Outgoing"
+                        }
+                    },
+                    legend: {
+                        display: false,
                     }
-                },
-                legend: {
-                    display: false,
                 }
-            }
-        };
+            };
 
-        new Chart(document.getElementById('chart'), config);
+            new Chart(document.getElementById('chart'), config)
+        }
+        incomingOutgoingChart()
+
     </script>
 
     {{/*Categories Chart*/}}
     <script>
-        const categories_data = {
-            labels: {{.category_labels}},
-            datasets: [{
-                // label: 'Expenditure',
-                data: {{ .category_data }},
-                // backgroundColor: [
-                //     'rgb(26, 188, 156)',
-                //     'rgb(255, 205, 52)'
-                // ],
-                hoverOffset: 4,
-            }]
-        };
-        const categories_config = {
-            type: 'doughnut',
-            data: categories_data,
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: {
-                    title: {
+        function categoriesChart() {
+            const categories_data = {
+                labels: {{.category_labels}},
+                datasets: [{
+                    data: {{ .category_data }},
+                    hoverOffset: 4,
+                }]
+            };
+            const categories_config = {
+                type: 'doughnut',
+                data: categories_data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: "Spend By Category"
+                        }
+                    },
+                    legend: {
                         display: true,
-                        text: "Spend By Category"
                     }
-                },
-                legend: {
-                    display: true,
                 }
-            }
-        };
+            };
 
-        new Chart(document.getElementById('categories_chart'), categories_config);
+            new Chart(document.getElementById('categories_chart'), categories_config);
+        }
+        categoriesChart()
     </script>
 
 {{end}}
