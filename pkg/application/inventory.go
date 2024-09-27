@@ -71,5 +71,5 @@ func (app *Application) DeleteInventory(c echo.Context) error {
 		c.Logger().Error(err)
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
-	return c.JSON(http.StatusOK, "Inventory deleted")
+	return c.NoContent(http.StatusOK)
 }

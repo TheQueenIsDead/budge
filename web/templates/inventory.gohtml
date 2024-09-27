@@ -22,7 +22,7 @@
                     <span class="badge bg-secondary rounded-pill">{{.Quantity}}</span>
                     <span class="badge bg-primary rounded-pill">${{.Cost}}</span>
                     {{/* TODO: Wire up delete button, and modal */}}
-                    <button class="btn btn-danger" hx-post="/inventory/{{.Id}}/delete">
+                    <button class="btn btn-danger" hx-post="/inventory/{{.Id}}/delete" hx-confirm="Are you sure?" hx-target="closest li" hx-swap="outerHTML">
                         <i class="bi bi-trash-fill"></i>
                     </button>
                 </li>
