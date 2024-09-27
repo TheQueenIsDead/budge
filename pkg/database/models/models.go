@@ -5,11 +5,6 @@ import (
 	"fmt"
 	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 	"github.com/dustin/go-humanize"
-	"github.com/scylladb/go-set/strset"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
-	"regexp"
-	"strings"
 	"time"
 )
 
@@ -127,33 +122,6 @@ func (t Transaction) Bucket() []byte {
 
 func (t *Transaction) Value() ([]byte, error) {
 	return json.Marshal(t)
-}
-
-func (t *Transaction) Merchant() string {
-
-	// Try tidy up the memo into a passable name
-	name := ""
-	parts := strings.Split(t.Description, " ")
-	dropParts := strset.New("POS", "W/D", ";")
-	for _, part := range parts {
-		if dropParts.Has(part) {
-			continue
-		}
-		caser := cases.Title(language.English)
-		name = fmt.Sprintf("%s %s", name, caser.String(part))
-	}
-
-	re := regexp.MustCompile(`-[0-9]{2}:[0-9]{2}`)
-	name = re.ReplaceAllString(name, "")
-
-	name = strings.Replace(name, ";", "", -1)
-
-	if name != "" {
-		return name
-	}
-
-	return t.Description
-
 }
 
 func (t *Transaction) String() string {

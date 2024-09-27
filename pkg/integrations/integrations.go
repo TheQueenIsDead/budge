@@ -1,12 +1,18 @@
 package integrations
 
 import (
+	"fmt"
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/TheQueenIsDead/budge/pkg/integrations/akahu"
 	"github.com/labstack/echo/v4"
+	"github.com/scylladb/go-set/strset"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"os"
+	"regexp"
+	"strings"
 )
 
 type Integrations struct {
@@ -49,6 +55,31 @@ func (i *Integrations) Config() map[string]interface{} {
 	}
 }
 
+func sanitise(merchant string) string {
+
+	// Try tidy up the memo into a passable name
+	name := ""
+	parts := strings.Split(merchant, " ")
+	dropParts := strset.New("POS", "W/D", ";")
+	for _, part := range parts {
+		if dropParts.Has(part) {
+			continue
+		}
+		caser := cases.Title(language.English)
+		name = fmt.Sprintf("%s %s", name, caser.String(part))
+	}
+
+	re := regexp.MustCompile(`-[0-9]{2}:[0-9]{2}`)
+	name = re.ReplaceAllString(name, "")
+
+	name = strings.Replace(name, ";", "", -1)
+
+	if name != "" {
+		return name
+	}
+	return merchant
+}
+
 func (i *Integrations) SyncAkahu(c echo.Context) error {
 
 	accounts, err := i.AkahuAccounts()
@@ -74,14 +105,16 @@ func (i *Integrations) SyncAkahu(c echo.Context) error {
 	for _, transaction := range transactions.Items {
 
 		tx := models.Transaction(transaction)
-		err := i.store.CreateTransaction(transaction)
+		tx.Description = sanitise(transaction.Description)
+		err := i.store.CreateTransaction(tx)
 		if err != nil {
 			c.Logger().Error(err)
 			return err
 		}
 		m := models.Merchant{
+			//TODO: Using the TX id here isn't super smart, will lead to dupes
 			Id:       tx.Id,
-			Name:     tx.Merchant(),
+			Name:     sanitise(tx.Description),
 			Category: tx.Category.Groups.PersonalFinance.Name,
 			Logo:     "",
 			Website:  "",
