@@ -57,22 +57,44 @@ func (i *Integrations) Config() map[string]interface{} {
 
 func sanitise(merchant string) string {
 
-	// Try tidy up the memo into a passable name
+	// Filter  out words
 	name := ""
 	parts := strings.Split(merchant, " ")
-	dropParts := strset.New("POS", "W/D", ";")
+	dropParts := strset.New("POS", "W/D", ";", "-", " ", "ATM", "TO")
 	for _, part := range parts {
-		if dropParts.Has(part) {
+		if dropParts.Has(strings.ToUpper(part)) {
 			continue
 		}
 		caser := cases.Title(language.English)
-		name = fmt.Sprintf("%s %s", name, caser.String(part))
+		// If the word is all caps, then preserve case, else Title it.
+		if part != strings.ToUpper(part) {
+			part = caser.String(part)
+		}
+		name = fmt.Sprintf("%s %s", name, part)
 	}
 
-	re := regexp.MustCompile(`-[0-9]{2}:[0-9]{2}`)
-	name = re.ReplaceAllString(name, "")
+	var re *regexp.Regexp
+	expressions := []*regexp.Regexp{
+		// Remove timecodes such as '-17:35'
+		regexp.MustCompile(`-[0-9]{2}:[0-9]{2}`),
+		// Remove autopay identifiers
+		regexp.MustCompile(`Ap#[0-9]{8}`),
+		// Remove 'Direct Debit' information
+		regexp.MustCompile(`Direct Debit`),
+		regexp.MustCompile(`Transfer From`),
+		regexp.MustCompile(`Bill Payment`),
+	}
+	for _, expression := range expressions {
+		re = expression
+		name = re.ReplaceAllString(name, "")
+	}
 
+	// Final tid-bits that might not have been removed via regex
+	// TODO: Should this be non-alpha characters?
 	name = strings.Replace(name, ";", "", -1)
+
+	// Trim off whitespace
+	name = strings.TrimSpace(name)
 
 	if name != "" {
 		return name
