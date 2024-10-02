@@ -6,6 +6,7 @@
         <table class="table">
             <thead>
             <tr>
+                <th> Id</th>
                 <th> Name</th>
                 <th> Category</th>
                 <th> Edit</th>
@@ -16,6 +17,7 @@
             {{- /*gotype:github.com/TheQueenIsDead/budge/pkg.Merchant*/ -}}
             {{ range . }}
                 <tr>
+                    <td>{{ .Id }}</td>
                     <td>{{ .Name }}</td>
                     <td>{{ .Category }}</td>
                     <td>

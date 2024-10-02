@@ -76,6 +76,23 @@
             </div>
         </div>
 
+        <div class="container">
+            <div class="row">
+                <h1>Spend Over Time</h1>
+                <div class="btn-group" role="group" aria-label="Basic outlined example">
+                    <button type="button" class="btn btn-outline-primary">Week</button>
+                    <button type="button" class="btn btn-outline-primary">Month</button>
+                    <button type="button" class="btn btn-outline-primary">Quarter</button>
+                </div>
+            </div>
+            <div class="col">
+                <canvas id="spend_chart" style="min-width: 300px"></canvas>
+            </div>
+
+        </div>
+
+
+
         <hr>
 
         {{/*TODO: Instead of showing this in a table, we could use progress bars to display relative spends.*/}}
@@ -173,6 +190,87 @@
             new Chart(document.getElementById('categories_chart'), categories_config);
         }
         categoriesChart()
+    </script>
+
+
+    {{/*Spend Chart*/}}
+    <script>
+
+        function spendChart() {
+
+
+            const MONTHS = [
+                'January',
+                'February',
+                'March',
+                'April',
+                'May',
+                'June',
+                'July',
+                'August',
+                'September',
+                'October',
+                'November',
+                'December'
+            ];
+
+            function months(config) {
+                var cfg = config || {};
+                var count = cfg.count || 12;
+                var section = cfg.section;
+                var values = [];
+                var i, value;
+
+                for (i = 0; i < count; ++i) {
+                    value = MONTHS[Math.ceil(i) % 12];
+                    values.push(value.substring(0, section));
+                }
+
+                return values;
+            }
+
+
+            const spend_labels = months({count: 7});
+            const spend_data = {
+                labels: spend_labels,
+                datasets: [{
+                    label: 'My First Dataset',
+                    data: [65, 59, 80, 81, 56, 55, 40],
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.2)',
+                        'rgba(255, 159, 64, 0.2)',
+                        'rgba(255, 205, 86, 0.2)',
+                        'rgba(75, 192, 192, 0.2)',
+                        'rgba(54, 162, 235, 0.2)',
+                        'rgba(153, 102, 255, 0.2)',
+                        'rgba(201, 203, 207, 0.2)'
+                    ],
+                    borderColor: [
+                        'rgb(255, 99, 132)',
+                        'rgb(255, 159, 64)',
+                        'rgb(255, 205, 86)',
+                        'rgb(75, 192, 192)',
+                        'rgb(54, 162, 235)',
+                        'rgb(153, 102, 255)',
+                        'rgb(201, 203, 207)'
+                    ],
+                    borderWidth: 1
+                }]
+            };
+            const spend_config = {
+                type: 'bar',
+                data: spend_data,
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                },
+            };
+            new Chart(document.getElementById('spend_chart'), spend_config);
+        }
+        spendChart()
     </script>
 
 {{end}}
