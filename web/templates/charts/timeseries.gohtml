@@ -1,0 +1,35 @@
+{{define "chart.timeseries"}}
+<canvas id="{{.config.ChartId}}">
+</canvas>
+<script>
+
+    function spendChart() {
+        const spend_data = {
+            labels: {{.config.Labels}},
+            datasets: [
+                {
+                    label: {{.config.Title}},
+                    data: {{.config.Data}},
+                    backgroundColor: {{.config.Background}},
+                    borderColor: {{.config.Border}},
+                    borderWidth: 1
+                }
+            ]
+        };
+        const spend_config = {
+            type: 'bar',
+            data: spend_data,
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            },
+        };
+        new Chart(document.getElementById({{.config.ChartId}}), spend_config);
+    }
+    spendChart()
+</script>
+
+{{end}}
