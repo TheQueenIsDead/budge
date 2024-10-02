@@ -71,17 +71,20 @@
             </div>
         </div>
 
+        {{/* FIXME: When swapping between time periods, the chart can fail to adjust it's size appropriately and get blown out.
+                double clicking, or changing the period helps. Perhaps we should send the current dimensions in the request?
+                 ChartJS sets the style on resize, it seems, ex: style="height: 699px; width: 648px; display: block; box-sizing: border-box;" */}}
         <div class="container">
             <div class="row">
                 <h1>Spend Over Time</h1>
                 <div class="btn-group" role="group" aria-label="Basic outlined example">
-                    <button type="button" class="btn btn-outline-primary">Week</button>
-                    <button type="button" class="btn btn-outline-primary">Month</button>
-                    <button type="button" class="btn btn-outline-primary">Quarter</button>
+                    <button type="button" class="btn btn-outline-primary active" hx-get="/charts/timeseries?period=week" hx-target="#spendOverTime" _="on click remove .active from <button/> add .active">Week</button>
+                    <button type="button" class="btn btn-outline-primary" hx-get="/charts/timeseries?period=month" hx-target="#spendOverTime" _="on click remove .active from <button/> add .active">Month</button>
+                    <button type="button" class="btn btn-outline-primary" hx-get="/charts/timeseries?period=quarter" hx-target="#spendOverTime" _="on click remove .active from <button/> add .active">Quarter</button>
                 </div>
             </div>
 
-            <div class="col" hx-trigger="load" hx-get="/charts/timeseries" hx-swap="innerHtml"></div>
+            <div id="spendOverTime" class="col" hx-trigger="load" hx-get="/charts/timeseries" hx-swap="innerHtml"></div>
         </div>
 
         <hr>
