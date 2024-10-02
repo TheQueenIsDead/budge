@@ -1,25 +1,27 @@
 {{define "chart.timeseries"}}
-<canvas id="{{.config.ChartId}}">
+<canvas id="{{.ChartId}}">
 </canvas>
 <script>
-
-    function spendChart() {
-        const spend_data = {
-            labels: {{.config.Labels}},
+    function render() {
+        const data = {
+            labels: {{.Labels}},
             datasets: [
                 {
-                    label: {{.config.Title}},
-                    data: {{.config.Data}},
-                    backgroundColor: {{.config.Background}},
-                    borderColor: {{.config.Border}},
+                    label: {{.Title}},
+                    data: {{.Data}},
+                    backgroundColor: {{.Background}},
+                    borderColor: {{.Border}},
                     borderWidth: 1
                 }
             ]
         };
-        const spend_config = {
+        const config = {
             type: 'bar',
-            data: spend_data,
+            data: data,
             options: {
+                // animation: {
+                //     duration: 0,
+                // },
                 scales: {
                     y: {
                         beginAtZero: true
@@ -27,9 +29,8 @@
                 }
             },
         };
-        new Chart(document.getElementById({{.config.ChartId}}), spend_config);
+        new Chart(document.getElementById({{.ChartId}}), config);
     }
-    spendChart()
+    render()
 </script>
-
 {{end}}
