@@ -60,7 +60,7 @@ func sanitise(merchant string) string {
 	// Filter  out words
 	name := ""
 	parts := strings.Split(merchant, " ")
-	dropParts := strset.New("POS", "W/D", ";", "-", " ", "ATM", "TO")
+	dropParts := strset.New("POS", "W/D", ";", "-", " ", "ATM", "TO", "FROM", "PAY")
 	for _, part := range parts {
 		if dropParts.Has(strings.ToUpper(part)) {
 			continue
@@ -78,11 +78,12 @@ func sanitise(merchant string) string {
 		// Remove timecodes such as '-17:35'
 		regexp.MustCompile(`-[0-9]{2}:[0-9]{2}`),
 		// Remove autopay identifiers
-		regexp.MustCompile(`Ap#[0-9]{8}`),
+		regexp.MustCompile(`(?i)AP#[0-9]{8}`),
 		// Remove 'Direct Debit' information
-		regexp.MustCompile(`Direct Debit`),
-		regexp.MustCompile(`Transfer From`),
-		regexp.MustCompile(`Bill Payment`),
+		regexp.MustCompile(`(?i)Direct Debit`),
+		regexp.MustCompile(`(?i)Transfer From`),
+		regexp.MustCompile(`(?i)Bill Payment`),
+		regexp.MustCompile(`(?i)Automatic Payment`),
 	}
 	for _, expression := range expressions {
 		re = expression
@@ -127,7 +128,7 @@ func (i *Integrations) SyncAkahu(c echo.Context) error {
 	for _, transaction := range transactions.Items {
 
 		tx := models.Transaction(transaction)
-		tx.Description = sanitise(transaction.Description)
+		//tx.Description = sanitise(transaction.Description)
 		err := i.store.CreateTransaction(tx)
 		if err != nil {
 			c.Logger().Error(err)
@@ -136,10 +137,13 @@ func (i *Integrations) SyncAkahu(c echo.Context) error {
 		m := models.Merchant{
 			//TODO: Using the TX id here isn't super smart, will lead to dupes
 			Id:       tx.Id,
-			Name:     sanitise(tx.Description),
+			Name:     tx.Description,
 			Category: tx.Category.Groups.PersonalFinance.Name,
 			Logo:     "",
 			Website:  "",
+			Aliases: []string{
+				sanitise(tx.Description),
+			},
 		}
 		merchants = append(merchants, m)
 	}

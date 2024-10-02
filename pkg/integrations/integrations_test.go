@@ -12,6 +12,7 @@ func TestSanitiseRemovesNoise(t *testing.T) {
 		expected string
 	}{
 		{"Autopay", "Ap#19841451 To F M Surname", "F M Surname"},
+		{"Autopay", "AP#23533701 To F M Surname", "F M Surname"},
 		{"ATM", "Atm 20 Marshland", "20 Marshland"},
 		{"Bill Payment", "Bill Payment Bicycle First Middle Last", "Bicycle First Middle Last"},
 		{"Transfer", "Transfer From D J King - 02", "D J King 02"},

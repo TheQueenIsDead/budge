@@ -6,6 +6,7 @@
         <table class="table">
             <thead>
             <tr>
+                <th> Select</th>
                 <th> Id</th>
                 <th> Name</th>
                 <th> Category</th>
@@ -16,10 +17,17 @@
             <tbody hx-target="closest tr" hx-swap="outerHTML">
             {{- /*gotype:github.com/TheQueenIsDead/budge/pkg.Merchant*/ -}}
             {{ range . }}
+                <tr _="on click toggle [@checked] on <input/> in me">
+                    <td>
+                        <label>
+                            <input type="checkbox" />
+                        </label>
+                    </td>
                 <tr>
                     <td>{{ .Id }}</td>
                     <td>{{ .Name }}</td>
                     <td>{{ .Category }}</td>
+                    <td>{{ .Aliases }}</td>
                     <td>
                         {{/*                <button class="btn danger"*/}}
                         {{/*                        hx-get="/merchant/{{ .ID }}/edit"*/}}
