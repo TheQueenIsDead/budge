@@ -1,7 +1,10 @@
 package database
 
 import (
+	"errors"
+	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
+	bolt "go.etcd.io/bbolt"
 	"time"
 )
 
@@ -73,4 +76,21 @@ func (s *Store) GetAkahuSettings() (models.IntegrationAkahuSettings, error) {
 }
 func (s *Store) UpdateAkahuSettings(settings models.IntegrationAkahuSettings) error {
 	return Update[models.IntegrationAkahuSettings](s.db, settings)
+}
+func (s *Store) DeleteSynced() error {
+	err := s.db.Update(func(tx *bolt.Tx) error {
+		accountErr := tx.DeleteBucket(buckets.AccountBucket)
+		merchantErr := tx.DeleteBucket(buckets.MerchantBucket)
+		transactionErr := tx.DeleteBucket(buckets.TransactionBucket)
+		return errors.Join(accountErr, merchantErr, transactionErr)
+	})
+	if err != nil {
+		return err
+	}
+	return s.db.Update(func(tx *bolt.Tx) error {
+		_, accountErr := tx.CreateBucket(buckets.AccountBucket)
+		_, merchantErr := tx.CreateBucket(buckets.MerchantBucket)
+		_, transactionErr := tx.CreateBucket(buckets.TransactionBucket)
+		return errors.Join(accountErr, merchantErr, transactionErr)
+	})
 }
