@@ -1,6 +1,9 @@
 package database
 
-import "github.com/TheQueenIsDead/budge/pkg/database/models"
+import (
+	"github.com/TheQueenIsDead/budge/pkg/database/models"
+	"time"
+)
 
 /* Accounts */
 
@@ -55,6 +58,11 @@ func (s *Store) ReadTransactions() ([]models.Transaction, error) {
 func (s *Store) ReadTransactionsByAccount(account string) ([]models.Transaction, error) {
 	return ReadFilter[models.Transaction](s.db, func(transaction models.Transaction) bool {
 		return transaction.Account == account
+	})
+}
+func (s *Store) ReadTransactionsByDate(start time.Time, end time.Time) ([]models.Transaction, error) {
+	return ReadFilter[models.Transaction](s.db, func(transaction models.Transaction) bool {
+		return transaction.Date.After(start) && transaction.Date.Before(end)
 	})
 }
 

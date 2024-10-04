@@ -1,0 +1,36 @@
+{{define "chart.timeseries"}}
+<canvas id="{{.ChartId}}">
+</canvas>
+<script>
+    function render() {
+        const data = {
+            labels: {{.Labels}},
+            datasets: [
+                {
+                    label: {{.Title}},
+                    data: {{.Data}},
+                    backgroundColor: {{.Background}},
+                    borderColor: {{.Border}},
+                    borderWidth: 1
+                }
+            ]
+        };
+        const config = {
+            type: 'bar',
+            data: data,
+            options: {
+                // animation: {
+                //     duration: 0,
+                // },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            },
+        };
+        new Chart(document.getElementById({{.ChartId}}), config);
+    }
+    render()
+</script>
+{{end}}

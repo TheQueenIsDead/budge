@@ -33,6 +33,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	// Setup HTTP server
 	tpl := template.Must(template.ParseGlob("web/templates/*.gohtml"))
 	tpl = template.Must(tpl.ParseGlob("web/templates/partials/*.gohtml"))
+	tpl = template.Must(tpl.ParseGlob("web/templates/charts/*.gohtml"))
 
 	t := &Template{
 		templates: tpl,
@@ -99,6 +100,10 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.GET("/integrations/akahu/accounts", app.ListAkahuAccounts)
 
 	app.http.Static("/assets", "./web/public")
+
+	app.http.GET("/charts/timeseries", app.ChartTimeseries)
+	app.http.GET("/charts/doughnut", app.ChartDoughnut)
+	app.http.GET("/charts/gauge", app.ChartGauge)
 
 	return app, nil
 }
