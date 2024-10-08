@@ -65,11 +65,9 @@ func (a *Account) Value() ([]byte, error) {
 }
 
 type Merchant struct {
-	Id       string   `json:"_id"`
+	Id       string   `json:"id"`
 	Category string   `json:"category"`
 	Name     string   `json:"name"`
-	Logo     string   `json:"logo"`
-	Website  string   `json:"website"`
 	Aliases  []string `json:"aliases"`
 }
 
@@ -104,6 +102,12 @@ type Transaction struct {
 			} `json:"personal_finance"`
 		} `json:"groups"`
 	} `json:"category"`
+	Merchant struct {
+		Id      string `json:"_id"`
+		Name    string `json:"name"`
+		Website string `json:"website"`
+		Nzbn    string `json:"nzbn"`
+	} `json:"merchant"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	Date        time.Time `json:"date"`

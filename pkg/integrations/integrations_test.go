@@ -16,7 +16,8 @@ func TestSanitiseRemovesNoise(t *testing.T) {
 		{"ATM", "Atm 20 Marshland", "20 Marshland"},
 		{"Bill Payment", "Bill Payment Bicycle First Middle Last", "Bicycle First Middle Last"},
 		{"Transfer", "Transfer From F M Surname - 02", "F M Surname 02"},
-		{"Direct Debit", "Direct Debit - ACME Internet Limited", "ACME Internet Limited"},
+		{"Direct Debit", "Direct Debit - ACME Internet Limited", "Acme Internet Limited"},
+		{"Direct Debit", "Direct Debit -ACME Internet Limited", "Acme Internet Limited"},
 	}
 
 	for _, tc := range tests {

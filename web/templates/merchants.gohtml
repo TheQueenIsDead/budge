@@ -3,11 +3,23 @@
     {{if .}}
         {{/*<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>*/}}
 
+            <div class="container" hx-boost="true" hx-push-url="true" hx-target="#main">
+                <h1>Options</h1>
+                <div class="row">
+                    <div class="btn-group">
+                        <a href="/merchants/merge">
+                            <button class="btn btn-primary"><i class="bi bi-intersect"></i>
+                                Merge
+                            </button>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <hr>
+            <h1>Merchants</h1>
         <table class="table">
             <thead>
             <tr>
-                <th> Select</th>
-                <th> Id</th>
                 <th> Name</th>
                 <th> Category</th>
                 <th> Edit</th>
@@ -17,14 +29,7 @@
             <tbody hx-target="closest tr" hx-swap="outerHTML">
             {{- /*gotype:github.com/TheQueenIsDead/budge/pkg.Merchant*/ -}}
             {{ range . }}
-                <tr _="on click toggle [@checked] on <input/> in me">
-                    <td>
-                        <label>
-                            <input type="checkbox" />
-                        </label>
-                    </td>
                 <tr>
-                    <td>{{ .Id }}</td>
                     <td>{{ .Name }}</td>
                     <td>{{ .Category }}</td>
                     <td>{{ .Aliases }}</td>
@@ -50,7 +55,7 @@
                         {{/*                    Edit*/}}
                         {{/*                </button>*/}}
                     </td>
-                </tr>
+                <tr>
             {{ end }}
             </tbody>
         </table>

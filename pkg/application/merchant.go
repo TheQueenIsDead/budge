@@ -1,6 +1,7 @@
 package application
 
 import (
+	"fmt"
 	"github.com/labstack/echo/v4"
 	"net/http"
 )
@@ -23,6 +24,33 @@ func (app *Application) GetMerchant(c echo.Context) error {
 func (app *Application) ListMerchants(c echo.Context) error {
 	merchants, _ := app.store.ReadMerchants()
 	return c.Render(http.StatusOK, "merchants", merchants)
+}
+
+func (app *Application) MergeMerchants(c echo.Context) error {
+	merchants, _ := app.store.ReadMerchants()
+	return c.Render(http.StatusOK, "merchant.merge", merchants)
+}
+
+func (app *Application) PostMergeMerchants(c echo.Context) error {
+	//merchants, _ := app.store.ReadMerchants()
+	c.Logger().Debug(c.FormParams())
+	return c.NoContent(http.StatusOK)
+}
+
+func (app *Application) SearchMerchants(c echo.Context) error {
+	name := c.QueryParam("search")
+	merchants, _ := app.store.SearchMerchantsByName(name)
+
+	res := ""
+	for _, m := range merchants {
+		res = res + fmt.Sprintf(`
+<tr>
+	<td>%s</td>
+	<td>%s</td>
+	<input type="hidden" name="merchants[%s]"></input>
+</tr>`, m.Name, m.Aliases, m.Name)
+	}
+	return c.HTML(http.StatusOK, res)
 }
 
 //func (app *Application) EditMerchant(c echo.Context) error {

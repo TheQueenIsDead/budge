@@ -55,6 +55,11 @@ func (i *Integrations) Config() map[string]interface{} {
 	}
 }
 
+func sanitiseTs(merchant string) string {
+	// Remove timecodes such as '-17:35'
+	return regexp.MustCompile(`-[0-9]{2}:[0-9]{2}`).ReplaceAllString(merchant, "")
+}
+
 func sanitise(merchant string) string {
 
 	// Filter  out words
@@ -65,18 +70,20 @@ func sanitise(merchant string) string {
 		if dropParts.Has(strings.ToUpper(part)) {
 			continue
 		}
+
+		// Remove extranous stuff from the start and end of the string
+		part = strings.Trim(part, "~!@#$%^&*()_-+=")
+
+		// Title case the part of the word.
 		caser := cases.Title(language.English)
-		// If the word is all caps, then preserve case, else Title it.
-		if part != strings.ToUpper(part) {
-			part = caser.String(part)
-		}
+		part = caser.String(part)
 		name = fmt.Sprintf("%s %s", name, part)
 	}
 
 	var re *regexp.Regexp
 	expressions := []*regexp.Regexp{
 		// Remove timecodes such as '-17:35'
-		regexp.MustCompile(`-[0-9]{2}:[0-9]{2}`),
+		regexp.MustCompile(`(-)*[0-9]{2}:[0-9]{2}`),
 		// Remove autopay identifiers
 		regexp.MustCompile(`(?i)AP#[0-9]{8}`),
 		// Remove 'Direct Debit' information
@@ -117,6 +124,7 @@ func (i *Integrations) SyncAkahu(c echo.Context) error {
 		return err
 	}
 
+	// Accounts hardly change, so just insert them and overwrite the key if need be.
 	for _, account := range accounts.Items {
 		err := i.store.CreateAccount(account)
 		if err != nil {
@@ -129,28 +137,38 @@ func (i *Integrations) SyncAkahu(c echo.Context) error {
 	for _, transaction := range transactions.Items {
 
 		tx := models.Transaction(transaction)
-		//tx.Description = sanitise(transaction.Description)
+		// We get given a transaction id from Akahu, which helps us to maintain unique records, overwrite if need be.
 		err := i.store.CreateTransaction(tx)
 		if err != nil {
 			c.Logger().Error(err)
 			return err
 		}
-		m := models.Merchant{
-			//TODO: Using the TX id here isn't super smart, will lead to dupes
-			Id:       tx.Id,
-			Name:     tx.Description,
-			Category: tx.Category.Groups.PersonalFinance.Name,
-			Logo:     "",
-			Website:  "",
-			Aliases: []string{
-				sanitise(tx.Description),
-			},
+
+		if transaction.Merchant.Id != "" {
+			m := models.Merchant{
+				Id:       tx.Merchant.Id,
+				Name:     tx.Merchant.Name,
+				Category: tx.Category.Groups.PersonalFinance.Name,
+				Aliases: []string{
+					sanitiseTs(tx.Description),
+				},
+			}
+			merchants = append(merchants, m)
 		}
-		merchants = append(merchants, m)
 	}
 
+	// Merchants are of our own creation, so generate a UUID, lightly sanitise the name, and check for existing merchants.
 	for _, merchant := range merchants {
-		err := i.store.CreateMerchant(merchant)
+		search, err := i.store.ReadMerchantByAlias(merchant.Name)
+		if len(search) == 1 {
+			m := search[0]
+			merchant.Id = m.Id
+			aliases := strset.New()
+			aliases.Add(merchant.Aliases...)
+			aliases.Add(m.Aliases...)
+			merchant.Aliases = aliases.List()
+		}
+		err = i.store.CreateMerchant(merchant)
 		if err != nil {
 			c.Logger().Error(err)
 			return err
