@@ -82,6 +82,7 @@ func sanitise(merchant string) string {
 		// Remove 'Direct Debit' information
 		regexp.MustCompile(`(?i)Direct Debit`),
 		regexp.MustCompile(`(?i)Transfer From`),
+		regexp.MustCompile(`(?i)Transfer`),
 		regexp.MustCompile(`(?i)Bill Payment`),
 		regexp.MustCompile(`(?i)Automatic Payment`),
 	}

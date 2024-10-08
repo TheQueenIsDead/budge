@@ -39,7 +39,7 @@ func NewStore() (*Store, error) {
 	}
 
 	return &Store{
-		db:           db,
+		db: db,
 	}, nil
 }
 

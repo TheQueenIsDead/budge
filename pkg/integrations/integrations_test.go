@@ -15,7 +15,7 @@ func TestSanitiseRemovesNoise(t *testing.T) {
 		{"Autopay", "AP#23533701 To F M Surname", "F M Surname"},
 		{"ATM", "Atm 20 Marshland", "20 Marshland"},
 		{"Bill Payment", "Bill Payment Bicycle First Middle Last", "Bicycle First Middle Last"},
-		{"Transfer", "Transfer From D J King - 02", "D J King 02"},
+		{"Transfer", "Transfer From F M Surname - 02", "F M Surname 02"},
 		{"Direct Debit", "Direct Debit - ACME Internet Limited", "ACME Internet Limited"},
 	}
 
