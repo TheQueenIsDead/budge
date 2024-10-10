@@ -106,7 +106,6 @@ type Transaction struct {
 		Id      string `json:"_id"`
 		Name    string `json:"name"`
 		Website string `json:"website"`
-		Nzbn    string `json:"nzbn"`
 	} `json:"merchant"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`

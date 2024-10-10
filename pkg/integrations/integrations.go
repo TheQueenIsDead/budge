@@ -149,25 +149,12 @@ func (i *Integrations) SyncAkahu(c echo.Context) error {
 				Id:       tx.Merchant.Id,
 				Name:     tx.Merchant.Name,
 				Category: tx.Category.Groups.PersonalFinance.Name,
-				Aliases: []string{
-					sanitiseTs(tx.Description),
-				},
 			}
 			merchants = append(merchants, m)
 		}
 	}
 
-	// Merchants are of our own creation, so generate a UUID, lightly sanitise the name, and check for existing merchants.
 	for _, merchant := range merchants {
-		search, err := i.store.ReadMerchantByAlias(merchant.Name)
-		if len(search) == 1 {
-			m := search[0]
-			merchant.Id = m.Id
-			aliases := strset.New()
-			aliases.Add(merchant.Aliases...)
-			aliases.Add(m.Aliases...)
-			merchant.Aliases = aliases.List()
-		}
 		err = i.store.CreateMerchant(merchant)
 		if err != nil {
 			c.Logger().Error(err)

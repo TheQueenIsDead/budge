@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"net/http"
+	"sort"
 )
 
 func (app *Application) GetMerchant(c echo.Context) error {
@@ -23,6 +24,10 @@ func (app *Application) GetMerchant(c echo.Context) error {
 
 func (app *Application) ListMerchants(c echo.Context) error {
 	merchants, _ := app.store.ReadMerchants()
+
+	sort.Slice(merchants, func(i, j int) bool {
+		return merchants[i].Name < merchants[j].Name
+	})
 	return c.Render(http.StatusOK, "merchants", merchants)
 }
 
