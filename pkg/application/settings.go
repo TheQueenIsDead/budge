@@ -14,6 +14,17 @@ func (app *Application) Settings(c echo.Context) error {
 	})
 }
 
+func (app *Application) SettingsDeleteSynced(c echo.Context) error {
+
+	err := app.store.DeleteSynced()
+	if err != nil {
+		return err
+	}
+
+	app.Toast(c, "Success", "All synced data removed.")
+	return nil
+}
+
 func (app *Application) SyncAkahu(c echo.Context) error {
 	err := app.integrations.SyncAkahu(c)
 	if err != nil {

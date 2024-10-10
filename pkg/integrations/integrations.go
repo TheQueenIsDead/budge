@@ -55,24 +55,55 @@ func (i *Integrations) Config() map[string]interface{} {
 	}
 }
 
+func sanitiseTs(merchant string) string {
+	// Remove timecodes such as '-17:35'
+	return regexp.MustCompile(`-[0-9]{2}:[0-9]{2}`).ReplaceAllString(merchant, "")
+}
+
 func sanitise(merchant string) string {
 
-	// Try tidy up the memo into a passable name
+	// Filter  out words
 	name := ""
 	parts := strings.Split(merchant, " ")
-	dropParts := strset.New("POS", "W/D", ";")
+	dropParts := strset.New("POS", "W/D", ";", "-", " ", "ATM", "TO", "FROM", "PAY")
 	for _, part := range parts {
-		if dropParts.Has(part) {
+		if dropParts.Has(strings.ToUpper(part)) {
 			continue
 		}
+
+		// Remove extranous stuff from the start and end of the string
+		part = strings.Trim(part, "~!@#$%^&*()_-+=")
+
+		// Title case the part of the word.
 		caser := cases.Title(language.English)
-		name = fmt.Sprintf("%s %s", name, caser.String(part))
+		part = caser.String(part)
+		name = fmt.Sprintf("%s %s", name, part)
 	}
 
-	re := regexp.MustCompile(`-[0-9]{2}:[0-9]{2}`)
-	name = re.ReplaceAllString(name, "")
+	var re *regexp.Regexp
+	expressions := []*regexp.Regexp{
+		// Remove timecodes such as '-17:35'
+		regexp.MustCompile(`(-)*[0-9]{2}:[0-9]{2}`),
+		// Remove autopay identifiers
+		regexp.MustCompile(`(?i)AP#[0-9]{8}`),
+		// Remove 'Direct Debit' information
+		regexp.MustCompile(`(?i)Direct Debit`),
+		regexp.MustCompile(`(?i)Transfer From`),
+		regexp.MustCompile(`(?i)Transfer`),
+		regexp.MustCompile(`(?i)Bill Payment`),
+		regexp.MustCompile(`(?i)Automatic Payment`),
+	}
+	for _, expression := range expressions {
+		re = expression
+		name = re.ReplaceAllString(name, "")
+	}
 
+	// Final tid-bits that might not have been removed via regex
+	// TODO: Should this be non-alpha characters?
 	name = strings.Replace(name, ";", "", -1)
+
+	// Trim off whitespace
+	name = strings.TrimSpace(name)
 
 	if name != "" {
 		return name
@@ -93,6 +124,7 @@ func (i *Integrations) SyncAkahu(c echo.Context) error {
 		return err
 	}
 
+	// Accounts hardly change, so just insert them and overwrite the key if need be.
 	for _, account := range accounts.Items {
 		err := i.store.CreateAccount(account)
 		if err != nil {
@@ -105,25 +137,25 @@ func (i *Integrations) SyncAkahu(c echo.Context) error {
 	for _, transaction := range transactions.Items {
 
 		tx := models.Transaction(transaction)
-		tx.Description = sanitise(transaction.Description)
+		// We get given a transaction id from Akahu, which helps us to maintain unique records, overwrite if need be.
 		err := i.store.CreateTransaction(tx)
 		if err != nil {
 			c.Logger().Error(err)
 			return err
 		}
-		m := models.Merchant{
-			//TODO: Using the TX id here isn't super smart, will lead to dupes
-			Id:       tx.Id,
-			Name:     sanitise(tx.Description),
-			Category: tx.Category.Groups.PersonalFinance.Name,
-			Logo:     "",
-			Website:  "",
+
+		if transaction.Merchant.Id != "" {
+			m := models.Merchant{
+				Id:       tx.Merchant.Id,
+				Name:     tx.Merchant.Name,
+				Category: tx.Category.Groups.PersonalFinance.Name,
+			}
+			merchants = append(merchants, m)
 		}
-		merchants = append(merchants, m)
 	}
 
 	for _, merchant := range merchants {
-		err := i.store.CreateMerchant(merchant)
+		err = i.store.CreateMerchant(merchant)
 		if err != nil {
 			c.Logger().Error(err)
 			return err
