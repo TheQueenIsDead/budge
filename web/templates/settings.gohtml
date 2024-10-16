@@ -81,5 +81,17 @@
             <div class="row" hx-get="/integrations/akahu/accounts" hx-trigger="load"></div>
 
         </div>
+
+        <hr>
+
+        {{/* Danger Zone*/}}
+        <div id="danger">
+            <h2>Danger </h2>
+            <p>Tread lightly! The following operations can not be undone once performed.</p>
+            <h3 class>Remove all synced data</h3>
+            <p>Remove all transactions, merchants, and accounts. These can be repopulated via the sync process fairly easily.</p>
+            <button class="btn btn-danger" hx-post="/settings/danger/remove/synced" hx-confirm="Remove all synced data?">Remove all synced Data</button>
+        </div>
+
     </div>
 {{ end }}

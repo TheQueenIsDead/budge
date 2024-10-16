@@ -1,7 +1,11 @@
 package database
 
 import (
+	"errors"
+	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
+	bolt "go.etcd.io/bbolt"
+	"strings"
 	"time"
 )
 
@@ -43,6 +47,23 @@ func (s *Store) GetMerchant(id []byte) (models.Merchant, error) {
 func (s *Store) ReadMerchants() ([]models.Merchant, error) {
 	return Read[models.Merchant](s.db)
 }
+func (s *Store) SearchMerchantsByName(name string) ([]models.Merchant, error) {
+	return ReadFilter[models.Merchant](s.db, func(merchant models.Merchant) bool {
+		return strings.Contains(strings.ToLower(merchant.Name), strings.ToLower(name))
+	})
+}
+
+// ReadMerchantByAlias returns a list of merchants where one of its aliases is a case-insensitive match.
+func (s *Store) ReadMerchantByAlias(alias string) ([]models.Merchant, error) {
+	return ReadFilter[models.Merchant](s.db, func(merchant models.Merchant) bool {
+		for _, a := range merchant.Aliases {
+			if strings.EqualFold(a, alias) {
+				return true
+			}
+		}
+		return false
+	})
+}
 
 /* Transactions */
 
@@ -73,4 +94,21 @@ func (s *Store) GetAkahuSettings() (models.IntegrationAkahuSettings, error) {
 }
 func (s *Store) UpdateAkahuSettings(settings models.IntegrationAkahuSettings) error {
 	return Update[models.IntegrationAkahuSettings](s.db, settings)
+}
+func (s *Store) DeleteSynced() error {
+	err := s.db.Update(func(tx *bolt.Tx) error {
+		accountErr := tx.DeleteBucket(buckets.AccountBucket)
+		merchantErr := tx.DeleteBucket(buckets.MerchantBucket)
+		transactionErr := tx.DeleteBucket(buckets.TransactionBucket)
+		return errors.Join(accountErr, merchantErr, transactionErr)
+	})
+	if err != nil {
+		return err
+	}
+	return s.db.Update(func(tx *bolt.Tx) error {
+		_, accountErr := tx.CreateBucket(buckets.AccountBucket)
+		_, merchantErr := tx.CreateBucket(buckets.MerchantBucket)
+		_, transactionErr := tx.CreateBucket(buckets.TransactionBucket)
+		return errors.Join(accountErr, merchantErr, transactionErr)
+	})
 }
