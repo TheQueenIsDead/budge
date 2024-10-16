@@ -55,11 +55,6 @@ func (i *Integrations) Config() map[string]interface{} {
 	}
 }
 
-func sanitiseTs(merchant string) string {
-	// Remove timecodes such as '-17:35'
-	return regexp.MustCompile(`-[0-9]{2}:[0-9]{2}`).ReplaceAllString(merchant, "")
-}
-
 func sanitise(merchant string) string {
 
 	// Filter  out words

@@ -57,7 +57,7 @@ func (s *Store) SearchMerchantsByName(name string) ([]models.Merchant, error) {
 func (s *Store) ReadMerchantByAlias(alias string) ([]models.Merchant, error) {
 	return ReadFilter[models.Merchant](s.db, func(merchant models.Merchant) bool {
 		for _, a := range merchant.Aliases {
-			if strings.ToLower(a) == strings.ToLower(alias) {
+			if strings.EqualFold(a, alias) {
 				return true
 			}
 		}
