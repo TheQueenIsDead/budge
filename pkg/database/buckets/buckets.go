@@ -13,6 +13,7 @@ func All() [][]byte {
 	return [][]byte{
 		AccountBucket,
 		InventoryBucket,
+		MerchantBucket,
 		TransactionBucket,
 		SettingsBucket,
 	}
