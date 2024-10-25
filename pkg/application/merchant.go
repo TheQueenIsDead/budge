@@ -31,17 +31,6 @@ func (app *Application) ListMerchants(c echo.Context) error {
 	return c.Render(http.StatusOK, "merchants", merchants)
 }
 
-func (app *Application) MergeMerchants(c echo.Context) error {
-	merchants, _ := app.store.ReadMerchants()
-	return c.Render(http.StatusOK, "merchant.merge", merchants)
-}
-
-func (app *Application) PostMergeMerchants(c echo.Context) error {
-	//merchants, _ := app.store.ReadMerchants()
-	c.Logger().Debug(c.FormParams())
-	return c.NoContent(http.StatusOK)
-}
-
 func (app *Application) SearchMerchants(c echo.Context) error {
 	name := c.QueryParam("search")
 	merchants, _ := app.store.SearchMerchantsByName(name)

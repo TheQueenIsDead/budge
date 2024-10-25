@@ -1,18 +1,12 @@
 package integrations
 
 import (
-	"fmt"
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/TheQueenIsDead/budge/pkg/integrations/akahu"
 	"github.com/labstack/echo/v4"
-	"github.com/scylladb/go-set/strset"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	"os"
-	"regexp"
-	"strings"
 )
 
 type Integrations struct {
@@ -53,57 +47,6 @@ func (i *Integrations) Config() map[string]interface{} {
 	return map[string]interface{}{
 		"akahu": i.akahu.Config(),
 	}
-}
-
-func sanitise(merchant string) string {
-
-	// Filter  out words
-	name := ""
-	parts := strings.Split(merchant, " ")
-	dropParts := strset.New("POS", "W/D", ";", "-", " ", "ATM", "TO", "FROM", "PAY")
-	for _, part := range parts {
-		if dropParts.Has(strings.ToUpper(part)) {
-			continue
-		}
-
-		// Remove extranous stuff from the start and end of the string
-		part = strings.Trim(part, "~!@#$%^&*()_-+=")
-
-		// Title case the part of the word.
-		caser := cases.Title(language.English)
-		part = caser.String(part)
-		name = fmt.Sprintf("%s %s", name, part)
-	}
-
-	var re *regexp.Regexp
-	expressions := []*regexp.Regexp{
-		// Remove timecodes such as '-17:35'
-		regexp.MustCompile(`(-)*[0-9]{2}:[0-9]{2}`),
-		// Remove autopay identifiers
-		regexp.MustCompile(`(?i)AP#[0-9]{8}`),
-		// Remove 'Direct Debit' information
-		regexp.MustCompile(`(?i)Direct Debit`),
-		regexp.MustCompile(`(?i)Transfer From`),
-		regexp.MustCompile(`(?i)Transfer`),
-		regexp.MustCompile(`(?i)Bill Payment`),
-		regexp.MustCompile(`(?i)Automatic Payment`),
-	}
-	for _, expression := range expressions {
-		re = expression
-		name = re.ReplaceAllString(name, "")
-	}
-
-	// Final tid-bits that might not have been removed via regex
-	// TODO: Should this be non-alpha characters?
-	name = strings.Replace(name, ";", "", -1)
-
-	// Trim off whitespace
-	name = strings.TrimSpace(name)
-
-	if name != "" {
-		return name
-	}
-	return merchant
 }
 
 func (i *Integrations) SyncAkahu(c echo.Context) error {
