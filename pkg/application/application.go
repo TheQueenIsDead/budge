@@ -105,7 +105,6 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	// Merchants
 	app.http.GET("/merchants", app.ListMerchants)
 	app.http.GET("/merchants/:id", app.GetMerchant)
-	app.http.GET("/merchants/search", app.SearchMerchants)
 
 	// Settings
 	app.http.GET("/settings", app.Settings)

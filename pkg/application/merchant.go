@@ -1,7 +1,6 @@
 package application
 
 import (
-	"fmt"
 	"github.com/labstack/echo/v4"
 	"net/http"
 	"sort"
@@ -29,22 +28,6 @@ func (app *Application) ListMerchants(c echo.Context) error {
 		return merchants[i].Name < merchants[j].Name
 	})
 	return c.Render(http.StatusOK, "merchants", merchants)
-}
-
-func (app *Application) SearchMerchants(c echo.Context) error {
-	name := c.QueryParam("search")
-	merchants, _ := app.store.SearchMerchantsByName(name)
-
-	res := ""
-	for _, m := range merchants {
-		res = res + fmt.Sprintf(`
-<tr>
-	<td>%s</td>
-	<td>%s</td>
-	<input type="hidden" name="merchants[%s]"></input>
-</tr>`, m.Name, m.Aliases, m.Name)
-	}
-	return c.HTML(http.StatusOK, res)
 }
 
 //func (app *Application) EditMerchant(c echo.Context) error {

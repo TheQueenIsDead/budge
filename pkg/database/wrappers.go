@@ -47,11 +47,6 @@ func (s *Store) GetMerchant(id []byte) (models.Merchant, error) {
 func (s *Store) ReadMerchants() ([]models.Merchant, error) {
 	return Read[models.Merchant](s.db)
 }
-func (s *Store) SearchMerchantsByName(name string) ([]models.Merchant, error) {
-	return ReadFilter[models.Merchant](s.db, func(merchant models.Merchant) bool {
-		return strings.Contains(strings.ToLower(merchant.Name), strings.ToLower(name))
-	})
-}
 
 // ReadMerchantByAlias returns a list of merchants where one of its aliases is a case-insensitive match.
 func (s *Store) ReadMerchantByAlias(alias string) ([]models.Merchant, error) {
