@@ -27,7 +27,9 @@
             <tr>
                 <th> Date</th>
                 <th> Description</th>
+                <th> Merchant</th>
                 <th> Amount</th>
+                <th> Type</th>
                 <th> Category</th>
                 <th> Classification</th>
             </tr>
@@ -37,7 +39,9 @@
                 <tr>
                     <td>{{ .Date }}</td>
                     <td>{{ .Description }}</td>
+                    <td>{{ .Merchant.Name }}</td>
                     <td>{{ .Amount }}</td>
+                    <td>{{ .Type }}</td>
                     <td>{{ .Category.Groups.PersonalFinance.Name }}</td>
                     <td>{{ .Category.Name }}</td>
                 </tr>

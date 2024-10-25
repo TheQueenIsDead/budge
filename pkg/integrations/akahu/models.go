@@ -18,6 +18,11 @@ type AkahuTransactions struct {
 				} `json:"personal_finance"`
 			} `json:"groups"`
 		} `json:"category"`
+		Merchant struct {
+			Id      string `json:"_id"`
+			Name    string `json:"name"`
+			Website string `json:"website"`
+		} `json:"merchant"`
 		CreatedAt   time.Time `json:"created_at"`
 		UpdatedAt   time.Time `json:"updated_at"`
 		Date        time.Time `json:"date"`

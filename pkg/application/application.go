@@ -83,22 +83,37 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	}
 
 	app.http.Renderer = t
+
+	// General
 	app.http.GET("/", app.Home)
 	app.http.GET("/4XX", app._4XX)
-	app.http.GET("/inventory", app.Inventory)
-	app.http.GET("/inventory/new", app.InventoryNew)
-	app.http.POST("/inventory/new", app.InventoryCreate)
-	app.http.POST("/inventory/:id/delete", app.DeleteInventory)
-	app.http.GET("/settings", app.Settings)
-	app.http.GET("/merchants", app.ListMerchants)
-	app.http.GET("/merchants/:id", app.GetMerchant)
-	app.http.GET("/accounts", app.ListAccounts)
-	app.http.GET("/transactions", app.ListTransactions)
 
+	// Accounts
+	app.http.GET("/accounts", app.ListAccounts)
+
+	//// Integrations
 	app.http.POST("/integrations/akahu/sync", app.SyncAkahu)
 	app.http.POST("/integrations/akahu/save", app.PutAkahuSettings)
 	app.http.GET("/integrations/akahu/accounts", app.ListAkahuAccounts)
 
+	// Inventory
+	app.http.GET("/inventory", app.Inventory)
+	app.http.GET("/inventory/new", app.InventoryNew)
+	app.http.POST("/inventory/new", app.InventoryCreate)
+	app.http.POST("/inventory/:id/delete", app.DeleteInventory)
+
+	// Merchants
+	app.http.GET("/merchants", app.ListMerchants)
+	app.http.GET("/merchants/:id", app.GetMerchant)
+
+	// Settings
+	app.http.GET("/settings", app.Settings)
+	app.http.POST("/settings/danger/remove/synced", app.SettingsDeleteSynced)
+
+	// Transactions
+	app.http.GET("/transactions", app.ListTransactions)
+
+	// Static Assets
 	app.http.Static("/assets", "./web/public")
 
 	app.http.GET("/charts/timeseries", app.ChartTimeseries)

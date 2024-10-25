@@ -1,18 +1,12 @@
 package integrations
 
 import (
-	"fmt"
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/TheQueenIsDead/budge/pkg/integrations/akahu"
 	"github.com/labstack/echo/v4"
-	"github.com/scylladb/go-set/strset"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	"os"
-	"regexp"
-	"strings"
 )
 
 type Integrations struct {
@@ -55,31 +49,6 @@ func (i *Integrations) Config() map[string]interface{} {
 	}
 }
 
-func sanitise(merchant string) string {
-
-	// Try tidy up the memo into a passable name
-	name := ""
-	parts := strings.Split(merchant, " ")
-	dropParts := strset.New("POS", "W/D", ";")
-	for _, part := range parts {
-		if dropParts.Has(part) {
-			continue
-		}
-		caser := cases.Title(language.English)
-		name = fmt.Sprintf("%s %s", name, caser.String(part))
-	}
-
-	re := regexp.MustCompile(`-[0-9]{2}:[0-9]{2}`)
-	name = re.ReplaceAllString(name, "")
-
-	name = strings.Replace(name, ";", "", -1)
-
-	if name != "" {
-		return name
-	}
-	return merchant
-}
-
 func (i *Integrations) SyncAkahu(c echo.Context) error {
 
 	accounts, err := i.AkahuAccounts()
@@ -93,6 +62,7 @@ func (i *Integrations) SyncAkahu(c echo.Context) error {
 		return err
 	}
 
+	// Accounts hardly change, so just insert them and overwrite the key if need be.
 	for _, account := range accounts.Items {
 		err := i.store.CreateAccount(account)
 		if err != nil {
@@ -105,25 +75,25 @@ func (i *Integrations) SyncAkahu(c echo.Context) error {
 	for _, transaction := range transactions.Items {
 
 		tx := models.Transaction(transaction)
-		tx.Description = sanitise(transaction.Description)
+		// We get given a transaction id from Akahu, which helps us to maintain unique records, overwrite if need be.
 		err := i.store.CreateTransaction(tx)
 		if err != nil {
 			c.Logger().Error(err)
 			return err
 		}
-		m := models.Merchant{
-			//TODO: Using the TX id here isn't super smart, will lead to dupes
-			Id:       tx.Id,
-			Name:     sanitise(tx.Description),
-			Category: tx.Category.Groups.PersonalFinance.Name,
-			Logo:     "",
-			Website:  "",
+
+		if transaction.Merchant.Id != "" {
+			m := models.Merchant{
+				Id:       tx.Merchant.Id,
+				Name:     tx.Merchant.Name,
+				Category: tx.Category.Groups.PersonalFinance.Name,
+			}
+			merchants = append(merchants, m)
 		}
-		merchants = append(merchants, m)
 	}
 
 	for _, merchant := range merchants {
-		err := i.store.CreateMerchant(merchant)
+		err = i.store.CreateMerchant(merchant)
 		if err != nil {
 			c.Logger().Error(err)
 			return err
