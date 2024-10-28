@@ -54,7 +54,7 @@ func WithApptoken(token string) AkahuOption {
 	}
 }
 
-func (a *AkahuClient) Get(path string) (*http.Response, error) {
+func (a *AkahuClient) get(path string, query map[string]string) (*http.Response, error) {
 
 	header := http.Header{}
 	header.Set("Content-Type", "application/json")
@@ -68,62 +68,86 @@ func (a *AkahuClient) Get(path string) (*http.Response, error) {
 	}
 
 	client := http.Client{}
-	return client.Do(&http.Request{
+	req := &http.Request{
 		Method: http.MethodGet,
 		URL:    url,
 		Header: header,
-	})
-}
-
-// TODO: Paginate all transactions
-func (a *AkahuClient) GetTransactions() (*AkahuTransactions, error) {
-	res, err := a.Get("/transactions")
-	if err != nil {
-		return nil, err
 	}
 
-	body, _ := io.ReadAll(res.Body)
-	var transactions *AkahuTransactions
-	err = json.Unmarshal(body, &transactions)
-	if err != nil {
-		return nil, err
+	if len(query) > 0 {
+		q := req.URL.Query()
+		for k, v := range query {
+			q.Add(k, v)
+		}
+		req.URL.RawQuery = q.Encode()
 	}
-	return transactions, nil
 
+	return client.Do(req)
 }
 
-// TODO: Get transactions for a specific account
+func (a *AkahuClient) GetTransactions(paginate bool) (items []Transaction, err error) {
+
+	var query = make(map[string]string)
+
+	for {
+		res, httpErr := a.get("/transactions", query)
+
+		if httpErr != nil {
+			err = httpErr
+			break
+		}
+
+		body, _ := io.ReadAll(res.Body)
+		var tr *TransactionsResponse
+		err = json.Unmarshal(body, &tr)
+		if err != nil {
+			return nil, err
+		}
+
+		items = append(items, tr.Items...)
+
+		if paginate && tr.Cursor.Next != "" {
+			query["cursor"] = tr.Cursor.Next
+		} else {
+			break
+		}
+	}
+
+	return
+}
+
+// TODO: get transactions for a specific account
 // TODO: Add support for pagination
 // TIP: To access subsequent pages, simply take the cursor.next value from each response and make a new request, supplying this value using the cursor query parameter. In response, you will receive the next page of results, along with a new cursor.next value.
 
-func (a *AkahuClient) GetAccounts() (*AkahuAccounts, error) {
-	res, err := a.Get("/accounts")
+func (a *AkahuClient) GetAccounts() ([]Account, error) {
+	res, err := a.get("/accounts", nil)
 	if err != nil {
 		return nil, err
 	}
 
 	body, _ := io.ReadAll(res.Body)
-	var accounts *AkahuAccounts
+	var accounts *AccountsResponse
 	err = json.Unmarshal(body, &accounts)
 	if err != nil {
 		return nil, err
 	}
-	return accounts, nil
+	return accounts.Items, nil
 
 }
 
-func (a *AkahuClient) Me() (*AkahuMe, error) {
-	res, err := a.Get("/me")
+func (a *AkahuClient) Me() (*Me, error) {
+	res, err := a.get("/me", nil)
 	if err != nil {
 		return nil, err
 	}
 
 	body, _ := io.ReadAll(res.Body)
-	var me *AkahuMe
+	var me *MeResponse
 	err = json.Unmarshal(body, &me)
 	if err != nil {
 		return nil, err
 	}
 
-	return me, nil
+	return &me.Item, nil
 }
