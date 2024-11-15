@@ -16,11 +16,11 @@ type Budge struct {
 
 func NewBudge() (*Budge, error) {
 
-	logger := slog.Logger{}
+	logger := slog.Default()
 
 	store, err := database.NewStore()
 	if err != nil {
-		logger.Error(err.Error())
+		logger.With("error", err).Error("could not initialise database")
 		return nil, err
 	}
 
@@ -29,14 +29,14 @@ func NewBudge() (*Budge, error) {
 		integrations.NewIntegrations(store),
 	)
 	if err != nil {
-		logger.Error(err.Error())
+		logger.With("error", err).Error("could not initialise application")
 		return nil, err
 	}
 
 	budge := &Budge{
 		Application: app,
 		Store:       store,
-		Logger:      &logger,
+		Logger:      logger,
 	}
 
 	return budge, nil
