@@ -30,23 +30,17 @@ func (app *Application) AccountBalanceGraph(c echo.Context) error {
 		return err
 	}
 
-	// TODO: Change this to just calculate the delta for the day for easier looping down the line
-	// Bucket the transaction values into groups by day
-	transactionsByDay := make(map[string][]float64)
+	// Calculate the balance delta per day
+	deltas := make(map[string]float64)
 	for _, t := range transactions {
-		key := t.Date.Format(time.DateOnly)
-		transactionsByDay[key] = append(transactionsByDay[key], t.Amount)
+		deltas[t.Date.Format(time.DateOnly)] += t.Amount
 	}
 
 	balances := make(map[string]float64)
-	first, last := FindTransactionRange(transactions)
-	if first.Date.IsZero() && last.Date.IsZero() {
-		return c.NoContent(http.StatusInternalServerError)
-	}
 
 	// Iterate all days between the first and last transaction, creating a backwards running balance by decrementing
 	// spend (or adding income) per day.
-	balances = WalkAccount(account.Balance.Current, first.Date, last.Date, transactionsByDay)
+	balances = WalkAccount(account.Balance.Current, deltas)
 
 	var data []float64
 	var labels []string
@@ -56,11 +50,7 @@ func (app *Application) AccountBalanceGraph(c echo.Context) error {
 	for _, k := range keys {
 		data = append(data, balances[k])
 		labels = append(labels, k)
-		//if buckets[k] > 0 {
 		background = append(background, "rgb(26, 188, 156)")
-		//} else {
-		//	background = append(background, "rgb(255, 205, 52)")
-		//}
 	}
 
 	return c.Render(200, "chart.timeseries", TimeseriesData{
@@ -73,19 +63,29 @@ func (app *Application) AccountBalanceGraph(c echo.Context) error {
 	})
 }
 
-func WalkAccount(currentBalance float64, first, last time.Time, transactionsByDay map[string][]float64) map[string]float64 {
+// WalkAccount takes a balance and list of changes in balance for a series of days and calculates the balance at the preceding days.
+// It is assumed that the delta map is keyed with the time.DateOnly format, and that the balance given is for the most
+// recent day in the deltas map.
+func WalkAccount(balance float64, deltas map[string]float64) map[string]float64 {
 
 	balances := make(map[string]float64)
 
-	balances[last.Format(time.DateOnly)] = currentBalance // Init the last / most recent balance to the currently know balance
-	for d := last.AddDate(0, 0, -1); !d.Before(first); d = d.AddDate(0, 0, -1) {
-		//for d := last; !d.Before(first); d = d.AddDate(0, 0, -1) {
-		dayAfterBalance := balances[d.AddDate(0, 0, 1).Format(time.DateOnly)]
-		balance := dayAfterBalance
-		for _, amount := range transactionsByDay[d.Format(time.DateOnly)] {
-			balance += amount * -1
+	// Retrieve days to iterate and ensure that they are sorted.
+	days := slices.Collect(maps.Keys(deltas))
+	slices.Sort(days)
+
+	// Iterate through each day from most recent into the past.
+	for i := len(days) - 1; i >= 0; i-- {
+		today := days[i]
+		if i+1 < len(days) {
+			// Derive today's balance by setting it to tomorrow's balance - tomorrow's delta (Inverted)
+			tomorrow := days[i+1]
+			balances[today] = balances[tomorrow] + (deltas[tomorrow] * -1)
+		} else {
+			// Most recent day is assumed to have the starting balance
+			balances[today] = balance
 		}
-		balances[d.Format(time.DateOnly)] = balance
 	}
+
 	return balances
 }
