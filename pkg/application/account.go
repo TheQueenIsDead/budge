@@ -36,11 +36,9 @@ func (app *Application) AccountBalanceGraph(c echo.Context) error {
 		deltas[t.Date.Format(time.DateOnly)] += t.Amount
 	}
 
-	balances := make(map[string]float64)
-
 	// Iterate all days between the first and last transaction, creating a backwards running balance by decrementing
 	// spend (or adding income) per day.
-	balances = WalkAccount(account.Balance.Current, deltas)
+	balances := WalkAccount(account.Balance.Current, deltas)
 
 	var data []float64
 	var labels []string
