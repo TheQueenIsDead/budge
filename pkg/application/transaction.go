@@ -5,6 +5,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"net/http"
 	"slices"
+	"time"
 )
 
 func (app *Application) ListTransactions(c echo.Context) error {
@@ -34,4 +35,25 @@ func (app *Application) ListTransactions(c echo.Context) error {
 		"accounts":     accounts,
 		"transactions": transactions,
 	})
+}
+
+func FindTransactionRange(transactions []models.Transaction) (models.Transaction, models.Transaction) {
+
+	if len(transactions) == 0 {
+		return models.Transaction{}, models.Transaction{}
+	}
+
+	first := models.Transaction{Date: time.Now()}
+	last := models.Transaction{Date: time.Unix(0, 0)}
+
+	for _, t := range transactions {
+		if t.Date.Before(first.Date) {
+			first = t
+		}
+		if t.Date.After(last.Date) {
+			last = t
+		}
+	}
+
+	return first, last
 }

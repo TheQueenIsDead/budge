@@ -90,6 +90,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	// Accounts
 	app.http.GET("/accounts", app.ListAccounts)
+	app.http.GET("/accounts/charts/balance", app.AccountBalanceGraph)
 
 	//// Integrations
 	app.http.POST("/integrations/akahu/sync", app.SyncAkahu)

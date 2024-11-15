@@ -13,6 +13,9 @@ import (
 func (s *Store) CountAccount() (int, error) {
 	return Count[models.Account](s.db)
 }
+func (s *Store) GetAccount(id []byte) (models.Account, error) {
+	return Get[models.Account](s.db, id)
+}
 func (s *Store) CreateAccount(account models.Account) error {
 	return Create[models.Account](s.db, account)
 }
