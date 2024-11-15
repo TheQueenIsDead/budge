@@ -2,11 +2,11 @@ package application
 
 import (
 	"fmt"
-	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v4"
 	"maps"
 	"net/http"
 	"slices"
+	"time"
 )
 
 func (app *Application) ListAccounts(c echo.Context) error {
@@ -23,21 +23,36 @@ func (app *Application) AccountBalanceGraph(c echo.Context) error {
 
 	account, _ := app.store.GetAccount([]byte(id))
 
+	// Retrieve all transactions for an account
 	transactions, err := app.store.ReadTransactionsByAccount(account.Id)
 	if err != nil {
 		c.Logger().Error(err)
 		return err
 	}
 
-	slices.SortFunc(transactions, func(a, b models.Transaction) int {
-		return b.Date.Compare(a.Date)
-	})
+	// Bucket the transaction values into groups by day
+	transactionsByDay := make(map[string][]float64)
+	for _, t := range transactions {
+		key := t.Date.Format(time.DateOnly)
+		if _, ok := transactionsByDay[key]; ok {
+			transactionsByDay[key] = append(transactionsByDay[key], t.Amount)
+		} else {
+			transactionsByDay[key] = []float64{t.Amount}
+		}
+	}
 
+	// Iterate all days between the first and last transaction, creating a backwards running balance by decrementing
+	// spend (or adding income) per day.
 	balances := make(map[string]float64)
 	first, last := FindTransactionRange(transactions)
-	for d := first.Date; d.After(last.Date) == false; d = d.AddDate(0, 0, 1) {
-		//balances[d.Format("2006-01-02")] = balances[d.Format("2006-01-02")]
-		balances[d.Format("2006-01-02")] = account.Balance.Current
+	balances[last.Date.Format(time.DateOnly)] = account.Balance.Current // Init the last / most recent balance to the currently know balance
+	for d := last.Date.AddDate(0, 0, -1); d.Before(first.Date) == false; d = d.AddDate(0, 0, -1) {
+		dayAfterBalance := balances[d.AddDate(0, 0, 1).Format(time.DateOnly)]
+		balance := dayAfterBalance
+		for _, amount := range transactionsByDay[d.Format(time.DateOnly)] {
+			balance += amount
+		}
+		balances[d.Format(time.DateOnly)] = balance
 	}
 
 	var data []float64
