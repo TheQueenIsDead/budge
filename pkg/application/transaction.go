@@ -38,6 +38,11 @@ func (app *Application) ListTransactions(c echo.Context) error {
 }
 
 func FindTransactionRange(transactions []models.Transaction) (models.Transaction, models.Transaction) {
+
+	if len(transactions) == 0 {
+		return models.Transaction{}, models.Transaction{}
+	}
+
 	first := models.Transaction{Date: time.Now()}
 	last := models.Transaction{Date: time.Unix(0, 0)}
 
