@@ -30,6 +30,7 @@ func (app *Application) AccountBalanceGraph(c echo.Context) error {
 		return err
 	}
 
+	// TODO: Change this to just calculate the delta for the day for easier looping down the line
 	// Bucket the transaction values into groups by day
 	transactionsByDay := make(map[string][]float64)
 	for _, t := range transactions {
@@ -37,19 +38,15 @@ func (app *Application) AccountBalanceGraph(c echo.Context) error {
 		transactionsByDay[key] = append(transactionsByDay[key], t.Amount)
 	}
 
-	// Iterate all days between the first and last transaction, creating a backwards running balance by decrementing
-	// spend (or adding income) per day.
 	balances := make(map[string]float64)
 	first, last := FindTransactionRange(transactions)
-	balances[last.Date.Format(time.DateOnly)] = account.Balance.Current // Init the last / most recent balance to the currently know balance
-	for d := last.Date.AddDate(0, 0, -1); !d.Before(first.Date); d = d.AddDate(0, 0, -1) {
-		dayAfterBalance := balances[d.AddDate(0, 0, 1).Format(time.DateOnly)]
-		balance := dayAfterBalance
-		for _, amount := range transactionsByDay[d.Format(time.DateOnly)] {
-			balance += amount
-		}
-		balances[d.Format(time.DateOnly)] = balance
+	if first.Date.IsZero() && last.Date.IsZero() {
+		return c.NoContent(http.StatusInternalServerError)
 	}
+
+	// Iterate all days between the first and last transaction, creating a backwards running balance by decrementing
+	// spend (or adding income) per day.
+	balances = WalkAccount(account.Balance.Current, first.Date, last.Date, transactionsByDay)
 
 	var data []float64
 	var labels []string
@@ -74,4 +71,21 @@ func (app *Application) AccountBalanceGraph(c echo.Context) error {
 		Border:     background,
 		Background: background,
 	})
+}
+
+func WalkAccount(currentBalance float64, first, last time.Time, transactionsByDay map[string][]float64) map[string]float64 {
+
+	balances := make(map[string]float64)
+
+	balances[last.Format(time.DateOnly)] = currentBalance // Init the last / most recent balance to the currently know balance
+	for d := last.AddDate(0, 0, -1); !d.Before(first); d = d.AddDate(0, 0, -1) {
+		//for d := last; !d.Before(first); d = d.AddDate(0, 0, -1) {
+		dayAfterBalance := balances[d.AddDate(0, 0, 1).Format(time.DateOnly)]
+		balance := dayAfterBalance
+		for _, amount := range transactionsByDay[d.Format(time.DateOnly)] {
+			balance += amount * -1
+		}
+		balances[d.Format(time.DateOnly)] = balance
+	}
+	return balances
 }
