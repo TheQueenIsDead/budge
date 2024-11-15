@@ -31,7 +31,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	for _, a := range accounts.Items {
+	for _, a := range accounts {
 		fmt.Println(a)
 	}
 
