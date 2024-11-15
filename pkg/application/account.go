@@ -34,11 +34,7 @@ func (app *Application) AccountBalanceGraph(c echo.Context) error {
 	transactionsByDay := make(map[string][]float64)
 	for _, t := range transactions {
 		key := t.Date.Format(time.DateOnly)
-		if _, ok := transactionsByDay[key]; ok {
-			transactionsByDay[key] = append(transactionsByDay[key], t.Amount)
-		} else {
-			transactionsByDay[key] = []float64{t.Amount}
-		}
+		transactionsByDay[key] = append(transactionsByDay[key], t.Amount)
 	}
 
 	// Iterate all days between the first and last transaction, creating a backwards running balance by decrementing
