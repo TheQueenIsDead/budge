@@ -63,8 +63,8 @@ func (i *Integrations) SyncAkahu(c echo.Context) error {
 	}
 
 	// Accounts hardly change, so just insert them and overwrite the key if need be.
-	for _, account := range accounts.Items {
-		err := i.store.CreateAccount(account)
+	for _, account := range accounts {
+		err := i.store.CreateAccount(models.Account(account))
 		if err != nil {
 			return err
 		}
@@ -72,7 +72,7 @@ func (i *Integrations) SyncAkahu(c echo.Context) error {
 
 	var merchants []models.Merchant
 
-	for _, transaction := range transactions.Items {
+	for _, transaction := range transactions {
 
 		tx := models.Transaction(transaction)
 		// We get given a transaction id from Akahu, which helps us to maintain unique records, overwrite if need be.
@@ -113,10 +113,10 @@ func (i *Integrations) PutAkahuSettings(settings models.IntegrationAkahuSettings
 	return nil
 }
 
-func (i *Integrations) AkahuAccounts() (*akahu.AkahuAccounts, error) {
+func (i *Integrations) AkahuAccounts() ([]akahu.Account, error) {
 	return i.akahu.GetAccounts()
 }
 
-func (i *Integrations) AkahuTransactions() (*akahu.AkahuTransactions, error) {
-	return i.akahu.GetTransactions()
+func (i *Integrations) AkahuTransactions() ([]akahu.Transaction, error) {
+	return i.akahu.GetTransactions(true)
 }
