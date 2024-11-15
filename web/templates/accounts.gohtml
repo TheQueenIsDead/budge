@@ -35,7 +35,7 @@
         {{ range . }}
             <span><img class="rounded-circle" style="height:1em; margin-top: -0.25em"
                      src="{{.Connection.Logo}}"/> {{ .Name }}</span>
-            <div class="col-12 col-md-6" hx-trigger="load" hx-get="/accounts/charts/balance?id={{ .Id }}" hx-swap="innerHtml"></div>
+            <div hx-trigger="load" hx-get="/accounts/charts/balance?id={{ .Id }}" hx-swap="innerHtml"></div>
         {{ end }}
         </ul>
 
