@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 	bolt "go.etcd.io/bbolt"
+	"os"
 	"time"
 )
 
@@ -18,9 +19,14 @@ type Store struct {
 
 func NewStore() (*Store, error) {
 
+	path, ok := os.LookupEnv("BUDGE_BOLT_PATH")
+	if !ok {
+		path = "."
+	}
+
 	opts := bolt.DefaultOptions
 	opts.Timeout = 5 * time.Second
-	db, err := bolt.Open("budge.bolt.db", 0600, opts)
+	db, err := bolt.Open(fmt.Sprintf("%s/budge.bolt.db", path), 0600, opts)
 	if err != nil {
 		return nil, err
 	}
