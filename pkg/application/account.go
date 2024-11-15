@@ -46,7 +46,7 @@ func (app *Application) AccountBalanceGraph(c echo.Context) error {
 	balances := make(map[string]float64)
 	first, last := FindTransactionRange(transactions)
 	balances[last.Date.Format(time.DateOnly)] = account.Balance.Current // Init the last / most recent balance to the currently know balance
-	for d := last.Date.AddDate(0, 0, -1); d.Before(first.Date) == false; d = d.AddDate(0, 0, -1) {
+	for d := last.Date.AddDate(0, 0, -1); !d.Before(first.Date); d = d.AddDate(0, 0, -1) {
 		dayAfterBalance := balances[d.AddDate(0, 0, 1).Format(time.DateOnly)]
 		balance := dayAfterBalance
 		for _, amount := range transactionsByDay[d.Format(time.DateOnly)] {
