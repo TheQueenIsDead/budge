@@ -4,6 +4,7 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
