@@ -12,7 +12,6 @@
                         <div class="accordion-body">
                             <ul>
                                 {{ range .Transactions }}
-                                <li>{{ .Date }} - {{ .Description }}</li>
                                 <li>{{ .Date }} - {{ .String }} - {{ .Description }}</li>
                                 {{ end}}
                             </ul>
