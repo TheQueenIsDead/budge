@@ -4,6 +4,7 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -34,6 +35,9 @@ func (app *Application) InventoryCreate(c echo.Context) error {
 	quantity, err := strconv.ParseInt(quantityString, 10, 64)
 	if err != nil {
 		return c.String(http.StatusBadRequest, err.Error())
+	}
+	if quantity < math.MinInt || quantity > math.MaxInt {
+		return c.String(http.StatusBadRequest, "quantity out of bounds")
 	}
 	dateString := c.Request().FormValue("date")
 	date, err := time.Parse("2006-01-02", dateString)
