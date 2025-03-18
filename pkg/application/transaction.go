@@ -60,8 +60,6 @@ func (app *Application) ListTransactionsByCategory(c echo.Context) error {
 		return b.Date.Compare(a.Date)
 	})
 
-	/*TODO: Filter out apparent zero values / double ups.*/
-	/*TODO: Give uncategorized spending a name (Link to the transactions?)*/
 	/*TODO: Tidy up the accordian drop down, could do a relative date (With hover), as well as justify content in a table?
 	Experiment a bit with not using a <ul> and perhaps having table rows to utilise more div space */
 	type TransactionsByCategory struct {
@@ -73,12 +71,15 @@ func (app *Application) ListTransactionsByCategory(c echo.Context) error {
 	categories := map[string]*TransactionsByCategory{}
 	for _, t := range transactions {
 
-		// Exit early if the Tx is zero value
-		if t.Amount == 0 {
+		// Exit early if the Tx is zero value, or not spending
+		if t.Amount >= 0 || t.Type == "TRANSFER" {
 			continue
 		}
 
-		category := t.Category.Name
+		category := "Uncategorised"
+		if t.Category.Name != "" {
+			category = t.Category.Name
+		}
 		if _, ok := categories[category]; ok {
 			categories[category].Transactions = append(categories[category].Transactions, t)
 			categories[category].Total += t.Amount
