@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 	"os"
+	"time"
 )
 
 type Integrations struct {
@@ -49,14 +50,14 @@ func (i *Integrations) Config() map[string]interface{} {
 	}
 }
 
-func (i *Integrations) SyncAkahu(c echo.Context) error {
+func (i *Integrations) SyncAkahu(c echo.Context, lastSync time.Time) error {
 
 	accounts, err := i.AkahuAccounts()
 	if err != nil {
 		c.Logger().Error(err)
 		return err
 	}
-	transactions, err := i.AkahuTransactions()
+	transactions, err := i.AkahuTransactions(lastSync)
 	if err != nil {
 		c.Logger().Error(err)
 		return err
@@ -117,6 +118,6 @@ func (i *Integrations) AkahuAccounts() ([]akahu.Account, error) {
 	return i.akahu.GetAccounts()
 }
 
-func (i *Integrations) AkahuTransactions() ([]akahu.Transaction, error) {
-	return i.akahu.GetTransactions(true)
+func (i *Integrations) AkahuTransactions(since time.Time) ([]akahu.Transaction, error) {
+	return i.akahu.GetTransactions(since, true)
 }

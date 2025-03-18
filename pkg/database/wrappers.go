@@ -80,6 +80,22 @@ func (s *Store) GetAkahuSettings() (models.IntegrationAkahuSettings, error) {
 func (s *Store) UpdateAkahuSettings(settings models.IntegrationAkahuSettings) error {
 	return Update[models.IntegrationAkahuSettings](s.db, settings)
 }
+func (s *Store) UpdateAkahuLastSync() error {
+	settings, err := Get[models.IntegrationAkahuSettings](s.db, models.IntegrationAkahuSettings{}.Key())
+	if err != nil {
+		return err
+	}
+	settings.LastSync = time.Now()
+	return Update[models.IntegrationAkahuSettings](s.db, settings)
+}
+func (s *Store) ResetAkahuLastSync() error {
+	settings, err := Get[models.IntegrationAkahuSettings](s.db, models.IntegrationAkahuSettings{}.Key())
+	if err != nil {
+		return err
+	}
+	settings.LastSync = time.Time{}
+	return Update[models.IntegrationAkahuSettings](s.db, settings)
+}
 func (s *Store) DeleteSynced() error {
 	err := s.db.Update(func(tx *bolt.Tx) error {
 		accountErr := tx.DeleteBucket(buckets.AccountBucket)

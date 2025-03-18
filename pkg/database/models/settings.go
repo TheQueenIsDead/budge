@@ -4,11 +4,13 @@ import (
 	"errors"
 	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 	"strings"
+	"time"
 )
 
 type IntegrationAkahuSettings struct {
 	AppToken  string
 	UserToken string
+	LastSync  time.Time
 }
 
 func (ias IntegrationAkahuSettings) Key() []byte {
