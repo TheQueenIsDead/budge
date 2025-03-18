@@ -96,7 +96,7 @@
                     <button type="button" class="btn btn-outline-primary" hx-get="/transactions/category?period=quarter" hx-target="#spendByCategory" _="on click remove .active from <button/> add .active">Quarter</button>
                 </div>
             </div>
-
+            <br>
             <div id="spendByCategory" class="col" hx-trigger="load" hx-get="/transactions/category" hx-swap="innerHtml"></div>
         </div>
 
