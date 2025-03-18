@@ -1,16 +1,21 @@
 package application
 
 import (
-	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v4"
 	"net/http"
 )
 
 func (app *Application) Settings(c echo.Context) error {
 
-	config := app.integrations.Config()
+	akahuConfig, err := app.store.GetAkahuSettings()
+	if err != nil {
+		app.Toast(c, "Error", "Could not get Akahu settings.")
+		return c.NoContent(http.StatusInternalServerError)
+	}
 	return c.Render(http.StatusOK, "settings", map[string]interface{}{
-		"config": config,
+		"akahuAppToken":  akahuConfig.AppToken,
+		"akahuUserToken": akahuConfig.UserToken,
+		"akahuLastSync":  akahuConfig.LastSync,
 	})
 }
 
@@ -20,34 +25,44 @@ func (app *Application) SettingsDeleteSynced(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	_ = app.store.ResetAkahuLastSync()
 
 	app.Toast(c, "Success", "All synced data removed.")
 	return nil
 }
 
 func (app *Application) SyncAkahu(c echo.Context) error {
-	err := app.integrations.SyncAkahu(c)
+
+	akahuConfig, err := app.store.GetAkahuSettings()
+	if err != nil {
+		return err
+	}
+
+	err = app.integrations.SyncAkahu(c, akahuConfig.LastSync)
 	if err != nil {
 		return err
 	}
 
 	app.Toast(c, "Success", "Akahu synced successfully!")
+	_ = app.store.UpdateAkahuLastSync()
 
 	return nil
 }
 
 func (app *Application) PutAkahuSettings(c echo.Context) error {
 
-	settings := models.IntegrationAkahuSettings{
-		AppToken:  c.FormValue("akahuAppToken"),
-		UserToken: c.FormValue("akahuUserToken"),
+	settings, err := app.store.GetAkahuSettings()
+	if err != nil {
+		return err
 	}
 
+	settings.AppToken = c.FormValue("akahuAppToken")
+	settings.UserToken = c.FormValue("akahuUserToken")
 	if err := settings.Validate(); err != nil {
 		return err
 	}
 
-	err := app.integrations.PutAkahuSettings(settings)
+	err = app.integrations.PutAkahuSettings(settings)
 	if err != nil {
 		return err
 	}

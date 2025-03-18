@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 type AkahuClient struct {
@@ -85,9 +86,13 @@ func (a *AkahuClient) get(path string, query map[string]string) (*http.Response,
 	return client.Do(req)
 }
 
-func (a *AkahuClient) GetTransactions(paginate bool) (items []Transaction, err error) {
+func (a *AkahuClient) GetTransactions(since time.Time, paginate bool) (items []Transaction, err error) {
 
 	var query = make(map[string]string)
+
+	if !since.IsZero() {
+		query["start"] = since.Format(time.RFC3339)
+	}
 
 	for {
 		res, httpErr := a.get("/transactions", query)
