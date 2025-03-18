@@ -18,7 +18,7 @@ Once you have a user and app token, navigate to settings, load in your credentia
 
 ## Deployment
 
-TBD
+The Budge Docker image can be found over at [docker hub](https://hub.docker.com/r/thequeenisdead/budge) alongside hosting instructions.
 
 ## Development
 
