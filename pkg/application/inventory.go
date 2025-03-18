@@ -35,6 +35,9 @@ func (app *Application) InventoryCreate(c echo.Context) error {
 	if err != nil {
 		return c.String(http.StatusBadRequest, err.Error())
 	}
+	if quantity < math.MinInt || quantity > math.MaxInt {
+		return c.String(http.StatusBadRequest, "quantity out of bounds")
+	}
 	dateString := c.Request().FormValue("date")
 	date, err := time.Parse("2006-01-02", dateString)
 	if err != nil {
