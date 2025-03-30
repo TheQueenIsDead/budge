@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/TheQueenIsDead/budge/compare/v1.0.0...v1.1.0) (2025-03-30)
+
+
+### Features
+
+* spend by category reporting ([4f019d7](https://github.com/TheQueenIsDead/budge/commit/4f019d700120022ab4ec2eb160001fc34939239a))
+
 ## 1.0.0 (2025-03-30)
 
 
