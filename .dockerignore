@@ -1,0 +1,11 @@
+.github/
+.run/
+.idea/
+tmp/
+.air.toml
+.gitignore
+.release-please-manifest.json
+*.db
+*.exe
+*.md
+release-please-config.json
