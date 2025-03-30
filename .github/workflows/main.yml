@@ -36,6 +36,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
+            type=semver,pattern={{version}}
             # set latest tag for default branch: https://github.com/docker/metadata-action#latest-tag
             type=raw,value=latest,enable={{is_default_branch}}
       - if: ${{ steps.release.outputs.release_created }}
