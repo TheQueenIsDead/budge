@@ -114,12 +114,10 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	// Transactions
 	app.http.GET("/transactions", app.ListTransactions)
-	//app.http.GET("/transactions/category", app.ListTransactionsByCategory)
 
 	// Static Assets
 	app.http.Static("/assets", "./web/public")
 
-	//app.http.GET("/charts/timeseries", app.ChartTimeseries)
 	app.http.GET("/charts/doughnut", app.ChartDoughnut)
 	app.http.GET("/charts/gauge", app.ChartGauge)
 
