@@ -51,7 +51,7 @@ func (app *Application) AccountBalanceGraph(c echo.Context) error {
 		background = append(background, "rgb(26, 188, 156)")
 	}
 
-	return c.Render(200, "chart.timeseries", TimeseriesData{
+	return c.Render(200, "chart.timeseries", TimeSeriesData{
 		ChartId:    fmt.Sprintf("account_balance_chart_%s", id),
 		Title:      "Balance Over Time",
 		Labels:     labels,

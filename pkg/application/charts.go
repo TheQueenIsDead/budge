@@ -5,7 +5,8 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type TimeseriesData struct {
+// TimeSeriesData is a struct that holds all the required data to render the chart.timeseries gohtml template.
+type TimeSeriesData struct {
 	ChartId    string
 	Title      string
 	Labels     []string
@@ -14,15 +15,21 @@ type TimeseriesData struct {
 	Background []string
 }
 
-//func (app *Application) ChartTimeseries(c echo.Context) error {
-//
-//}
-
+// DoughnutData is a struct that holds all the required data to render the chart.doughnut gohtml template.
 type DoughnutData struct {
 	ChartId string
 	Title   string
 	Labels  []string
 	Data    []float64
+}
+
+// GaugeData is a struct that holds all the required data to render the chart.gauge gohtml template.
+type GaugeData struct {
+	ChartId    string
+	Title      string
+	Labels     []string
+	Data       []float64
+	Background []string
 }
 
 func (app *Application) ChartDoughnut(c echo.Context) error {
@@ -57,14 +64,6 @@ func (app *Application) ChartDoughnut(c echo.Context) error {
 		Labels:  categoryLabels,
 		Data:    categoryData,
 	})
-}
-
-type GaugeData struct {
-	ChartId    string
-	Title      string
-	Labels     []string
-	Data       []float64
-	Background []string
 }
 
 func (app *Application) ChartGauge(c echo.Context) error {

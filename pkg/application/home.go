@@ -157,7 +157,7 @@ func (app *Application) Report(c echo.Context) error {
 
 	// TODO: Consolidate Chart rendering into report.
 	return c.Render(http.StatusOK, "report", map[string]interface{}{
-		"chart_data": TimeseriesData{
+		"chart_data": TimeSeriesData{
 			ChartId:    "timeseries_chart",
 			Title:      "Spend Over Time",
 			Labels:     labels,
@@ -168,7 +168,7 @@ func (app *Application) Report(c echo.Context) error {
 		"categories": categories,
 	})
 
-	//return c.Render(200, "chart.timeseries", TimeseriesData{
+	//return c.Render(200, "chart.timeseries", TimeSeriesData{
 	//	ChartId:    "timeseries_chart",
 	//	Title:      "Spend Over Time",
 	//	Labels:     labels,
