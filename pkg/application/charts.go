@@ -1,12 +1,25 @@
 package application
 
 import (
+	"fmt"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v4"
 	"maps"
+	"math/rand"
 	"slices"
+	"strconv"
 	"time"
 )
+
+// randomiseChartName returns a string suffixed with an underscore and 5 numbers after, in a weak attempt to cache bust
+// HTML div ids. This helps ChartJS render new charts when the period changes more seamlessly.
+func randomiseChartName(name string) string {
+	newName := fmt.Sprintf("%s_", name)
+	for n := range rand.Perm(5) {
+		newName += strconv.Itoa(n)
+	}
+	return newName
+}
 
 type TimeseriesData struct {
 	ChartId    string
@@ -63,7 +76,7 @@ func (app *Application) ChartTimeseries(c echo.Context) error {
 	}
 
 	return c.Render(200, "chart.timeseries", TimeseriesData{
-		ChartId:    "timeseries_chart",
+		ChartId:    randomiseChartName("timeseries_chart"),
 		Title:      "Spend Over Time",
 		Labels:     labels,
 		Data:       data,
@@ -106,7 +119,7 @@ func (app *Application) ChartDoughnut(c echo.Context) error {
 	}
 
 	return c.Render(200, "chart.doughnut", DoughnutData{
-		ChartId: "doughnut_chart",
+		ChartId: randomiseChartName("doughnut_chart"),
 		Title:   "Spend By Category",
 		Labels:  categoryLabels,
 		Data:    categoryData,
@@ -147,7 +160,7 @@ func (app *Application) ChartGauge(c echo.Context) error {
 	}
 
 	return c.Render(200, "chart.gauge", GaugeData{
-		ChartId: "gauge_chart",
+		ChartId: randomiseChartName("gauge_chart"),
 		Title:   "Incoming vs Outgoing",
 		Labels:  []string{"Incoming", "Outgoing"},
 		Data:    []float64{in, out},
