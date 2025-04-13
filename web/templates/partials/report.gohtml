@@ -1,0 +1,32 @@
+{{ define "report" }}
+
+
+    <h1>CHART?</h1>
+    {{ if .chart_data }}
+        {{ template "chart.timeseries" .chart_data }}
+    {{ end }}
+
+    {{if .categories }}
+    <div class="accordion" id="transactionsByCategory">
+        {{ range .categories }}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="category-{{ .Id }}">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ .Id }}" aria-expanded="true" aria-controls="collapseOne">
+                        {{ .Category }} ({{ .Total }})
+                    </button>
+                </h2>
+                <div id="collapse-{{ .Id }}" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#category-{{ .Id }}">
+                    <div class="accordion-body">
+                        <ul>
+                            {{ range .Transactions }}
+                                <li>{{ .Date }} - {{ .String }} - {{ .Description }} - {{.Type}}</li>
+                            {{ end}}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        {{ end }}
+    </div>
+    {{ end }}
+
+{{ end }}

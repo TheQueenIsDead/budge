@@ -54,18 +54,6 @@
 
         <div class="container">
             <div class="row">
-                {{/*                <div class="col-12 col-md-6 d-flex flex-column justify-content-between">*/}}
-                {{/*                    <h3>*/}}
-                {{/*                        <i class="bi bi-graph-up text-success"> ${{ .incomingString }} </i>*/}}
-                {{/*                    </h3>*/}}
-                {{/*                    <h3>*/}}
-                {{/*                        <i class="bi bi-graph-down text-danger"> ${{ .outgoingString }} </i>*/}}
-                {{/*                    </h3>*/}}
-                {{/*                    <h3>*/}}
-                {{/*                        <i class="bi bi-plus-slash-minus"> Diff </i>*/}}
-                {{/*                    </h3>*/}}
-                {{/*                </div>*/}}
-
                 <div class="col-12 col-md-6" hx-trigger="load" hx-get="/charts/gauge" hx-swap="innerHtml"></div>
                 <div class="col-12 col-md-6" hx-trigger="load" hx-get="/charts/doughnut" hx-swap="innerHtml"></div>
             </div>
@@ -76,30 +64,16 @@
                  ChartJS sets the style on resize, it seems, ex: style="height: 699px; width: 648px; display: block; box-sizing: border-box;" */}}
         <div class="container">
             <div class="row">
-                <h1>Spend Over Time</h1>
-                <div class="btn-group" role="group" aria-label="Basic outlined example">
-                    <button type="button" class="btn btn-outline-primary active" hx-get="/charts/timeseries?period=week" hx-target="#spendOverTime" _="on click remove .active from <button/> add .active">Week</button>
-                    <button type="button" class="btn btn-outline-primary" hx-get="/charts/timeseries?period=month" hx-target="#spendOverTime" _="on click remove .active from <button/> add .active">Month</button>
-                    <button type="button" class="btn btn-outline-primary" hx-get="/charts/timeseries?period=quarter" hx-target="#spendOverTime" _="on click remove .active from <button/> add .active">Quarter</button>
-                </div>
-            </div>
-
-            <div id="spendOverTime" class="col" hx-trigger="load" hx-get="/charts/timeseries" hx-swap="innerHtml"></div>
-        </div>
-
-        <div class="container">
-            <div class="row">
                 <h1>Spend By Category</h1>
                 <div class="btn-group" role="group" aria-label="Spend by category">
-                    <button type="button" class="btn btn-outline-primary active" hx-get="/transactions/category?period=week" hx-target="#spendByCategory" _="on click remove .active from <button/> add .active">Week</button>
-                    <button type="button" class="btn btn-outline-primary" hx-get="/transactions/category?period=month" hx-target="#spendByCategory" _="on click remove .active from <button/> add .active">Month</button>
-                    <button type="button" class="btn btn-outline-primary" hx-get="/transactions/category?period=quarter" hx-target="#spendByCategory" _="on click remove .active from <button/> add .active">Quarter</button>
+                    <button type="button" class="btn btn-outline-primary active" hx-get="/report?period=week" hx-target="#report" _="on click remove .active from <button/> add .active">Week</button>
+                    <button type="button" class="btn btn-outline-primary" hx-get="/report?period=month" hx-target="#report" _="on click remove .active from <button/> add .active">Month</button>
+                    <button type="button" class="btn btn-outline-primary" hx-get="/report?period=quarter" hx-target="#report" _="on click remove .active from <button/> add .active">Quarter</button>
                 </div>
             </div>
             <br>
-            <div id="spendByCategory" class="col" hx-trigger="load" hx-get="/transactions/category" hx-swap="innerHtml"></div>
+            <div id="report" class="col" hx-trigger="load" hx-get="/report" hx-swap="innerHtml"></div>
         </div>
-
         <hr>
 
         {{/*TODO: Instead of showing this in a table, we could use progress bars to display relative spends.*/}}
