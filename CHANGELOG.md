@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/TheQueenIsDead/budge/compare/v1.1.0...v1.1.1) (2025-04-17)
+
+
+### Bug Fixes
+
+* persist akahu settings on register if not present ([af267e8](https://github.com/TheQueenIsDead/budge/commit/af267e8e424cfec9a431b8d7bca49c917b8db710))
+
 ## [1.1.0](https://github.com/TheQueenIsDead/budge/compare/v1.0.0...v1.1.0) (2025-03-30)
 
 
