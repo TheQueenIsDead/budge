@@ -1,7 +1,5 @@
 {{ define "report" }}
 
-
-    <h1>CHART?</h1>
     {{ if .chart_data }}
         {{ template "chart.timeseries" .chart_data }}
     {{ end }}
@@ -15,7 +13,7 @@
                         {{ .Category }} ({{ .Total }})
                     </button>
                 </h2>
-                <div id="collapse-{{ .Id }}" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#category-{{ .Id }}">
+                <div id="collapse-{{ .Id }}" class="accordion-collapse collapse" data-bs-parent="#category-{{ .Id }}">
                     <div class="accordion-body">
                         <ul>
                             {{ range .Transactions }}

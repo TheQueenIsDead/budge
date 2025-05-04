@@ -104,8 +104,19 @@ func (app *Application) Report(c echo.Context) error {
 		Total        float64
 		Transactions []models.Transaction
 	}
+
+	// Categories holds all transactions based on category
 	categories := map[string]*TransactionsByCategory{}
+	// Buckets sums the total spend over the reporting period
+	buckets := map[string]float64{}
+
 	for _, t := range transactions {
+
+		// Track spend by date by summing transactions based on a daily bucket
+		key := t.Date.Format(time.DateOnly)
+		buckets[key] += t.Amount
+
+		// Proceed to categorize transactions for the frontend
 
 		// Exit early if the Tx is zero value, or not spending
 		if t.Amount >= 0 || t.Type == "TRANSFER" {
@@ -129,17 +140,7 @@ func (app *Application) Report(c echo.Context) error {
 		}
 	}
 
-	/*Chart Timeseries*/
-
-	// TODO: Size buckets appropriately for the period, days by default
-	buckets := map[string]float64{}
-	for _, transaction := range transactions {
-		//if transaction.Amount < 0 {
-		key := transaction.Date.Format(time.DateOnly)
-		buckets[key] += transaction.Amount
-		//}
-	}
-
+	// Build the timeseries chart data
 	var data []float64
 	var labels []string
 	var background []string
@@ -155,7 +156,6 @@ func (app *Application) Report(c echo.Context) error {
 		}
 	}
 
-	// TODO: Consolidate Chart rendering into report.
 	return c.Render(http.StatusOK, "report", map[string]interface{}{
 		"chart_data": TimeSeriesData{
 			ChartId:    "timeseries_chart",
@@ -167,20 +167,6 @@ func (app *Application) Report(c echo.Context) error {
 		},
 		"categories": categories,
 	})
-
-	//return c.Render(200, "chart.timeseries", TimeSeriesData{
-	//	ChartId:    "timeseries_chart",
-	//	Title:      "Spend Over Time",
-	//	Labels:     labels,
-	//	Data:       data,
-	//	Border:     background,
-	//	Background: background,
-	//})
-	//
-	//return c.Render(http.StatusOK, "transactions.by_category", map[string]interface{}{
-	//	"categories": categories,
-	//})
-
 }
 
 func (app *Application) _4XX(c echo.Context) error {
