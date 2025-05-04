@@ -37,7 +37,7 @@ func (i *Integrations) RegisterAkahu() {
 		log.Error("Could not retrieve akahu settings, falling back to ENV")
 		settings.UserToken = os.Getenv("AKAHU_USER_TOKEN")
 		settings.AppToken = os.Getenv("AKAHU_APP_TOKEN")
-		i.store.UpdateAkahuSettings(settings)
+		_ = i.store.UpdateAkahuSettings(settings)
 	}
 	i.akahu = akahu.NewClient(
 		akahu.WithUserToken(settings.UserToken),
