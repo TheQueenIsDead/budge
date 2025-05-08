@@ -5,8 +5,6 @@ An opinionated tool for helping Kiwis with money and asset management.
 Budge is powered by [Go](https://go.dev/), [Echo](https://echo.labstack.com/), 
 [HTMX](https://htmx.org/), [Bootstrap](https://getbootstrap.com/), [Air](https://github.com/air-verse/air) and [bbolt](https://github.com/etcd-io/bbolt).
 
-![Budge](./web/public/budge_circle_300.png)
-
 ## Getting Started
 
 We integrate with [Akahu](https://www.akahu.nz/) in order to allow you to see your accounts and transactions. You will need to 
