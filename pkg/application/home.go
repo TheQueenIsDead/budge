@@ -59,11 +59,24 @@ func (app *Application) Home(c echo.Context) error {
 
 	top := topMerchants(transactions, 5)
 
+	if accountCount == 0 && transactionCount == 0 && merchantCount == 0 {
+		return c.Render(http.StatusOK, "empty", nil)
+	}
+
 	return c.Render(http.StatusOK, "home", map[string]interface{}{
 		"accountCount":     accountCount,
 		"transactionCount": transactionCount,
 		"merchantCount":    merchantCount,
 		"topMerchants":     top,
+		// TODO: Replace with sourced data
+		"totalBalance":      12567.89,
+		"totalBalanceDelta": 0.035,
+		"monthlySpend":      2156.42,
+		"monthlySpendDelta": 0.021,
+		"income":            4890.00,
+		"incomeDelta":       0.012,
+		"savings":           2733.58,
+		"savingsDelta":      0.083,
 	})
 }
 func (app *Application) _4XX(c echo.Context) error {

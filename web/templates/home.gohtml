@@ -1,123 +1,307 @@
 {{define "home"}}
-    <div class="container">
-        <div class="row">
-            <div class="col">
-{{/*                <div class="starter-template">*/}}
-                    <h1>Hello 👋</h1>
 
-{{/*                    <div class="row justify-content-center">*/}}
-{{/*                        <img class="img rounded-circle" style="max-height: 300px; max-width: 300px"*/}}
-{{/*                             src="/assets/budge.jpeg">*/}}
-{{/*                    </div>*/}}
 
-{{/*                    <p class="lead">*/}}
-{{/*                        Hi 👋*/}}
-{{/*                    </p>*/}}
-{{/*                </div>*/}}
+<!-- Header Row -->
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <h2 class="fw-bold">Dashboard</h2>
+{{/*            <button class="btn btn-outline-light border fw-semibold">Share</button>*/}}
+</div>
+
+<!-- Metric Cards -->
+<div class="row g-3 mb-3">
+    <!-- Total Balance -->
+    <div class="col-12 col-md-6 col-lg-3">
+        <div class="border rounded-3 p-3 h-100">
+            <div class="d-flex justify-content-between text-muted mb-2">
+                <span class="fw-semibold">Total Balance</span>
+                <span>$</span>
+            </div>
+{{/*            TODO: Format nicely with commas*/}}
+            <h3 class="fw-bold mb-1">${{.totalBalance | printfCommas }}</h3>
+            <div class="text-success">
+                <i class="bi bi-arrow-up-short"></i> 3.5% from last month
             </div>
         </div>
-
-{{/*        <hr/>*/}}
-
-        <div class="row" hx-boost="true" hx-target="#main" hx-push-url="true">
-            <div class="col">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Accounts</h5>
-                        <p class="card-text"> {{ .accountCount }}</p>
-                        <a href="/accounts" class="btn btn-primary">View</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Merchants</h5>
-                        <p class="card-text"> {{ .merchantCount }}</p>
-                        <a href="/merchants" class="btn btn-primary">View</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Transactions</h5>
-                        <p class="card-text"> {{ .transactionCount }}</p>
-                        <a href="/transactions" class="btn btn-primary">View</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-{{/*        <hr>*/}}
-
-        <div class="container">
-            <div class="row">
-                {{/*                <div class="col-12 col-md-6 d-flex flex-column justify-content-between">*/}}
-                {{/*                    <h3>*/}}
-                {{/*                        <i class="bi bi-graph-up text-success"> ${{ .incomingString }} </i>*/}}
-                {{/*                    </h3>*/}}
-                {{/*                    <h3>*/}}
-                {{/*                        <i class="bi bi-graph-down text-danger"> ${{ .outgoingString }} </i>*/}}
-                {{/*                    </h3>*/}}
-                {{/*                    <h3>*/}}
-                {{/*                        <i class="bi bi-plus-slash-minus"> Diff </i>*/}}
-                {{/*                    </h3>*/}}
-                {{/*                </div>*/}}
-
-                <div class="col-12 col-md-6" hx-trigger="load" hx-get="/charts/gauge" hx-swap="innerHtml"></div>
-                <div class="col-12 col-md-6" hx-trigger="load" hx-get="/charts/doughnut" hx-swap="innerHtml"></div>
-            </div>
-        </div>
-
-        {{/* FIXME: When swapping between time periods, the chart can fail to adjust it's size appropriately and get blown out.
-                double clicking, or changing the period helps. Perhaps we should send the current dimensions in the request?
-                 ChartJS sets the style on resize, it seems, ex: style="height: 699px; width: 648px; display: block; box-sizing: border-box;" */}}
-        <div class="container">
-            <div class="row">
-                <h1>Spend Over Time</h1>
-                <div class="btn-group" role="group" aria-label="Basic outlined example">
-                    <button type="button" class="btn btn-outline-primary active" hx-get="/charts/timeseries?period=week" hx-target="#spendOverTime" _="on click remove .active from <button/> add .active">Week</button>
-                    <button type="button" class="btn btn-outline-primary" hx-get="/charts/timeseries?period=month" hx-target="#spendOverTime" _="on click remove .active from <button/> add .active">Month</button>
-                    <button type="button" class="btn btn-outline-primary" hx-get="/charts/timeseries?period=quarter" hx-target="#spendOverTime" _="on click remove .active from <button/> add .active">Quarter</button>
-                </div>
-            </div>
-
-            <div id="spendOverTime" class="col" hx-trigger="load" hx-get="/charts/timeseries" hx-swap="innerHtml"></div>
-        </div>
-
-        <div class="container">
-            <div class="row">
-                <h1>Spend By Category</h1>
-                <div class="btn-group" role="group" aria-label="Spend by category">
-                    <button type="button" class="btn btn-outline-primary active" hx-get="/transactions/category?period=week" hx-target="#spendByCategory" _="on click remove .active from <button/> add .active">Week</button>
-                    <button type="button" class="btn btn-outline-primary" hx-get="/transactions/category?period=month" hx-target="#spendByCategory" _="on click remove .active from <button/> add .active">Month</button>
-                    <button type="button" class="btn btn-outline-primary" hx-get="/transactions/category?period=quarter" hx-target="#spendByCategory" _="on click remove .active from <button/> add .active">Quarter</button>
-                </div>
-            </div>
-            <br>
-            <div id="spendByCategory" class="col" hx-trigger="load" hx-get="/transactions/category" hx-swap="innerHtml"></div>
-        </div>
-
-        <hr>
-
-        {{/*TODO: Instead of showing this in a table, we could use progress bars to display relative spends.*/}}
-        <h1> Top Merchants </h1>
-        <table class="table">
-            <thead>
-            <tr>
-                <th>Merchant</th>
-                <th>Total</th>
-            </tr>
-            </thead>
-            <tbody>
-            {{ range .topMerchants }}
-                <tr>
-                    <td>{{ .Merchant }}</td>
-                    <td>{{ .Total | printf "%.2f" }}</td>
-                </tr>
-            {{ end }}
-            </tbody>
-        </table>
     </div>
+
+    <!-- Monthly Spending -->
+    <div class="col-12 col-md-6 col-lg-3">
+        <div class="border rounded-3 p-3 h-100">
+            <div class="d-flex justify-content-between text-muted mb-2">
+                <span class="fw-semibold">Monthly Spending</span>
+                <span>$</span>
+            </div>
+            <h3 class="fw-bold mb-1">$2,156.42</h3>
+            <div class="text-danger">
+                <i class="bi bi-arrow-down-short"></i> 2.1% from last month
+            </div>
+        </div>
+    </div>
+
+    <!-- Income -->
+    <div class="col-12 col-md-6 col-lg-3">
+        <div class="border rounded-3 p-3 h-100">
+            <div class="d-flex justify-content-between text-muted mb-2">
+                <span class="fw-semibold">Income</span>
+                <span>$</span>
+            </div>
+            <h3 class="fw-bold mb-1">$4,890.00</h3>
+            <div class="text-success">
+                <i class="bi bi-arrow-up-short"></i> 1.2% from last month
+            </div>
+        </div>
+    </div>
+
+    <!-- Savings -->
+    <div class="col-12 col-md-6 col-lg-3">
+        <div class="border rounded-3 p-3 h-100">
+            <div class="d-flex justify-content-between text-muted mb-2">
+                <span class="fw-semibold">Savings</span>
+                <span>$</span>
+            </div>
+            <h3 class="fw-bold mb-1">$2,733.58</h3>
+            <div class="text-success">
+                <i class="bi bi-arrow-up-short"></i> 8.3% from last month
+            </div>
+        </div>
+    </div>
+</div>
+
+{{/*        <body class="bg-light">*/}}
+
+            <!-- Tabs -->
+            <ul class="nav nav-pills mb-4">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#">Overview</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Spending Analysis</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Top Merchants</a>
+                </li>
+            </ul>
+
+
+            <!-- Charts Row -->
+            <div class="row g-3 mb-3">
+                <!-- Monthly Spending Bar Chart -->
+                <div class="col-lg-6">
+                    <div class="border rounded-3 p-3 h-100 d-flex flex-column">
+                        <h4 class="fw-bold">Monthly Spending</h4>
+                        <p class="text-muted">Your spending trends over the past 6 months</p>
+                        <canvas id="barChart" style="max-height: 250px"></canvas>
+                    </div>
+                </div>
+
+                <!-- Spending by Category Doughnut Chart -->
+                <div class="col-lg-6">
+                    <div class="border rounded-3 p-3 h-100 d-flex flex-column">
+                        <h4 class="fw-bold">Spending by Category</h4>
+                        <p class="text-muted">Your spending breakdown by category</p>
+                        <canvas id="doughnutChart" style="max-height: 250px"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        <!-- Chart.js Scripts -->
+        <script>
+            // Bar Chart
+            new Chart(document.getElementById("barChart"), {
+                type: "bar",
+                data: {
+                    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
+                    datasets: [{
+                        label: "Spending",
+                        data: [1150, 1900, 1450, 1650, 1350, 2100],
+                        backgroundColor: "#000"
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+
+            // Doughnut Chart
+            new Chart(document.getElementById("doughnutChart"), {
+                type: "doughnut",
+                data: {
+                    labels: ["Groceries 31%", "Dining 23%", "Shopping 19%", "Transport 15%", "Entertainment 12%"],
+                    datasets: [{
+                        data: [31, 23, 19, 15, 12],
+                        backgroundColor: ["#000", "#444", "#888", "#bbb", "#ddd"]
+                    }]
+                },
+                options: {
+                    plugins: {
+                        legend: {
+                            position: "right"
+                        }
+                    }
+                }
+            });
+        </script>
+
+{{/*    <div class="card my-3">*/}}
+{{/*        <div class="row">*/}}
+{{/*            */}}{{/*                <div class="col-12 col-md-6 d-flex flex-column justify-content-between">*/}}
+{{/*            */}}{{/*                    <h3>*/}}
+{{/*            */}}{{/*                        <i class="bi bi-graph-up text-success"> ${{ .incomingString }} </i>*/}}
+{{/*            */}}{{/*                    </h3>*/}}
+{{/*            */}}{{/*                    <h3>*/}}
+{{/*            */}}{{/*                        <i class="bi bi-graph-down text-danger"> ${{ .outgoingString }} </i>*/}}
+{{/*            */}}{{/*                    </h3>*/}}
+{{/*            */}}{{/*                    <h3>*/}}
+{{/*            */}}{{/*                        <i class="bi bi-plus-slash-minus"> Diff </i>*/}}
+{{/*            */}}{{/*                    </h3>*/}}
+{{/*            */}}{{/*                </div>*/}}
+
+{{/*            <div class="col-12 col-md-6" hx-trigger="load" hx-get="/charts/gauge" hx-swap="innerHtml"></div>*/}}
+{{/*            <div class="col-12 col-md-6" hx-trigger="load" hx-get="/charts/doughnut" hx-swap="innerHtml"></div>*/}}
+{{/*        </div>*/}}
+{{/*    </div>*/}}
+
+{{/*    */}}{{/* FIXME: When swapping between time periods, the chart can fail to adjust it's size appropriately and get blown out.*/}}
+{{/*            double clicking, or changing the period helps. Perhaps we should send the current dimensions in the request?*/}}
+{{/*             ChartJS sets the style on resize, it seems, ex: style="height: 699px; width: 648px; display: block; box-sizing: border-box;" */}}
+{{/*    <div class="container">*/}}
+{{/*        <div class="row">*/}}
+{{/*            <h1>Spend Over Time</h1>*/}}
+{{/*            <div class="btn-group" role="group" aria-label="Basic outlined example">*/}}
+{{/*                <button type="button" class="btn btn-outline-primary active" hx-get="/charts/timeseries?period=week" hx-target="#spendOverTime" _="on click remove .active from <button/> add .active">Week</button>*/}}
+{{/*                <button type="button" class="btn btn-outline-primary" hx-get="/charts/timeseries?period=month" hx-target="#spendOverTime" _="on click remove .active from <button/> add .active">Month</button>*/}}
+{{/*                <button type="button" class="btn btn-outline-primary" hx-get="/charts/timeseries?period=quarter" hx-target="#spendOverTime" _="on click remove .active from <button/> add .active">Quarter</button>*/}}
+{{/*            </div>*/}}
+{{/*        </div>*/}}
+
+{{/*        <div id="spendOverTime" class="col" hx-trigger="load" hx-get="/charts/timeseries" hx-swap="innerHtml"></div>*/}}
+{{/*    </div>*/}}
+
+{{/*    <div class="container">*/}}
+{{/*        <div class="row">*/}}
+{{/*            <h1>Spend By Category</h1>*/}}
+{{/*            <div class="btn-group" role="group" aria-label="Spend by category">*/}}
+{{/*                <button type="button" class="btn btn-outline-primary active" hx-get="/transactions/category?period=week" hx-target="#spendByCategory" _="on click remove .active from <button/> add .active">Week</button>*/}}
+{{/*                <button type="button" class="btn btn-outline-primary" hx-get="/transactions/category?period=month" hx-target="#spendByCategory" _="on click remove .active from <button/> add .active">Month</button>*/}}
+{{/*                <button type="button" class="btn btn-outline-primary" hx-get="/transactions/category?period=quarter" hx-target="#spendByCategory" _="on click remove .active from <button/> add .active">Quarter</button>*/}}
+{{/*            </div>*/}}
+{{/*        </div>*/}}
+{{/*        <br>*/}}
+{{/*        <div id="spendByCategory" class="col" hx-trigger="load" hx-get="/transactions/category" hx-swap="innerHtml"></div>*/}}
+{{/*    </div>*/}}
+
+
+{{/*    */}}{{/*TODO: Instead of showing this in a table, we could use progress bars to display relative spends.*/}}
+{{/*    <h1> Top Merchants </h1>*/}}
+{{/*    <table class="table">*/}}
+{{/*        <thead>*/}}
+{{/*        <tr>*/}}
+{{/*            <th>Merchant</th>*/}}
+{{/*            <th>Total</th>*/}}
+{{/*        </tr>*/}}
+{{/*        </thead>*/}}
+{{/*        <tbody>*/}}
+{{/*        {{ range .topMerchants }}*/}}
+{{/*            <tr>*/}}
+{{/*                <td>{{ .Merchant }}</td>*/}}
+{{/*                <td>{{ .Total | printf "%.2f" }}</td>*/}}
+{{/*            </tr>*/}}
+{{/*        {{ end }}*/}}
+{{/*        </tbody>*/}}
+{{/*    </table>*/}}
+
+
+    <div class="card border rounded-3 p-4 shadow-sm">
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div>
+                <h5 class="fw-bold mb-1">Top Merchants</h5>
+                <small class="text-muted">Your most frequent transactions</small>
+            </div>
+{{/*            <button class="btn btn-outline-light border fw-semibold">View All</button>*/}}
+        </div>
+
+        <ul class="list-unstyled">
+            <!-- Merchant Item -->
+            <li class="d-flex align-items-center justify-content-between mb-4">
+                <div class="d-flex align-items-center">
+                    <div class="bg-light rounded-circle p-2 me-3">
+                        <i class="bi bi-credit-card fs-5 text-dark"></i>
+                    </div>
+                    <div>
+                        <div class="fw-semibold">Whole Foods</div>
+                        <small class="text-muted">$245.67</small>
+                    </div>
+                </div>
+                <div class="text-success fw-semibold">
+                    <i class="bi bi-arrow-up-short"></i> 12.5%
+                </div>
+            </li>
+
+            <!-- Repeat for each merchant -->
+            <li class="d-flex align-items-center justify-content-between mb-4">
+                <div class="d-flex align-items-center">
+                    <div class="bg-light rounded-circle p-2 me-3">
+                        <i class="bi bi-credit-card fs-5 text-dark"></i>
+                    </div>
+                    <div>
+                        <div class="fw-semibold">Amazon</div>
+                        <small class="text-muted">$189.99</small>
+                    </div>
+                </div>
+                <div class="text-danger fw-semibold">
+                    <i class="bi bi-arrow-down-short"></i> 5.2%
+                </div>
+            </li>
+
+            <!-- More merchants -->
+            <li class="d-flex align-items-center justify-content-between mb-4">
+                <div class="d-flex align-items-center">
+                    <div class="bg-light rounded-circle p-2 me-3">
+                        <i class="bi bi-credit-card fs-5 text-dark"></i>
+                    </div>
+                    <div>
+                        <div class="fw-semibold">Starbucks</div>
+                        <small class="text-muted">$87.45</small>
+                    </div>
+                </div>
+                <div class="text-success fw-semibold">
+                    <i class="bi bi-arrow-up-short"></i> 3.8%
+                </div>
+            </li>
+
+            <li class="d-flex align-items-center justify-content-between mb-4">
+                <div class="d-flex align-items-center">
+                    <div class="bg-light rounded-circle p-2 me-3">
+                        <i class="bi bi-credit-card fs-5 text-dark"></i>
+                    </div>
+                    <div>
+                        <div class="fw-semibold">Target</div>
+                        <small class="text-muted">$156.78</small>
+                    </div>
+                </div>
+                <div class="text-muted fw-semibold">0%</div>
+            </li>
+
+            <li class="d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center">
+                    <div class="bg-light rounded-circle p-2 me-3">
+                        <i class="bi bi-credit-card fs-5 text-dark"></i>
+                    </div>
+                    <div>
+                        <div class="fw-semibold">Netflix</div>
+                        <small class="text-muted">$15.99</small>
+                    </div>
+                </div>
+                <div class="text-muted fw-semibold">0%</div>
+            </li>
+        </ul>
+    </div>
+
 {{end}}

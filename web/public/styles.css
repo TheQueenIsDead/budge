@@ -1,4 +1,20 @@
-.starter-template {
-    padding: 3rem 1.5rem;
-    text-align: center;
+
+.nav-item .nav-link {
+ border: none;
+ border-radius: 0.5rem;
+ color: #6c757d;
+ padding: 0.5rem 1rem;
+ font-weight: 500;
 }
+
+.nav-item .nav-link.active {
+background-color: #f1f5f9;
+color: #0f172a;
+font-weight: 600;
+}
+
+.nav-item {
+border-bottom: none;
+gap: 0.5rem;
+}
+
