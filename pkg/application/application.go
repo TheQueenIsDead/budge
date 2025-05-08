@@ -36,7 +36,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	funcMap := template.FuncMap{
 		"printfCommas": func(number float64) string {
 			p := message.NewPrinter(language.English)
-			return p.Sprintf("%v", number)
+			return p.Sprintf("%.2f", number)
 		},
 	}
 
