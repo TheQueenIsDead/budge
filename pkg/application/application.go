@@ -168,14 +168,14 @@ func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Con
 	c.Logger().Debug("Rendering template:", t.templates.Templates())
 	for _, t := range t.templates.Templates() {
 		if t.Name() == name {
-			c.Logger().Debug("template found for '", name, "'")
+			//c.Logger().Debug("template found for '", name, "'")
 			found = true
 			break
 		}
 	}
 
 	if !found {
-		c.Logger().Error("could not find template for '", name, "'")
+		//c.Logger().Error("could not find template for '", name, "'")
 		return echo.NewHTTPError(http.StatusNotFound, "could not find template")
 	}
 
