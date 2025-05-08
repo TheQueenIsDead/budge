@@ -94,7 +94,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.Renderer = t
 
 	// General
-	app.http.GET("/", app.Home)
+	app.http.GET("/", app.Dashboard)
 	app.http.GET("/4XX", app._4XX)
 
 	// Accounts

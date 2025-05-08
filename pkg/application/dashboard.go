@@ -23,7 +23,7 @@ func topMerchants(transactions []models.Transaction, n int) []models.MerchantTot
 	}
 
 	sort.Slice(top, func(i, j int) bool {
-		return top[i].Total > top[j].Total
+		return top[i].Total < top[j].Total
 	})
 
 	if len(top) >= n {
@@ -32,7 +32,7 @@ func topMerchants(transactions []models.Transaction, n int) []models.MerchantTot
 	return top[:]
 }
 
-func (app *Application) Home(c echo.Context) error {
+func (app *Application) Dashboard(c echo.Context) error {
 
 	var accountCount, transactionCount, merchantCount int
 	var err error
@@ -50,6 +50,8 @@ func (app *Application) Home(c echo.Context) error {
 		return err
 	}
 
+	totalBalance, err := app.store.GetAccountsTotal()
+
 	var transactions []models.Transaction
 	transactions, err = app.store.ReadTransactions()
 	if err != nil {
@@ -63,13 +65,10 @@ func (app *Application) Home(c echo.Context) error {
 		return c.Render(http.StatusOK, "empty", nil)
 	}
 
-	return c.Render(http.StatusOK, "home", map[string]interface{}{
-		"accountCount":     accountCount,
-		"transactionCount": transactionCount,
-		"merchantCount":    merchantCount,
-		"topMerchants":     top,
+	return c.Render(http.StatusOK, "dashboard", map[string]interface{}{
+		"topMerchants": top,
 		// TODO: Replace with sourced data
-		"totalBalance":      12567.89,
+		"totalBalance":      totalBalance,
 		"totalBalanceDelta": 0.035,
 		"monthlySpend":      2156.42,
 		"monthlySpendDelta": 0.021,

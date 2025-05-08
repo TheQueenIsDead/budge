@@ -16,6 +16,17 @@ func (s *Store) CountAccount() (int, error) {
 func (s *Store) GetAccount(id []byte) (models.Account, error) {
 	return Get[models.Account](s.db, id)
 }
+func (s *Store) GetAccountsTotal() (float64, error) {
+	accounts, err := Read[models.Account](s.db)
+	if err != nil {
+		return 0, err
+	}
+	total := 0.0
+	for _, account := range accounts {
+		total += account.Balance.Current
+	}
+	return total, nil
+}
 func (s *Store) CreateAccount(account models.Account) error {
 	return Create[models.Account](s.db, account)
 }
