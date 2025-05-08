@@ -8,6 +8,8 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/integrations"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 	"html/template"
 	"io"
 	"net/http"
@@ -31,9 +33,16 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.Debug = true
 
 	// Setup HTTP server
-	tpl := template.Must(template.ParseGlob("web/templates/*.gohtml"))
-	tpl = template.Must(tpl.ParseGlob("web/templates/partials/*.gohtml"))
-	tpl = template.Must(tpl.ParseGlob("web/templates/charts/*.gohtml"))
+	funcMap := template.FuncMap{
+		"printfCommas": func(number float64) string {
+			p := message.NewPrinter(language.English)
+			return p.Sprintf("%v", number)
+		},
+	}
+
+	tpl := template.New("").Funcs(funcMap)
+	tpl = template.Must(tpl.ParseGlob("web/templates/*.gohtml"))
+	tpl = template.Must(tpl.ParseGlob("web/templates/*/*.gohtml"))
 
 	t := &Template{
 		templates: tpl,
