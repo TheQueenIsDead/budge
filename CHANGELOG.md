@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.0](https://github.com/TheQueenIsDead/budge/compare/v1.1.0...v1.2.0) (2025-05-04)
+
+
+### Features
+
+* consolidate home page reporting ([1ffbb7e](https://github.com/TheQueenIsDead/budge/commit/1ffbb7eb6c4618608aaebb3876293a1daf71a6e2))
+* consolidate transactions by category and timeseries chart in home ([ce93e5a](https://github.com/TheQueenIsDead/budge/commit/ce93e5a2223ab054e3980b88cee4cf9c2c1ebc5f))
+
+
+### Bug Fixes
+
+* persist akahu settings on register if not present ([af267e8](https://github.com/TheQueenIsDead/budge/commit/af267e8e424cfec9a431b8d7bca49c917b8db710))
+
 ## [1.1.0](https://github.com/TheQueenIsDead/budge/compare/v1.0.0...v1.1.0) (2025-03-30)
 
 
