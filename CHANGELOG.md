@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.3.0](https://github.com/TheQueenIsDead/budge/compare/v1.2.0...v1.3.0) (2025-05-12)
+
+
+### Features
+
+* add in global format func for showing floats as comma-delimited strings ([e9e08c3](https://github.com/TheQueenIsDead/budge/commit/e9e08c3065a997cbbf9ac26f759154dc01e6c227))
+* add wip new layout with mock data for dashboard ([57bc48e](https://github.com/TheQueenIsDead/budge/commit/57bc48eb62bd4ccb00eadcf3e540065533aa3bbb))
+* rename home to dashboard and hook up total balance ([41874c9](https://github.com/TheQueenIsDead/budge/commit/41874c99d3d665af4227d891667858fc802ef41f))
+* ui refresh ([ba5cef6](https://github.com/TheQueenIsDead/budge/commit/ba5cef6ad7bc2212690a63ae75130dda5dd3bad4))
+* upgrade bootstrap from 5.3.3 to 5.3.6 ([30a8c81](https://github.com/TheQueenIsDead/budge/commit/30a8c81cff985ac2601632a586efe1490a4f8e26))
+* use helpers for currency and percentage display ([88ffc7f](https://github.com/TheQueenIsDead/budge/commit/88ffc7f77f44338fd5b09b794bfb065fecd5e1b8))
+* wire in values for most dashboard values and hide less used pages from nav ([c30fb5c](https://github.com/TheQueenIsDead/budge/commit/c30fb5c73247e192b076df75fc4185b67f7ef08a))
+
+
+### Bug Fixes
+
+* format currency to 2dp ([1284edf](https://github.com/TheQueenIsDead/budge/commit/1284edf90c962d6819074a24c4a1128ee9678702))
+* mark transactions as salary if they contain "salary" in the description ([b38f8ee](https://github.com/TheQueenIsDead/budge/commit/b38f8ee6a03bd465676f5b0982b72e03e0bffe67))
+* stop page from jumping on nav click by disabling boost scroll into view ([30fd50a](https://github.com/TheQueenIsDead/budge/commit/30fd50af7f12587014b96ff150c0fdf2fc444cde))
+
 ## [1.2.0](https://github.com/TheQueenIsDead/budge/compare/v1.1.0...v1.2.0) (2025-05-04)
 
 
