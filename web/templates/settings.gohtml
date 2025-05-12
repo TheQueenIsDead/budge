@@ -99,4 +99,140 @@
         </div>
 
     </div>
+
+    <style>
+        body {
+            background-color: #f8fafc;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .tab-btn {
+            background-color: #f1f5f9;
+            border: none;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            margin-right: 0.5rem;
+        }
+        .tab-btn.active {
+            background-color: white;
+            border: 1px solid #e2e8f0;
+            font-weight: 600;
+        }
+        .card-status {
+            border-left: 4px solid transparent;
+            border-radius: 12px;
+        }
+        .connected {
+            border-left-color: #22c55e;
+        }
+        .error {
+            border-left-color: #ef4444;
+        }
+        .badge-success {
+            background-color: #dcfce7;
+            color: #16a34a;
+            font-weight: 500;
+        }
+        .badge-error {
+            background-color: #fee2e2;
+            color: #dc2626;
+            font-weight: 500;
+        }
+        .integration-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+    </style>
+
+{{/*        <header class="d-flex justify-content-between align-items-center mb-4">*/}}
+{{/*            <h2 class="fw-bold">Settings</h2>*/}}
+{{/*        </header>*/}}
+
+        <div class="d-flex mb-4">
+            <button class="tab-btn">Profile</button>
+            <button class="tab-btn active">Financial Integrations</button>
+            <button class="tab-btn">Security</button>
+            <button class="tab-btn">Notifications</button>
+        </div>
+
+        <div class="bg-white p-4 rounded shadow-sm">
+            <h4 class="fw-bold">Financial Integrations</h4>
+            <p class="text-muted">Connect and manage your financial accounts</p>
+
+            <h6 class="mt-4 fw-semibold">Connected Accounts</h6>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="p-3 card-status connected">
+                        <h6 class="fw-bold mb-1">Chase Bank</h6>
+                        <p class="text-muted mb-1">Bank</p>
+                        <p class="text-muted small">Last synced: 2023-05-01</p>
+                        <span class="badge badge-success mb-2"><i class="fas fa-check-circle me-1"></i>Connected</span>
+                        <div>
+                            <button class="btn btn-sm btn-outline-dark me-2">Sync</button>
+                            <button class="btn btn-sm btn-outline-danger">Remove</button>
+                        </div>
+                    </div>
+                </div>
+
+{{/*                <div class="col-md-4">*/}}
+{{/*                    <div class="p-3 card-status connected">*/}}
+{{/*                        <h6 class="fw-bold mb-1">American Express</h6>*/}}
+{{/*                        <p class="text-muted mb-1">Credit Card</p>*/}}
+{{/*                        <p class="text-muted small">Last synced: 2023-05-01</p>*/}}
+{{/*                        <span class="badge badge-success mb-2"><i class="fas fa-check-circle me-1"></i>Connected</span>*/}}
+{{/*                        <div>*/}}
+{{/*                            <button class="btn btn-sm btn-outline-dark me-2">Sync</button>*/}}
+{{/*                            <button class="btn btn-sm btn-outline-danger">Remove</button>*/}}
+{{/*                        </div>*/}}
+{{/*                    </div>*/}}
+{{/*                </div>*/}}
+
+{{/*                <div class="col-md-4">*/}}
+{{/*                    <div class="p-3 card-status error">*/}}
+{{/*                        <h6 class="fw-bold mb-1">Vanguard</h6>*/}}
+{{/*                        <p class="text-muted mb-1">Investment</p>*/}}
+{{/*                        <p class="text-muted small">Last synced: 2023-04-28</p>*/}}
+{{/*                        <span class="badge badge-error mb-2"><i class="fas fa-times-circle me-1"></i>Error</span>*/}}
+{{/*                        <div>*/}}
+{{/*                            <button class="btn btn-sm btn-outline-dark me-2">Sync</button>*/}}
+{{/*                            <button class="btn btn-sm btn-outline-danger">Remove</button>*/}}
+{{/*                        </div>*/}}
+{{/*                    </div>*/}}
+{{/*                </div>*/}}
+{{/*            </div>*/}}
+
+{{/*            <h6 class="mt-5 fw-semibold">Add New Integration</h6>*/}}
+{{/*            <div class="row">*/}}
+{{/*                <div class="col-md-3">*/}}
+{{/*                    <div class="integration-card">*/}}
+{{/*                        <i class="fas fa-university fa-2x mb-2"></i>*/}}
+{{/*                        <h6>Bank of America</h6>*/}}
+{{/*                        <p class="text-muted small">Bank</p>*/}}
+{{/*                    </div>*/}}
+{{/*                </div>*/}}
+{{/*                <div class="col-md-3">*/}}
+{{/*                    <div class="integration-card">*/}}
+{{/*                        <i class="fas fa-university fa-2x mb-2"></i>*/}}
+{{/*                        <h6>Wells Fargo</h6>*/}}
+{{/*                        <p class="text-muted small">Bank</p>*/}}
+{{/*                    </div>*/}}
+{{/*                </div>*/}}
+{{/*                <div class="col-md-3">*/}}
+{{/*                    <div class="integration-card">*/}}
+{{/*                        <i class="fas fa-university fa-2x mb-2"></i>*/}}
+{{/*                        <h6>Citibank</h6>*/}}
+{{/*                        <p class="text-muted small">Bank</p>*/}}
+{{/*                    </div>*/}}
+{{/*                </div>*/}}
+{{/*                <div class="col-md-3">*/}}
+{{/*                    <div class="integration-card">*/}}
+{{/*                        <i class="fas fa-credit-card fa-2x mb-2"></i>*/}}
+{{/*                        <h6>Capital One</h6>*/}}
+{{/*                        <p class="text-muted small">Credit Card</p>*/}}
+{{/*                    </div>*/}}
+{{/*                </div>*/}}
+{{/*            </div>*/}}
+{{/*        </div>*/}}
 {{ end }}
