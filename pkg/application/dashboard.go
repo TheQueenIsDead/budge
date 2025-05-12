@@ -106,13 +106,17 @@ func (app *Application) Dashboard(c echo.Context) error {
 	var err error
 
 	totalBalance, err := app.store.GetAccountsTotal()
+	if err != nil {
+		c.Logger().Error(err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
 
 	start := time.Now().AddDate(0, 0, -60)
 	end := time.Now().AddDate(0, 0, -30)
 	pastTransactions, err := app.store.ReadTransactionsByDate(start, end)
 	if err != nil {
 		c.Logger().Error(err)
-		return err
+		return c.NoContent(http.StatusInternalServerError)
 	}
 
 	start = time.Now().AddDate(0, 0, -30)
@@ -120,7 +124,7 @@ func (app *Application) Dashboard(c echo.Context) error {
 	recentTransactions, err := app.store.ReadTransactionsByDate(start, end)
 	if err != nil {
 		c.Logger().Error(err)
-		return err
+		return c.NoContent(http.StatusInternalServerError)
 	}
 
 	analysis := analyseTransactions(recentTransactions, pastTransactions)
@@ -132,7 +136,7 @@ func (app *Application) Dashboard(c echo.Context) error {
 	halfYearTransactions, err := app.store.ReadTransactionsByDate(start, end)
 	if err != nil {
 		c.Logger().Error(err)
-		return err
+		return c.NoContent(http.StatusInternalServerError)
 	}
 	timeseriesMap := map[string]int{}
 	for _, transaction := range halfYearTransactions {
@@ -195,19 +199,20 @@ func (app *Application) Dashboard(c echo.Context) error {
 
 	return c.Render(http.StatusOK, "dashboard", map[string]interface{}{
 		"topMerchants": top,
-		// TODO: Replace with sourced data
-		"totalBalance":      totalBalance,
+		"totalBalance": totalBalance,
+		// TODO: Walk transactions back in time to ascertain the balance delta
 		"totalBalanceDelta": 0.035,
 		"monthlySpend":      analysis.MonthlySpend,
 		"monthlySpendDelta": analysis.MonthlySpendDelta,
 		"income":            analysis.Income,
 		"incomeDelta":       analysis.IncomeDelta,
 		"savings":           math.Abs(analysis.Income) - math.Abs(analysis.MonthlySpend),
-		"savingsDelta":      0.083,
-		"timeseriesData":    timeseriesData,
-		"timeseriesLabels":  timeseriesLabels,
-		"categoryLabels":    categoryLabels,
-		"categoryData":      categoryData,
+		// TODO: Walk transactions back in time to ascertain the savings delta
+		"savingsDelta":     0.083,
+		"timeseriesData":   timeseriesData,
+		"timeseriesLabels": timeseriesLabels,
+		"categoryLabels":   categoryLabels,
+		"categoryData":     categoryData,
 	})
 }
 func (app *Application) _4XX(c echo.Context) error {
