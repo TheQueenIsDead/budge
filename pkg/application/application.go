@@ -8,6 +8,8 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/integrations"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 	"html/template"
 	"io"
 	"net/http"
@@ -31,9 +33,20 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.Debug = true
 
 	// Setup HTTP server
-	tpl := template.Must(template.ParseGlob("web/templates/*.gohtml"))
-	tpl = template.Must(tpl.ParseGlob("web/templates/partials/*.gohtml"))
-	tpl = template.Must(tpl.ParseGlob("web/templates/charts/*.gohtml"))
+	funcMap := template.FuncMap{
+		"fmtCurrency": func(number float64) string {
+			p := message.NewPrinter(language.English)
+			return p.Sprintf("$%.2f", number)
+		},
+		"fmtPercent": func(number float64) string {
+			p := message.NewPrinter(language.English)
+			return p.Sprintf("%.1f%%", number)
+		},
+	}
+
+	tpl := template.New("").Funcs(funcMap)
+	tpl = template.Must(tpl.ParseGlob("web/templates/*.gohtml"))
+	tpl = template.Must(tpl.ParseGlob("web/templates/*/*.gohtml"))
 
 	t := &Template{
 		templates: tpl,
@@ -85,8 +98,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.Renderer = t
 
 	// General
-	app.http.GET("/", app.Home)
-	app.http.GET("/report", app.Report)
+	app.http.GET("/", app.Dashboard)
 	app.http.GET("/4XX", app._4XX)
 
 	// Accounts
@@ -155,17 +167,14 @@ func (t *Template) renderPartial(name string, data interface{}) (string, error) 
 func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
 
 	var found bool
-	c.Logger().Debug("Rendering template:", t.templates.Templates())
 	for _, t := range t.templates.Templates() {
 		if t.Name() == name {
-			c.Logger().Debug("template found for '", name, "'")
 			found = true
 			break
 		}
 	}
 
 	if !found {
-		c.Logger().Error("could not find template for '", name, "'")
 		return echo.NewHTTPError(http.StatusNotFound, "could not find template")
 	}
 

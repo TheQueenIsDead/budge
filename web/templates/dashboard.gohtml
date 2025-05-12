@@ -1,0 +1,202 @@
+{{define "dashboard"}}
+
+<!-- Header Row -->
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <h2 class="fw-bold">Dashboard</h2>
+            <button class="btn btn-outline-light border fw-semibold">Share</button>
+</div>
+
+<!-- Metric Cards -->
+<div class="row g-3 mb-3">
+    <!-- Total Balance -->
+    <div class="col-12 col-md-6 col-lg-3">
+        <div class="card border rounded-3 p-3 h-100 shadow-sm">
+            <div class="d-flex justify-content-between text-muted mb-2">
+                <span class="fw-semibold">Total Balance</span>
+                <div>
+                    <span>$</span>
+                    <i class="bi bi-arrow-up-short"></i>
+                </div>
+            </div>
+{{/*            TODO: Format nicely with commas*/}}
+            <h3 class="fw-bold mb-1">{{.totalBalance | fmtCurrency }}</h3>
+            <div class="text-success">
+                <i class="bi bi-arrow-up-short"></i> 3.5% from last month
+            </div>
+        </div>
+    </div>
+
+    <!-- Monthly Spending -->
+    <div class="col-12 col-md-6 col-lg-3">
+        <div class="card border rounded-3 p-3 h-100 shadow-sm">
+            <div class="d-flex justify-content-between text-muted mb-2">
+                <span class="fw-semibold">Monthly Spending</span>
+                <div>
+                    <span>$</span>
+                    <i class="bi bi-arrow-down-short"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-1">{{ .monthlySpend | fmtCurrency }}</h3>
+            <div class="text-danger">
+                <i class="bi bi-arrow-down-short"></i>{{ .monthlySpendDelta | fmtPercent }} from last month
+            </div>
+        </div>
+    </div>
+
+    <!-- Income -->
+    <div class="col-12 col-md-6 col-lg-3 ">
+        <div class="card border rounded-3 p-3 h-100 shadow-sm">
+            <div class="d-flex justify-content-between text-muted mb-2">
+                <span class="fw-semibold">Income</span>
+                <div>
+                    <span>$</span>
+                    <i class="bi bi-arrow-up-short"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-1">{{ .income | fmtCurrency }}</h3>
+            <div class="text-success">
+                <i class="bi bi-arrow-up-short"></i>{{ .incomeDelta | fmtPercent }} from last month
+            </div>
+        </div>
+    </div>
+
+    <!-- Savings -->
+    <div class="col-12 col-md-6 col-lg-3">
+        <div class="card border rounded-3 p-3 h-100 shadow-sm">
+            <div class="d-flex justify-content-between text-muted mb-2">
+                <span class="fw-semibold">Savings</span>
+                <div>
+                    <span>$</span>
+                    <i class="bi bi-arrow-up-short"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-1">{{ .savings | fmtCurrency }}</h3>
+            <div class="text-success">
+                <i class="bi bi-arrow-up-short"></i> 8.3% from last month
+            </div>
+        </div>
+    </div>
+</div>
+
+{{/*        <body class="bg-light">*/}}
+
+            <!-- Tabs -->
+            <ul class="nav nav-pills mb-4">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#">Overview</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Spending Analysis</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Top Merchants</a>
+                </li>
+            </ul>
+
+
+            <!-- Charts Row -->
+            <div class="row g-3 mb-3">
+                <!-- Monthly Spending Bar Chart -->
+                <div class="col-lg-6">
+                    <div class="card border rounded-3 p-3 h-100 d-flex flex-column shadow-sm">
+                        <h4 class="fw-bold">Monthly Spending</h4>
+                        <p class="text-muted">Your spending trends over the past 6 months</p>
+                        <canvas id="barChart" style="max-height: 250px"></canvas>
+                    </div>
+                </div>
+
+                <!-- Spending by Category Doughnut Chart -->
+                <div class="col-lg-6">
+                    <div class="card border rounded-3 p-3 h-100 d-flex flex-column shadow-sm">
+                        <h4 class="fw-bold">Spending by Category</h4>
+                        <p class="text-muted">Your spending breakdown by category</p>
+                        <canvas id="doughnutChart" style="max-height: 250px"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        <!-- Chart.js Scripts -->
+        <script>
+            // Bar Chart
+            new Chart(document.getElementById("barChart"), {
+                type: "bar",
+                data: {
+                    labels: {{.timeseriesLabels}},
+                    datasets: [{
+                        label: "Spending",
+                        data: {{.timeseriesData}},
+                        backgroundColor: "#000"
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+
+            // Doughnut Chart
+            new Chart(document.getElementById("doughnutChart"), {
+                type: "doughnut",
+                data: {
+                    labels: {{.categoryLabels}},
+                    datasets: [{
+                        data: {{.categoryData}},
+                        backgroundColor: ["#000", "#444", "#888", "#bbb", "#ddd"]
+                    }]
+                },
+                options: {
+                    plugins: {
+                        legend: {
+                            position: "right"
+                        }
+                    }
+                }
+            });
+        </script>
+
+<!-- Top Merchants -->
+<div class="card border rounded-3 p-4 shadow-sm">
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <h5 class="fw-bold mb-1">Top Merchants</h5>
+            <small class="text-muted">Your most frequent transactions</small>
+        </div>
+{{/*            <button class="btn btn-outline-light border fw-semibold">View All</button>*/}}
+    </div>
+
+    <ul class="list-unstyled">
+    {{ range .topMerchants }}
+        <li class="d-flex align-items-center justify-content-between mb-4">
+            <div class="d-flex align-items-center">
+                <div class="bg-light rounded-circle p-2 me-3">
+                    <i class="bi bi-credit-card fs-5 text-dark"></i>
+                </div>
+                <div>
+                    <div class="fw-semibold">{{ .Merchant }}</div>
+                    <small class="text-muted">{{ .Total | fmtPercent }}</small>
+                </div>
+            </div>
+            {{if gt .Delta 0.0}}
+            <div class="text-danger fw-semibold">
+                <i class="bi bi-arrow-up-short"></i>{{ .Delta | fmtPercent }}
+            </div>
+            {{else if lt .Delta 0.0}}
+                <div class="text-success fw-semibold">
+                    <i class="bi bi-arrow-down-short"></i>{{ .Delta | fmtPercent }}
+                </div>
+            {{else}}
+            <div class="text-muted fw-semibold">
+                <i class="bi bi-stars"></i>New
+            </div>
+            {{end}}
+        </li>
+    {{ end }}
+    </ul>
+</div>
+{{end}}

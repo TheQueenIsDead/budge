@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -77,6 +78,17 @@ func (i *Integrations) SyncAkahu(c echo.Context, lastSync time.Time) error {
 	for _, transaction := range transactions {
 
 		tx := models.Transaction(transaction)
+
+		// Attempt to detect salary before persisting
+		if tx.Merchant.Id == "" {
+			desc := strings.ToLower(tx.Description)
+			if strings.Contains(desc, "salary") {
+				tx.Merchant.Name = "Salary"
+				tx.Category.Name = "Salary"
+				tx.Category.Groups.PersonalFinance.Name = "Salary"
+			}
+		}
+
 		// We get given a transaction id from Akahu, which helps us to maintain unique records, overwrite if need be.
 		err := i.store.CreateTransaction(tx)
 		if err != nil {
@@ -92,6 +104,7 @@ func (i *Integrations) SyncAkahu(c echo.Context, lastSync time.Time) error {
 			}
 			merchants = append(merchants, m)
 		}
+
 	}
 
 	for _, merchant := range merchants {
