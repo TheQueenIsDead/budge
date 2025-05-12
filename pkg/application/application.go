@@ -165,10 +165,8 @@ func (t *Template) renderPartial(name string, data interface{}) (string, error) 
 func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
 
 	var found bool
-	c.Logger().Debug("Rendering template:", t.templates.Templates())
 	for _, t := range t.templates.Templates() {
 		if t.Name() == name {
-			//c.Logger().Debug("template found for '", name, "'")
 			found = true
 			break
 		}
