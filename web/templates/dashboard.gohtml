@@ -1,6 +1,5 @@
 {{define "dashboard"}}
 
-
 <!-- Header Row -->
 <div class="d-flex justify-content-between align-items-start mb-4">
     <h2 class="fw-bold">Dashboard</h2>
@@ -14,7 +13,10 @@
         <div class="card border rounded-3 p-3 h-100 shadow-sm">
             <div class="d-flex justify-content-between text-muted mb-2">
                 <span class="fw-semibold">Total Balance</span>
-                <span>$</span>
+                <div>
+                    <span>$</span>
+                    <i class="bi bi-arrow-up-short"></i>
+                </div>
             </div>
 {{/*            TODO: Format nicely with commas*/}}
             <h3 class="fw-bold mb-1">{{.totalBalance | fmtCurrency }}</h3>
@@ -29,7 +31,10 @@
         <div class="card border rounded-3 p-3 h-100 shadow-sm">
             <div class="d-flex justify-content-between text-muted mb-2">
                 <span class="fw-semibold">Monthly Spending</span>
-                <span>$</span>
+                <div>
+                    <span>$</span>
+                    <i class="bi bi-arrow-down-short"></i>
+                </div>
             </div>
             <h3 class="fw-bold mb-1">{{ .monthlySpend | fmtCurrency }}</h3>
             <div class="text-danger">
@@ -43,7 +48,10 @@
         <div class="card border rounded-3 p-3 h-100 shadow-sm">
             <div class="d-flex justify-content-between text-muted mb-2">
                 <span class="fw-semibold">Income</span>
-                <span>$</span>
+                <div>
+                    <span>$</span>
+                    <i class="bi bi-arrow-up-short"></i>
+                </div>
             </div>
             <h3 class="fw-bold mb-1">{{ .income | fmtCurrency }}</h3>
             <div class="text-success">
@@ -57,7 +65,10 @@
         <div class="card border rounded-3 p-3 h-100 shadow-sm">
             <div class="d-flex justify-content-between text-muted mb-2">
                 <span class="fw-semibold">Savings</span>
-                <span>$</span>
+                <div>
+                    <span>$</span>
+                    <i class="bi bi-arrow-up-short"></i>
+                </div>
             </div>
             <h3 class="fw-bold mb-1">{{ .savings | fmtCurrency }}</h3>
             <div class="text-success">
