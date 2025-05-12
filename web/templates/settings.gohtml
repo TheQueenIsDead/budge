@@ -1,104 +1,103 @@
 {{define "settings"}}
-    <div class="container">
 
-        <h1>Settings</h1>
+    <!-- Header Row -->
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <h2 class="fw-bold">Settings</h2>
+    </div>
 
-        <hr>
+    <div id="akahu">
 
-        <div id="akahu">
+        <div class="row">
+            <picture>
+                <source srcset="assets/akahu.svg" type="image/svg+xml">
 
-            <div class="row">
-                <picture>
-                    <source srcset="assets/akahu.svg" type="image/svg+xml">
+            </picture>
+            <h2>Akahu <img src="assets/akahu.svg" class="img-fluid rounded-circle" alt=""
+                           style="height: 1em; margin-top: -0.25em"></h2>
+            <p>
+                Akahu is New Zealand's open finance platform. We use Akahu to fetch transaction data from your
+                connected bank account. Find out <a href="https://www.akahu.nz/consumer"> more about Akahu here.</a>
+            </p>
+        </div>
 
-                </picture>
-                <h2>Akahu <img src="assets/akahu.svg" class="img-fluid rounded-circle" alt=""
-                               style="height: 1em; margin-top: -0.25em"></h2>
-                <p>
-                    Akahu is New Zealand's open finance platform. We use Akahu to fetch transaction data from your
-                    connected bank account. Find out <a href="https://www.akahu.nz/consumer"> more about Akahu here.</a>
-                </p>
-            </div>
+        {{/* Akahu Client Config */}}
+        <h3>Config</h3>
+        <div class="row">
+            <form>
+                <div class="input-group mb-3">
+                    <label for="akahuAppToken" class="input-group-text">App Token</label>
+                    <input class="form-control" id="akahuAppToken" name="akahuAppToken" placeholder=""
+                           value="{{ .akahuAppToken }}" type="password">
+                    <span class="input-group-text">
+                {{/* TODO: Toggle from bi-eye-fill to bi-eye-slash-fill at the same time. */}}
+                <i class="bi bi-eye-fill" id="toggleAppToken" style="cursor: pointer"
+                   _="on click if #akahuAppToken.type is 'password' set #akahuAppToken.type to 'text' else set #akahuAppToken.type to 'password'">  </i>
+            </span>
+                </div>
 
-            {{/* Akahu Client Config */}}
-            <h3>Config</h3>
-            <div class="row">
-                <form>
-                    <div class="input-group mb-3">
-                        <label for="akahuAppToken" class="input-group-text">App Token</label>
-                        <input class="form-control" id="akahuAppToken" name="akahuAppToken" placeholder=""
-                               value="{{ .akahuAppToken }}" type="password">
-                        <span class="input-group-text">
-                    {{/* TODO: Toggle from bi-eye-fill to bi-eye-slash-fill at the same time. */}}
-                    <i class="bi bi-eye-fill" id="toggleAppToken" style="cursor: pointer"
-                       _="on click if #akahuAppToken.type is 'password' set #akahuAppToken.type to 'text' else set #akahuAppToken.type to 'password'">  </i>
-                </span>
-                    </div>
+                <div class="input-group mb-3">
+                    <label for="akahuUserToken" class="input-group-text"> User Token </label>
+                    <input class="form-control" id="akahuUserToken" name="akahuUserToken" placeholder=""
+                           value="{{ .akahuUserToken }}" type="password">
+                    <span class="input-group-text">
+                <i class="bi bi-eye-fill" id="toggleUserToken" style="cursor: pointer"
+                   _="on click if #akahuUserToken.type is 'password' set #akahuUserToken.type to 'text' else set #akahuUserToken.type to 'password'"></i>
+            </span>
+                </div>
 
-                    <div class="input-group mb-3">
-                        <label for="akahuUserToken" class="input-group-text"> User Token </label>
-                        <input class="form-control" id="akahuUserToken" name="akahuUserToken" placeholder=""
-                               value="{{ .akahuUserToken }}" type="password">
-                        <span class="input-group-text">
-                    <i class="bi bi-eye-fill" id="toggleUserToken" style="cursor: pointer"
-                       _="on click if #akahuUserToken.type is 'password' set #akahuUserToken.type to 'text' else set #akahuUserToken.type to 'password'"></i>
-                </span>
-                    </div>
-
-                    <div class="row justify-content-between">
-                        {{/*TODO: Disable if integration not configured*/}}
+                <div class="row justify-content-between">
+                    {{/*TODO: Disable if integration not configured*/}}
 
 
-                        {{ if not .akahuLastSync.IsZero }}
-                            <p>Last sync at '{{ .akahuLastSync.Format "Jan 02, 2006 15:04:05 NZST" }}'</p>
-                        {{ end }}
-                        <div class="col-md-2 col-12">
-                            <button class="btn btn-primary w-100" hx-post="/integrations/akahu/sync" hx-indicator="#spinner" hx-disabled-elt="this" hx-swap="none">
-                                Sync
-                            </button>
-                            <svg id="spinner" class="htmx-indicator" width="24" height="24" viewBox="0 0 24 24"
-                                 xmlns="http://www.w3.org/2000/svg">
-                                <style>.spinner_P7sC {
-                                        transform-origin: center;
-                                        animation: spinner_svv2 .75s infinite linear
+                    {{ if not .akahuLastSync.IsZero }}
+                        <p>Last sync at '{{ .akahuLastSync.Format "Jan 02, 2006 15:04:05 NZST" }}'</p>
+                    {{ end }}
+                    <div class="col-md-2 col-12">
+                        <button class="btn btn-primary w-100" hx-post="/integrations/akahu/sync" hx-indicator="#spinner" hx-disabled-elt="this" hx-swap="none">
+                            Sync
+                        </button>
+                        <svg id="spinner" class="htmx-indicator" width="24" height="24" viewBox="0 0 24 24"
+                             xmlns="http://www.w3.org/2000/svg">
+                            <style>.spinner_P7sC {
+                                    transform-origin: center;
+                                    animation: spinner_svv2 .75s infinite linear
+                                }
+
+                                @keyframes spinner_svv2 {
+                                    100% {
+                                        transform: rotate(360deg)
                                     }
-
-                                    @keyframes spinner_svv2 {
-                                        100% {
-                                            transform: rotate(360deg)
-                                        }
-                                    }</style>
-                                <path d="M10.14,1.16a11,11,0,0,0-9,8.92A1.59,1.59,0,0,0,2.46,12,1.52,1.52,0,0,0,4.11,10.7a8,8,0,0,1,6.66-6.61A1.42,1.42,0,0,0,12,2.69h0A1.57,1.57,0,0,0,10.14,1.16Z"
-                                      class="spinner_P7sC"/>
-                            </svg>
-                        </div>
-                        <div class="col-md-2 col-12">
-                            <button class="btn btn-secondary w-100" hx-post="/integrations/akahu/save" hx-disabled-elt="this" hx-swap="none">
-                                Save
-                            </button>
-                        </div>
+                                }</style>
+                            <path d="M10.14,1.16a11,11,0,0,0-9,8.92A1.59,1.59,0,0,0,2.46,12,1.52,1.52,0,0,0,4.11,10.7a8,8,0,0,1,6.66-6.61A1.42,1.42,0,0,0,12,2.69h0A1.57,1.57,0,0,0,10.14,1.16Z"
+                                  class="spinner_P7sC"/>
+                        </svg>
                     </div>
-                </form>
-            </div>
-
-            {{/*TODO: Allow the ability to disconnect from the app**/}}
-            {{/* Akahu Connected Accounts*/}}
-            <div class="row" hx-get="/integrations/akahu/accounts" hx-trigger="load"></div>
-
+                    <div class="col-md-2 col-12">
+                        <button class="btn btn-secondary w-100" hx-post="/integrations/akahu/save" hx-disabled-elt="this" hx-swap="none">
+                            Save
+                        </button>
+                    </div>
+                </div>
+            </form>
         </div>
 
-        <hr>
-
-        {{/* Danger Zone*/}}
-        <div id="danger">
-            <h2>Danger </h2>
-            <p>Tread lightly! The following operations can not be undone once performed.</p>
-            <h3 class>Remove all synced data</h3>
-            <p>Remove all transactions, merchants, and accounts. These can be repopulated via the sync process fairly easily.</p>
-            <button class="btn btn-danger" hx-post="/settings/danger/remove/synced" hx-confirm="Remove all synced data?">Remove all synced Data</button>
-        </div>
+        {{/*TODO: Allow the ability to disconnect from the app**/}}
+        {{/* Akahu Connected Accounts*/}}
+        <div class="row" hx-get="/integrations/akahu/accounts" hx-trigger="load"></div>
 
     </div>
+
+    <hr>
+
+    {{/* Danger Zone*/}}
+    <div id="danger">
+        <h2>Danger </h2>
+        <p>Tread lightly! The following operations can not be undone once performed.</p>
+        <h3 class>Remove all synced data</h3>
+        <p>Remove all transactions, merchants, and accounts. These can be repopulated via the sync process fairly easily.</p>
+        <button class="btn btn-danger" hx-post="/settings/danger/remove/synced" hx-confirm="Remove all synced data?">Remove all synced Data</button>
+    </div>
+
 
     <style>
         body {
@@ -146,40 +145,27 @@
         }
     </style>
 
-{{/*        <header class="d-flex justify-content-between align-items-center mb-4">*/}}
-{{/*            <h2 class="fw-bold">Settings</h2>*/}}
-{{/*        </header>*/}}
+    {{/*        <header class="d-flex justify-content-between align-items-center mb-4">*/}}
+    {{/*            <h2 class="fw-bold">Settings</h2>*/}}
+    {{/*        </header>*/}}
 
-        <div class="d-flex mb-4">
-            <button class="tab-btn">Profile</button>
-            <button class="tab-btn active">Financial Integrations</button>
-            <button class="tab-btn">Security</button>
-            <button class="tab-btn">Notifications</button>
-        </div>
+{{/*        <div class="d-flex mb-4">*/}}
+{{/*            <button class="tab-btn">Profile</button>*/}}
+{{/*            <button class="tab-btn active">Financial Integrations</button>*/}}
+{{/*            <button class="tab-btn">Security</button>*/}}
+{{/*            <button class="tab-btn">Notifications</button>*/}}
+{{/*        </div>*/}}
 
-        <div class="bg-white p-4 rounded shadow-sm">
-            <h4 class="fw-bold">Financial Integrations</h4>
-            <p class="text-muted">Connect and manage your financial accounts</p>
+{{/*        <div class="bg-white p-4 rounded shadow-sm">*/}}
+{{/*            <h4 class="fw-bold">Financial Integrations</h4>*/}}
+{{/*            <p class="text-muted">Connect and manage your financial accounts</p>*/}}
 
-            <h6 class="mt-4 fw-semibold">Connected Accounts</h6>
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="p-3 card-status connected">
-                        <h6 class="fw-bold mb-1">Chase Bank</h6>
-                        <p class="text-muted mb-1">Bank</p>
-                        <p class="text-muted small">Last synced: 2023-05-01</p>
-                        <span class="badge badge-success mb-2"><i class="fas fa-check-circle me-1"></i>Connected</span>
-                        <div>
-                            <button class="btn btn-sm btn-outline-dark me-2">Sync</button>
-                            <button class="btn btn-sm btn-outline-danger">Remove</button>
-                        </div>
-                    </div>
-                </div>
-
+{{/*            <h6 class="mt-4 fw-semibold">Connected Accounts</h6>*/}}
+{{/*            <div class="row">*/}}
 {{/*                <div class="col-md-4">*/}}
 {{/*                    <div class="p-3 card-status connected">*/}}
-{{/*                        <h6 class="fw-bold mb-1">American Express</h6>*/}}
-{{/*                        <p class="text-muted mb-1">Credit Card</p>*/}}
+{{/*                        <h6 class="fw-bold mb-1">Chase Bank</h6>*/}}
+{{/*                        <p class="text-muted mb-1">Bank</p>*/}}
 {{/*                        <p class="text-muted small">Last synced: 2023-05-01</p>*/}}
 {{/*                        <span class="badge badge-success mb-2"><i class="fas fa-check-circle me-1"></i>Connected</span>*/}}
 {{/*                        <div>*/}}
@@ -189,50 +175,63 @@
 {{/*                    </div>*/}}
 {{/*                </div>*/}}
 
-{{/*                <div class="col-md-4">*/}}
-{{/*                    <div class="p-3 card-status error">*/}}
-{{/*                        <h6 class="fw-bold mb-1">Vanguard</h6>*/}}
-{{/*                        <p class="text-muted mb-1">Investment</p>*/}}
-{{/*                        <p class="text-muted small">Last synced: 2023-04-28</p>*/}}
-{{/*                        <span class="badge badge-error mb-2"><i class="fas fa-times-circle me-1"></i>Error</span>*/}}
-{{/*                        <div>*/}}
-{{/*                            <button class="btn btn-sm btn-outline-dark me-2">Sync</button>*/}}
-{{/*                            <button class="btn btn-sm btn-outline-danger">Remove</button>*/}}
-{{/*                        </div>*/}}
-{{/*                    </div>*/}}
-{{/*                </div>*/}}
-{{/*            </div>*/}}
+    {{/*                <div class="col-md-4">*/}}
+    {{/*                    <div class="p-3 card-status connected">*/}}
+    {{/*                        <h6 class="fw-bold mb-1">American Express</h6>*/}}
+    {{/*                        <p class="text-muted mb-1">Credit Card</p>*/}}
+    {{/*                        <p class="text-muted small">Last synced: 2023-05-01</p>*/}}
+    {{/*                        <span class="badge badge-success mb-2"><i class="fas fa-check-circle me-1"></i>Connected</span>*/}}
+    {{/*                        <div>*/}}
+    {{/*                            <button class="btn btn-sm btn-outline-dark me-2">Sync</button>*/}}
+    {{/*                            <button class="btn btn-sm btn-outline-danger">Remove</button>*/}}
+    {{/*                        </div>*/}}
+    {{/*                    </div>*/}}
+    {{/*                </div>*/}}
 
-{{/*            <h6 class="mt-5 fw-semibold">Add New Integration</h6>*/}}
-{{/*            <div class="row">*/}}
-{{/*                <div class="col-md-3">*/}}
-{{/*                    <div class="integration-card">*/}}
-{{/*                        <i class="fas fa-university fa-2x mb-2"></i>*/}}
-{{/*                        <h6>Bank of America</h6>*/}}
-{{/*                        <p class="text-muted small">Bank</p>*/}}
-{{/*                    </div>*/}}
-{{/*                </div>*/}}
-{{/*                <div class="col-md-3">*/}}
-{{/*                    <div class="integration-card">*/}}
-{{/*                        <i class="fas fa-university fa-2x mb-2"></i>*/}}
-{{/*                        <h6>Wells Fargo</h6>*/}}
-{{/*                        <p class="text-muted small">Bank</p>*/}}
-{{/*                    </div>*/}}
-{{/*                </div>*/}}
-{{/*                <div class="col-md-3">*/}}
-{{/*                    <div class="integration-card">*/}}
-{{/*                        <i class="fas fa-university fa-2x mb-2"></i>*/}}
-{{/*                        <h6>Citibank</h6>*/}}
-{{/*                        <p class="text-muted small">Bank</p>*/}}
-{{/*                    </div>*/}}
-{{/*                </div>*/}}
-{{/*                <div class="col-md-3">*/}}
-{{/*                    <div class="integration-card">*/}}
-{{/*                        <i class="fas fa-credit-card fa-2x mb-2"></i>*/}}
-{{/*                        <h6>Capital One</h6>*/}}
-{{/*                        <p class="text-muted small">Credit Card</p>*/}}
-{{/*                    </div>*/}}
-{{/*                </div>*/}}
-{{/*            </div>*/}}
-{{/*        </div>*/}}
+    {{/*                <div class="col-md-4">*/}}
+    {{/*                    <div class="p-3 card-status error">*/}}
+    {{/*                        <h6 class="fw-bold mb-1">Vanguard</h6>*/}}
+    {{/*                        <p class="text-muted mb-1">Investment</p>*/}}
+    {{/*                        <p class="text-muted small">Last synced: 2023-04-28</p>*/}}
+    {{/*                        <span class="badge badge-error mb-2"><i class="fas fa-times-circle me-1"></i>Error</span>*/}}
+    {{/*                        <div>*/}}
+    {{/*                            <button class="btn btn-sm btn-outline-dark me-2">Sync</button>*/}}
+    {{/*                            <button class="btn btn-sm btn-outline-danger">Remove</button>*/}}
+    {{/*                        </div>*/}}
+    {{/*                    </div>*/}}
+    {{/*                </div>*/}}
+    {{/*            </div>*/}}
+
+    {{/*            <h6 class="mt-5 fw-semibold">Add New Integration</h6>*/}}
+    {{/*            <div class="row">*/}}
+    {{/*                <div class="col-md-3">*/}}
+    {{/*                    <div class="integration-card">*/}}
+    {{/*                        <i class="fas fa-university fa-2x mb-2"></i>*/}}
+    {{/*                        <h6>Bank of America</h6>*/}}
+    {{/*                        <p class="text-muted small">Bank</p>*/}}
+    {{/*                    </div>*/}}
+    {{/*                </div>*/}}
+    {{/*                <div class="col-md-3">*/}}
+    {{/*                    <div class="integration-card">*/}}
+    {{/*                        <i class="fas fa-university fa-2x mb-2"></i>*/}}
+    {{/*                        <h6>Wells Fargo</h6>*/}}
+    {{/*                        <p class="text-muted small">Bank</p>*/}}
+    {{/*                    </div>*/}}
+    {{/*                </div>*/}}
+    {{/*                <div class="col-md-3">*/}}
+    {{/*                    <div class="integration-card">*/}}
+    {{/*                        <i class="fas fa-university fa-2x mb-2"></i>*/}}
+    {{/*                        <h6>Citibank</h6>*/}}
+    {{/*                        <p class="text-muted small">Bank</p>*/}}
+    {{/*                    </div>*/}}
+    {{/*                </div>*/}}
+    {{/*                <div class="col-md-3">*/}}
+    {{/*                    <div class="integration-card">*/}}
+    {{/*                        <i class="fas fa-credit-card fa-2x mb-2"></i>*/}}
+    {{/*                        <h6>Capital One</h6>*/}}
+    {{/*                        <p class="text-muted small">Credit Card</p>*/}}
+    {{/*                    </div>*/}}
+    {{/*                </div>*/}}
+    {{/*            </div>*/}}
+    {{/*        </div>*/}}
 {{ end }}
