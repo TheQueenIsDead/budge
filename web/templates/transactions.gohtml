@@ -100,9 +100,9 @@
                 <td><span class="badge-category">{{.Category.Groups.PersonalFinance.Name}}</span></td>
                 <td>{{.Date.Format "02/01/2006"}}</td>
                 {{ if gt .Amount 0.0 }}
-                <td class="text-success">${{ .Amount | printfCommas }}</td>
+                <td class="text-success">${{ .Amount | fmtCurrency }}</td>
                 {{else}}
-                <td class="text-danger">${{ .Amount | printfCommas }}</td>
+                <td class="text-danger">${{ .Amount | fmtCurrency }}</td>
                 {{end}}
                 <td class="text-end action-links"><a href="#">View</a><a href="#">Edit</a></td>
             </tr>

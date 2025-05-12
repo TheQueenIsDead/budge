@@ -27,6 +27,9 @@ func topMerchants(recent []models.Transaction, past []models.Transaction, n int)
 	// Place the recent merchant spend in a list of bespoke structs for ordering later on
 	var top []models.MerchantTotal
 	for merchant, total := range recentSpend {
+		if merchant == "" {
+			continue
+		}
 		top = append(top, models.MerchantTotal{
 			Merchant: merchant,
 			Total:    total,

@@ -34,9 +34,13 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	// Setup HTTP server
 	funcMap := template.FuncMap{
-		"printfCommas": func(number float64) string {
+		"fmtCurrency": func(number float64) string {
 			p := message.NewPrinter(language.English)
-			return p.Sprintf("%.2f", number)
+			return p.Sprintf("$%.2f", number)
+		},
+		"fmtPercent": func(number float64) string {
+			p := message.NewPrinter(language.English)
+			return p.Sprintf("%.1f%%", number)
 		},
 	}
 

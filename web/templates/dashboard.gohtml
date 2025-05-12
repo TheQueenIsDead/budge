@@ -17,7 +17,7 @@
                 <span>$</span>
             </div>
 {{/*            TODO: Format nicely with commas*/}}
-            <h3 class="fw-bold mb-1">${{.totalBalance | printfCommas }}</h3>
+            <h3 class="fw-bold mb-1">{{.totalBalance | fmtCurrency }}</h3>
             <div class="text-success">
                 <i class="bi bi-arrow-up-short"></i> 3.5% from last month
             </div>
@@ -31,9 +31,9 @@
                 <span class="fw-semibold">Monthly Spending</span>
                 <span>$</span>
             </div>
-            <h3 class="fw-bold mb-1">${{.monthlySpend | printfCommas }}</h3>
+            <h3 class="fw-bold mb-1">{{ .monthlySpend | fmtCurrency }}</h3>
             <div class="text-danger">
-                <i class="bi bi-arrow-down-short"></i> {{.monthlySpendDelta | printf "%.1f"}}% from last month
+                <i class="bi bi-arrow-down-short"></i>{{ .monthlySpendDelta | fmtPercent }} from last month
             </div>
         </div>
     </div>
@@ -45,9 +45,9 @@
                 <span class="fw-semibold">Income</span>
                 <span>$</span>
             </div>
-            <h3 class="fw-bold mb-1">${{.income | printfCommas }}</h3>
+            <h3 class="fw-bold mb-1">{{ .income | fmtCurrency }}</h3>
             <div class="text-success">
-                <i class="bi bi-arrow-up-short"></i> {{.incomeDelta | printf "%.1f"}}% from last month
+                <i class="bi bi-arrow-up-short"></i>{{ .incomeDelta | fmtPercent }} from last month
             </div>
         </div>
     </div>
@@ -59,7 +59,7 @@
                 <span class="fw-semibold">Savings</span>
                 <span>$</span>
             </div>
-            <h3 class="fw-bold mb-1">${{.savings | printfCommas}}</h3>
+            <h3 class="fw-bold mb-1">{{ .savings | fmtCurrency }}</h3>
             <div class="text-success">
                 <i class="bi bi-arrow-up-short"></i> 8.3% from last month
             </div>
@@ -168,20 +168,20 @@
                 </div>
                 <div>
                     <div class="fw-semibold">{{ .Merchant }}</div>
-                    <small class="text-muted">${{ .Total | printf "%.2f" }}</small>
+                    <small class="text-muted">{{ .Total | fmtPercent }}</small>
                 </div>
             </div>
             {{if gt .Delta 0.0}}
             <div class="text-danger fw-semibold">
-                <i class="bi bi-arrow-up-short"></i> {{.Delta | printf "%.1f"}}%
+                <i class="bi bi-arrow-up-short"></i>{{ .Delta | fmtPercent }}
             </div>
             {{else if lt .Delta 0.0}}
                 <div class="text-success fw-semibold">
-                    <i class="bi bi-arrow-down-short"></i> {{.Delta | printf "%.1f"}}%
+                    <i class="bi bi-arrow-down-short"></i>{{ .Delta | fmtPercent }}
                 </div>
             {{else}}
             <div class="text-muted fw-semibold">
-                <i class="bi bi-dash"></i> {{.Delta | printf "%.1f"}}%
+                <i class="bi bi-stars"></i>New
             </div>
             {{end}}
         </li>
