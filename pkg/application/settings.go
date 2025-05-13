@@ -43,6 +43,14 @@ func (app *Application) SyncAkahu(c echo.Context) error {
 		return err
 	}
 
+	// Re-retrieve the last sync time to use as a cache key
+	akahuConfig, _ = app.store.GetAkahuSettings()
+	c.SetCookie(&http.Cookie{
+		Name:  "X-Cache-Key",
+		Value: akahuConfig.LastSync.String(),
+		Path:  "/",
+	})
+
 	app.Toast(c, "Success", "Akahu synced successfully!")
 	_ = app.store.UpdateAkahuLastSync()
 
