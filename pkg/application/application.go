@@ -97,6 +97,9 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	app.http.Renderer = t
 
+	// Middlewares
+	app.http.Use(Caching())
+
 	// General
 	app.http.GET("/", app.Dashboard)
 	app.http.GET("/4XX", app._4XX)
