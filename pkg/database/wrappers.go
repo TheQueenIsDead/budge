@@ -5,6 +5,7 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	bolt "go.etcd.io/bbolt"
+	"strings"
 	"time"
 )
 
@@ -34,31 +35,10 @@ func (s *Store) ReadAccounts() ([]models.Account, error) {
 	return Read[models.Account](s.db)
 }
 
-/* Inventory */
-
-func (s *Store) CreateInventory(inventory models.Inventory) error {
-	return Create[models.Inventory](s.db, inventory)
-}
-func (s *Store) ReadInventory() ([]models.Inventory, error) {
-	return Read[models.Inventory](s.db)
-}
-func (s *Store) DeleteInventory(id []byte) error {
-	return Delete[models.Inventory](s.db, id)
-}
-
 /* Merchants */
 
-func (s *Store) CountMerchant() (int, error) {
-	return Count[models.Merchant](s.db)
-}
 func (s *Store) CreateMerchant(merchant models.Merchant) error {
 	return Create[models.Merchant](s.db, merchant)
-}
-func (s *Store) GetMerchant(id []byte) (models.Merchant, error) {
-	return Get[models.Merchant](s.db, id)
-}
-func (s *Store) ReadMerchants() ([]models.Merchant, error) {
-	return Read[models.Merchant](s.db)
 }
 
 /* Transactions */
@@ -80,6 +60,19 @@ func (s *Store) ReadTransactionsByAccount(account string) ([]models.Transaction,
 func (s *Store) ReadTransactionsByDate(start time.Time, end time.Time) ([]models.Transaction, error) {
 	return ReadFilter[models.Transaction](s.db, func(transaction models.Transaction) bool {
 		return transaction.Date.After(start) && transaction.Date.Before(end)
+	})
+}
+func (s *Store) SearchTransactions(search string, account string, start time.Time, end time.Time) ([]models.Transaction, error) {
+	return ReadFilter[models.Transaction](s.db, func(transaction models.Transaction) bool {
+		accountMatch := account == "" || transaction.Account == account
+		dateMatch := transaction.Date.After(start) && transaction.Date.Before(end)
+
+		descriptionMatch := strings.Contains(strings.ToLower(transaction.Description), strings.ToLower(search))
+		merchantMatch := strings.Contains(strings.ToLower(transaction.Merchant.Name), strings.ToLower(search))
+		categoryMatch := strings.Contains(strings.ToLower(transaction.Category.Groups.PersonalFinance.Name), strings.ToLower(search))
+		searchMatch := descriptionMatch || merchantMatch || categoryMatch
+
+		return accountMatch && dateMatch && searchMatch
 	})
 }
 

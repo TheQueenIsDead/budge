@@ -12,10 +12,18 @@ func (app *Application) Settings(c echo.Context) error {
 		app.Toast(c, "Error", "Could not get Akahu settings.")
 		return c.NoContent(http.StatusInternalServerError)
 	}
+
+	accounts, err := app.store.ReadAccounts()
+	if err != nil {
+		app.Toast(c, "Error", "Could not read accounts.")
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
 	return c.Render(http.StatusOK, "settings", map[string]interface{}{
 		"akahuAppToken":  akahuConfig.AppToken,
 		"akahuUserToken": akahuConfig.UserToken,
 		"akahuLastSync":  akahuConfig.LastSync,
+		"accounts":       accounts,
 	})
 }
 
