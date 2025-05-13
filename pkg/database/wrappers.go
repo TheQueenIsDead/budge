@@ -5,6 +5,7 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	bolt "go.etcd.io/bbolt"
+	"strings"
 	"time"
 )
 
@@ -80,6 +81,19 @@ func (s *Store) ReadTransactionsByAccount(account string) ([]models.Transaction,
 func (s *Store) ReadTransactionsByDate(start time.Time, end time.Time) ([]models.Transaction, error) {
 	return ReadFilter[models.Transaction](s.db, func(transaction models.Transaction) bool {
 		return transaction.Date.After(start) && transaction.Date.Before(end)
+	})
+}
+func (s *Store) SearchTransactions(search string, account string, start time.Time, end time.Time) ([]models.Transaction, error) {
+	return ReadFilter[models.Transaction](s.db, func(transaction models.Transaction) bool {
+		accountMatch := account == "" || transaction.Account == account
+		dateMatch := transaction.Date.After(start) && transaction.Date.Before(end)
+
+		descriptionMatch := strings.Contains(strings.ToLower(transaction.Description), strings.ToLower(search))
+		merchantMatch := strings.Contains(strings.ToLower(transaction.Merchant.Name), strings.ToLower(search))
+		categoryMatch := strings.Contains(strings.ToLower(transaction.Category.Groups.PersonalFinance.Name), strings.ToLower(search))
+		searchMatch := descriptionMatch || merchantMatch || categoryMatch
+
+		return accountMatch && dateMatch && searchMatch
 	})
 }
 

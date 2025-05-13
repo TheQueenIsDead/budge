@@ -8,15 +8,27 @@ import (
 	"time"
 )
 
-func (app *Application) ListTransactions(c echo.Context) error {
+func (app *Application) Transactions(c echo.Context) error {
 
 	account := c.QueryParam("account")
+	search := c.QueryParam("search")
+
+	start := time.Now().AddDate(0, 0, -30)
+	end := time.Now()
+
 	var transactions []models.Transaction
 	var err error
-	if account == "" {
-		transactions, err = app.store.ReadTransactions()
-	} else {
+	if account != "" && search == "" {
+		// All transactions for an account
 		transactions, err = app.store.ReadTransactionsByAccount(account)
+	} else if account == "" && search != "" {
+		// Search all transactions across accounts
+		transactions, err = app.store.SearchTransactions(search, "", start, end)
+	} else if account != "" && search != "" {
+		transactions, err = app.store.SearchTransactions(search, account, start, end)
+	} else {
+		// No parameters provided, load all transactions
+		transactions, err = app.store.ReadTransactionsByDate(start, end)
 	}
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -34,26 +46,10 @@ func (app *Application) ListTransactions(c echo.Context) error {
 	return c.Render(http.StatusOK, "transactions", map[string]interface{}{
 		"accounts":     accounts,
 		"transactions": transactions,
+		"search":       search,
 	})
 }
 
-func FindTransactionRange(transactions []models.Transaction) (models.Transaction, models.Transaction) {
-
-	if len(transactions) == 0 {
-		return models.Transaction{}, models.Transaction{}
-	}
-
-	first := models.Transaction{Date: time.Now()}
-	last := models.Transaction{Date: time.Unix(0, 0)}
-
-	for _, t := range transactions {
-		if t.Date.Before(first.Date) {
-			first = t
-		}
-		if t.Date.After(last.Date) {
-			last = t
-		}
-	}
-
-	return first, last
-}
+//func TransactionsPartial(c echo.Context, transactions []models.Transaction) error {
+//
+//}
