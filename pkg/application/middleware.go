@@ -27,6 +27,10 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 func Caching() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			// Set default cache hit reponse header
+			c.Response().Header().Set("X-Cache-Hit", "false")
+
+			// Attempt to find a cache key
 			cookie, err := c.Request().Cookie("X-Cache-Key")
 
 			// If we do not have a cache key, we can not read or write to the cache, continue.
@@ -42,6 +46,7 @@ func Caching() echo.MiddlewareFunc {
 			// Return cached HTML if we get a hit.
 			if hit, ok := Cache.Load(key); ok {
 				html := hit.(string)
+				c.Response().Header().Set("X-Cache-Hit", "true")
 				return c.HTML(200, html)
 			}
 
