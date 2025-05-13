@@ -57,12 +57,14 @@ func Caching() echo.MiddlewareFunc {
 				return err
 			}
 
-			// Store the response
-			res := mw.buf.String()
-			Cache.Store(key, res)
+			// Store the response for next time
+			if err != nil {
+				res := mw.buf.String()
+				Cache.Store(key, res)
+			}
 
-			// Write out the intermediate response
-			return c.HTML(200, res)
+			// Pass through any errors
+			return err
 		}
 	}
 }
