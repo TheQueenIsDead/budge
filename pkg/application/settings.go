@@ -6,12 +6,12 @@ import (
 )
 
 func (app *Application) Settings(c echo.Context) error {
+	return c.Render(http.StatusOK, "settings", map[string]interface{}{
+		"tab": "/settings/budge",
+	})
+}
 
-	akahuConfig, err := app.store.GetAkahuSettings()
-	if err != nil {
-		app.Toast(c, "Error", "Could not get Akahu settings.")
-		return c.NoContent(http.StatusInternalServerError)
-	}
+func (app *Application) SettingsBudge(c echo.Context) error {
 
 	accounts, err := app.store.ReadAccounts()
 	if err != nil {
@@ -19,12 +19,42 @@ func (app *Application) Settings(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	return c.Render(http.StatusOK, "settings", map[string]interface{}{
+	data := map[string]interface{}{
+		"accounts": accounts,
+		"tab":      "/settings/budge",
+	}
+
+	// If the request was initiated by HTMX, return only the tab
+	if hx := c.Request().Header.Get("HX-Request"); hx != "" {
+		return c.Render(http.StatusOK, "settings.budge", data)
+	}
+
+	// Else, render the settings page and instruct it to load a specific tab
+	return c.Render(http.StatusOK, "settings", data)
+}
+
+func (app *Application) SettingsIntegrations(c echo.Context) error {
+	akahuConfig, err := app.store.GetAkahuSettings()
+	if err != nil {
+		app.Toast(c, "Error", "Could not get Akahu settings.")
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
+	data := map[string]interface{}{
+		"tab":            "/settings/integrations",
 		"akahuAppToken":  akahuConfig.AppToken,
 		"akahuUserToken": akahuConfig.UserToken,
 		"akahuLastSync":  akahuConfig.LastSync,
-		"accounts":       accounts,
-	})
+	}
+
+	// If the request was initiated by HTMX, return only the tab
+	if hx := c.Request().Header.Get("HX-Request"); hx != "" {
+		return c.Render(http.StatusOK, "settings.integrations", data)
+	}
+
+	// Else, render the settings page and instruct it to load a specific tab
+	return c.Render(http.StatusOK, "settings", data)
+
 }
 
 func (app *Application) SettingsDeleteSynced(c echo.Context) error {
