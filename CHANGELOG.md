@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.0](https://github.com/TheQueenIsDead/budge/compare/v1.3.0...v1.4.0) (2025-05-13)
+
+
+### Features
+
+* add page caching based on last integration sync ([b4b9578](https://github.com/TheQueenIsDead/budge/commit/b4b9578413154440aa8eea4d11afe7832b33dc67))
+* add page caching based on last integration sync ([a1d9b5c](https://github.com/TheQueenIsDead/budge/commit/a1d9b5c6e964eefe586d933aed2b6da9c4af642f))
+* add the ability to search transactions ([5023208](https://github.com/TheQueenIsDead/budge/commit/50232082978e38848ef6f0c9d75e1f865a9c85fc))
+
 ## [1.3.0](https://github.com/TheQueenIsDead/budge/compare/v1.2.0...v1.3.0) (2025-05-12)
 
 
