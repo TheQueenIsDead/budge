@@ -35,31 +35,10 @@ func (s *Store) ReadAccounts() ([]models.Account, error) {
 	return Read[models.Account](s.db)
 }
 
-/* Inventory */
-
-func (s *Store) CreateInventory(inventory models.Inventory) error {
-	return Create[models.Inventory](s.db, inventory)
-}
-func (s *Store) ReadInventory() ([]models.Inventory, error) {
-	return Read[models.Inventory](s.db)
-}
-func (s *Store) DeleteInventory(id []byte) error {
-	return Delete[models.Inventory](s.db, id)
-}
-
 /* Merchants */
 
-func (s *Store) CountMerchant() (int, error) {
-	return Count[models.Merchant](s.db)
-}
 func (s *Store) CreateMerchant(merchant models.Merchant) error {
 	return Create[models.Merchant](s.db, merchant)
-}
-func (s *Store) GetMerchant(id []byte) (models.Merchant, error) {
-	return Get[models.Merchant](s.db, id)
-}
-func (s *Store) ReadMerchants() ([]models.Merchant, error) {
-	return Read[models.Merchant](s.db)
 }
 
 /* Transactions */

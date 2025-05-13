@@ -46,7 +46,6 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	tpl := template.New("").Funcs(funcMap)
 	tpl = template.Must(tpl.ParseGlob("web/templates/*.gohtml"))
-	tpl = template.Must(tpl.ParseGlob("web/templates/*/*.gohtml"))
 
 	t := &Template{
 		templates: tpl,
@@ -57,7 +56,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.HTTPErrorHandler = func(err error, c echo.Context) {
 		// Extract the code from the HTTPError
 		code := http.StatusInternalServerError
-		message := err.Error()
+		msg := err.Error()
 		if he, ok := err.(*echo.HTTPError); ok {
 			code = he.Code
 		}
@@ -79,7 +78,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 		event := map[string]interface{}{
 			"toast": map[string]string{
 				"level":   "error",
-				"message": message,
+				"message": msg,
 			},
 		}
 		buf, err := json.Marshal(event)
@@ -90,7 +89,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 		c.Response().Header().Add("Hx-Reswap", "none")
 
 		// On error, return JSON with the inherited code
-		if err := c.JSON(code, message); err != nil {
+		if err := c.JSON(code, msg); err != nil {
 			c.Logger().Error(err)
 		}
 	}
@@ -101,37 +100,20 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.GET("/", app.Dashboard)
 	app.http.GET("/4XX", app._4XX)
 
-	// Accounts
-	app.http.GET("/accounts", app.ListAccounts)
-	app.http.GET("/accounts/charts/balance", app.AccountBalanceGraph)
-
 	//// Integrations
 	app.http.POST("/integrations/akahu/sync", app.SyncAkahu)
 	app.http.POST("/integrations/akahu/save", app.PutAkahuSettings)
 	app.http.GET("/integrations/akahu/accounts", app.ListAkahuAccounts)
-
-	// Inventory
-	app.http.GET("/inventory", app.Inventory)
-	app.http.GET("/inventory/new", app.InventoryNew)
-	app.http.POST("/inventory/new", app.InventoryCreate)
-	app.http.POST("/inventory/:id/delete", app.DeleteInventory)
-
-	// Merchants
-	app.http.GET("/merchants", app.ListMerchants)
-	app.http.GET("/merchants/:id", app.GetMerchant)
 
 	// Settings
 	app.http.GET("/settings", app.Settings)
 	app.http.POST("/settings/danger/remove/synced", app.SettingsDeleteSynced)
 
 	// Transactions
-	app.http.GET("/transactions", app.ListTransactions)
+	app.http.GET("/transactions", app.Transactions)
 
 	// Static Assets
 	app.http.Static("/assets", "./web/public")
-
-	app.http.GET("/charts/doughnut", app.ChartDoughnut)
-	app.http.GET("/charts/gauge", app.ChartGauge)
 
 	return app, nil
 }

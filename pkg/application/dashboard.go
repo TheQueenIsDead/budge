@@ -95,7 +95,7 @@ func analyseTransactions(recent []models.Transaction, past []models.Transaction)
 
 	return DashboardAnalysis{
 		MonthlySpend:      recentSpend,
-		MonthlySpendDelta: (pastSpend / recentSpend),
+		MonthlySpendDelta: pastSpend / recentSpend,
 		Income:            recentIncome,
 		IncomeDelta:       pastIncome / recentIncome,
 	}
@@ -176,10 +176,10 @@ func (app *Application) Dashboard(c echo.Context) error {
 		}
 		totalSpend += tx.Amount
 	}
-	categorySorting := []struct {
+	var categorySorting []struct {
 		category string
 		sum      float64
-	}{}
+	}
 	for k, v := range categoryMap {
 		categorySorting = append(categorySorting, struct {
 			category string
@@ -189,8 +189,8 @@ func (app *Application) Dashboard(c echo.Context) error {
 	sort.Slice(categorySorting, func(i, j int) bool {
 		return categorySorting[i].sum < categorySorting[j].sum
 	})
-	categoryLabels := []string{}
-	categoryData := []int{}
+	var categoryLabels []string
+	var categoryData []int
 	for _, category := range categorySorting {
 		pct := category.sum / totalSpend * 100
 		categoryLabels = append(categoryLabels, fmt.Sprintf("%s %.f%%", category.category, pct))

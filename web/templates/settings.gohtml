@@ -81,9 +81,33 @@
             </form>
         </div>
 
-        {{/*TODO: Allow the ability to disconnect from the app**/}}
-        {{/* Akahu Connected Accounts*/}}
-        <div class="row" hx-get="/integrations/akahu/accounts" hx-trigger="load"></div>
+        <table class="table">
+            <thead>
+            <tr>
+                <th> Connection</th>
+                <th> Name</th>
+                <th> Account</th>
+                <th> Balance</th>
+                <th> Type</th>
+                <th> Loan Type</th>
+                <th> Loan Interest</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{ range .accounts }}
+                <tr>
+                    <td><img class="rounded-circle" style="height:1em; margin-top: -0.25em"
+                             src="{{.Connection.Logo}}"/> {{ .Connection.Name }}</td>
+                    <td>{{ .Name }}</td>
+                    <td>{{ .FormattedAccount }}</td>
+                    <td>${{ .Balance.Current | printf "%.2f" }}</td>
+                    <td>{{ .Type }}</td>
+                    <td>{{ .Meta.LoanDetails.Interest.Type }}</td>
+                    <td>{{ .Meta.LoanDetails.Interest.Rate }}%</td>
+                </tr>
+            {{ end }}
+            </tbody>
+        </table>
 
     </div>
 
@@ -97,53 +121,6 @@
         <p>Remove all transactions, merchants, and accounts. These can be repopulated via the sync process fairly easily.</p>
         <button class="btn btn-danger" hx-post="/settings/danger/remove/synced" hx-confirm="Remove all synced data?">Remove all synced Data</button>
     </div>
-
-
-    <style>
-        body {
-            background-color: #f8fafc;
-            font-family: 'Segoe UI', sans-serif;
-        }
-        .tab-btn {
-            background-color: #f1f5f9;
-            border: none;
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            margin-right: 0.5rem;
-        }
-        .tab-btn.active {
-            background-color: white;
-            border: 1px solid #e2e8f0;
-            font-weight: 600;
-        }
-        .card-status {
-            border-left: 4px solid transparent;
-            border-radius: 12px;
-        }
-        .connected {
-            border-left-color: #22c55e;
-        }
-        .error {
-            border-left-color: #ef4444;
-        }
-        .badge-success {
-            background-color: #dcfce7;
-            color: #16a34a;
-            font-weight: 500;
-        }
-        .badge-error {
-            background-color: #fee2e2;
-            color: #dc2626;
-            font-weight: 500;
-        }
-        .integration-card {
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            text-align: center;
-        }
-    </style>
 
     {{/*        <header class="d-flex justify-content-between align-items-center mb-4">*/}}
     {{/*            <h2 class="fw-bold">Settings</h2>*/}}

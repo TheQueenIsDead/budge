@@ -49,7 +49,3 @@ func (app *Application) Transactions(c echo.Context) error {
 		"search":       search,
 	})
 }
-
-//func TransactionsPartial(c echo.Context, transactions []models.Transaction) error {
-//
-//}
