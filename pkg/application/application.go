@@ -108,6 +108,8 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.POST("/integrations/akahu/save", app.PutAkahuSettings)
 	app.http.GET("/integrations/akahu/accounts", app.ListAkahuAccounts)
 
+	// Inventory
+	app.http.GET("/inventory", app.Inventory)
 	// Settings
 	app.http.GET("/settings", app.Settings)
 	app.http.POST("/settings/danger/remove/synced", app.SettingsDeleteSynced)

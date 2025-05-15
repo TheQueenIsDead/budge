@@ -35,6 +35,12 @@ func (s *Store) ReadAccounts() ([]models.Account, error) {
 	return Read[models.Account](s.db)
 }
 
+/* Inventory */
+
+func (s *Store) ReadInventory() ([]models.Inventory, error) {
+	return Read[models.Inventory](s.db)
+}
+
 /* Merchants */
 
 func (s *Store) CreateMerchant(merchant models.Merchant) error {
