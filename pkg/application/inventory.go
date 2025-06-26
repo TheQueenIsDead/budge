@@ -15,6 +15,10 @@ func (app *Application) Inventory(c echo.Context) error {
 	}
 
 	return c.Render(http.StatusOK, "inventory", map[string]interface{}{
-		"inventory": inventory,
+		"inventory":        inventory,
+		"totalAssets":      0.0,
+		"totalLiabilities": 0.0,
+		"netWorth":         0.0,
+		"debtToAssetRatio": 0.0,
 	})
 }

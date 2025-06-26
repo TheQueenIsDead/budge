@@ -1,3 +1,241 @@
 {{ define "inventory" }}
-WIP
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <h2 class="fw-bold">Inventory</h2>
+    </div>
+
+    <!-- Metric Cards -->
+    <div class="row g-3 mb-3">
+        <!-- Total Assets -->
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card border rounded-3 p-3 h-100 shadow-sm">
+                <div class="d-flex justify-content-between text-muted mb-2">
+                    <span class="fw-semibold">Total Assets</span>
+                    <div>
+                        <span>$</span>
+                        <i class="bi bi-arrow-up-short"></i>
+                    </div>
+                </div>
+                {{/*            TODO: Format nicely with commas*/}}
+                <h3 class="fw-bold mb-1">{{.totalAssets | fmtCurrency }}</h3>
+                <div class="text-success">
+{{/*                    <i class="bi bi-arrow-up-short"></i> 3.5% from last month*/}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Liabilities -->
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card border rounded-3 p-3 h-100 shadow-sm">
+                <div class="d-flex justify-content-between text-muted mb-2">
+                    <span class="fw-semibold">Total Liabilities</span>
+                    <div>
+                        <span>$</span>
+                        <i class="bi bi-arrow-down-short"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bold mb-1">{{ .totalLiabilities | fmtCurrency }}</h3>
+                <div class="text-danger">
+{{/*                    <i class="bi bi-arrow-down-short"></i>{{ .monthlySpendDelta | fmtPercent }} from last month*/}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Net Worth -->
+        <div class="col-12 col-md-6 col-lg-3 ">
+            <div class="card border rounded-3 p-3 h-100 shadow-sm">
+                <div class="d-flex justify-content-between text-muted mb-2">
+                    <span class="fw-semibold">Net Worth</span>
+                    <div>
+                        <span>$</span>
+                        <i class="bi bi-arrow-up-short"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bold mb-1">{{ .netWorth | fmtCurrency }}</h3>
+                <div class="text-success">
+{{/*                    <i class="bi bi-arrow-up-short"></i>{{ .incomeDelta | fmtPercent }} from last month*/}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Debt to Asset Ratio -->
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card border rounded-3 p-3 h-100 shadow-sm">
+                <div class="d-flex justify-content-between text-muted mb-2">
+                    <span class="fw-semibold">Debt-to-Asset Ratio</span>
+                    <div>
+                        <span>$</span>
+                        <i class="bi bi-arrow-up-short"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bold mb-1">{{ .debtToAssetRatio | fmtPercent }}</h3>
+                <div class="text-success">
+{{/*                    <i class="bi bi-arrow-up-short"></i> 8.3% from last month*/}}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-pills mb-4">
+        <li class="nav-item">
+            <a class="nav-link active" href="#">All Assets</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="#">Real Estate</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="#">Investments</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="#">Vehicles</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="#">Other</a>
+        </li>
+    </ul>
+
+    <!-- Assets -->
+
+    <!-- Transactions -->
+    <div class="table-container">
+        <table class="table">
+            <thead>
+            <tr>
+                <th>Merchant</th>
+                <th>Category</th>
+                <th>Date</th>
+                <th>Amount</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{ range .transactions }}
+                <tr>
+
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="bg-light rounded-circle p-2 me-3">
+                                <i class="bi bi-credit-card fs-5 text-dark"></i>
+                            </div>
+                            {{if .Merchant.Name}}
+                                {{.Merchant.Name}}
+                            {{ else}}
+                                {{.Description}}
+                            {{end}}
+                        </div>
+                    </td>
+                    <td><span class="badge-category">{{.Category.Groups.PersonalFinance.Name}}</span></td>
+                    <td>{{.Date.Format "02/01/2006"}}</td>
+                    {{ if gt .Amount 0.0 }}
+                        <td class="text-success">{{ .Amount | fmtCurrency }}</td>
+                    {{else}}
+                        <td class="text-danger">{{ .Amount | fmtCurrency }}</td>
+                    {{end}}
+                </tr>
+            {{ end }}
+            </tbody>
+        </table>
+    </div>
+
+{{/*    <main class="p-6">*/}}
+{{/*        <h1 class="text-3xl font-bold mb-6">Assets</h1>*/}}
+
+{{/*        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">*/}}
+{{/*            <div class="bg-white border rounded-lg p-4">*/}}
+{{/*                <p class="text-sm text-gray-500">Total Assets</p>*/}}
+{{/*                <h2 class="text-2xl font-bold">$325,750.00</h2>*/}}
+{{/*                <p class="text-sm text-green-600">↑ 2.3% from last month</p>*/}}
+{{/*            </div>*/}}
+{{/*            <div class="bg-white border rounded-lg p-4">*/}}
+{{/*                <p class="text-sm text-gray-500">Total Liabilities</p>*/}}
+{{/*                <h2 class="text-2xl font-bold">$185,432.50</h2>*/}}
+{{/*                <p class="text-sm text-green-600">↓ 1.2% from last month</p>*/}}
+{{/*            </div>*/}}
+{{/*            <div class="bg-white border rounded-lg p-4">*/}}
+{{/*                <p class="text-sm text-gray-500">Net Worth</p>*/}}
+{{/*                <h2 class="text-2xl font-bold">$140,317.50</h2>*/}}
+{{/*                <p class="text-sm text-green-600">↑ 3.5% from last month</p>*/}}
+{{/*            </div>*/}}
+{{/*            <div class="bg-white border rounded-lg p-4">*/}}
+{{/*                <p class="text-sm text-gray-500">Debt-to-Asset Ratio</p>*/}}
+{{/*                <h2 class="text-2xl font-bold">56.9%</h2>*/}}
+{{/*                <p class="text-sm text-green-600">↓ 0.8% from last month</p>*/}}
+{{/*            </div>*/}}
+{{/*        </div>*/}}
+
+{{/*        <div class="flex gap-2 mb-4">*/}}
+{{/*            <button class="bg-gray-200 text-sm px-3 py-1 rounded font-medium">All Assets</button>*/}}
+{{/*            <button class="bg-white text-sm px-3 py-1 rounded border">Real Estate</button>*/}}
+{{/*            <button class="bg-white text-sm px-3 py-1 rounded border">Investments</button>*/}}
+{{/*            <button class="bg-white text-sm px-3 py-1 rounded border">Vehicles</button>*/}}
+{{/*            <button class="bg-white text-sm px-3 py-1 rounded border">Other</button>*/}}
+{{/*        </div>*/}}
+
+{{/*        <div class="bg-white border rounded-lg overflow-x-auto">*/}}
+{{/*            <table class="min-w-full divide-y divide-gray-200">*/}}
+{{/*                <thead class="bg-gray-100">*/}}
+{{/*                <tr>*/}}
+{{/*                    <th class="px-4 py-2 text-left text-sm font-semibold text-gray-600">Asset</th>*/}}
+{{/*                    <th class="px-4 py-2 text-left text-sm font-semibold text-gray-600">Category</th>*/}}
+{{/*                    <th class="px-4 py-2 text-left text-sm font-semibold text-gray-600">Purchase Date</th>*/}}
+{{/*                    <th class="px-4 py-2 text-left text-sm font-semibold text-gray-600">Purchase Value</th>*/}}
+{{/*                    <th class="px-4 py-2 text-left text-sm font-semibold text-gray-600">Current Value</th>*/}}
+{{/*                    <th class="px-4 py-2 text-left text-sm font-semibold text-gray-600">Change</th>*/}}
+{{/*                    <th class="px-4 py-2 text-right text-sm font-semibold text-gray-600">Actions</th>*/}}
+{{/*                </tr>*/}}
+{{/*                </thead>*/}}
+{{/*                <tbody class="divide-y divide-gray-100">*/}}
+{{/*                <tr>*/}}
+{{/*                    <td class="px-4 py-3 flex items-center gap-2">*/}}
+{{/*                        <span class="text-xl">🏠</span> Primary Residence*/}}
+{{/*                    </td>*/}}
+{{/*                    <td class="px-4 py-3">*/}}
+{{/*                        <span class="px-2 py-1 rounded-full bg-gray-100 text-xs font-semibold">Real estate</span>*/}}
+{{/*                    </td>*/}}
+{{/*                    <td class="px-4 py-3">Jan 15, 2018</td>*/}}
+{{/*                    <td class="px-4 py-3">$250,000.00</td>*/}}
+{{/*                    <td class="px-4 py-3">$285,000.00</td>*/}}
+{{/*                    <td class="px-4 py-3 text-green-600 font-semibold">+14%</td>*/}}
+{{/*                    <td class="px-4 py-3 text-right space-x-2">*/}}
+{{/*                        <button class="text-blue-600">✏️</button>*/}}
+{{/*                        <button class="text-red-500">🗑️</button>*/}}
+{{/*                    </td>*/}}
+{{/*                </tr>*/}}
+{{/*                <tr>*/}}
+{{/*                    <td class="px-4 py-3 flex items-center gap-2">*/}}
+{{/*                        <span class="text-xl">💳</span> 401(k)*/}}
+{{/*                    </td>*/}}
+{{/*                    <td class="px-4 py-3">*/}}
+{{/*                        <span class="px-2 py-1 rounded-full bg-gray-100 text-xs font-semibold">Investments</span>*/}}
+{{/*                    </td>*/}}
+{{/*                    <td class="px-4 py-3">Ongoing</td>*/}}
+{{/*                    <td class="px-4 py-3">$18,500.00</td>*/}}
+{{/*                    <td class="px-4 py-3">$22,750.00</td>*/}}
+{{/*                    <td class="px-4 py-3 text-green-600 font-semibold">+23%</td>*/}}
+{{/*                    <td class="px-4 py-3 text-right space-x-2">*/}}
+{{/*                        <button class="text-blue-600">✏️</button>*/}}
+{{/*                        <button class="text-red-500">🗑️</button>*/}}
+{{/*                    </td>*/}}
+{{/*                </tr>*/}}
+{{/*                <tr>*/}}
+{{/*                    <td class="px-4 py-3 flex items-center gap-2">*/}}
+{{/*                        <span class="text-xl">🚗</span> Toyota Camry*/}}
+{{/*                    </td>*/}}
+{{/*                    <td class="px-4 py-3">*/}}
+{{/*                        <span class="px-2 py-1 rounded-full bg-gray-100 text-xs font-semibold">Vehicles</span>*/}}
+{{/*                    </td>*/}}
+{{/*                    <td class="px-4 py-3">Mar 10, 2020</td>*/}}
+{{/*                    <td class="px-4 py-3">$28,500.00</td>*/}}
+{{/*                    <td class="px-4 py-3">$19,000.00</td>*/}}
+{{/*                    <td class="px-4 py-3 text-red-500 font-semibold">-33%</td>*/}}
+{{/*                    <td class="px-4 py-3 text-right space-x-2">*/}}
+{{/*                        <button class="text-blue-600">✏️</button>*/}}
+{{/*                        <button class="text-red-500">🗑️</button>*/}}
+{{/*                    </td>*/}}
+{{/*                </tr>*/}}
+{{/*                </tbody>*/}}
+{{/*            </table>*/}}
+{{/*        </div>*/}}
+{{/*    </main>*/}}
+
 {{ end }}
