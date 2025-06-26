@@ -179,7 +179,7 @@
                 </div>
                 <div>
                     <div class="fw-semibold">{{ .Merchant }}</div>
-                    <small class="text-muted">{{ .Total | fmtPercent }}</small>
+                    <small class="text-muted">{{ .Total | fmtCurrency }}</small>
                 </div>
             </div>
             {{if gt .Delta 0.0}}
