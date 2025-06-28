@@ -4,15 +4,16 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"html/template"
+	"io"
+	"net/http"
+
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/integrations"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
-	"html/template"
-	"io"
-	"net/http"
 )
 
 type Application struct {
@@ -110,6 +111,8 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	// Inventory
 	app.http.GET("/inventory", app.Inventory)
+	app.http.POST("/inventory", app.PutInventory)
+
 	// Settings
 	app.http.GET("/settings", app.Settings)
 	app.http.POST("/settings/danger/remove/synced", app.SettingsDeleteSynced)

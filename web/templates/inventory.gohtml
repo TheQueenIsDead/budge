@@ -102,17 +102,25 @@
         <table class="table">
             <thead>
             <tr>
-                <th>Merchant</th>
+                <th>Name</th>
+                <th>Cost</th>
                 <th>Category</th>
+                <th>Quantity</th>
                 <th>Date</th>
-                <th>Amount</th>
+                <th>Total</th>
             </tr>
             </thead>
             <tbody>
-            {{ range .transactions }}
+            {{ range .inventory }}
                 <tr>
+                    <td>{{.Name}}</td>
+                    <td>{{.Cost}}</td>
+                    <td>{{.Category}}</td>
+                    <td>{{.Quantity}}</td>
+                    <td>{{.Date}}</td>
+                    <td>{{.Total}}</td>
 
-                    <td>
+                    {{/* <td>
                         <div class="d-flex align-items-center">
                             <div class="bg-light rounded-circle p-2 me-3">
                                 <i class="bi bi-credit-card fs-5 text-dark"></i>
@@ -130,7 +138,7 @@
                         <td class="text-success">{{ .Amount | fmtCurrency }}</td>
                     {{else}}
                         <td class="text-danger">{{ .Amount | fmtCurrency }}</td>
-                    {{end}}
+                    {{end}} */}}
                 </tr>
             {{ end }}
             </tbody>

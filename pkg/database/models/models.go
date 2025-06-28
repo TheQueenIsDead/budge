@@ -3,9 +3,10 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 	"github.com/dustin/go-humanize"
-	"time"
 )
 
 type Account struct {
@@ -150,6 +151,7 @@ type Inventory struct {
 	Date        time.Time `json:"date"`
 	Name        string    `json:"name"`
 	Quantity    int       `json:"quantity"`
+	Total       float64   `json:"total"`
 
 	// TODO: Upload media, like receipts
 }

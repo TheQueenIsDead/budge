@@ -2,11 +2,12 @@ package database
 
 import (
 	"errors"
+	"strings"
+	"time"
+
 	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	bolt "go.etcd.io/bbolt"
-	"strings"
-	"time"
 )
 
 /* Accounts */
@@ -36,6 +37,9 @@ func (s *Store) ReadAccounts() ([]models.Account, error) {
 }
 
 /* Inventory */
+func (s *Store) CreateInventory(inventory models.Inventory) error {
+	return Create[models.Inventory](s.db, inventory)
+}
 
 func (s *Store) ReadInventory() ([]models.Inventory, error) {
 	return Read[models.Inventory](s.db)
