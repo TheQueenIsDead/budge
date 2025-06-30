@@ -42,6 +42,8 @@
                 <th>Category</th>
                 <th>Date</th>
                 <th>Amount</th>
+                <th>Debug</th>
+                <th>Date</th>
             </tr>
             </thead>
             <tbody>
@@ -67,6 +69,8 @@
                     {{else}}
                         <td class="text-danger">{{ .Amount | fmtCurrency }}</td>
                     {{end}}
+                    <td>{{.Type}}</td>
+                    <td>{{.Date}}</td>
                 </tr>
             {{ end }}
             </tbody>

@@ -70,7 +70,7 @@ func analyseTransactions(recent []models.Transaction, past []models.Transaction)
 	recentSpend := 0.0
 	recentIncome := 0.0
 	for _, transaction := range recent {
-		if transaction.Merchant.Name == "" {
+		if transaction.Type == "TRANSFER" {
 			continue
 		}
 		if transaction.Amount > 0.0 {
@@ -83,7 +83,7 @@ func analyseTransactions(recent []models.Transaction, past []models.Transaction)
 	pastSpend := 0.0
 	pastIncome := 0.0
 	for _, transaction := range past {
-		if transaction.Merchant.Name == "" {
+		if transaction.Merchant.Name == "TRANSFER" {
 			continue
 		}
 		if transaction.Amount > 0.0 {
@@ -127,6 +127,12 @@ func (app *Application) Dashboard(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	recentTransactions = slices.DeleteFunc(recentTransactions, func(transaction models.Transaction) bool {
+		return transaction.Type == "TRANSFER"
+	})
+	pastTransactions = slices.DeleteFunc(pastTransactions, func(transaction models.Transaction) bool {
+		return transaction.Type == "TRANSFER"
+	})
 	analysis := analyseTransactions(recentTransactions, pastTransactions)
 
 	top := topMerchants(recentTransactions, pastTransactions, 5)
@@ -134,6 +140,9 @@ func (app *Application) Dashboard(c echo.Context) error {
 	start = time.Now().AddDate(0, -6, 0)
 	end = time.Now()
 	halfYearTransactions, err := app.store.ReadTransactionsByDate(start, end)
+	halfYearTransactions = slices.DeleteFunc(halfYearTransactions, func(transaction models.Transaction) bool {
+		return transaction.Type == "TRANSFER" || transaction.Category.Groups.PersonalFinance.Name == ""
+	})
 	if err != nil {
 		c.Logger().Error(err)
 		return c.NoContent(http.StatusInternalServerError)

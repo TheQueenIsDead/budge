@@ -6,6 +6,7 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/integrations/akahu"
 	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
+	"math"
 	"os"
 	"strings"
 	"time"
@@ -65,6 +66,8 @@ func (i *Integrations) SyncAkahu(c echo.Context, lastSync time.Time) error {
 		return err
 	}
 
+	transfers := identifyTransfers(transactions)
+
 	// Accounts hardly change, so just insert them and overwrite the key if need be.
 	for _, account := range accounts {
 		err := i.store.CreateAccount(models.Account(account))
@@ -79,6 +82,10 @@ func (i *Integrations) SyncAkahu(c echo.Context, lastSync time.Time) error {
 
 		tx := models.Transaction(transaction)
 
+		if _, ok := transfers[tx.Id]; ok {
+			tx.Type = "TRANSFER"
+		}
+
 		// Attempt to detect salary before persisting
 		if tx.Merchant.Id == "" {
 			desc := strings.ToLower(tx.Description)
@@ -87,6 +94,12 @@ func (i *Integrations) SyncAkahu(c echo.Context, lastSync time.Time) error {
 				tx.Category.Name = "Salary"
 				tx.Category.Groups.PersonalFinance.Name = "Salary"
 			}
+		}
+
+		if tx.Type == "TRANSFER" {
+			tx.Merchant.Name = "Transfer"
+			tx.Category.Name = "Transfer"
+			tx.Category.Groups.PersonalFinance.Name = "Transfer"
 		}
 
 		// We get given a transaction id from Akahu, which helps us to maintain unique records, overwrite if need be.
@@ -116,6 +129,55 @@ func (i *Integrations) SyncAkahu(c echo.Context, lastSync time.Time) error {
 	}
 
 	return nil
+}
+
+func isMatchingTransfer(tx1, tx2 akahu.Transaction) bool {
+	// Check if transactions are opposite (one positive, one negative)
+	if (tx1.Amount > 0 && tx2.Amount > 0) || (tx1.Amount < 0 && tx2.Amount < 0) {
+		return false
+	}
+
+	// Check if transactions are within 24 hours
+	timeDiff := tx1.Date.Sub(tx2.Date)
+	if math.Abs(timeDiff.Hours()) > 24 {
+		return false
+	}
+
+	return true
+}
+
+func identifyTransfers(transactions []akahu.Transaction) map[string]bool {
+
+	// Create a map to track potential matching transfers by amount
+	potentialMatches := make(map[float64][]akahu.Transaction)
+	matchIds := map[string]bool{}
+
+	for _, tx := range transactions {
+		amount := math.Abs(tx.Amount) // Use absolute value for matching
+
+		// Check if this might be a transfer based on description patterns
+		tryClassify := tx.Type == "CREDIT" || tx.Type == "DEBIT" || tx.Type == "PAYMENT" || tx.Type == "STANDING ORDER"
+		if !tryClassify {
+			continue
+		}
+
+		// Look for matching opposite transaction
+		if matchingTxs, exists := potentialMatches[amount]; exists {
+			for _, matchTx := range matchingTxs {
+				// Check if transactions are within 24 hours of each other
+				if isMatchingTransfer(tx, matchTx) {
+					matchIds[matchTx.Id] = true
+					matchIds[tx.Id] = true
+				}
+			}
+		}
+
+		// Add this transaction to potential matches
+		potentialMatches[amount] = append(potentialMatches[amount], tx)
+	}
+
+	return matchIds
+
 }
 
 func (i *Integrations) PutAkahuSettings(settings models.IntegrationAkahuSettings) error {
