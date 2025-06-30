@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.5.0](https://github.com/TheQueenIsDead/budge/compare/v1.4.1...v1.5.0) (2025-06-30)
+
+
+### Features
+
+* better identify transfers between user owned accounts ([d6efef7](https://github.com/TheQueenIsDead/budge/commit/d6efef7880f06a8f6bfe92d15ebdd138279193c6))
+* categorize payments where there is an equal in and out value at the same time as a transfer ([57c2683](https://github.com/TheQueenIsDead/budge/commit/57c2683fd872c073782def238a2248db2fcccae4))
+
+
+### Bug Fixes
+
+* format top spend as currency instead of percentage ([a5fd836](https://github.com/TheQueenIsDead/budge/commit/a5fd83697090a295f491893abfd957af6974c723))
+
 ## [1.4.1](https://github.com/TheQueenIsDead/budge/compare/v1.4.0...v1.4.1) (2025-05-13)
 
 
