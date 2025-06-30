@@ -19,9 +19,9 @@
                 </div>
             </div>
 {{/*            TODO: Format nicely with commas*/}}
-            <h3 class="fw-bold mb-1">{{.totalBalance | fmtCurrency }}</h3>
+            <h3 class="fw-bold mb-1">{{ .BalanceCard.Total | fmtCurrency }}</h3>
             <div class="text-success">
-                <i class="bi bi-arrow-up-short"></i> 3.5% from last month
+                <i class="bi bi-arrow-up-short"></i>{{ .BalanceCard.Delta | fmtPercent }} from last month
             </div>
         </div>
     </div>
@@ -36,9 +36,9 @@
                     <i class="bi bi-arrow-down-short"></i>
                 </div>
             </div>
-            <h3 class="fw-bold mb-1">{{ .monthlySpend | fmtCurrency }}</h3>
+            <h3 class="fw-bold mb-1">{{ .SpendCard.Total | fmtCurrency }}</h3>
             <div class="text-danger">
-                <i class="bi bi-arrow-down-short"></i>{{ .monthlySpendDelta | fmtPercent }} from last month
+                <i class="bi bi-arrow-down-short"></i>{{ .SpendCard.Delta | fmtPercent }} from last month
             </div>
         </div>
     </div>
@@ -53,9 +53,9 @@
                     <i class="bi bi-arrow-up-short"></i>
                 </div>
             </div>
-            <h3 class="fw-bold mb-1">{{ .income | fmtCurrency }}</h3>
+            <h3 class="fw-bold mb-1">{{ .IncomeCard.Total | fmtCurrency }}</h3>
             <div class="text-success">
-                <i class="bi bi-arrow-up-short"></i>{{ .incomeDelta | fmtPercent }} from last month
+                <i class="bi bi-arrow-up-short"></i>{{ .IncomeCard.Delta | fmtPercent }} from last month
             </div>
         </div>
     </div>
@@ -70,9 +70,9 @@
                     <i class="bi bi-arrow-up-short"></i>
                 </div>
             </div>
-            <h3 class="fw-bold mb-1">{{ .savings | fmtCurrency }}</h3>
+            <h3 class="fw-bold mb-1">{{ .SavingsCard.Total | fmtCurrency }}</h3>
             <div class="text-success">
-                <i class="bi bi-arrow-up-short"></i> 8.3% from last month
+                <i class="bi bi-arrow-up-short"></i>{{ .SavingsCard.Delta | fmtPercent }} from last month
             </div>
         </div>
     </div>
@@ -121,10 +121,10 @@
             new Chart(document.getElementById("barChart"), {
                 type: "bar",
                 data: {
-                    labels: {{.timeseriesLabels}},
+                    labels: {{.SpendTimeseries.Labels}},
                     datasets: [{
                         label: "Spending",
-                        data: {{.timeseriesData}},
+                        data: {{.SpendTimeseries.Data}},
                         backgroundColor: "#000"
                     }]
                 },
@@ -144,9 +144,9 @@
             new Chart(document.getElementById("doughnutChart"), {
                 type: "doughnut",
                 data: {
-                    labels: {{.categoryLabels}},
+                    labels: {{.SpendDoughnut.Labels}},
                     datasets: [{
-                        data: {{.categoryData}},
+                        data: {{.SpendDoughnut.Data}},
                         backgroundColor: ["#000", "#444", "#888", "#bbb", "#ddd"]
                     }]
                 },
@@ -171,7 +171,7 @@
     </div>
 
     <ul class="list-unstyled">
-    {{ range .topMerchants }}
+    {{ range .TopMerchants }}
         <li class="d-flex align-items-center justify-content-between mb-4">
             <div class="d-flex align-items-center">
                 <div class="bg-light rounded-circle p-2 me-3">
