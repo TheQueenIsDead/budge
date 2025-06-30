@@ -139,11 +139,7 @@ func isMatchingTransfer(tx1, tx2 akahu.Transaction) bool {
 
 	// Check if transactions are within 24 hours
 	timeDiff := tx1.Date.Sub(tx2.Date)
-	if math.Abs(timeDiff.Hours()) > 24 {
-		return false
-	}
-
-	return true
+	return math.Abs(timeDiff.Hours()) <= 24
 }
 
 func identifyTransfers(transactions []akahu.Transaction) map[string]bool {
