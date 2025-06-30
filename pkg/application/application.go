@@ -40,7 +40,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 		},
 		"fmtPercent": func(number float64) string {
 			p := message.NewPrinter(language.English)
-			return p.Sprintf("%.1f%%", number)
+			return p.Sprintf("%.1f%%", number*100)
 		},
 	}
 
