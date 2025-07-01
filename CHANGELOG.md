@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.0](https://github.com/TheQueenIsDead/budge/compare/v1.5.0...v1.6.0) (2025-07-01)
+
+
+### Features
+
+* change settings to update last sync timestamp when sync successful ([bb74831](https://github.com/TheQueenIsDead/budge/commit/bb74831a066d97584d710c8747413c130f101293))
+* settings refresh ([cf5733e](https://github.com/TheQueenIsDead/budge/commit/cf5733ea4403f21a3d7a70ce33b4b7437c3e6778))
+
 ## [1.5.0](https://github.com/TheQueenIsDead/budge/compare/v1.4.1...v1.5.0) (2025-06-30)
 
 
