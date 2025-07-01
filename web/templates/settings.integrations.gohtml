@@ -43,12 +43,9 @@
                 </div>
 
                 <div class="row justify-content-between">
-{{/*                    TODO: Disable if integration not configured*/}}
-                    {{ if not .akahuLastSync.IsZero }}
-                        <p>Last sync {{ .akahuLastSync | fmtRelative }}</p>
-                    {{ end }}
+                    <p id="last-sync">Last sync {{ .akahuLastSync | fmtRelative }}</p>
                     <div class="col-md-2 col-12">
-                        <button class="btn btn-primary btn-success w-100" hx-post="/integrations/akahu/sync" hx-indicator="#spinner" hx-disabled-elt="this" hx-swap="none">
+                        <button class="btn btn-primary btn-success w-100" hx-post="/integrations/akahu/sync" hx-indicator="#spinner" hx-disabled-elt="this" hx-swap="outerHTML" hx-target="#last-sync">
                             Sync
                         </button>
                         <svg id="spinner" class="htmx-indicator" width="24" height="24" viewBox="0 0 24 24"

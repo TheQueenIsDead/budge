@@ -3,6 +3,7 @@ package application
 import (
 	"github.com/labstack/echo/v4"
 	"net/http"
+	"time"
 )
 
 func (app *Application) Settings(c echo.Context) error {
@@ -92,7 +93,9 @@ func (app *Application) SyncAkahu(c echo.Context) error {
 	app.Toast(c, "Success", "Akahu synced successfully!")
 	_ = app.store.UpdateAkahuLastSync()
 
-	return nil
+	return c.Render(http.StatusOK, "settings.integrations.last-sync", map[string]interface{}{
+		"akahuLastSync": time.Now(),
+	})
 }
 
 func (app *Application) PutAkahuSettings(c echo.Context) error {
