@@ -6,6 +6,7 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v4"
 	"maps"
+	"math"
 	"net/http"
 	"slices"
 	"sort"
@@ -156,18 +157,20 @@ func BuildDoughnutData(transactions []models.Transaction) DoughnutData {
 }
 func BuildTopMerchants(last, current []models.Transaction, n int) []models.MerchantTotal {
 	// Aggregate spend across merchants by sum for past and recent
-	recentSpend := make(map[string]float64)
-	for _, transaction := range current {
-		recentSpend[transaction.Merchant.Name] += transaction.Float()
+	aggregate := func(transactions []models.Transaction) map[string]float64 {
+		spend := make(map[string]float64)
+		for _, transaction := range transactions {
+			spend[transaction.Merchant.Name] += math.Abs(transaction.Float())
+		}
+		return spend
 	}
-	pastSpend := make(map[string]float64)
-	for _, transaction := range last {
-		pastSpend[transaction.Merchant.Name] += transaction.Float()
-	}
+
+	lastSpend := aggregate(last)
+	currentSpend := aggregate(current)
 
 	// Place the recent merchant spend in a list of bespoke structs for ordering later on
 	var top []models.MerchantTotal
-	for merchant, total := range recentSpend {
+	for merchant, total := range currentSpend {
 		if merchant == "" {
 			continue
 		}
@@ -179,21 +182,27 @@ func BuildTopMerchants(last, current []models.Transaction, n int) []models.Merch
 
 	// Sort the list by merchant total to find the ones with the most spend
 	sort.Slice(top, func(i, j int) bool {
-		return top[i].Total < top[j].Total
+		return top[i].Total > top[j].Total
 	})
 
 	// Filter the list of top merchants to a max of n elements
-	results := make([]models.MerchantTotal, n)
-	if len(top) >= n {
+	var results []models.MerchantTotal
+	if len(top) > n {
 		results = top[:n]
+	} else {
+		results = top
 	}
 
 	// For the N merchants, calculate the delta in spend from past transactions
 	for i, merchantTotal := range results {
-		if pastTotal, ok := pastSpend[merchantTotal.Merchant]; ok {
-			merchantTotal.Delta = (pastTotal / merchantTotal.Total)
+		if pastTotal, ok := lastSpend[merchantTotal.Merchant]; ok {
+			merchantTotal.Delta = (merchantTotal.Total - pastTotal) / pastTotal
 			results[i] = merchantTotal
 		}
+	}
+
+	for _, merchantTotal := range results {
+		fmt.Println(merchantTotal.Merchant, merchantTotal.Delta, lastSpend[merchantTotal.Merchant], currentSpend[merchantTotal.Merchant])
 	}
 
 	return results
@@ -218,10 +227,21 @@ func (app *Application) Dashboard(c echo.Context) error {
 
 	// Filter out transfers and categorise transactions into months
 	monthlyTransactions := make(map[string][]models.Transaction)
+	var last30Days, last60To30Days []models.Transaction
+	now := time.Now()
+	thirtyDaysAgo := now.AddDate(0, 0, -30)
+	sixtyDaysAgo := now.AddDate(0, 0, -60)
 	for _, tx := range transactions {
 		if tx.Type == "TRANSFER" {
 			continue
 		}
+
+		if tx.Date.After(thirtyDaysAgo) {
+			last30Days = append(last30Days, tx)
+		} else if tx.Date.After(sixtyDaysAgo) {
+			last60To30Days = append(last60To30Days, tx)
+		}
+
 		month := tx.Date.Format("Jan 06")
 		if _, ok := monthlyTransactions[month]; !ok {
 			monthlyTransactions[month] = []models.Transaction{tx}
@@ -241,7 +261,7 @@ func (app *Application) Dashboard(c echo.Context) error {
 		SavingsCard:       savings,
 		SpendTimeseries:   BuildTimeseriesData(monthlyTransactions),
 		SpendDoughnut:     BuildDoughnutData(transactions),
-		TopMerchants:      BuildTopMerchants(monthlyTransactions[lastMonth], monthlyTransactions[currentMonth], 5),
+		TopMerchants:      BuildTopMerchants(last60To30Days, last30Days, 5),
 		FrequentMerchants: BuildFrequentMerchants(transactions),
 	})
 }
