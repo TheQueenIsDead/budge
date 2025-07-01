@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/integrations"
+	"github.com/dustin/go-humanize"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 	"golang.org/x/text/language"
@@ -13,6 +14,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"time"
 )
 
 type Application struct {
@@ -41,6 +43,9 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 		"fmtPercent": func(number float64) string {
 			p := message.NewPrinter(language.English)
 			return p.Sprintf("%.1f%%", number*100)
+		},
+		"fmtRelative": func(date time.Time) string {
+			return humanize.RelTime(date, time.Now(), "ago", "")
 		},
 	}
 
@@ -110,6 +115,8 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	// Settings
 	app.http.GET("/settings", app.Settings)
+	app.http.GET("/settings/budge", app.SettingsBudge)
+	app.http.GET("/settings/integrations", app.SettingsIntegrations)
 	app.http.POST("/settings/danger/remove/synced", app.SettingsDeleteSynced)
 
 	// Transactions
