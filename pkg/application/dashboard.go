@@ -6,6 +6,7 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v4"
 	"maps"
+	"math"
 	"net/http"
 	"slices"
 	"sort"
@@ -26,8 +27,9 @@ type DashboardData struct {
 }
 
 type CardData struct {
-	Total float64
-	Delta float64
+	Total         float64
+	PreviousTotal float64
+	Delta         float64
 }
 
 type TimeseriesData struct {
@@ -84,11 +86,15 @@ func BuildCards(accounts []models.Account, last, current []models.Transaction) (
 	}()
 
 	// Figure out the balance for last month by winding back transactions
-	balance.Delta = balance.Total
+	lastBalance := balance.Total
 	for _, tx := range current {
-		balance.Delta -= tx.Amount
+		lastBalance -= tx.Amount
 	}
-	balance.Delta /= balance.Total
+
+	if lastBalance != 0 {
+		balance.Delta = (balance.Total - lastBalance) / math.Abs(lastBalance)
+	}
+	balance.PreviousTotal = lastBalance
 
 	calculateIncomingAndOutgoing := func(transactions []models.Transaction) (incoming, outgoing float64) {
 		for _, transaction := range transactions {
@@ -105,11 +111,25 @@ func BuildCards(accounts []models.Account, last, current []models.Transaction) (
 	currentIn, currentOut := calculateIncomingAndOutgoing(current)
 
 	spend.Total = currentOut
-	spend.Delta = lastOut / currentOut
+	spend.PreviousTotal = lastOut
+	if lastOut != 0 {
+		// Use positive values for calculation to make it intuitive
+		// An increase in spending is a positive delta
+		spend.Delta = ((-currentOut) - (-lastOut)) / (-lastOut)
+	}
+
 	income.Total = currentIn
-	income.Delta = lastIn / currentIn
+	if lastIn != 0 {
+		income.Delta = (currentIn - lastIn) / lastIn
+	}
+	income.PreviousTotal = lastIn
+
 	savings.Total = currentIn + currentOut
-	savings.Delta = (lastIn + lastOut) / savings.Total
+	lastSavings := lastIn + lastOut
+	if lastSavings != 0 {
+		savings.Delta = (savings.Total - lastSavings) / lastSavings
+	}
+	savings.PreviousTotal = lastSavings
 
 	return
 }
@@ -220,10 +240,13 @@ func BuildTopMerchants(last, current []models.Transaction, n int) []models.Merch
 		results = top[:n]
 	}
 
-	// For the N merchants, calculate the delta in spend from past transactions
+	// For the N merchants, calculate the delta in spend from past to recent transactions
 	for i, merchantTotal := range results {
 		if pastTotal, ok := pastSpend[merchantTotal.Merchant]; ok {
-			merchantTotal.Delta = (pastTotal / merchantTotal.Total)
+			if pastTotal != 0 {
+				merchantTotal.Delta = (merchantTotal.Total - pastTotal) / pastTotal
+			}
+			merchantTotal.PreviousTotal = pastTotal
 			results[i] = merchantTotal
 		}
 	}

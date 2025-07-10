@@ -13,15 +13,11 @@
         <div class="card border rounded-3 p-3 h-100 shadow-sm">
             <div class="d-flex justify-content-between text-muted mb-2">
                 <span class="fw-semibold">Total Balance</span>
-                <div>
-                    <span>$</span>
-                    <i class="bi bi-arrow-up-short"></i>
-                </div>
+                <i class="bi bi-bank2"></i>
             </div>
-{{/*            TODO: Format nicely with commas*/}}
             <h3 class="fw-bold mb-1">{{ .BalanceCard.Total | fmtCurrency }}</h3>
-            <div class="text-success">
-                <i class="bi bi-arrow-up-short"></i>{{ .BalanceCard.Delta | fmtPercent }} from last month
+            <div class="{{if gt .BalanceCard.Delta 0.0}}text-success{{else}}text-danger{{end}}" data-bs-toggle="tooltip" data-bs-placement="top" title="Previously {{ .BalanceCard.PreviousTotal | fmtCurrency }}">
+                <i class="bi {{if gt .BalanceCard.Delta 0.0}}bi-arrow-up-short{{else}}bi-arrow-down-short{{end}}"></i>{{ .BalanceCard.Delta | fmtPercent }} from last month
             </div>
         </div>
     </div>
@@ -31,14 +27,11 @@
         <div class="card border rounded-3 p-3 h-100 shadow-sm">
             <div class="d-flex justify-content-between text-muted mb-2">
                 <span class="fw-semibold">Monthly Spending</span>
-                <div>
-                    <span>$</span>
-                    <i class="bi bi-arrow-down-short"></i>
-                </div>
+                <i class="bi bi-graph-down"></i>
             </div>
             <h3 class="fw-bold mb-1">{{ .SpendCard.Total | fmtCurrency }}</h3>
-            <div class="text-danger">
-                <i class="bi bi-arrow-down-short"></i>{{ .SpendCard.Delta | fmtPercent }} from last month
+            <div class="{{if gt .SpendCard.Delta 0.0}}text-danger{{else}}text-success{{end}}" data-bs-toggle="tooltip" data-bs-placement="top" title="Previously {{ .SpendCard.PreviousTotal | fmtCurrency }}">
+                <i class="bi {{if gt .SpendCard.Delta 0.0}}bi-arrow-up-short{{else}}bi-arrow-down-short{{end}}"></i>{{ .SpendCard.Delta | fmtPercent }} from last month
             </div>
         </div>
     </div>
@@ -48,14 +41,11 @@
         <div class="card border rounded-3 p-3 h-100 shadow-sm">
             <div class="d-flex justify-content-between text-muted mb-2">
                 <span class="fw-semibold">Income</span>
-                <div>
-                    <span>$</span>
-                    <i class="bi bi-arrow-up-short"></i>
-                </div>
+                <i class="bi bi-graph-up"></i>
             </div>
             <h3 class="fw-bold mb-1">{{ .IncomeCard.Total | fmtCurrency }}</h3>
-            <div class="text-success">
-                <i class="bi bi-arrow-up-short"></i>{{ .IncomeCard.Delta | fmtPercent }} from last month
+            <div class="{{if gt .IncomeCard.Delta 0.0}}text-success{{else}}text-danger{{end}}" data-bs-toggle="tooltip" data-bs-placement="top" title="Previously {{ .IncomeCard.PreviousTotal | fmtCurrency }}">
+                <i class="bi {{if gt .IncomeCard.Delta 0.0}}bi-arrow-up-short{{else}}bi-arrow-down-short{{end}}"></i>{{ .IncomeCard.Delta | fmtPercent }} from last month
             </div>
         </div>
     </div>
@@ -65,14 +55,11 @@
         <div class="card border rounded-3 p-3 h-100 shadow-sm">
             <div class="d-flex justify-content-between text-muted mb-2">
                 <span class="fw-semibold">Savings</span>
-                <div>
-                    <span>$</span>
-                    <i class="bi bi-arrow-up-short"></i>
-                </div>
+                <i class="bi bi-piggy-bank"></i>
             </div>
             <h3 class="fw-bold mb-1">{{ .SavingsCard.Total | fmtCurrency }}</h3>
-            <div class="text-success">
-                <i class="bi bi-arrow-up-short"></i>{{ .SavingsCard.Delta | fmtPercent }} from last month
+            <div class="{{if gt .SavingsCard.Delta 0.0}}text-success{{else}}text-danger{{end}}" data-bs-toggle="tooltip" data-bs-placement="top" title="Previously {{ .SavingsCard.PreviousTotal | fmtCurrency }}">
+                <i class="bi {{if gt .SavingsCard.Delta 0.0}}bi-arrow-up-short{{else}}bi-arrow-down-short{{end}}"></i>{{ .SavingsCard.Delta | fmtPercent }} from last month
             </div>
         </div>
     </div>
@@ -187,11 +174,11 @@
                     </div>
                 </div>
                 {{if gt .Delta 0.0}}
-                <div class="text-danger fw-semibold">
+                <div class="text-danger fw-semibold" data-bs-toggle="tooltip" data-bs-placement="top" title="Previously {{ .PreviousTotal | fmtCurrency }}">
                     <i class="bi bi-arrow-up-short"></i>{{ .Delta | fmtPercent }}
                 </div>
                 {{else if lt .Delta 0.0}}
-                    <div class="text-success fw-semibold">
+                    <div class="text-success fw-semibold" data-bs-toggle="tooltip" data-bs-placement="top" title="Previously {{ .PreviousTotal | fmtCurrency }}">
                         <i class="bi bi-arrow-down-short"></i>{{ .Delta | fmtPercent }}
                     </div>
                 {{else}}

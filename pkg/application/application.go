@@ -13,6 +13,7 @@ import (
 	"golang.org/x/text/message"
 	"html/template"
 	"io"
+	"math"
 	"net/http"
 	"time"
 )
@@ -42,7 +43,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 		},
 		"fmtPercent": func(number float64) string {
 			p := message.NewPrinter(language.English)
-			return p.Sprintf("%.1f%%", number*100)
+			return p.Sprintf("%.1f%%", math.Abs(number)*100)
 		},
 		"fmtRelative": func(date time.Time) string {
 			return humanize.RelTime(date, time.Now(), "ago", "")
