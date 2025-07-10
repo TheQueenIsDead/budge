@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.0](https://github.com/TheQueenIsDead/budge/compare/v1.6.0...v1.7.0) (2025-07-10)
+
+
+### Features
+
+* add tooltips to percentage changes and fixup weird logic resulting from diffs of negative values ([8f60ff1](https://github.com/TheQueenIsDead/budge/commit/8f60ff1dc8589fc2b3cae0b765feb8045a23c2f0))
+* add tooltips to percentage changes and fixup weird logic resulting from diffs of negative values ([0b208df](https://github.com/TheQueenIsDead/budge/commit/0b208df8b6ae425609621d09106d613b2ee7f9ef))
+
 ## [1.6.0](https://github.com/TheQueenIsDead/budge/compare/v1.5.0...v1.6.0) (2025-07-01)
 
 
