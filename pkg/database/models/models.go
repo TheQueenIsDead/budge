@@ -84,9 +84,10 @@ func (m *Merchant) Value() ([]byte, error) {
 }
 
 type MerchantTotal struct {
-	Merchant string
-	Total    float64
-	Delta    float64
+	Merchant      string
+	Total         float64
+	PreviousTotal float64
+	Delta         float64
 }
 
 type MerchantFrequency struct {
