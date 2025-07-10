@@ -22,7 +22,7 @@ type DashboardData struct {
 	SpendDoughnut   DoughnutData
 
 	TopMerchants      []models.MerchantTotal
-	FrequentMerchants map[string]int
+	FrequentMerchants []models.MerchantFrequency
 }
 
 type CardData struct {
@@ -38,6 +38,38 @@ type TimeseriesData struct {
 type DoughnutData struct {
 	Labels []string
 	Data   []int
+}
+
+// AggregateMonthlyTransactions takes a list of transactions and returns a map with the
+func AggregateMonthlyTransactions(transactions []models.Transaction) map[string][]models.Transaction {
+	monthlyTransactions := make(map[string][]models.Transaction)
+	for _, tx := range transactions {
+		month := tx.Date.Format("Jan 06")
+		if _, ok := monthlyTransactions[month]; !ok {
+			monthlyTransactions[month] = []models.Transaction{tx}
+		} else {
+			monthlyTransactions[month] = append(monthlyTransactions[month], tx)
+		}
+	}
+	return monthlyTransactions
+}
+
+// FilterRecentTransactions takes a list of transactions and returns two lists: past and recent.
+// Recent transactions occurred in the last 30 days from the current date.
+// Past transactions occurred in the 30 days prior to the recent transactions.
+// Transactions older than 60 days are excluded from both lists.
+func FilterRecentTransactions(transactions []models.Transaction) (past []models.Transaction, recent []models.Transaction) {
+	now := time.Now()
+	thirtyDaysAgo := now.AddDate(0, 0, -30)
+	sixtyDaysAgo := now.AddDate(0, 0, -60)
+	for _, tx := range transactions {
+		if tx.Date.After(thirtyDaysAgo) {
+			recent = append(recent, tx)
+		} else if tx.Date.After(sixtyDaysAgo) {
+			past = append(past, tx)
+		}
+	}
+	return
 }
 
 func BuildCards(accounts []models.Account, last, current []models.Transaction) (balance, spend, income, savings CardData) {
@@ -198,17 +230,39 @@ func BuildTopMerchants(last, current []models.Transaction, n int) []models.Merch
 
 	return results
 }
-func BuildFrequentMerchants(transactions []models.Transaction) map[string]int {
+func BuildFrequentMerchants(transactions []models.Transaction, n int) []models.MerchantFrequency {
+
+	// Count all merchant transactions
 	merchantCount := make(map[string]int)
 	for _, tx := range transactions {
 		merchantCount[tx.Merchant.Name]++
 	}
-	return merchantCount
+
+	// Parse the counts into objects
+	var results []models.MerchantFrequency
+	for merchant, count := range merchantCount {
+		results = append(results, models.MerchantFrequency{
+			Merchant: merchant,
+			Count:    count,
+		})
+	}
+
+	// Sort the list by merchant total to find the ones with the most spend
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Count > results[j].Count
+	})
+
+	// Limit the results to n elements
+	if len(results) < n {
+		return results
+	}
+
+	return results[:n]
 }
 
 func (app *Application) Dashboard(c echo.Context) error {
 
-	// Retrieve data
+	// Retrieve accounts and 6 months worth of transactions
 	accounts, accountErr := app.store.ReadAccounts()
 	transactions, transactionErr := app.store.ReadTransactionsByDate(time.Now().AddDate(0, -6, 0), time.Now())
 	if err := cmp.Or(accountErr, transactionErr); err != nil {
@@ -216,23 +270,20 @@ func (app *Application) Dashboard(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	// Filter out transfers and categorise transactions into months
-	monthlyTransactions := make(map[string][]models.Transaction)
+	// Filter out transfers
+	var nonTransferTransactions []models.Transaction
 	for _, tx := range transactions {
-		if tx.Type == "TRANSFER" {
-			continue
-		}
-		month := tx.Date.Format("Jan 06")
-		if _, ok := monthlyTransactions[month]; !ok {
-			monthlyTransactions[month] = []models.Transaction{tx}
-		} else {
-			monthlyTransactions[month] = append(monthlyTransactions[month], tx)
+		if tx.Type != "TRANSFER" {
+			nonTransferTransactions = append(nonTransferTransactions, tx)
 		}
 	}
 
-	lastMonth := time.Now().AddDate(0, -1, 0).Format("Jan 06")
-	currentMonth := time.Now().Format("Jan 06")
-	balance, spend, income, savings := BuildCards(accounts, monthlyTransactions[lastMonth], monthlyTransactions[currentMonth])
+	// Filter out transfers and categorise transactions into months
+	monthlyTransactions := AggregateMonthlyTransactions(nonTransferTransactions)
+	pastTransactions, recentTransactions := FilterRecentTransactions(nonTransferTransactions)
+
+	// Build cards based on differences between the last 30 days, and the 30 days prior to that
+	balance, spend, income, savings := BuildCards(accounts, pastTransactions, recentTransactions)
 
 	return c.Render(http.StatusOK, "dashboard", DashboardData{
 		BalanceCard:       balance,
@@ -240,9 +291,9 @@ func (app *Application) Dashboard(c echo.Context) error {
 		IncomeCard:        income,
 		SavingsCard:       savings,
 		SpendTimeseries:   BuildTimeseriesData(monthlyTransactions),
-		SpendDoughnut:     BuildDoughnutData(transactions),
-		TopMerchants:      BuildTopMerchants(monthlyTransactions[lastMonth], monthlyTransactions[currentMonth], 5),
-		FrequentMerchants: BuildFrequentMerchants(transactions),
+		SpendDoughnut:     BuildDoughnutData(nonTransferTransactions),
+		TopMerchants:      BuildTopMerchants(pastTransactions, recentTransactions, 10),
+		FrequentMerchants: BuildFrequentMerchants(nonTransferTransactions, 10),
 	})
 }
 func (app *Application) _4XX(c echo.Context) error {

@@ -89,6 +89,11 @@ type MerchantTotal struct {
 	Delta    float64
 }
 
+type MerchantFrequency struct {
+	Merchant string
+	Count    int
+}
+
 type Transaction struct {
 	Id         string `json:"_id"`
 	Account    string `json:"_account"`
