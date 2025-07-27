@@ -76,6 +76,10 @@ func FilterRecentTransactions(transactions []models.Transaction) (past []models.
 
 func BuildCards(accounts []models.Account, last, current []models.Transaction) (balance, spend, income, savings CardData) {
 
+	if len(accounts) == 0 || len(last) == 0 || len(current) == 0 {
+		return
+	}
+
 	// Calculate the current balance across our current accounts
 	balance.Total = func() float64 {
 		total := 0.0
@@ -135,6 +139,10 @@ func BuildCards(accounts []models.Account, last, current []models.Transaction) (
 }
 func BuildTimeseriesData(monthlyTransactions map[string][]models.Transaction) TimeseriesData {
 
+	if len(monthlyTransactions) == 0 {
+		return TimeseriesData{}
+	}
+
 	// For every month, sum the spend
 	timeseriesMap := make(map[string]int)
 	sumSpend := func(transactions []models.Transaction) int {
@@ -168,6 +176,10 @@ func BuildTimeseriesData(monthlyTransactions map[string][]models.Transaction) Ti
 	return TimeseriesData{timeseriesLabels, timeseriesData}
 }
 func BuildDoughnutData(transactions []models.Transaction) DoughnutData {
+
+	if len(transactions) == 0 {
+		return DoughnutData{}
+	}
 
 	totalSpend := 0.0
 	categoryMap := map[string]float64{}
@@ -207,6 +219,11 @@ func BuildDoughnutData(transactions []models.Transaction) DoughnutData {
 	return DoughnutData{categoryLabels, categoryData}
 }
 func BuildTopMerchants(last, current []models.Transaction, n int) []models.MerchantTotal {
+
+	if n == 0 || len(last) == 0 || len(current) == 0 {
+		return nil
+	}
+
 	// Aggregate spend across merchants by sum for past and recent
 	recentSpend := make(map[string]float64)
 	for _, transaction := range current {
