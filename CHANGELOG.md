@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.1](https://github.com/TheQueenIsDead/budge/compare/v1.7.0...v1.7.1) (2025-07-27)
+
+
+### Bug Fixes
+
+* return placeholder values for card if there is no initial sync data ([84e4027](https://github.com/TheQueenIsDead/budge/commit/84e4027baaeb25ce0e5c1f24585831d39448d508))
+
 ## [1.7.0](https://github.com/TheQueenIsDead/budge/compare/v1.6.0...v1.7.0) (2025-07-10)
 
 
