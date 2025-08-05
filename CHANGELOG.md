@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.1](https://github.com/TheQueenIsDead/budge/compare/v1.7.0...v1.7.1) (2025-08-05)
+
+
+### Bug Fixes
+
+* add last sync template to resolve 4XX error ([96bd901](https://github.com/TheQueenIsDead/budge/commit/96bd9016a28f8378f2f90c77efb9de0813d13ad5))
+* return placeholder values for card if there is no initial sync data ([84e4027](https://github.com/TheQueenIsDead/budge/commit/84e4027baaeb25ce0e5c1f24585831d39448d508))
+
 ## [1.7.0](https://github.com/TheQueenIsDead/budge/compare/v1.6.0...v1.7.0) (2025-07-10)
 
 
