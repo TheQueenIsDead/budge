@@ -43,7 +43,7 @@
                 </div>
 
                 <div class="row justify-content-between">
-                    <p id="last-sync">Last sync {{ .akahuLastSync | fmtRelative }}</p>
+                    {{ template "settings.integrations.last-sync" . }}
                     <div class="col-md-2 col-12">
                         <button class="btn btn-primary btn-success w-100" hx-post="/integrations/akahu/sync" hx-indicator="#spinner" hx-disabled-elt="this" hx-swap="outerHTML" hx-target="#last-sync">
                             Sync
@@ -74,4 +74,8 @@
         </div>
     </div>
 
+{{ end }}
+
+{{ define "settings.integrations.last-sync" }}
+<p id="last-sync">Last sync {{ .akahuLastSync | fmtRelative }}</p>
 {{ end }}
