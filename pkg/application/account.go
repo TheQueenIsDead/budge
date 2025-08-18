@@ -58,13 +58,11 @@ func (app *Application) accountBalance(c echo.Context, account models.Account) (
 
 	var data []float64
 	var labels []string
-	var background []string
 	keys := slices.Collect(maps.Keys(balances))
 	slices.Sort(keys)
 	for _, k := range keys {
 		data = append(data, balances[k])
 		labels = append(labels, k)
-		background = append(background, "rgb(26, 188, 156)")
 	}
 
 	return AccountTimeseriesData{
