@@ -112,7 +112,6 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	//// Integrations
 	app.http.POST("/integrations/akahu/sync", app.SyncAkahu)
 	app.http.POST("/integrations/akahu/save", app.PutAkahuSettings)
-	app.http.GET("/integrations/akahu/accounts", app.ListAkahuAccounts)
 
 	// Settings
 	app.http.GET("/settings", app.Settings)
