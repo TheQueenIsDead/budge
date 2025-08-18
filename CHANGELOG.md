@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/TheQueenIsDead/budge/compare/v1.7.1...v1.8.0) (2025-08-18)
+
+
+### Features
+
+* bring out yer graphs ([196c969](https://github.com/TheQueenIsDead/budge/commit/196c9697f3fa19a41103ace6717734737b5e5a03))
+
 ## [1.7.1](https://github.com/TheQueenIsDead/budge/compare/v1.7.0...v1.7.1) (2025-08-05)
 
 
