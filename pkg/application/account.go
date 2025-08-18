@@ -1,7 +1,7 @@
 package application
 
 import (
-	"fmt"
+	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v4"
 	"maps"
 	"net/http"
@@ -9,25 +9,41 @@ import (
 	"time"
 )
 
-func (app *Application) ListAccounts(c echo.Context) error {
-	accounts, _ := app.store.ReadAccounts()
-	return c.Render(http.StatusOK, "accounts", accounts)
+type AccountTimeseriesData struct {
+	Labels []string
+	Data   []float64
 }
 
-func (app *Application) AccountBalanceGraph(c echo.Context) error {
+type AccountsPageProps struct {
+	Account   models.Account
+	GraphData AccountTimeseriesData
+}
 
-	id := c.QueryParam("id")
-	if id == "" {
-		return c.NoContent(http.StatusBadRequest)
+func (app *Application) Accounts(c echo.Context) error {
+	accounts, _ := app.store.ReadAccounts()
+
+	var props []AccountsPageProps
+	for _, account := range accounts {
+		gd, err := app.accountBalance(c, account)
+		if err != nil {
+			c.Logger().Error(err)
+			continue
+		}
+		props = append(props, AccountsPageProps{
+			Account:   account,
+			GraphData: gd,
+		})
 	}
+	return c.Render(http.StatusOK, "accounts", props)
+}
 
-	account, _ := app.store.GetAccount([]byte(id))
+func (app *Application) accountBalance(c echo.Context, account models.Account) (AccountTimeseriesData, error) {
 
 	// Retrieve all transactions for an account
 	transactions, err := app.store.ReadTransactionsByAccount(account.Id)
 	if err != nil {
 		c.Logger().Error(err)
-		return err
+		return AccountTimeseriesData{}, err
 	}
 
 	// Calculate the balance delta per day
@@ -51,14 +67,10 @@ func (app *Application) AccountBalanceGraph(c echo.Context) error {
 		background = append(background, "rgb(26, 188, 156)")
 	}
 
-	return c.Render(200, "chart.timeseries", TimeSeriesData{
-		ChartId:    fmt.Sprintf("account_balance_chart_%s", id),
-		Title:      "Balance Over Time",
-		Labels:     labels,
-		Data:       data,
-		Border:     background,
-		Background: background,
-	})
+	return AccountTimeseriesData{
+		Labels: labels,
+		Data:   data,
+	}, nil
 }
 
 // WalkAccount takes a balance and list of changes in balance for a series of days and calculates the balance at the preceding days.

@@ -1,43 +1,93 @@
 {{ define "accounts" }}
 
     {{if . }}
-        <table class="table">
-            <thead>
-            <tr>
-                <th> Connection</th>
-                <th> Name</th>
-                <th> Account</th>
-                <th> Balance</th>
-                <th> Type</th>
-                <th> Loan Type</th>
-                <th> Loan Interest</th>
-            </tr>
-            </thead>
-            <tbody>
-            {{ range . }}
-                <tr>
-                    <td><img class="rounded-circle" style="height:1em; margin-top: -0.25em"
-                             src="{{.Connection.Logo}}"/> {{ .Connection.Name }}</td>
-                    <td>{{ .Name }}</td>
-                    <td>{{ .FormattedAccount }}</td>
-                    <td>${{ .Balance.Current | printf "%.2f" }}</td>
-                    <td>{{ .Type }}</td>
-                    <td>{{ .Meta.LoanDetails.Interest.Type }}</td>
-                    <td>{{ .Meta.LoanDetails.Interest.Rate }}%</td>
-                </tr>
-            {{ end }}
-            </tbody>
-        </table>
+{{/*        <table class="table">*/}}
+{{/*            <thead>*/}}
+{{/*            <tr>*/}}
+{{/*                <th> Connection</th>*/}}
+{{/*                <th> Name</th>*/}}
+{{/*                <th> Account</th>*/}}
+{{/*                <th> Balance</th>*/}}
+{{/*                <th> Type</th>*/}}
+{{/*                <th> Loan Type</th>*/}}
+{{/*                <th> Loan Interest</th>*/}}
+{{/*            </tr>*/}}
+{{/*            </thead>*/}}
+{{/*            <tbody>*/}}
+{{/*            {{ range . }}*/}}
+{{/*                {{ with .Account }}*/}}
+{{/*                <tr>*/}}
+{{/*                    <td><img class="rounded-circle" style="height:1em; margin-top: -0.25em"*/}}
+{{/*                             src="{{.Connection.Logo}}"/> {{ .Connection.Name }}</td>*/}}
+{{/*                    <td>{{ .Name }}</td>*/}}
+{{/*                    <td>{{ .FormattedAccount }}</td>*/}}
+{{/*                    <td>${{ .Balance.Current | printf "%.2f" }}</td>*/}}
+{{/*                    <td>{{ .Type }}</td>*/}}
+{{/*                    <td>{{ .Meta.LoanDetails.Interest.Type }}</td>*/}}
+{{/*                    <td>{{ .Meta.LoanDetails.Interest.Rate }}%</td>*/}}
+{{/*                </tr>*/}}
+{{/*                    {{ end }}*/}}
+{{/*            {{ end }}*/}}
+{{/*            </tbody>*/}}
+{{/*        </table>*/}}
 
 
         {{/* Balance Over Time Graphs*/}}
+        <!-- Charts Row -->
+        <div class="row g-3 mb-3">
         <ul>
         {{ range . }}
-            <span><img class="rounded-circle" style="height:1em; margin-top: -0.25em"
-                     src="{{.Connection.Logo}}"/> {{ .Name }}</span>
-            <div hx-trigger="load" hx-get="/accounts/charts/balance?id={{ .Id }}" hx-swap="innerHtml"></div>
+                    <!-- Monthly Spending Bar Chart -->
+                    <div class="col-lg-6">
+                        <div class="card border rounded-3 p-3 h-100 d-flex flex-column shadow-sm">
+{{/*                            <h4 class="fw-bold">Monthly Spending</h4>*/}}
+{{/*                            <p class="text-muted">Your spending trends over the past 6 months</p>*/}}
+                            <canvas id="barChart" style="max-height: 250px"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Spending by Category Doughnut Chart -->
+                    <div class="col-lg-6">
+                        <div class="card border rounded-3 p-3 h-100 d-flex flex-column shadow-sm">
+                            <h4 class="fw-bold">{{ .Account.Name }}</h4>
+
+                            <p class="text-muted">
+                                <img class="rounded-circle" width="16" height="16" style="margin-top: -4px" src="{{.Account.Connection.Logo}}"/>
+                                {{ .Account.Connection.Name }}
+                            </p>
+                            <canvas id="{{.Account.Id}}" style="max-height: 250px"></canvas>
+                        </div>
+                    </div>
+
+                <!-- Chart.js Scripts -->
+                <script>
+                    // Bar Chart
+                    new Chart(document.getElementById("{{.Account.Id}}"), {
+                        type: "bar",
+                        data: {
+                            labels: {{.GraphData.Labels}},
+                            datasets: [{
+                                label: "Balance",
+                                data: {{.GraphData.Data}},
+                                backgroundColor: "#000"
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            },
+                            plugins: {
+                                legend: { display: false }
+                            }
+                        }
+                    });
+                </script>
         {{ end }}
         </ul>
+        </div>
+
 
     {{else}}
         <h2>No accounts imported.</h2>
