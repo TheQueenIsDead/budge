@@ -2,11 +2,13 @@ package database
 
 import (
 	"errors"
+	"regexp"
+	"strings"
+	"time"
+
 	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	bolt "go.etcd.io/bbolt"
-	"strings"
-	"time"
 )
 
 /* Accounts */
@@ -67,10 +69,21 @@ func (s *Store) SearchTransactions(search string, account string, start time.Tim
 		accountMatch := account == "" || transaction.Account == account
 		dateMatch := transaction.Date.After(start) && transaction.Date.Before(end)
 
-		descriptionMatch := strings.Contains(strings.ToLower(transaction.Description), strings.ToLower(search))
-		merchantMatch := strings.Contains(strings.ToLower(transaction.Merchant.Name), strings.ToLower(search))
-		categoryMatch := strings.Contains(strings.ToLower(transaction.Category.Groups.PersonalFinance.Name), strings.ToLower(search))
-		searchMatch := descriptionMatch || merchantMatch || categoryMatch
+		metadata := strings.Builder{}
+		metadata.WriteString(transaction.Description)
+		metadata.WriteString(transaction.Merchant.Name)
+		for _, c := range transaction.Categories() {
+			metadata.WriteString(c)
+		}
+
+		reg := regexp.MustCompile(`[^a-zA-Z]+`)
+		needle := strings.ToLower(search)
+		haystack := strings.ToLower(metadata.String())
+
+		reg.ReplaceAllString(haystack, "")
+		reg.ReplaceAllString(needle, "")
+
+		searchMatch := strings.Contains(haystack, needle)
 
 		return accountMatch && dateMatch && searchMatch
 	})
