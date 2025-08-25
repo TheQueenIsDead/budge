@@ -1,15 +1,16 @@
 package integrations
 
 import (
+	"math"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/TheQueenIsDead/budge/pkg/integrations/akahu"
 	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
-	"math"
-	"os"
-	"strings"
-	"time"
 )
 
 type Integrations struct {
@@ -60,7 +61,8 @@ func (i *Integrations) SyncAkahu(c echo.Context, lastSync time.Time) error {
 		c.Logger().Error(err)
 		return err
 	}
-	transactions, err := i.AkahuTransactions(lastSync)
+
+	transactions, err := i.AkahuTransactions(lastSync.Add(-7))
 	if err != nil {
 		c.Logger().Error(err)
 		return err
