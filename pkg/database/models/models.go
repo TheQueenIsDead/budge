@@ -3,9 +3,11 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
+	"time"
+
 	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 	"github.com/dustin/go-humanize"
-	"time"
 )
 
 type Account struct {
@@ -145,6 +147,16 @@ func (t *Transaction) Float() float64 {
 
 func (t *Transaction) Add(tx *Transaction) float64 {
 	return t.Amount + tx.Amount
+}
+
+func (t *Transaction) Categories() (labels []string) {
+	if t.Category.Groups.PersonalFinance.Id != "" && !slices.Contains(labels, t.Category.Groups.PersonalFinance.Name) {
+		labels = append(labels, t.Category.Groups.PersonalFinance.Name)
+	}
+	if t.Category.Name != "" && !slices.Contains(labels, t.Category.Name) {
+		labels = append(labels, t.Category.Name)
+	}
+	return
 }
 
 type Inventory struct {

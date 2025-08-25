@@ -60,7 +60,11 @@
                             {{end}}
                         </div>
                     </td>
-                    <td><span class="badge-category">{{.Category.Groups.PersonalFinance.Name}}</span></td>
+                    <td>
+                        {{ range .Categories }}
+                            <span class="badge-category">{{.}}</span>
+                        {{ end }}
+                    </td>
                     <td>{{.Date.Format "02/01/2006"}}</td>
                     {{ if gt .Amount 0.0 }}
                         <td class="text-success">{{ .Amount | fmtCurrency }}</td>
