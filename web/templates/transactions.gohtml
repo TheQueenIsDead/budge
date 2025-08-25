@@ -18,10 +18,9 @@
 
         <div class="d-flex gap-2 filters">
             <select id="account" name="account" class="form-select" style="min-width: 150px;">
-                {{/* TODO: Render the selected account if one is provided in search params */}}
                 <option value="">All Accounts</option>
                 {{ range .accounts }}
-                    <option value="{{ .Id }}">{{.Name}}</option>
+                    <option value="{{ .Id }}" {{ if eq $.account .Id }}selected{{ end }} >{{.Name}}</option>
                 {{ end }}
             </select>
             <button class="btn btn-outline-secondary">

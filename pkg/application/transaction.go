@@ -40,5 +40,6 @@ func (app *Application) Transactions(c echo.Context) error {
 		"accounts":     accounts,
 		"transactions": transactions,
 		"search":       search,
+		"account":      account,
 	})
 }
