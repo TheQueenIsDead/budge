@@ -3,6 +3,7 @@ package application
 import (
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v4"
@@ -13,6 +14,7 @@ func (app *Application) Transactions(c echo.Context) error {
 	account := c.QueryParam("account")
 	search := c.QueryParam("search")
 
+	start := time.Now()
 	var transactions []models.Transaction
 	var err error
 	if account == "" && search == "" {
@@ -26,6 +28,7 @@ func (app *Application) Transactions(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+	took := time.Since(start)
 
 	slices.SortFunc(transactions, func(a, b models.Transaction) int {
 		return b.Date.Compare(a.Date)
@@ -41,5 +44,6 @@ func (app *Application) Transactions(c echo.Context) error {
 		"transactions": transactions,
 		"search":       search,
 		"account":      account,
+		"took":         took,
 	})
 }
