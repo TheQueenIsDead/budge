@@ -64,10 +64,10 @@ func (s *Store) ReadTransactionsByDate(start time.Time, end time.Time) ([]models
 		return transaction.Date.After(start) && transaction.Date.Before(end)
 	})
 }
-func (s *Store) SearchTransactions(search string, account string, start time.Time, end time.Time) ([]models.Transaction, error) {
+func (s *Store) SearchTransactions(search string, account string) ([]models.Transaction, error) {
 	return ReadFilter[models.Transaction](s.db, func(transaction models.Transaction) bool {
+
 		accountMatch := account == "" || transaction.Account == account
-		dateMatch := transaction.Date.After(start) && transaction.Date.Before(end)
 
 		metadata := strings.Builder{}
 		metadata.WriteString(transaction.Description)
@@ -80,12 +80,12 @@ func (s *Store) SearchTransactions(search string, account string, start time.Tim
 		needle := strings.ToLower(search)
 		haystack := strings.ToLower(metadata.String())
 
-		reg.ReplaceAllString(haystack, "")
-		reg.ReplaceAllString(needle, "")
+		needle = reg.ReplaceAllString(needle, "")
+		haystack = reg.ReplaceAllString(haystack, "")
 
 		searchMatch := strings.Contains(haystack, needle)
 
-		return accountMatch && dateMatch && searchMatch
+		return accountMatch && searchMatch
 	})
 }
 

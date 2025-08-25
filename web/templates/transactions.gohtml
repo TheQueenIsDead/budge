@@ -6,22 +6,19 @@
     </div>
 
     <!-- Search Form -->
-    <form hx-include="select" class="d-flex justify-content-between align-items-center flex-wrap mb-3"
+    <form hx-include="select"
+          class="d-flex justify-content-between align-items-center flex-wrap mb-3"
           hx-get="/transactions"
-          hx-trigger="input changed from:#account, input change from:#search delay 500ms"
+          hx-trigger="input from:#search delay:300ms, change from:#account"
           hx-target="#main"
           hx-push-url="true"
     >
         <input id="search" type="text" name="search" class="form-control me-2 search-bar" value="{{ .search }}"
                style="max-width: 300px;">
+
         <div class="d-flex gap-2 filters">
-            {{/*        TODO: Enable time-based filtering, or infinite scroll*/}}
-            {{/*        <select class="form-select" style="min-width: 150px;">*/}}
-            {{/*            <option>This Month</option>*/}}
-            {{/*            <option>Last Month</option>*/}}
-            {{/*            <option>This Year</option>*/}}
-            {{/*        </select>*/}}
             <select id="account" name="account" class="form-select" style="min-width: 150px;">
+                {{/* TODO: Render the selected account if one is provided in search params */}}
                 <option value="">All Accounts</option>
                 {{ range .accounts }}
                     <option value="{{ .Id }}">{{.Name}}</option>

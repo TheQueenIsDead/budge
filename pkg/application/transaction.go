@@ -1,11 +1,11 @@
 package application
 
 import (
-	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
 	"net/http"
 	"slices"
-	"time"
+
+	"github.com/TheQueenIsDead/budge/pkg/database/models"
+	"github.com/labstack/echo/v4"
 )
 
 func (app *Application) Transactions(c echo.Context) error {
@@ -13,22 +13,15 @@ func (app *Application) Transactions(c echo.Context) error {
 	account := c.QueryParam("account")
 	search := c.QueryParam("search")
 
-	start := time.Now().AddDate(0, 0, -30)
-	end := time.Now()
-
 	var transactions []models.Transaction
 	var err error
-	if account != "" && search == "" {
-		// All transactions for an account
-		transactions, err = app.store.ReadTransactionsByAccount(account)
-	} else if account == "" && search != "" {
-		// Search all transactions across accounts
-		transactions, err = app.store.SearchTransactions(search, "", start, end)
-	} else if account != "" && search != "" {
-		transactions, err = app.store.SearchTransactions(search, account, start, end)
+	if account == "" && search == "" {
+		// Default, all transactions
+		transactions, err = app.store.ReadTransactions()
 	} else {
-		// No parameters provided, load all transactions
-		transactions, err = app.store.ReadTransactionsByDate(start, end)
+		// If were here, either an account or search is specified,
+		// so we need to search the transactions.
+		transactions, err = app.store.SearchTransactions(search, account)
 	}
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
