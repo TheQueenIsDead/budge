@@ -1,0 +1,116 @@
+{{define "history"}}
+
+<!-- Header Row -->
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <h2 class="fw-bold">History</h2>
+{{/*            <button class="btn btn-outline-light border fw-semibold">Share</button>*/}}
+</div>
+
+
+            <!-- Charts Row -->
+            <div class="row g-3 mb-3">
+                <!-- Monthly Spending Bar Chart -->
+                <div class="col-lg-6">
+                    <div class="card border rounded-3 p-3 h-100 d-flex flex-column shadow-sm">
+                        <h4 class="fw-bold">Monthly Spending</h4>
+                        <p class="text-muted">Your spending trends over the past 6 months</p>
+                        <canvas id="barChart" style="max-height: 250px"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        <!-- Chart.js Scripts -->
+        <script>
+            // Bar Chart
+            new Chart(document.getElementById("barChart"), {
+                type: "bar",
+                data: {
+                    labels: {{.SpendTimeseries.Labels}},
+                    datasets: [{
+                        label: "Spending",
+                        data: {{.SpendTimeseries.Data}},
+                        backgroundColor: "#000"
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+
+        </script>
+
+<!-- Transactions -->
+<div class="card border rounded-3 p-4 shadow-sm">
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <h4 class="fw-bold">Transactions</h4>
+{{/*            <p class="text-muted">Your highest paid merchants over the last 30 days.</p>*/}}
+        </div>
+    </div>
+
+
+    <div class="row">
+        {{ range .History }}
+        <div class="card">
+            <h3 class="fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ .Slug }}">
+                {{ .Month }} ({{ .Total | fmtCurrency }})
+            </h3>
+        </div>
+
+        <ul class="list-unstyled collapse" id="collapse-{{ .Slug }}">
+            {{ range .MerchantTotals }}
+                <li class="d-flex align-items-center justify-content-between mb-4">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-light rounded-circle p-2 me-3">
+                            <i class="bi bi-credit-card fs-5 text-dark"></i>
+                        </div>
+                        <div>
+                            <div class="fw-semibold">{{ .Merchant }}</div>
+                            <div class="fw-semibold">{{ .Total | fmtCurrency }}</div>
+                        </div>
+                    </div>
+                </li>
+            {{ end }}
+        </ul>
+        {{end}}
+    </div>
+
+{{/*    <div class="row">*/}}
+{{/*        {{ range $month, $transactions := .MonthlyTransactions }}*/}}
+
+
+{{/*            <div>*/}}
+{{/*                <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ replace $month " " "-"}}" aria-expanded="false" aria-controls="collapseExample">*/}}
+{{/*                    {{$month}}*/}}
+{{/*                </button>*/}}
+{{/*            </div>*/}}
+
+{{/*            <h3 class="fw-bold">{{$month}}</h3>*/}}
+
+{{/*            <ul class="list-unstyled collapse" id="collapse-{{ replace $month " " "-"}}">*/}}
+{{/*            {{ range $transactions }}*/}}
+{{/*            <li class="d-flex align-items-center justify-content-between mb-4">*/}}
+{{/*                <div class="d-flex align-items-center">*/}}
+{{/*                    <div class="bg-light rounded-circle p-2 me-3">*/}}
+{{/*                        <i class="bi bi-credit-card fs-5 text-dark"></i>*/}}
+{{/*                    </div>*/}}
+{{/*                    <div>*/}}
+{{/*                        <div class="fw-semibold">{{ .Description }}</div>*/}}
+{{/*                        <div class="fw-semibold">{{ .Amount }}</div>*/}}
+{{/*                        <small class="text-muted">{{ .Total | fmtCurrency }}</small>*/}}
+{{/*                    </div>*/}}
+{{/*                </div>*/}}
+{{/*            </li>*/}}
+{{/*        {{ end }}*/}}
+{{/*        </ul>*/}}
+{{/*        {{end}}*/}}
+{{/*    </div>*/}}
+</div>
+{{end}}

@@ -4,6 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"html/template"
+	"io"
+	"math"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/integrations"
 	"github.com/dustin/go-humanize"
@@ -11,11 +18,6 @@ import (
 	"github.com/labstack/gommon/log"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
-	"html/template"
-	"io"
-	"math"
-	"net/http"
-	"time"
 )
 
 type Application struct {
@@ -48,6 +50,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 		"fmtRelative": func(date time.Time) string {
 			return humanize.RelTime(date, time.Now(), "ago", "")
 		},
+		"replace": strings.ReplaceAll,
 	}
 
 	tpl := template.New("").Funcs(funcMap)
@@ -121,6 +124,9 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	// Transactions
 	app.http.GET("/transactions", app.Transactions)
+
+	// History
+	app.http.GET("/history", app.History)
 
 	// Accounts
 	app.http.GET("/accounts", app.Accounts)

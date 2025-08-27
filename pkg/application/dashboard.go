@@ -3,14 +3,15 @@ package application
 import (
 	"cmp"
 	"fmt"
-	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
 	"maps"
 	"math"
 	"net/http"
 	"slices"
 	"sort"
 	"time"
+
+	"github.com/TheQueenIsDead/budge/pkg/database/models"
+	"github.com/labstack/echo/v4"
 )
 
 type DashboardData struct {
@@ -46,7 +47,8 @@ type DoughnutData struct {
 func AggregateMonthlyTransactions(transactions []models.Transaction) map[string][]models.Transaction {
 	monthlyTransactions := make(map[string][]models.Transaction)
 	for _, tx := range transactions {
-		month := tx.Date.Format("Jan 06")
+		date := tx.Date.In(time.Local)
+		month := date.Format("Jan 06")
 		if _, ok := monthlyTransactions[month]; !ok {
 			monthlyTransactions[month] = []models.Transaction{tx}
 		} else {
@@ -303,8 +305,10 @@ func BuildFrequentMerchants(transactions []models.Transaction, n int) []models.M
 func (app *Application) Dashboard(c echo.Context) error {
 
 	// Retrieve accounts and 6 months worth of transactions
+	start := time.Now().AddDate(0, -6, 0)
+	start = time.Date(start.Year(), start.Month(), 1, 0, 0, 0, 0, start.Location())
 	accounts, accountErr := app.store.ReadAccounts()
-	transactions, transactionErr := app.store.ReadTransactionsByDate(time.Now().AddDate(0, -6, 0), time.Now())
+	transactions, transactionErr := app.store.ReadTransactionsByDate(start, time.Now())
 	if err := cmp.Or(accountErr, transactionErr); err != nil {
 		app.Toast(c, "Error", "Could not load dashboard data.")
 		return c.NoContent(http.StatusInternalServerError)
