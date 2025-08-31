@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.9.0](https://github.com/TheQueenIsDead/budge/compare/v1.8.0...v1.9.0) (2025-08-25)
+
+
+### Features
+
+* add chips for all categories in the transaction list ([b105e66](https://github.com/TheQueenIsDead/budge/commit/b105e66ced85daf0ce8ef32b03705b6b16abcb27))
+* add count of results and time taken to transactions ([eff7369](https://github.com/TheQueenIsDead/budge/commit/eff7369b55edb1adfbdc752aecc5eb871360d2e0))
+* rework transaction searching to include all categories ([6538d7a](https://github.com/TheQueenIsDead/budge/commit/6538d7a941c7bb89d6ec373d1e84a5ca9e98046c))
+* simplify transaction searching and include all categories ([1a47349](https://github.com/TheQueenIsDead/budge/commit/1a47349f9ad94cae6dde69b29298897086de41b8))
+
+
+### Bug Fixes
+
+* add 'selected' to the account option if it was selected (present in query params) ([d202f23](https://github.com/TheQueenIsDead/budge/commit/d202f239e38d9f4e07ea2a6d12b04338199f02fc))
+* change akahu sync to always grab the last week in case syncs were recent and missed data not yet exposed by the bank ([295e4dc](https://github.com/TheQueenIsDead/budge/commit/295e4dc64c3b6ab7d502fa7490c866cfac4a410b))
+
 ## [1.8.0](https://github.com/TheQueenIsDead/budge/compare/v1.7.1...v1.8.0) (2025-08-18)
 
 
