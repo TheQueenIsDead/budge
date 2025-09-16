@@ -1,0 +1,273 @@
+{{define "budget"}}
+
+<!-- Header Row -->
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <h2 class="fw-bold">Budget</h2>
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary fw-semibold" data-bs-toggle="modal" data-bs-target="#editBudgetModal">Edit Budget</button>
+    </div>
+</div>
+
+<!-- Metric Cards -->
+<div class="row g-3 mb-3">
+    <!-- Monthly Income -->
+    <div class="col-12 col-md-6 col-lg-3">
+        <div class="card border rounded-3 p-3 h-100 shadow-sm">
+            <div class="d-flex justify-content-between text-muted mb-2">
+                <span class="fw-semibold">Monthly Income</span>
+                <i class="bi bi-cash-stack"></i>
+            </div>
+            <h3 class="fw-bold mb-1">{{ .Income | fmtCurrency }}</h3>
+            <div class="text-muted">Your total monthly income.</div>
+        </div>
+    </div>
+
+    <!-- Budgeted Spending -->
+    <div class="col-12 col-md-6 col-lg-3">
+        <div class="card border rounded-3 p-3 h-100 shadow-sm">
+            <div class="d-flex justify-content-between text-muted mb-2">
+                <span class="fw-semibold">Budgeted Spending</span>
+                <i class="bi bi-clipboard-data"></i>
+            </div>
+            <h3 class="fw-bold mb-1">{{ .Budgeted | fmtCurrency }}</h3>
+            <div class="text-muted">Total planned monthly expenses.</div>
+        </div>
+    </div>
+
+    <!-- Actual Spending -->
+    <div class="col-12 col-md-6 col-lg-3">
+        <div class="card border rounded-3 p-3 h-100 shadow-sm">
+            <div class="d-flex justify-content-between text-muted mb-2">
+                <span class="fw-semibold">Actual Spending</span>
+                <i class="bi bi-graph-down"></i>
+            </div>
+            <h3 class="fw-bold mb-1">{{ .Spent | fmtCurrency }}</h3>
+            <div class="{{if gt .Spent .Budgeted}}text-danger{{else}}text-success{{end}}">
+                {{if gt .Spent .Budgeted}}Over budget{{else}}Under budget{{end}}
+            </div>
+        </div>
+    </div>
+
+    <!-- Remaining Cashflow -->
+    <div class="col-12 col-md-6 col-lg-3">
+        <div class="card border rounded-3 p-3 h-100 shadow-sm">
+            <div class="d-flex justify-content-between text-muted mb-2">
+                <span class="fw-semibold">Cashflow</span>
+                <i class="bi bi-wallet2"></i>
+            </div>
+            <h3 class="fw-bold mb-1">{{ .Remaining | fmtCurrency }}</h3>
+            <div class="text-muted">Income minus actual spending.</div>
+        </div>
+    </div>
+</div>
+
+<!-- Cashflow Sankey Chart -->
+<div class="row g-3 mb-3">
+    <div class="col-12">
+        <div class="card border rounded-3 p-3 h-100 d-flex flex-column shadow-sm">
+            <h4 class="fw-bold">Monthly Cashflow</h4>
+            <p class="text-muted">Flow of your income to expenses and savings.</p>
+            <!-- Note: Using Google Charts for the Sankey diagram as it's not standard in Chart.js -->
+            <div id="sankey_chart" style="width: 100%; height: 300px;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Budget Items Table -->
+<div class="card border rounded-3 p-4 shadow-sm">
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <h4 class="fw-bold">Budget Items</h4>
+            <p class="text-muted">Your detailed monthly budget. All amounts are normalized to a monthly period.</p>
+        </div>
+        <button class="btn btn-outline-dark fw-semibold" data-bs-toggle="modal" data-bs-target="#addBudgetItemModal">Add Item</button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+            <tr>
+                <th scope="col">Category</th>
+                <th scope="col">Item</th>
+                <th scope="col" class="text-end">Budgeted Amount</th>
+                <th scope="col" class="text-end">Actual Spent</th>
+                <th scope="col" class="text-end">Remaining</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{ range .BudgetItems }}
+            <tr>
+                <td><span class="badge bg-secondary">{{ .Category }}</span></td>
+                <td>{{ .Name }}</td>
+                <td class="text-end">{{ .Amount | fmtCurrency }}</td>
+                <td class="text-end">{{ .Spent | fmtCurrency }}</td>
+                <td class="text-end {{if lt .Remaining 0.0}}text-danger{{end}}">{{ .Remaining | fmtCurrency }}</td>
+            </tr>
+            {{ else }}
+            <tr>
+                <td colspan="5" class="text-center text-muted">No budget items yet. Add one to get started!</td>
+            </tr>
+            {{ end }}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Edit Budget Modal -->
+<div class="modal fade" id="editBudgetModal" tabindex="-1" aria-labelledby="editBudgetModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editBudgetModalLabel">Edit Budget</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editBudgetForm">
+                    <!-- Income -->
+                    <div class="mb-4">
+                        <label for="monthlyIncome" class="form-label fw-semibold">Monthly Income</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="monthlyIncome" name="income" value="{{ .Income }}" step="100">
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Budget Items -->
+                    <h6 class="fw-bold">Budget Items</h6>
+                    <div id="budget-items-container">
+                        {{ range $i, $item := .BudgetItems }}
+                        <div class="row g-2 mb-2 align-items-center budget-item-row">
+                            <div class="col-md-3"><input type="text" class="form-control" name="item_{{$i}}_category" placeholder="Category" value="{{ .Category }}"></div>
+                            <div class="col-md-4"><input type="text" class="form-control" name="item_{{$i}}_name" placeholder="Item Name" value="{{ .Name }}"></div>
+                            <div class="col-md-2"><input type="number" class="form-control" name="item_{{$i}}_amount" placeholder="Amount" value="{{ .Amount }}" step="10"></div>
+                            <div class="col-md-2">
+                                <select class="form-select" name="item_{{$i}}_period">
+                                    <option value="week" {{if eq .Period "week"}}selected{{end}}>Weekly</option>
+                                    <option value="month" {{if eq .Period "month"}}selected{{end}}>Monthly</option>
+                                    <option value="year" {{if eq .Period "year"}}selected{{end}}>Yearly</option>
+                                </select>
+                            </div>
+                            <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-item-btn"><i class="bi bi-x-lg"></i></button></div>
+                        </div>
+                        {{ end }}
+                    </div>
+                    <button type="button" class="btn btn-outline-primary mt-2" id="add-item-btn-modal">Add Item</button>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="submit" form="editBudgetForm" class="btn btn-primary">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Budget Item Modal -->
+<div class="modal fade" id="addBudgetItemModal" tabindex="-1" aria-labelledby="addBudgetItemModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="addBudgetItemForm">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addBudgetItemModalLabel">Add Budget Item</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3"><label class="form-label">Category</label><input type="text" name="category" class="form-control" placeholder="e.g., Housing" required></div>
+                    <div class="mb-3"><label class="form-label">Item Name</label><input type="text" name="name" class="form-control" placeholder="e.g., Rent" required></div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3"><label class="form-label">Amount</label><input type="number" name="amount" class="form-control" placeholder="e.g., 1200" step="10" required></div>
+                        <div class="col-md-6 mb-3"><label class="form-label">Period</label>
+                            <select class="form-select" name="period">
+                                <option value="month" selected>Monthly</option>
+                                <option value="week">Weekly</option>
+                                <option value="year">Yearly</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Add Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<!-- Scripts -->
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script type="text/javascript">
+    google.charts.load('current', {'packages':['sankey']});
+    google.charts.setOnLoadCallback(drawChart);
+
+    function drawChart() {
+        var data = new google.visualization.DataTable();
+        data.addColumn('string', 'From');
+        data.addColumn('string', 'To');
+        data.addColumn('number', 'Weight');
+        var sankeyData = [
+            {{ range .SankeyData }}
+                [ '{{ .From }}', '{{ .To }}', {{ .Weight }} ],
+            {{ end }}
+        ];
+
+        if (sankeyData.length > 0) {
+            data.addRows(sankeyData);
+
+            var options = {
+                width: '100%',
+                sankey: {
+                    node: {
+                        label: { fontName: 'Arial', fontSize: 14 },
+                        interactivity: true
+                    },
+                    link: {
+                        colorMode: 'gradient',
+                    }
+                }
+            };
+
+            var chart = new google.visualization.Sankey(document.getElementById('sankey_chart'));
+            chart.draw(data, options);
+        } else {
+            document.getElementById('sankey_chart').innerHTML = '<div class="text-center text-muted p-5">Not enough data for cashflow chart.</div>';
+        }
+    }
+
+    // JS for dynamic form in Edit Budget modal
+    document.addEventListener('DOMContentLoaded', function () {
+        const container = document.getElementById('budget-items-container');
+        let itemIndex = {{ len .BudgetItems }};
+
+        document.getElementById('add-item-btn-modal').addEventListener('click', function () {
+            const newItemRow = document.createElement('div');
+            newItemRow.className = 'row g-2 mb-2 align-items-center budget-item-row';
+            newItemRow.innerHTML = `
+                <div class="col-md-3"><input type="text" class="form-control" name="item_${itemIndex}_category" placeholder="Category" required></div>
+                <div class="col-md-4"><input type="text" class="form-control" name="item_${itemIndex}_name" placeholder="Item Name" required></div>
+                <div class="col-md-2"><input type="number" class="form-control" name="item_${itemIndex}_amount" placeholder="Amount" step="10" required></div>
+                <div class="col-md-2">
+                    <select class="form-select" name="item_${itemIndex}_period">
+                        <option value="month" selected>Monthly</option>
+                        <option value="week">Weekly</option>
+                        <option value="year">Yearly</option>
+                    </select>
+                </div>
+                <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-item-btn"><i class="bi bi-x-lg"></i></button></div>
+            `;
+            container.appendChild(newItemRow);
+            itemIndex++;
+        });
+
+        container.addEventListener('click', function (e) {
+            if (e.target && e.target.closest('.remove-item-btn')) {
+                e.target.closest('.budget-item-row').remove();
+            }
+        });
+    });
+</script>
+
+{{end}}

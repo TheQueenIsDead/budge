@@ -4,6 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"html/template"
+	"io"
+	"math"
+	"net/http"
+	"time"
+
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/integrations"
 	"github.com/dustin/go-humanize"
@@ -11,11 +17,6 @@ import (
 	"github.com/labstack/gommon/log"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
-	"html/template"
-	"io"
-	"math"
-	"net/http"
-	"time"
 )
 
 type Application struct {
@@ -108,6 +109,9 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	// General
 	app.http.GET("/", app.Dashboard)
 	app.http.GET("/4XX", app._4XX)
+
+	// Budget
+	app.http.GET("/budget", app.Budget)
 
 	//// Integrations
 	app.http.POST("/integrations/akahu/sync", app.SyncAkahu)
