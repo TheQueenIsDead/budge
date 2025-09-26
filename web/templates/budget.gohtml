@@ -139,7 +139,13 @@
                     <div id="budget-items-container">
                         {{ range $i, $item := .BudgetItems }}
                         <div class="row g-2 mb-2 align-items-center budget-item-row">
-                            <div class="col-md-3"><input type="text" class="form-control" name="item_{{$i}}_category" placeholder="Category" value="{{ .Category }}"></div>
+                                                        <div class="col-md-3">
+                                <select class="form-select" name="item_{{$i}}_category">
+                                    {{range $.Categories}}
+                                    <option value="{{.}}" {{if eq . $item.Category}}selected{{end}}>{{.}}</option>
+                                    {{end}}
+                                </select>
+                            </div>
                             <div class="col-md-4"><input type="text" class="form-control" name="item_{{$i}}_name" placeholder="Item Name" value="{{ .Name }}"></div>
                             <div class="col-md-2"><input type="number" class="form-control" name="item_{{$i}}_amount" placeholder="Amount" value="{{ .Amount }}" step="10"></div>
                             <div class="col-md-2">
@@ -174,7 +180,14 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3"><label class="form-label">Category</label><input type="text" name="category" class="form-control" placeholder="e.g., Housing" required></div>
+                                        <div class="mb-3"><label class="form-label">Category</label>
+                        <select class="form-select" name="category" required>
+                            <option value="" disabled selected>Select a category</option>
+                            {{range .Categories}}
+                            <option value="{{.}}">{{.}}</option>
+                            {{end}}
+                        </select>
+                    </div>
                     <div class="mb-3"><label class="form-label">Item Name</label><input type="text" name="name" class="form-control" placeholder="e.g., Rent" required></div>
                     <div class="row">
                         <div class="col-md-6 mb-3"><label class="form-label">Amount</label><input type="number" name="amount" class="form-control" placeholder="e.g., 1200" step="10" required></div>

@@ -2,7 +2,9 @@ package database
 
 import (
 	"errors"
+	"maps"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -53,6 +55,21 @@ func (s *Store) CreateTransaction(transaction models.Transaction) error {
 }
 func (s *Store) ReadTransactions() ([]models.Transaction, error) {
 	return Read[models.Transaction](s.db)
+}
+func (s *Store) ReadCategories() ([]string, error) {
+
+	transactions, err := Read[models.Transaction](s.db)
+	if err != nil {
+		return nil, err
+	}
+
+	categoriesMap := make(map[string]*interface{})
+	for _, tx := range transactions {
+		label := strings.Join(tx.Categories(), " / ")
+		categoriesMap[label] = nil
+	}
+
+	return slices.Collect(maps.Keys(categoriesMap)), nil
 }
 func (s *Store) ReadTransactionsByAccount(account string) ([]models.Transaction, error) {
 	return ReadFilter[models.Transaction](s.db, func(transaction models.Transaction) bool {

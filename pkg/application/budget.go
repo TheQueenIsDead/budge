@@ -2,12 +2,14 @@ package application
 
 import (
 	"net/http"
+	"slices"
 
 	"github.com/labstack/echo/v4"
 )
 
 // BudgetPageData holds all the data for rendering the budget.gohtml template.
 type BudgetPageData struct {
+	Categories  []string
 	Income      float64
 	Budgeted    float64
 	Spent       float64
@@ -33,8 +35,8 @@ type SankeyDataItem struct {
 	Weight float64
 }
 
-// getFakeBudgetData returns a populated BudgetPageData struct for demonstration.
-func getFakeBudgetData() BudgetPageData {
+func (app *Application) Budget(c echo.Context) error {
+
 	// --- Raw Data ---
 	income := 5000.0
 
@@ -81,17 +83,19 @@ func getFakeBudgetData() BudgetPageData {
 		sankeyData = append(sankeyData, SankeyDataItem{From: "Income", To: "Discretionary", Weight: discretionary})
 	}
 
-	return BudgetPageData{
+	categories, err := app.store.ReadCategories()
+	if err != nil {
+		return c.HTML(http.StatusInternalServerError, err.Error())
+	}
+	slices.Sort(categories)
+
+	return c.Render(http.StatusOK, "budget", BudgetPageData{
+		Categories:  categories,
 		Income:      income,
 		Budgeted:    totalBudgeted,
 		Spent:       totalSpent,
 		Remaining:   income - totalSpent, // This is the final cashflow
 		BudgetItems: items,
 		SankeyData:  sankeyData,
-	}
-}
-
-func (app *Application) Budget(c echo.Context) error {
-
-	return c.Render(http.StatusOK, "budget", getFakeBudgetData())
+	})
 }

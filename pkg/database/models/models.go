@@ -97,6 +97,16 @@ type MerchantFrequency struct {
 	Count    int
 }
 
+type Category struct {
+	Id     string `json:"_id"`
+	Name   string `json:"name"`
+	Groups struct {
+		PersonalFinance struct {
+			Id   string `json:"_id"`
+			Name string `json:"name"`
+		} `json:"personal_finance"`
+	} `json:"groups"`
+}
 type Transaction struct {
 	Id         string `json:"_id"`
 	Account    string `json:"_account"`
