@@ -30,6 +30,15 @@ func (app *Application) Transactions(c echo.Context) error {
 	}
 	took := time.Since(start)
 
+	var in, out float64
+	for _, t := range transactions {
+		if t.Amount > 0 {
+			in += t.Amount
+		} else {
+			out += t.Amount
+		}
+	}
+
 	slices.SortFunc(transactions, func(a, b models.Transaction) int {
 		return b.Date.Compare(a.Date)
 	})
@@ -39,11 +48,15 @@ func (app *Application) Transactions(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	c.Logger().Debug(in, out)
+
 	return c.Render(http.StatusOK, "transactions", map[string]interface{}{
 		"accounts":     accounts,
 		"transactions": transactions,
 		"search":       search,
 		"account":      account,
 		"took":         took,
+		"in":           in,
+		"out":          out,
 	})
 }

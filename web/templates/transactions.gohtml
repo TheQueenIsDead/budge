@@ -21,7 +21,14 @@
                    value="{{ .search }}">
 
             <div class="text-muted small d-flex align-items-center" style="white-space: nowrap;">
-                <span class="me-3">{{ len .transactions }} results in {{ .took }}</span>
+                <span class="me-3">
+                    {{ len .transactions }} results in {{ .took }}
+                    (
+                        <i class="bi bi-arrow-up-short"></i> {{.in | fmtCurrency}}
+                        /
+                        <i class="bi bi-arrow-down-short"></i> {{.out | fmtCurrency}}
+                    )
+                </span>
             </div>
         </div>
 
