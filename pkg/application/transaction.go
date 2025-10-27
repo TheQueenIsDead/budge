@@ -48,8 +48,6 @@ func (app *Application) Transactions(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	c.Logger().Debug(in, out)
-
 	return c.Render(http.StatusOK, "transactions", map[string]interface{}{
 		"accounts":     accounts,
 		"transactions": transactions,
