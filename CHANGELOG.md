@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/TheQueenIsDead/budge/compare/v1.9.0...v1.10.0) (2025-10-27)
+
+
+### Features
+
+* add total in and out to transaction search ([aa391bf](https://github.com/TheQueenIsDead/budge/commit/aa391bf7e3fcc87b89972f5371609c0dde5fa2f7))
+
 ## [1.9.0](https://github.com/TheQueenIsDead/budge/compare/v1.8.0...v1.9.0) (2025-08-25)
 
 
