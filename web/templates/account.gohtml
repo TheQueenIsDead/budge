@@ -9,7 +9,9 @@
                 {{ .Account.Connection.Name }}
             </p>
         </div>
-        <a href="/accounts" class="btn btn-outline-light border fw-semibold">Back to Accounts</a>
+        <a href="/accounts" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left fw-bold"></i>
+        </a>
     </div>
 
     <div id="account-details">
@@ -17,14 +19,20 @@
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h4 class="fw-bold mb-0">Balance History</h4>
                 <div class="d-flex align-items-center">
-                    <a href="?year={{.PrevYear}}" class="btn btn-sm btn-outline-secondary">&lt; Prev</a>
+                    <a href="?year={{.PrevYear}}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-arrow-bar-left"></i>
+                    </a>
                     <a href="?" class="date-reset-link" title="Click to reset to current year">
                         <span class="mx-3 fw-semibold">{{ .Date.Format "2006" }}</span>
                     </a>
                     {{ if .IsCurrentYear }}
-                        <a class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true">Next &gt;</a>
+                        <a class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true">
+                            <i class="bi bi-arrow-bar-right"></i>
+                        </a>
                     {{ else }}
-                        <a href="?year={{.NextYear}}" class="btn btn-sm btn-outline-secondary">Next &gt;</a>
+                        <a href="?year={{.NextYear}}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-arrow-bar-right fw-bold"></i>
+                        </a>
                     {{ end }}
                 </div>
             </div>
