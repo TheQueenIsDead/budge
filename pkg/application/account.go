@@ -1,13 +1,14 @@
 package application
 
 import (
-	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
 	"maps"
 	"math"
 	"net/http"
 	"slices"
 	"time"
+
+	"github.com/TheQueenIsDead/budge/pkg/database/models"
+	"github.com/labstack/echo/v4"
 )
 
 type AccountTimeseriesData struct {
@@ -46,28 +47,14 @@ func (app *Application) Accounts(c echo.Context) error {
 }
 
 func (app *Application) Account(c echo.Context) error {
-	// region Get Account
-	targetAccountID := c.Param("id")
-	accounts, err := app.store.ReadAccounts()
+
+	accountId := c.Param("id")
+	account, err := app.store.GetAccount([]byte(accountId))
 	if err != nil {
+		c.Logger().Debug(accountId)
 		c.Logger().Error(err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to fetch accounts")
 	}
-
-	var account models.Account
-	var found bool
-	for _, a := range accounts {
-		if a.Id == targetAccountID {
-			account = a
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		return echo.NewHTTPError(http.StatusNotFound, "account not found")
-	}
-	// endregion
 
 	month := c.QueryParam("month")
 	var viewDate time.Time
