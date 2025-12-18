@@ -104,7 +104,7 @@ func (app *Application) accountBalance(c echo.Context, account models.Account, v
 	endDate := startDate.AddDate(1, 0, 0)
 
 	// Calculate the balance at the end of the selected year by rolling back future transactions
-	balanceAtEndDate := account.Balance.Current
+	balanceAtEndDate := account.Balance.Available
 	for _, t := range transactions {
 		if t.Date.After(endDate) && (t.Date.Before(account.Refreshed.Balance) || t.Date.Equal(account.Refreshed.Balance)) {
 			balanceAtEndDate -= t.Amount
