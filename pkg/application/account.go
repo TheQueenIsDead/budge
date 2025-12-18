@@ -5,6 +5,7 @@ import (
 	"math"
 	"net/http"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
@@ -26,12 +27,13 @@ type AccountStatistics struct {
 }
 
 type AccountsPageProps struct {
-	Account    models.Account
-	GraphData  AccountTimeseriesData
-	Statistics AccountStatistics
-	PrevMonth  string
-	NextMonth  string
-	Date       time.Time
+	Account       models.Account
+	GraphData     AccountTimeseriesData
+	Statistics    AccountStatistics
+	IsCurrentYear bool
+	PrevYear      int
+	NextYear      int
+	Date          time.Time
 }
 
 func (app *Application) Accounts(c echo.Context) error {
@@ -56,13 +58,14 @@ func (app *Application) Account(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to fetch accounts")
 	}
 
-	month := c.QueryParam("month")
+	year := c.QueryParam("year")
 	var viewDate time.Time
-	if month != "" {
-		viewDate, err = time.Parse("2006-01", month)
+	if year != "" {
+		y, err := strconv.Atoi(year)
 		if err != nil {
-			// Malformed month, default to now
 			viewDate = time.Now()
+		} else {
+			viewDate = time.Date(y, time.January, 1, 0, 0, 0, 0, time.UTC)
 		}
 	} else {
 		viewDate = time.Now()
@@ -75,18 +78,19 @@ func (app *Application) Account(c echo.Context) error {
 	}
 
 	props := AccountsPageProps{
-		Account:    account,
-		GraphData:  graphData,
-		Statistics: statistics,
-		Date:       viewDate,
-		PrevMonth:  viewDate.AddDate(0, -1, 0).Format("2006-01"),
-		NextMonth:  viewDate.AddDate(0, 1, 0).Format("2006-01"),
+		Account:       account,
+		GraphData:     graphData,
+		Statistics:    statistics,
+		Date:          viewDate,
+		IsCurrentYear: viewDate.Year() == time.Now().Year(),
+		PrevYear:      viewDate.AddDate(-1, 0, 0).Year(),
+		NextYear:      viewDate.AddDate(1, 0, 0).Year(),
 	}
 
 	return c.Render(http.StatusOK, "account", props)
 }
 
-func (app *Application) accountBalance(c echo.Context, account models.Account, endDate time.Time) (AccountTimeseriesData, AccountStatistics, error) {
+func (app *Application) accountBalance(c echo.Context, account models.Account, viewDate time.Time) (AccountTimeseriesData, AccountStatistics, error) {
 
 	// Retrieve all transactions for an account
 	transactions, err := app.store.ReadTransactionsByAccount(account.Id)
@@ -95,11 +99,22 @@ func (app *Application) accountBalance(c echo.Context, account models.Account, e
 		return AccountTimeseriesData{}, AccountStatistics{}, err
 	}
 
-	// Filter transactions to the last 12 months from the endDate
-	startDate := endDate.AddDate(0, -12, 0)
+	// Filter transactions for the selected year
+	year := viewDate.Year()
+	startDate := time.Date(year, time.January, 1, 0, 0, 0, 0, time.UTC)
+	endDate := startDate.AddDate(1, 0, 0)
+
+	// Calculate the balance at the end of the selected year by rolling back future transactions
+	balanceAtEndDate := account.Balance.Current
+	for _, t := range transactions {
+		if t.Date.After(endDate) && (t.Date.Before(account.Refreshed.Balance) || t.Date.Equal(account.Refreshed.Balance)) {
+			balanceAtEndDate -= t.Amount
+		}
+	}
+
 	var recentTransactions []models.Transaction
 	for _, t := range transactions {
-		if t.Date.After(startDate) && t.Date.Before(endDate) {
+		if (t.Date.After(startDate) || t.Date.Equal(startDate)) && t.Date.Before(endDate) {
 			recentTransactions = append(recentTransactions, t)
 		}
 	}
@@ -124,7 +139,7 @@ func (app *Application) accountBalance(c echo.Context, account models.Account, e
 	}
 
 	// Iterate all months between the first and last transaction, creating a backwards running balance
-	balances := WalkAccount(account.Balance.Current, deltas)
+	balances := WalkAccount(balanceAtEndDate, deltas)
 
 	var data []float64
 	var labels []string

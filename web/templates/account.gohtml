@@ -17,9 +17,15 @@
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h4 class="fw-bold mb-0">Balance History</h4>
                 <div class="d-flex align-items-center">
-                    <a href="?month={{.PrevMonth}}" class="btn btn-sm btn-outline-secondary">&lt; Prev</a>
-                    <span class="mx-3 fw-semibold">{{ .Date.Format "January 2006" }}</span>
-                    <a href="?month={{.NextMonth}}" class="btn btn-sm btn-outline-secondary">Next &gt;</a>
+                    <a href="?year={{.PrevYear}}" class="btn btn-sm btn-outline-secondary">&lt; Prev</a>
+                    <a href="?" class="date-reset-link" title="Click to reset to current year">
+                        <span class="mx-3 fw-semibold">{{ .Date.Format "2006" }}</span>
+                    </a>
+                    {{ if .IsCurrentYear }}
+                        <a class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true">Next &gt;</a>
+                    {{ else }}
+                        <a href="?year={{.NextYear}}" class="btn btn-sm btn-outline-secondary">Next &gt;</a>
+                    {{ end }}
                 </div>
             </div>
             <canvas id="{{.Account.Id}}" style="max-height: 400px"></canvas>
@@ -48,6 +54,18 @@
                         legend: {display: false}
                     }
                 }
+            });
+
+            const dateResetLink = document.querySelector('.date-reset-link');
+            const dateSpan = dateResetLink.querySelector('span');
+            const originalDate = dateSpan.textContent;
+
+            dateResetLink.addEventListener('mouseenter', () => {
+                dateSpan.textContent = 'Current';
+            });
+
+            dateResetLink.addEventListener('mouseleave', () => {
+                dateSpan.textContent = originalDate;
             });
         </script>
 

@@ -17,16 +17,16 @@ func TestWalkAccount(t *testing.T) {
 		{"simple",
 			99,
 			map[string]float64{
-				time.Now().AddDate(0, 0, 0).Format(time.DateOnly):  33,
-				time.Now().AddDate(0, 0, -1).Format(time.DateOnly): 33,
-				time.Now().AddDate(0, 0, -2).Format(time.DateOnly): 33,
-				time.Now().AddDate(0, 0, -3).Format(time.DateOnly): 0, //Could be anything
+				"2023-03": 33,
+				"2023-02": 33,
+				"2023-01": 33,
+				"2022-12": 0,
 			},
 			map[string]float64{
-				time.Now().AddDate(0, 0, 0).Format(time.DateOnly):  99,
-				time.Now().AddDate(0, 0, -1).Format(time.DateOnly): 66,
-				time.Now().AddDate(0, 0, -2).Format(time.DateOnly): 33,
-				time.Now().AddDate(0, 0, -3).Format(time.DateOnly): 0,
+				"2023-03": 99,
+				"2023-02": 66,
+				"2023-01": 33,
+				"2022-12": 0,
 			},
 		},
 	}
