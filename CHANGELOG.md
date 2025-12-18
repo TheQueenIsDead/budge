@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.0](https://github.com/TheQueenIsDead/budge/compare/v1.10.0...v1.11.0) (2025-12-18)
+
+
+### Features
+
+* better account overview page ([#52](https://github.com/TheQueenIsDead/budge/issues/52)) ([800e5f7](https://github.com/TheQueenIsDead/budge/commit/800e5f75c59e9b5e21102d74e720522625a0d8b3))
+
 ## [1.10.0](https://github.com/TheQueenIsDead/budge/compare/v1.9.0...v1.10.0) (2025-10-27)
 
 
