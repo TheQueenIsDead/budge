@@ -53,7 +53,6 @@ func (app *Application) Account(c echo.Context) error {
 	accountId := c.Param("id")
 	account, err := app.store.GetAccount([]byte(accountId))
 	if err != nil {
-		c.Logger().Debug(accountId)
 		c.Logger().Error(err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to fetch accounts")
 	}
