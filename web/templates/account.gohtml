@@ -1,0 +1,111 @@
+{{ define "account" }}
+    <!-- Header Row -->
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <h2 class="fw-bold">{{ .Account.Name }}</h2>
+            <p class="text-muted">
+                <img class="rounded-circle" width="16" height="16" style="margin-top: -4px"
+                     src="{{.Account.Connection.Logo}}"/>
+                {{ .Account.Connection.Name }}
+            </p>
+        </div>
+        <a href="/accounts" class="btn btn-outline-light border fw-semibold">Back to Accounts</a>
+    </div>
+
+    <div id="account-details">
+        <div class="card border rounded-3 p-3 shadow-sm mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h4 class="fw-bold mb-0">Balance History</h4>
+                <div class="d-flex align-items-center">
+                    <a href="?year={{.PrevYear}}" class="btn btn-sm btn-outline-secondary">&lt; Prev</a>
+                    <a href="?" class="date-reset-link" title="Click to reset to current year">
+                        <span class="mx-3 fw-semibold">{{ .Date.Format "2006" }}</span>
+                    </a>
+                    {{ if .IsCurrentYear }}
+                        <a class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true">Next &gt;</a>
+                    {{ else }}
+                        <a href="?year={{.NextYear}}" class="btn btn-sm btn-outline-secondary">Next &gt;</a>
+                    {{ end }}
+                </div>
+            </div>
+            <canvas id="{{.Account.Id}}" style="max-height: 400px"></canvas>
+        </div>
+
+        <!-- Chart.js Scripts -->
+        <script>
+            // Bar Chart
+            new Chart(document.getElementById("{{.Account.Id}}"), {
+                type: "bar",
+                data: {
+                    labels: {{.GraphData.Labels}},
+                    datasets: [{
+                        label: "Balance",
+                        data: {{.GraphData.Data}},
+                        backgroundColor: "#000"
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: false // Balance can be negative
+                        }
+                    },
+                    plugins: {
+                        legend: {display: false}
+                    }
+                }
+            });
+
+            const dateResetLink = document.querySelector('.date-reset-link');
+            const dateSpan = dateResetLink.querySelector('span');
+            const originalDate = dateSpan.textContent;
+
+            dateResetLink.addEventListener('mouseenter', () => {
+                dateSpan.textContent = 'Current';
+            });
+
+            dateResetLink.addEventListener('mouseleave', () => {
+                dateSpan.textContent = originalDate;
+            });
+        </script>
+
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="card border rounded-3 p-3 shadow-sm h-100">
+                    <div class="text-muted fw-semibold">Total Inflow</div>
+                    <div class="fs-4 fw-bold text-success">{{ .Statistics.TotalInflow | fmtCurrency }}</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border rounded-3 p-3 shadow-sm h-100">
+                    <div class="text-muted fw-semibold">Total Outflow</div>
+                    <div class="fs-4 fw-bold text-danger">{{ .Statistics.TotalOutflow | fmtCurrency }}</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border rounded-3 p-3 shadow-sm h-100">
+                    <div class="text-muted fw-semibold">Net Change</div>
+                    <div class="fs-4 fw-bold {{if gt .Statistics.NetChange 0.0}}text-success{{else}}text-danger{{end}}">{{ .Statistics.NetChange | fmtCurrency }}</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border rounded-3 p-3 shadow-sm h-100">
+                    <div class="text-muted fw-semibold">Highest Balance</div>
+                    <div class="fs-4 fw-bold">{{ .Statistics.HighestBalance | fmtCurrency }}</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border rounded-3 p-3 shadow-sm h-100">
+                    <div class="text-muted fw-semibold">Lowest Balance</div>
+                    <div class="fs-4 fw-bold">{{ .Statistics.LowestBalance | fmtCurrency }}</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border rounded-3 p-3 shadow-sm h-100">
+                    <div class="text-muted fw-semibold">Average Balance</div>
+                    <div class="fs-4 fw-bold">{{ .Statistics.AverageBalance | fmtCurrency }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+{{ end }}
