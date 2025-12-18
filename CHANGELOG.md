@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.12.0](https://github.com/TheQueenIsDead/budge/compare/v1.11.0...v1.12.0) (2025-12-18)
+
+
+### Features
+
+* add in top transactions over the reporting period ([#55](https://github.com/TheQueenIsDead/budge/issues/55)) ([7f5fb40](https://github.com/TheQueenIsDead/budge/commit/7f5fb40c97da781f3cf7684da27bb2d30986ca36))
+* consolidate settings page and fix table jumping out of div ([933caf5](https://github.com/TheQueenIsDead/budge/commit/933caf52119aefbdbb9c5bcd2073bac253a44b6c))
+* tidy up the accounts page allignment and make buttons more consistent with theming ([a41cd78](https://github.com/TheQueenIsDead/budge/commit/a41cd7856dd42dd569e70013345eac5ba1a59610))
+
 ## [1.11.0](https://github.com/TheQueenIsDead/budge/compare/v1.10.0...v1.11.0) (2025-12-18)
 
 
