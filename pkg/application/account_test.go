@@ -1,9 +1,9 @@
 package application
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
-	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestWalkAccount(t *testing.T) {
