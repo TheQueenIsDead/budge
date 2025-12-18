@@ -147,70 +147,80 @@
             });
         </script>
 
-<!-- Top Merchants -->
-<div class="card border rounded-3 p-4 shadow-sm">
-    <div class="d-flex justify-content-between align-items-start mb-4">
-        <div>
-            <h4 class="fw-bold">Merchants</h4>
-            <p class="text-muted">Your highest paid merchants over the last 30 days.</p>
+<!-- Card for Top Merchants and Highest Outgoing Transactions -->
+<div class="row g-3 mb-3">
+    <!-- Top Merchants -->
+    <div class="col-12 col-lg-6">
+        <div class="card border rounded-3 p-4 h-100 shadow-sm">
+            <div class="d-flex justify-content-between align-items-start mb-4">
+                <div>
+                    <h4 class="fw-bold">Merchants</h4>
+                    <p class="text-muted">Your highest paid merchants over the last 30 days.</p>
+                </div>
+            </div>
+
+            <div class="row">
+                <ul class="list-unstyled">
+                {{ range .TopMerchants }}
+                    <li class="d-flex align-items-center justify-content-between mb-4">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-light rounded-circle p-2 me-3">
+                                <i class="bi bi-credit-card fs-5 text-dark"></i>
+                            </div>
+                            <div>
+                                <div class="fw-semibold">{{ .Merchant }}</div>
+                                <small class="text-muted">{{ .Total | fmtCurrency }}</small>
+                            </div>
+                        </div>
+                        {{if gt .Delta 0.0}}
+                        <div class="text-danger fw-semibold" data-bs-toggle="tooltip" data-bs-placement="top" title="Previously {{ .PreviousTotal | fmtCurrency }}">
+                            <i class="bi bi-arrow-up-short"></i>{{ .Delta | fmtPercent }}
+                        </div>
+                        {{else if lt .Delta 0.0}}
+                            <div class="text-success fw-semibold" data-bs-toggle="tooltip" data-bs-placement="top" title="Previously {{ .PreviousTotal | fmtCurrency }}">
+                                <i class="bi bi-arrow-down-short"></i>{{ .Delta | fmtPercent }}
+                            </div>
+                        {{else}}
+                        <div class="text-muted fw-semibold">
+                            <i class="bi bi-stars"></i>New
+                        </div>
+                        {{end}}
+                    </li>
+                {{ end }}
+                </ul>
+            </div>
         </div>
-{{/*            <button class="btn btn-outline-light border fw-semibold">View All</button>*/}}
     </div>
 
-    <div class="row">
-{{/*        <span class="fw-semibold">Merchants</span>*/}}
-{{/*        <small class="text-muted">Your most frequent transactions</small>*/}}
-{{/*        <ul class="col-4 list-unstyled">*/}}
-        <ul class="list-unstyled">
-        {{ range .TopMerchants }}
-            <li class="d-flex align-items-center justify-content-between mb-4">
-                <div class="d-flex align-items-center">
-                    <div class="bg-light rounded-circle p-2 me-3">
-                        <i class="bi bi-credit-card fs-5 text-dark"></i>
-                    </div>
-                    <div>
-                        <div class="fw-semibold">{{ .Merchant }}</div>
-                        <small class="text-muted">{{ .Total | fmtCurrency }}</small>
-                    </div>
+    <!-- Highest Outgoing Transactions -->
+    <div class="col-12 col-lg-6">
+        <div class="card border rounded-3 p-4 h-100 shadow-sm">
+            <div class="d-flex justify-content-between align-items-start mb-4">
+                <div>
+                    <h4 class="fw-bold">Highest Outgoing Transactions</h4>
+                    <p class="text-muted">Your highest spending transactions this period.</p>
                 </div>
-                {{if gt .Delta 0.0}}
-                <div class="text-danger fw-semibold" data-bs-toggle="tooltip" data-bs-placement="top" title="Previously {{ .PreviousTotal | fmtCurrency }}">
-                    <i class="bi bi-arrow-up-short"></i>{{ .Delta | fmtPercent }}
-                </div>
-                {{else if lt .Delta 0.0}}
-                    <div class="text-success fw-semibold" data-bs-toggle="tooltip" data-bs-placement="top" title="Previously {{ .PreviousTotal | fmtCurrency }}">
-                        <i class="bi bi-arrow-down-short"></i>{{ .Delta | fmtPercent }}
+            </div>
+            <ul class="list-unstyled">
+                {{ range .HighestOutgoingTransactions }}
+                <li class="d-flex align-items-center justify-content-between mb-4">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-light rounded-circle p-2 me-3">
+                            <i class="bi bi-cash-stack fs-5 text-dark"></i>
+                        </div>
+                        <div>
+                            <div class="fw-semibold">{{ .Description }}</div>
+                            <small class="text-muted">{{ .Amount | fmtCurrency }}</small>
+                        </div>
                     </div>
-                {{else}}
-                <div class="text-muted fw-semibold">
-                    <i class="bi bi-stars"></i>New
-                </div>
-                {{end}}
-            </li>
-        {{ end }}
-        </ul>
-
-{{/*TODO: I'm not actually sure that I want to see this...*/}}
-{{/*        <ul class="col-4 list-unstyled">*/}}
-{{/*            {{ range .FrequentMerchants }}*/}}
-{{/*                <li class="d-flex align-items-center justify-content-between mb-4">*/}}
-{{/*                    <div class="d-flex align-items-center">*/}}
-{{/*                        <div class="bg-light rounded-circle p-2 me-3">*/}}
-{{/*                            <i class="bi bi-credit-card fs-5 text-dark"></i>*/}}
-{{/*                        </div>*/}}
-{{/*                        <div>*/}}
-{{/*                            <div class="fw-semibold">{{ .Merchant }}</div>*/}}
-{{/*                            <small class="text-muted">{{ .Count }}</small>*/}}
-{{/*                        </div>*/}}
-{{/*                    </div>*/}}
-
-{{/*                    <div class="text-danger fw-semibold">*/}}
-{{/*                        <i class="bi bi-arrow-up-short"></i>{{ .Count }}*/}}
-{{/*                    </div>*/}}
-{{/*                </li>*/}}
-{{/*            {{ end }}*/}}
-{{/*        </ul>*/}}
+                    <div class="text-muted fw-semibold">
+                        {{ .Date.Format "Jan 02" }}
+                    </div>
+                </li>
+                {{ end }}
+            </ul>
+        </div>
     </div>
-
 </div>
-{{end}}
+
+{{ end }}

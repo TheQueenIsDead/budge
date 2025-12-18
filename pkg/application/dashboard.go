@@ -3,14 +3,16 @@ package application
 import (
 	"cmp"
 	"fmt"
-	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
 	"maps"
 	"math"
 	"net/http"
 	"slices"
 	"sort"
+	"strings"
 	"time"
+
+	"github.com/TheQueenIsDead/budge/pkg/database/models"
+	"github.com/labstack/echo/v4"
 )
 
 type DashboardData struct {
@@ -22,8 +24,55 @@ type DashboardData struct {
 	SpendTimeseries TimeseriesData
 	SpendDoughnut   DoughnutData
 
-	TopMerchants      []models.MerchantTotal
-	FrequentMerchants []models.MerchantFrequency
+	TopMerchants                []models.MerchantTotal
+	FrequentMerchants           []models.MerchantFrequency
+	HighestOutgoingTransactions []OutgoingTransaction
+}
+
+type OutgoingTransaction struct {
+	Description string
+	Amount      float64
+	Date        time.Time
+}
+
+func BuildHighestOutgoingTransactions(past, current []models.Transaction, n int) []OutgoingTransaction {
+	if n == 0 || len(current) == 0 {
+		return nil
+	}
+
+	var outgoing []OutgoingTransaction
+	for _, tx := range current {
+		// Exclude loan interest transactions for this report
+		if strings.ToUpper(tx.Description) == "LOAN INTEREST" {
+			continue
+		}
+		// Only consider outgoing transactions
+		if tx.Amount < 0 {
+			description := tx.Merchant.Name
+			if description == "" {
+				description = tx.Description
+			}
+			outgoing = append(outgoing, OutgoingTransaction{
+				Description: description,
+				Amount:      tx.Amount,
+				Date:        tx.Date,
+			})
+		}
+	}
+
+	// Sort by absolute amount (highest outgoing first)
+	sort.Slice(outgoing, func(i, j int) bool {
+		return math.Abs(outgoing[i].Amount) > math.Abs(outgoing[j].Amount)
+	})
+
+	// Limit to n elements
+	if len(outgoing) < n {
+		outgoing = outgoing
+	} else {
+		outgoing = outgoing[:n]
+	}
+
+	return outgoing
 }
 
 type CardData struct {
@@ -326,14 +375,15 @@ func (app *Application) Dashboard(c echo.Context) error {
 	balance, spend, income, savings := BuildCards(accounts, pastTransactions, recentTransactions)
 
 	return c.Render(http.StatusOK, "dashboard", DashboardData{
-		BalanceCard:       balance,
-		SpendCard:         spend,
-		IncomeCard:        income,
-		SavingsCard:       savings,
-		SpendTimeseries:   BuildTimeseriesData(monthlyTransactions),
-		SpendDoughnut:     BuildDoughnutData(nonTransferTransactions),
-		TopMerchants:      BuildTopMerchants(pastTransactions, recentTransactions, 10),
-		FrequentMerchants: BuildFrequentMerchants(nonTransferTransactions, 10),
+		BalanceCard:                 balance,
+		SpendCard:                   spend,
+		IncomeCard:                  income,
+		SavingsCard:                 savings,
+		SpendTimeseries:             BuildTimeseriesData(monthlyTransactions),
+		SpendDoughnut:               BuildDoughnutData(nonTransferTransactions),
+		TopMerchants:                BuildTopMerchants(pastTransactions, recentTransactions, 10),
+		FrequentMerchants:           BuildFrequentMerchants(nonTransferTransactions, 10),
+		HighestOutgoingTransactions: BuildHighestOutgoingTransactions(nil, nonTransferTransactions, 10),
 	})
 }
 func (app *Application) _4XX(c echo.Context) error {
