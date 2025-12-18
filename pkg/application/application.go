@@ -115,8 +115,6 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	// Settings
 	app.http.GET("/settings", app.Settings)
-	app.http.GET("/settings/budge", app.SettingsBudge)
-	app.http.GET("/settings/integrations", app.SettingsIntegrations)
 	app.http.POST("/settings/danger/remove/synced", app.SettingsDeleteSynced)
 
 	// Transactions

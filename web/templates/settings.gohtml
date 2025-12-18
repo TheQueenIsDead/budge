@@ -1,30 +1,128 @@
 {{define "settings"}}
-
     <!-- Header Row -->
     <div class="d-flex justify-content-between align-items-start mb-4">
         <h2 class="fw-bold">Settings</h2>
     </div>
 
-    <!-- Settings Tabs -->
-    <div class="row mb-4 justify-content-between" hx-push-url="true">
-        <div class="col">
-            <button hx-get="/settings/budge" hx-target="#settings-tab" class="tab-btn w-100 {{ if eq .tab "/settings/budge" }}active{{end}}"
-                    _="on click remove .active from <button/> add .active">
-                Budge
-            </button>
+    <!-- Integrations Settings -->
+    <div class="card border rounded-3 p-4 shadow-sm mb-4">
+        <!-- Akahu -->
+        <div class="row g-3 mb-3">
+            <picture>
+                <source srcset="/assets/akahu.svg" type="image/svg+xml">
+            </picture>
+            <h3>
+                Akahu
+                <img src="/assets/akahu.svg" class="img-fluid rounded-circle" alt="" style="height: 1em; margin-top: -0.25em">
+            </h3>
+            <p>
+                Akahu is New Zealand's open finance platform. We use Akahu to fetch transaction data from your
+                connected bank account. Find out <a href="https://www.akahu.nz/consumer"> more about Akahu here.</a>
+            </p>
         </div>
-        <div class="col">
-            <button hx-get="/settings/integrations" hx-target="#settings-tab" class="tab-btn w-100 {{ if eq .tab "/settings/integrations" }}active{{end}}"
-                    _="on click remove .active from <button/> add .active">
-                Integrations
-            </button>
+
+        <div class="row g-3 mb-3">
+            <!-- Akahu Client Config -->
+            <h4>Config</h4>
+            <div class="row">
+                <form>
+                    <div class="input-group mb-3">
+                        <label for="akahuAppToken" class="input-group-text">App Token</label>
+                        <input class="form-control" id="akahuAppToken" name="akahuAppToken" placeholder=""
+                               value="{{ .akahuAppToken }}" type="password">
+                        <span class="input-group-text">
+                            <i class="bi bi-eye-fill" id="toggleAppToken" style="cursor: pointer"
+                               _="on click if #akahuAppToken.type is 'password' set #akahuAppToken.type to 'text' else set #akahuAppToken.type to 'password'"></i>
+                        </span>
+                    </div>
+
+                    <div class="input-group mb-3">
+                        <label for="akahuUserToken" class="input-group-text"> User Token </label>
+                        <input class="form-control" id="akahuUserToken" name="akahuUserToken" placeholder=""
+                               value="{{ .akahuUserToken }}" type="password">
+                        <span class="input-group-text">
+                            <i class="bi bi-eye-fill" id="toggleUserToken" style="cursor: pointer"
+                               _="on click if #akahuUserToken.type is 'password' set #akahuUserToken.type to 'text' else set #akahuUserToken.type to 'password'"></i>
+                        </span>
+                    </div>
+
+                    <div class="row justify-content-between">
+                        {{ template "settings.integrations.last-sync" . }}
+                        <div class="col-md-2 col-12">
+                            <button class="btn btn-primary btn-success w-100" hx-post="/integrations/akahu/sync" hx-indicator="#spinner" hx-disabled-elt="this" hx-swap="outerHTML" hx-target="#last-sync">
+                                Sync
+                            </button>
+                            <svg id="spinner" class="htmx-indicator" width="24" height="24" viewBox="0 0 24 24"
+                                 xmlns="http://www.w3.org/2000/svg">
+                                <style>.spinner_P7sC {
+                                        transform-origin: center;
+                                        animation: spinner_svv2 .75s infinite linear
+                                    }
+
+                                    @keyframes spinner_svv2 {
+                                        100% {
+                                            transform: rotate(360deg)
+                                        }
+                                    }</style>
+                                <path d="M10.14,1.16a11,11,0,0,0-9,8.92A1.59,1.59,0,0,0,2.46,12,1.52,1.52,0,0,0,4.11,10.7a8,8,0,0,1,6.66-6.61A1.42,1.42,0,0,0,12,2.69h0A1.57,1.57,0,0,0,10.14,1.16Z"
+                                      class="spinner_P7sC"/>
+                            </svg>
+                        </div>
+                        <div class="col-md-2 col-12">
+                            <button class="btn btn-outline-secondary w-100" hx-post="/integrations/akahu/save" hx-disabled-elt="this" hx-swap="none">
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div id="accounts" class="row g-3 mb-3">
+            <h3>Accounts</h3>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                    <tr>
+                        <th> Connection</th>
+                        <th> Name</th>
+                        <th> Account</th>
+                        <th> Balance</th>
+                        <th> Type</th>
+                        <th> Loan Type</th>
+                        <th> Loan Interest</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {{ range .accounts }}
+                        <tr>
+                            <td><img class="rounded-circle" style="height:1em; margin-top: -0.25em"
+                                     src="{{.Connection.Logo}}"/> {{ .Connection.Name }}</td>
+                            <td>{{ .Name }}</td>
+                            <td>{{ .FormattedAccount }}</td>
+                            <td>${{ .Balance.Current | printf "%.2f" }}</td>
+                            <td>{{ .Type }}</td>
+                            <td>{{ .Meta.LoanDetails.Interest.Type }}</td>
+                            <td>{{ .Meta.LoanDetails.Interest.Rate }}%</td>
+                        </tr>
+                    {{ end }}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
-    <!-- Settings Tab Content -->
+    <!-- Budge Settings -->
     <div class="card border rounded-3 p-4 shadow-sm">
-        {{/* Make the placeholder tab 1024 so that we dont get a popping effect as tab for each settings page is populated*/}}
-        <div id="settings-tab" hx-get="{{ .tab }}" hx-swap="innerHTML" hx-trigger="load" style="min-height: 1024px">
+        <div id="danger" class="row g-3 mb-3">
+            <h3>Danger</h3>
+            <p>Tread lightly! The following operations can not be undone once performed.</p>
+            <h4>Remove all synced data</h4>
+            <p>Remove all transactions, merchants, and accounts. These can be repopulated via the sync process fairly easily.</p>
+            <button class="btn btn-danger" hx-post="/settings/danger/remove/synced" hx-confirm="Remove all synced data?">Remove all synced Data</button>
         </div>
     </div>
+{{ end }}
+
+{{ define "settings.integrations.last-sync" }}
+<p id="last-sync">Last sync {{ .akahuLastSync | fmtRelative }}</p>
 {{ end }}
