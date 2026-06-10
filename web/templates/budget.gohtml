@@ -1,0 +1,629 @@
+{{define "budget"}}
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <h2 class="fw-bold">Budget Planner</h2>
+    </div>
+
+    <!-- Weekly performance chart -->
+    <div hx-get="/budget/performance"
+         hx-trigger="load, refreshSummary from:body"
+         hx-swap="outerHTML"></div>
+
+    <!-- Datalists for category + merchant autocomplete -->
+    <div hx-get="/budget/suggestions" hx-trigger="load" hx-swap="innerHTML">
+        <datalist id="category-suggestions"></datalist>
+        <datalist id="merchant-suggestions"></datalist>
+    </div>
+
+    <!-- Salary Card -->
+    <div class="card border rounded-3 p-4 shadow-sm mb-4"
+         hx-post="/budget/salary"
+         hx-trigger="change"
+         hx-include="this"
+         hx-swap="none"
+         hx-on::after-request="htmx.trigger(document.body, 'refreshSummary')">
+        <h4 class="fw-bold mb-3"><i class="bi bi-cash-coin me-2"></i>Income</h4>
+        <div class="row g-3 align-items-end">
+            <div class="col-12 col-md-5">
+                <label class="form-label fw-semibold">Salary</label>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="number" name="salary" class="form-control"
+                           placeholder="0.00" min="0" step="0.01"
+                           {{if gt .Salary.Salary 0.0}}value="{{.Salary.Salary | printf "%.2f"}}"{{end}}>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label fw-semibold">Frequency</label>
+                <select name="salary_frequency" class="form-select">
+                    <option value="yearly"      {{if eq .Salary.SalaryFrequency "yearly"}}selected{{end}}>Yearly</option>
+                    <option value="monthly"     {{if eq .Salary.SalaryFrequency "monthly"}}selected{{end}}>Monthly</option>
+                    <option value="fortnightly" {{if eq .Salary.SalaryFrequency "fortnightly"}}selected{{end}}>Fortnightly</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label fw-semibold">KiwiSaver</label>
+                <select name="kiwisaver_rate" class="form-select">
+                    <option value="0"   {{if eq .Salary.KiwiSaverRate 0.0}}selected{{end}}>None</option>
+                    <option value="3"   {{if eq .Salary.KiwiSaverRate 3.0}}selected{{end}}>3%</option>
+                    <option value="3.5" {{if eq .Salary.KiwiSaverRate 3.5}}selected{{end}}>3.5%</option>
+                    <option value="4"   {{if eq .Salary.KiwiSaverRate 4.0}}selected{{end}}>4%</option>
+                    <option value="6"   {{if eq .Salary.KiwiSaverRate 6.0}}selected{{end}}>6%</option>
+                    <option value="8"   {{if eq .Salary.KiwiSaverRate 8.0}}selected{{end}}>8%</option>
+                    <option value="10"  {{if eq .Salary.KiwiSaverRate 10.0}}selected{{end}}>10%</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-2 d-flex align-items-end gap-3 pb-1">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="include_paye" id="includePAYE"
+                           {{if .Salary.IncludePAYE}}checked{{end}}>
+                    <label class="form-check-label fw-semibold" for="includePAYE">PAYE &amp; ACC</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="student_loan" id="studentLoan"
+                           {{if .Salary.StudentLoan}}checked{{end}}>
+                    <label class="form-check-label fw-semibold" for="studentLoan">Student Loan</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Income breakdown (lazy, refreshes on salary change) -->
+    <div id="budget-summary"
+         hx-get="/budget/summary"
+         hx-trigger="load, refreshSummary from:body"
+         hx-swap="innerHTML"></div>
+
+    <!-- Spending Targets Card -->
+    <div class="card border rounded-3 p-4 shadow-sm mb-4">
+        <h4 class="fw-bold mb-1"><i class="bi bi-bullseye me-2"></i>Spending Targets</h4>
+        <p class="text-muted small mb-3">
+            Based on your last 13 months of transactions. Set a target next to any category — it saves automatically.
+        </p>
+        {{template "budget.setup" .SetupData}}
+    </div>
+{{end}}
+
+{{define "budget.items-container"}}
+<div id="budget-items-container">
+    {{range .Groups}}
+    <div class="mb-4">
+        <div class="d-flex align-items-center mb-2 gap-2">
+            <i class="bi bi-folder2-open text-primary"></i>
+            <span class="fw-semibold">{{.Name}}</span>
+            <button class="btn btn-link btn-sm text-danger p-0 ms-1"
+                    hx-delete="/budget/categories/{{.Name}}"
+                    hx-target="#budget-items-container"
+                    hx-swap="outerHTML"
+                    hx-confirm="Delete category '{{.Name}}'? Items will become uncategorised."
+                    hx-on::after-request="htmx.trigger(document.body, 'refreshSummary')">
+                <i class="bi bi-x-circle"></i>
+            </button>
+        </div>
+        <div class="category-zone border rounded-3 p-2" data-category="{{.Name}}">
+            {{if .Items}}
+                {{range .Items}}{{template "budget.item" .}}{{end}}
+            {{else}}
+                <div class="drop-hint text-muted text-center py-2 rounded">Drop items here</div>
+            {{end}}
+        </div>
+        {{if .WeeklyTotal}}<div class="text-end mt-1"><small class="text-muted">{{.WeeklyTotal | fmtCurrency}} / week</small></div>{{end}}
+    </div>
+    {{end}}
+
+    <!-- Uncategorised -->
+    <div class="{{if .Groups}}mt-2{{end}}">
+        {{if .Groups}}
+        <div class="d-flex align-items-center mb-2 gap-2">
+            <i class="bi bi-inbox text-muted"></i>
+            <span class="fw-semibold text-muted">Uncategorised</span>
+        </div>
+        {{end}}
+        <div class="category-zone border rounded-3 p-2" data-category="" id="uncategorized-items">
+            {{range .Uncategorized}}{{template "budget.item" .}}{{end}}
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "budget.item"}}
+<div class="row g-2 align-items-center budget-item mb-2" data-item-id="{{.ID}}"
+     hx-put="/budget/items/{{.ID}}"
+     hx-trigger="change"
+     hx-include="this"
+     hx-swap="none"
+     hx-on::after-request="htmx.trigger(document.body, 'refreshSummary')">
+    <div class="col-auto px-1">
+        <span class="drag-handle"><i class="bi bi-grip-vertical"></i></span>
+    </div>
+    <div class="col col-md-5">
+        <input type="text" name="item_name" class="form-control"
+               placeholder="e.g. Rent, Groceries…" value="{{.Name}}">
+    </div>
+    <div class="col-5 col-md-3">
+        <div class="input-group">
+            <span class="input-group-text">$</span>
+            <input type="number" name="item_amount" class="form-control"
+                   placeholder="0.00" min="0" step="0.01"
+                   {{if gt .Amount 0.0}}value="{{.Amount | printf "%.2f"}}"{{end}}>
+        </div>
+    </div>
+    <div class="col col-md-3">
+        <select name="item_frequency" class="form-select">
+            <option value="weekly"      {{if eq .Frequency "weekly"}}selected{{end}}>Weekly</option>
+            <option value="fortnightly" {{if eq .Frequency "fortnightly"}}selected{{end}}>Fortnightly</option>
+            <option value="monthly"     {{if or (eq .Frequency "monthly") (eq .Frequency "")}}selected{{end}}>Monthly</option>
+            <option value="yearly"      {{if eq .Frequency "yearly"}}selected{{end}}>Yearly</option>
+        </select>
+    </div>
+    <div class="col-auto d-flex gap-1">
+        <button class="btn btn-outline-secondary btn-sm"
+                hx-get="/budget/items/{{.ID}}/keywords"
+                hx-target="#keywords-{{.ID}}"
+                hx-swap="innerHTML"
+                hx-trigger="click once"
+                title="Match keywords">
+            <i class="bi bi-tag"></i>
+        </button>
+        <button class="btn btn-outline-danger btn-sm"
+                hx-delete="/budget/items/{{.ID}}"
+                hx-target="closest .budget-item"
+                hx-swap="outerHTML"
+                hx-on::after-request="htmx.trigger(document.body, 'refreshSummary')">
+            <i class="bi bi-trash"></i>
+        </button>
+    </div>
+</div>
+<div id="keywords-{{.ID}}" class="ps-4 pb-1"></div>
+{{end}}
+
+{{define "budget.summary"}}
+    <!-- Income Breakdown -->
+    <div class="card border rounded-3 p-4 shadow-sm mb-4">
+        <h4 class="fw-bold mb-3"><i class="bi bi-graph-up-arrow me-2"></i>Income Breakdown</h4>
+        <div class="table-responsive">
+            <table class="table table-sm table-borderless mb-0">
+                <thead>
+                    <tr class="text-muted border-bottom">
+                        <th></th>
+                        <th class="text-end">Hourly</th>
+                        <th class="text-end">Weekly</th>
+                        <th class="text-end">Fortnightly</th>
+                        <th class="text-end">Monthly</th>
+                        <th class="text-end">Annual</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="fw-semibold">Gross Pay</td>
+                        <td class="text-end">{{.GrossHourly | fmtCurrency}}</td>
+                        <td class="text-end">{{.GrossWeekly | fmtCurrency}}</td>
+                        <td class="text-end">{{.GrossFortnightly | fmtCurrency}}</td>
+                        <td class="text-end">{{.GrossMonthly | fmtCurrency}}</td>
+                        <td class="text-end">{{.GrossAnnual | fmtCurrency}}</td>
+                    </tr>
+                    {{if gt .PAYEAnnual 0.0}}
+                    <tr class="text-danger">
+                        <td>PAYE</td>
+                        <td class="text-end">−{{.PAYEHourly | fmtCurrency}}</td>
+                        <td class="text-end">−{{.PAYEWeekly | fmtCurrency}}</td>
+                        <td class="text-end">−{{.PAYEFortnightly | fmtCurrency}}</td>
+                        <td class="text-end">−{{.PAYEMonthly | fmtCurrency}}</td>
+                        <td class="text-end">−{{.PAYEAnnual | fmtCurrency}}</td>
+                    </tr>
+                    <tr class="text-danger">
+                        <td>ACC</td>
+                        <td class="text-end">−{{.ACCHourly | fmtCurrency}}</td>
+                        <td class="text-end">−{{.ACCWeekly | fmtCurrency}}</td>
+                        <td class="text-end">−{{.ACCFortnightly | fmtCurrency}}</td>
+                        <td class="text-end">−{{.ACCMonthly | fmtCurrency}}</td>
+                        <td class="text-end">−{{.ACCAnnual | fmtCurrency}}</td>
+                    </tr>
+                    {{end}}
+                    {{if gt .KiwiSaverAnnual 0.0}}
+                    <tr class="text-warning">
+                        <td>KiwiSaver</td>
+                        <td class="text-end">−{{.KiwiSaverHourly | fmtCurrency}}</td>
+                        <td class="text-end">−{{.KiwiSaverWeekly | fmtCurrency}}</td>
+                        <td class="text-end">−{{.KiwiSaverFortnightly | fmtCurrency}}</td>
+                        <td class="text-end">−{{.KiwiSaverMonthly | fmtCurrency}}</td>
+                        <td class="text-end">−{{.KiwiSaverAnnual | fmtCurrency}}</td>
+                    </tr>
+                    {{end}}
+                    <tr class="text-warning">
+                        <td>Student Loan</td>
+                        <td class="text-end">−{{.StudentLoanHourly | fmtCurrency}}</td>
+                        <td class="text-end">−{{.StudentLoanWeekly | fmtCurrency}}</td>
+                        <td class="text-end">−{{.StudentLoanFortnight | fmtCurrency}}</td>
+                        <td class="text-end">−{{.StudentLoanMonthly | fmtCurrency}}</td>
+                        <td class="text-end">−{{.StudentLoanAnnual | fmtCurrency}}</td>
+                    </tr>
+                    <tr class="fw-bold border-top">
+                        <td>Take Home Pay</td>
+                        <td class="text-end text-success">{{.NetHourly | fmtCurrency}}</td>
+                        <td class="text-end text-success">{{.NetWeekly | fmtCurrency}}</td>
+                        <td class="text-end text-success">{{.NetFortnightly | fmtCurrency}}</td>
+                        <td class="text-end text-success">{{.NetMonthly | fmtCurrency}}</td>
+                        <td class="text-end text-success">{{.NetAnnual | fmtCurrency}}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Savings Summary -->
+    <div class="card border rounded-3 p-4 shadow-sm mb-4">
+        <h4 class="fw-bold mb-3"><i class="bi bi-piggy-bank me-2"></i>Weekly Summary</h4>
+        <div class="row g-3">
+            <div class="col-12 col-md-4">
+                <div class="card bg-light border-0 p-3 h-100">
+                    <small class="text-muted fw-semibold text-uppercase">Weekly Income</small>
+                    <div class="fs-3 fw-bold mt-1 text-success">{{.NetWeekly | fmtCurrency}}</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="card bg-light border-0 p-3 h-100">
+                    <small class="text-muted fw-semibold text-uppercase">Weekly Expenses</small>
+                    <div class="fs-3 fw-bold mt-1 text-danger">{{.TotalWeeklyExpenses | fmtCurrency}}</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                {{if .HasDeficit}}
+                <div class="card border-danger p-3 h-100" style="background-color:#fff5f5;">
+                    <small class="text-danger fw-semibold text-uppercase">Weekly Deficit</small>
+                    <div class="fs-3 fw-bold mt-1 text-danger">{{.WeeklySavings | fmtCurrency}}</div>
+                    <small class="text-muted mt-1">Expenses exceed income</small>
+                </div>
+                {{else}}
+                <div class="card border-success p-3 h-100" style="background-color:#f0fff4;">
+                    <small class="text-success fw-semibold text-uppercase">Weekly Savings</small>
+                    <div class="fs-3 fw-bold mt-1 text-success">{{.WeeklySavings | fmtCurrency}}</div>
+                    <small class="text-muted mt-1">Available after expenses</small>
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+{{end}}
+
+{{define "budget.performance"}}
+<div class="card border rounded-3 p-4 shadow-sm mb-4">
+    <h4 class="fw-bold mb-3"><i class="bi bi-graph-up me-2"></i>Weekly Performance — Last 13 Weeks</h4>
+    {{if .HasData}}
+    <div style="position:relative; height:220px;">
+        <canvas id="budget-perf-chart"></canvas>
+    </div>
+    <script>
+    (function() {
+        const existing = Chart.getChart('budget-perf-chart');
+        if (existing) existing.destroy();
+        const actuals = {{.ActualsJSON}};
+        const target  = {{printf "%.2f" .Target}};
+        new Chart(document.getElementById('budget-perf-chart'), {
+            data: {
+                labels: {{.LabelsJSON}},
+                datasets: [{
+                    type: 'bar',
+                    label: 'Weekly Spend',
+                    data: actuals,
+                    backgroundColor: actuals.map(v =>
+                        target > 0 && v > target
+                            ? 'rgba(220,53,69,0.75)'
+                            : 'rgba(25,135,84,0.75)'),
+                    borderColor: actuals.map(v =>
+                        target > 0 && v > target
+                            ? 'rgb(220,53,69)'
+                            : 'rgb(25,135,84)'),
+                    borderWidth: 1,
+                    order: 2,
+                }, {
+                    type: 'line',
+                    label: 'Budget Target',
+                    data: Array(actuals.length).fill(target),
+                    borderColor: 'rgba(0,0,0,0.3)',
+                    borderDash: [6, 4],
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: false,
+                    order: 1,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index' },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: v => '$' + v.toLocaleString() }
+                    }
+                },
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ' ' + ctx.dataset.label + ': $' + ctx.parsed.y.toFixed(2)
+                        }
+                    }
+                }
+            }
+        });
+    })();
+    </script>
+    {{else}}
+    <p class="text-muted text-center py-3 mb-0">
+        No data yet — sync transactions and set spending targets to see weekly performance.
+    </p>
+    {{end}}
+</div>
+{{end}}
+
+{{define "budget.setup"}}
+{{if .HasData}}
+<div class="table-responsive">
+    <table class="table table-sm mb-0">
+        <thead>
+            <tr class="text-muted">
+                <th>Subcategory</th>
+                <th class="text-end">Actual/wk <small class="fw-normal">(13mo avg)</small></th>
+                <th class="text-end" style="width:160px;">Target</th>
+                <th style="width:130px;">Per</th>
+                <th style="width:36px;"></th>
+            </tr>
+        </thead>
+        {{range .Groups}}
+        <tbody>
+            <tr class="table-light">
+                <td colspan="5" class="fw-semibold py-2">
+                    <i class="bi bi-folder2-open me-1 text-primary"></i>{{.Name}}
+                </td>
+            </tr>
+        </tbody>
+        {{range .Rows}}
+        {{template "budget.setup.row" .}}
+        {{end}}
+        {{end}}
+    </table>
+</div>
+{{else}}
+<div class="text-center text-muted py-5">
+    <i class="bi bi-bank2 fs-1 d-block mb-2"></i>
+    <p class="mb-0">No transaction data yet.<br>Sync your accounts from <a href="/settings">Settings</a> to get started.</p>
+</div>
+{{end}}
+{{end}}
+
+{{define "budget.setup.row"}}
+<tbody id="{{.RowID}}">
+    <tr {{if not .HasSubItems}}
+        hx-post="/budget/targets"
+        hx-trigger="change"
+        hx-include="this"
+        hx-target="#{{.RowID}}"
+        hx-swap="outerHTML"
+        hx-on::after-request="htmx.trigger(document.body, 'refreshSummary')"
+        {{end}}>
+        <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
+        <input type="hidden" name="sub_category"   value="{{.SubCategory}}">
+        <td class="ps-4">{{.SubCategory}}</td>
+        <td class="text-end">
+            {{if .HasTarget}}
+            <span class="fw-semibold {{if .IsOver}}text-danger{{else}}text-success{{end}}">
+                {{.ActualWeekly | fmtCurrency}} / {{.TargetWeekly | fmtCurrency}}
+            </span>
+            <small class="d-block {{if .IsOver}}text-danger{{else}}text-success{{end}}">
+                {{.Percentage | fmtPercent}}
+            </small>
+            {{else}}
+            <span class="text-muted">{{.ActualWeekly | fmtCurrency}}</span>
+            {{end}}
+        </td>
+        {{if .HasSubItems}}
+        <td class="text-end text-muted" colspan="2">
+            <span class="fw-semibold text-body">{{.DerivedWeekly | fmtCurrency}}</span>
+            <small class="ms-1">from {{len .SubItems}} items</small>
+        </td>
+        {{else}}
+        <td class="text-end">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text">$</span>
+                <input type="number" name="target_amount" class="form-control text-end"
+                       placeholder="—" min="0" step="0.01"
+                       {{if gt .Target 0.0}}value="{{.Target | printf "%.2f"}}"{{end}}>
+            </div>
+        </td>
+        <td>
+            <select name="target_frequency" class="form-select form-select-sm">
+                <option value="weekly"      {{if or (eq .Frequency "weekly") (eq .Frequency "")}}selected{{end}}>Weekly</option>
+                <option value="fortnightly" {{if eq .Frequency "fortnightly"}}selected{{end}}>Fortnightly</option>
+                <option value="monthly"     {{if eq .Frequency "monthly"}}selected{{end}}>Monthly</option>
+                <option value="yearly"      {{if eq .Frequency "yearly"}}selected{{end}}>Yearly</option>
+            </select>
+        </td>
+        {{end}}
+        <td class="text-center">
+            <form hx-post="/budget/subitems"
+                  hx-target="#{{.RowID}}"
+                  hx-swap="outerHTML"
+                  hx-on::after-request="htmx.trigger(document.body, 'refreshSummary')">
+                <input type="hidden" name="sub_category"   value="{{.SubCategory}}">
+                <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
+                <button type="submit" class="btn btn-link btn-sm p-0 text-muted" title="Add item">
+                    <i class="bi bi-plus-circle"></i>
+                </button>
+            </form>
+        </td>
+    </tr>
+    {{range .SubItems}}
+    <tr class="table-active"
+        hx-put="/budget/items/{{$.ItemID}}/subitems/{{.ID}}"
+        hx-trigger="change"
+        hx-include="this"
+        hx-target="#{{$.RowID}}"
+        hx-swap="outerHTML"
+        hx-on::after-request="htmx.trigger(document.body, 'refreshSummary')">
+        <td class="ps-5">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-arrow-return-right text-muted flex-shrink-0"></i>
+                <input type="text" name="subitem_name" class="form-control form-control-sm"
+                       value="{{.Name}}" placeholder="e.g. Toyota Hilux registration">
+            </div>
+        </td>
+        <td></td>
+        <td>
+            <div class="input-group input-group-sm">
+                <span class="input-group-text">$</span>
+                <input type="number" name="subitem_amount" class="form-control text-end"
+                       placeholder="0.00" min="0" step="0.01"
+                       {{if gt .Amount 0.0}}value="{{.Amount | printf "%.2f"}}"{{end}}>
+            </div>
+        </td>
+        <td>
+            <select name="subitem_frequency" class="form-select form-select-sm">
+                <option value="weekly"      {{if eq .Frequency "weekly"}}selected{{end}}>Weekly</option>
+                <option value="fortnightly" {{if eq .Frequency "fortnightly"}}selected{{end}}>Fortnightly</option>
+                <option value="monthly"     {{if or (eq .Frequency "monthly") (eq .Frequency "")}}selected{{end}}>Monthly</option>
+                <option value="yearly"      {{if eq .Frequency "yearly"}}selected{{end}}>Yearly</option>
+            </select>
+        </td>
+        <td class="text-center">
+            <button class="btn btn-link btn-sm p-0 text-danger"
+                    hx-delete="/budget/items/{{$.ItemID}}/subitems/{{.ID}}"
+                    hx-target="#{{$.RowID}}"
+                    hx-swap="outerHTML"
+                    hx-on::after-request="htmx.trigger(document.body, 'refreshSummary')"
+                    title="Remove">
+                <i class="bi bi-x-circle"></i>
+            </button>
+        </td>
+    </tr>
+    {{end}}
+</tbody>
+{{end}}
+
+{{define "budget.suggestions"}}
+<datalist id="category-suggestions">
+    {{range .Categories}}<option value="{{.}}">{{end}}
+</datalist>
+<datalist id="merchant-suggestions">
+    {{range .Merchants}}<option value="{{.}}">{{end}}
+</datalist>
+{{end}}
+
+{{define "budget.item.keywords"}}
+<div class="d-flex flex-wrap gap-2 align-items-center py-2">
+    {{range .Keywords}}
+    <span class="badge bg-secondary d-flex align-items-center gap-1">
+        {{.}}
+        <button class="btn-close btn-close-white"
+                style="font-size:0.6rem;"
+                hx-delete="/budget/items/{{$.ID}}/keywords/{{.}}"
+                hx-target="#keywords-{{$.ID}}"
+                hx-swap="innerHTML"
+                hx-on::after-request="htmx.trigger(document.body, 'refreshSummary')">
+        </button>
+    </span>
+    {{end}}
+    <form class="d-flex gap-1"
+          hx-post="/budget/items/{{.ID}}/keywords"
+          hx-target="#keywords-{{.ID}}"
+          hx-swap="innerHTML"
+          hx-on::after-request="this.reset(); htmx.trigger(document.body, 'refreshSummary')">
+        <input type="text" name="keyword" class="form-control form-control-sm"
+               placeholder="Add keyword…" style="width:140px;"
+               list="merchant-suggestions" autocomplete="off">
+        <button type="submit" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-plus"></i>
+        </button>
+    </form>
+</div>
+{{end}}
+
+{{define "budget.item.actuals"}}
+<td colspan="5" class="p-0">
+    {{if .}}
+    <table class="table table-sm mb-0 border-0" style="background:rgba(0,0,0,0.02);">
+        <thead>
+            <tr class="text-muted" style="font-size:0.8rem;">
+                <th class="ps-5">Date</th>
+                <th>Merchant</th>
+                <th>Description</th>
+                <th class="text-end">Amount</th>
+                <th>Matched by</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .}}
+            <tr style="font-size:0.85rem;">
+                <td class="ps-5 text-muted">{{.Date}}</td>
+                <td>{{.Merchant}}</td>
+                <td class="text-muted">{{.Description}}</td>
+                <td class="text-end">{{.Amount | fmtCurrency}}</td>
+                <td><span class="badge bg-light text-dark border">{{.MatchedBy}}</span></td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <p class="text-muted small ps-5 py-2 mb-0">No matched transactions in this period.</p>
+    {{end}}
+</td>
+{{end}}
+
+{{define "budget.actuals"}}
+{{if .HasTransactions}}
+<div class="card border rounded-3 p-4 shadow-sm mb-4">
+    <h4 class="fw-bold mb-3"><i class="bi bi-bar-chart-line me-2"></i>Actual vs Budget</h4>
+    <p class="text-muted small mb-3">
+        Actual spend is normalised to a weekly rate over a lookback window matched to each item's frequency
+        (weekly&nbsp;→&nbsp;4&nbsp;wks, monthly&nbsp;→&nbsp;13&nbsp;wks, yearly&nbsp;→&nbsp;56&nbsp;wks).
+        Matched via keywords first, then Akahu category name.
+    </p>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Category</th>
+                    <th class="text-end">Budgeted/wk</th>
+                    <th class="text-end">Actual/wk</th>
+                    <th class="text-end">Variance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Rows}}
+                <tr class="{{if and .Over .Significant}}table-danger{{else if .Over}}table-warning{{else if gt .BudgetedWeekly 0.0}}table-success{{end}}">
+                    <td>
+                        <button class="btn btn-link btn-sm p-0 me-1 text-muted"
+                                hx-get="/budget/items/{{.ID}}/actuals"
+                                hx-target="#actuals-detail-{{.ID}}"
+                                hx-swap="innerHTML"
+                                hx-trigger="click once"
+                                title="Show matched transactions">
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                        {{.Name}}
+                    </td>
+                    <td><span class="text-muted">{{if .Category}}{{.Category}}{{else}}—{{end}}</span></td>
+                    <td class="text-end">{{.BudgetedWeekly | fmtCurrency}}</td>
+                    <td class="text-end">{{.ActualWeekly | fmtCurrency}}</td>
+                    <td class="text-end fw-semibold {{if .Over}}text-danger{{else}}text-success{{end}}">
+                        {{if .Over}}+{{end}}{{.Variance | fmtCurrency}}
+                    </td>
+                </tr>
+                <tr id="actuals-detail-{{.ID}}" class="p-0"></tr>
+                {{end}}
+                {{range .UnmatchedGroups}}
+                <tr class="text-muted fst-italic">
+                    <td>{{.Category}}</td>
+                    <td><span class="badge bg-secondary fw-normal">unmatched</span></td>
+                    <td class="text-end">—</td>
+                    <td class="text-end">{{.WeeklyTotal | fmtCurrency}}</td>
+                    <td class="text-end">—</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{end}}
+{{end}}

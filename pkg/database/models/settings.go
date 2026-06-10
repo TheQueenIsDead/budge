@@ -20,6 +20,18 @@ func (ias IntegrationAkahuSettings) Bucket() []byte {
 	return buckets.SettingsBucket
 }
 
+type BudgetSalary struct {
+	Salary          float64
+	SalaryFrequency string
+	IncludePAYE     bool
+	KiwiSaverRate   float64
+	StudentLoan     bool
+	Categories      []string
+}
+
+func (bs BudgetSalary) Key() []byte    { return []byte("salary") }
+func (bs BudgetSalary) Bucket() []byte { return buckets.SettingsBucket }
+
 func (ias *IntegrationAkahuSettings) Validate() error {
 	if ias.AppToken == "" {
 		return errors.New("AppToken is required but was empty")

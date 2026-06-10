@@ -124,6 +124,23 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.GET("/accounts", app.Accounts)
 	app.http.GET("/accounts/:id", app.Account)
 
+	// Budget
+	app.http.GET("/budget", app.Budget)
+	app.http.GET("/budget/summary", app.BudgetSummary)
+	app.http.POST("/budget/salary", app.BudgetSaveSalary)
+	app.http.DELETE("/budget/items/:id", app.BudgetDeleteItem)
+	app.http.GET("/budget/items/:id/actuals", app.BudgetItemActuals)
+	app.http.GET("/budget/items/:id/keywords", app.BudgetItemKeywords)
+	app.http.POST("/budget/items/:id/keywords", app.BudgetAddKeyword)
+	app.http.DELETE("/budget/items/:id/keywords/:keyword", app.BudgetRemoveKeyword)
+	app.http.GET("/budget/actuals", app.BudgetActuals)
+	app.http.GET("/budget/suggestions", app.BudgetSuggestions)
+	app.http.GET("/budget/performance", app.BudgetPerformance)
+	app.http.POST("/budget/targets", app.BudgetSaveTarget)
+	app.http.POST("/budget/subitems", app.BudgetAddSubItem)
+	app.http.PUT("/budget/items/:id/subitems/:subid", app.BudgetUpdateSubItem)
+	app.http.DELETE("/budget/items/:id/subitems/:subid", app.BudgetDeleteSubItem)
+
 	// Static Assets
 	app.http.Static("/assets", "./web/public")
 
