@@ -103,14 +103,6 @@ func (s *Store) ReadBudgetItems() ([]models.BudgetItem, error) {
 func (s *Store) UpdateBudgetItem(item models.BudgetItem) error {
 	return Update[models.BudgetItem](s.db, item)
 }
-func (s *Store) AssignBudgetItemCategory(id, category string) error {
-	item, err := Get[models.BudgetItem](s.db, []byte(id))
-	if err != nil {
-		return err
-	}
-	item.Category = category
-	return Update[models.BudgetItem](s.db, item)
-}
 func (s *Store) DeleteBudgetItem(id string) error {
 	return Delete[models.BudgetItem](s.db, []byte(id))
 }
@@ -165,49 +157,6 @@ func (s *Store) GetBudgetSalary() (models.BudgetSalary, error) {
 }
 func (s *Store) SaveBudgetSalary(salary models.BudgetSalary) error {
 	return Update[models.BudgetSalary](s.db, salary)
-}
-func (s *Store) AddBudgetCategory(name string) error {
-	salary, err := s.GetBudgetSalary()
-	if err != nil {
-		return err
-	}
-	for _, c := range salary.Categories {
-		if c == name {
-			return nil
-		}
-	}
-	salary.Categories = append(salary.Categories, name)
-	return Update[models.BudgetSalary](s.db, salary)
-}
-func (s *Store) DeleteBudgetCategory(name string) error {
-	salary, err := s.GetBudgetSalary()
-	if err != nil {
-		return err
-	}
-	filtered := salary.Categories[:0]
-	for _, c := range salary.Categories {
-		if c != name {
-			filtered = append(filtered, c)
-		}
-	}
-	salary.Categories = filtered
-	if err := Update[models.BudgetSalary](s.db, salary); err != nil {
-		return err
-	}
-	// Clear category from any items that had it
-	items, err := s.ReadBudgetItems()
-	if err != nil {
-		return err
-	}
-	for _, item := range items {
-		if item.Category == name {
-			item.Category = ""
-			if err := Update[models.BudgetItem](s.db, item); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 /* Settings */

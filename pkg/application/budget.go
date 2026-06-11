@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"math"
 	"net/http"
 	"strconv"
@@ -15,15 +14,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// frequencyWindowWeeks is the lookback window (in weeks) used when computing
-// actual spend for each budget item frequency. A yearly item needs a 13-month
-// window so the single annual transaction is always captured.
-var frequencyWindowWeeks = map[string]float64{
-	"weekly":      4,
-	"fortnightly": 8,
-	"monthly":     13,
-	"yearly":      56,
-}
 
 // CategoryTargetRow is one row in the category-based budget setup table.
 type CategoryTargetRow struct {
@@ -38,17 +28,26 @@ type CategoryTargetRow struct {
 	SubItems      []models.BudgetSubItem
 	DerivedWeekly float64
 	HasSubItems   bool
-	// Comparison fields
+	// Comparison fields (all in target frequency units for display)
+	ActualDisplay float64 // actual converted to target frequency
+	TargetDisplay float64 // target as entered (already in target frequency)
+	ActualLabel   string  // e.g. "/wk", "/mo"
+	Percentage    float64
+	IsOver        bool
+	HasTarget     bool
+	// kept for weekly-normalised internal calculations
 	TargetWeekly float64
-	Percentage   float64
-	IsOver       bool
-	HasTarget    bool
 }
 
 // BroadCategoryGroup groups target rows under their parent Akahu category.
 type BroadCategoryGroup struct {
-	Name string
-	Rows []CategoryTargetRow
+	Name              string
+	Rows              []CategoryTargetRow
+	TotalActualWeekly float64
+	TotalTargetWeekly float64
+	HasTarget         bool
+	IsOver            bool
+	Percentage        float64
 }
 
 // CategorySetupData is the view-model for the budget.setup partial.
@@ -278,6 +277,19 @@ func buildSetupRowData(item models.BudgetItem, actualWeekly float64) CategoryTar
 		targetWeekly = derived
 	}
 	hasTarget := targetWeekly > 0
+
+	// For sub-items there's no single frequency, so always display weekly.
+	freq := item.Frequency
+	if hasSubItems || freq == "" {
+		freq = "weekly"
+	}
+	actualDisplay := actualInFrequency(actualWeekly, freq)
+	targetDisplay := item.Amount
+	if hasSubItems {
+		targetDisplay = derived // DerivedWeekly is already weekly
+	}
+	label := frequencyLabel(freq)
+
 	var pct float64
 	if hasTarget {
 		pct = actualWeekly / targetWeekly
@@ -293,6 +305,9 @@ func buildSetupRowData(item models.BudgetItem, actualWeekly float64) CategoryTar
 		SubItems:      item.SubItems,
 		DerivedWeekly: derived,
 		HasSubItems:   hasSubItems,
+		ActualDisplay: actualDisplay,
+		TargetDisplay: targetDisplay,
+		ActualLabel:   label,
 		TargetWeekly:  targetWeekly,
 		Percentage:    pct,
 		IsOver:        hasTarget && actualWeekly > targetWeekly,
@@ -367,14 +382,28 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 
 	var groups []BroadCategoryGroup
 	for _, broad := range broadOrder {
-		groups = append(groups, BroadCategoryGroup{Name: broad, Rows: groupRows[broad]})
+		rows := groupRows[broad]
+		var totalActual, totalTarget float64
+		for _, row := range rows {
+			totalActual += row.ActualWeekly
+			totalTarget += row.TargetWeekly
+		}
+		hasTarget := totalTarget > 0
+		var pct float64
+		if hasTarget {
+			pct = totalActual / totalTarget
+		}
+		groups = append(groups, BroadCategoryGroup{
+			Name:              broad,
+			Rows:              rows,
+			TotalActualWeekly: totalActual,
+			TotalTargetWeekly: totalTarget,
+			HasTarget:         hasTarget,
+			IsOver:            hasTarget && totalActual > totalTarget,
+			Percentage:        pct,
+		})
 	}
 	return CategorySetupData{Groups: groups, HasData: len(txs) > 0}, nil
-}
-
-// BudgetDeleteItem removes an item (e.g. to clear a target).
-func (app *Application) BudgetDeleteItem(c echo.Context) error {
-	return app.store.DeleteBudgetItem(c.Param("id"))
 }
 
 // BudgetSaveSalary persists salary config (called on field change, hx-swap="none").
@@ -487,11 +516,13 @@ func (app *Application) BudgetSummary(c echo.Context) error {
 // ---- performance chart ----
 
 // BudgetPerformanceData is the view-model for the budget.performance partial.
+// Labels and Actuals are JSON strings embedded as data attributes on the canvas;
+// Go's HTML-encoding of attribute values keeps them safe, and dataset decodes them.
 type BudgetPerformanceData struct {
-	LabelsJSON  template.JS
-	ActualsJSON template.JS
-	Target      float64
-	HasData     bool
+	Labels  string
+	Actuals string
+	Target  float64
+	HasData bool
 }
 
 func (app *Application) BudgetPerformance(c echo.Context) error {
@@ -535,17 +566,20 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 	actualsJSON, _ := json.Marshal(actuals)
 
 	return c.Render(http.StatusOK, "budget.performance", BudgetPerformanceData{
-		LabelsJSON:  template.JS(labelsJSON),
-		ActualsJSON: template.JS(actualsJSON),
-		Target:      math.Round(target*100) / 100,
-		HasData:     len(txs) > 0 || target > 0,
+		Labels:  string(labelsJSON),
+		Actuals: string(actualsJSON),
+		Target:  math.Round(target*100) / 100,
+		HasData: len(txs) > 0 || target > 0,
 	})
 }
 
-// isoWeekStart returns the Monday of the ISO week containing t.
+// isoWeekStart returns the Monday of the ISO week containing t, normalised to
+// UTC midnight so that map keys from transaction dates (UTC) and time.Now()
+// (local) always compare equal for the same calendar week.
 func isoWeekStart(t time.Time) time.Time {
+	t = t.UTC()
 	y, m, d := t.Date()
-	t0 := time.Date(y, m, d, 0, 0, 0, 0, t.Location())
+	t0 := time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
 	wd := int(t0.Weekday())
 	if wd == 0 {
 		wd = 7
@@ -567,6 +601,34 @@ func weeklyTarget(item models.BudgetItem) float64 {
 		total += toWeeklyAmount(si.Amount, si.Frequency)
 	}
 	return total
+}
+
+func actualInFrequency(weeklyActual float64, frequency string) float64 {
+	switch frequency {
+	case "weekly", "":
+		return weeklyActual
+	case "fortnightly":
+		return weeklyActual * 2
+	case "monthly":
+		return weeklyActual * 52 / 12
+	case "yearly":
+		return weeklyActual * 52
+	}
+	return weeklyActual
+}
+
+func frequencyLabel(frequency string) string {
+	switch frequency {
+	case "weekly", "":
+		return "per Week"
+	case "fortnightly":
+		return "per Fortnight"
+	case "monthly":
+		return "per Month"
+	case "yearly":
+		return "per Year"
+	}
+	return "per Week"
 }
 
 // sanitizeID converts a string to a safe HTML id by lowercasing and replacing
@@ -654,234 +716,6 @@ func newID() string {
 	return fmt.Sprintf("%x", b)
 }
 
-// ---- actuals ----
-
-// ActualsRow is one line in the budget vs actual table.
-type ActualsRow struct {
-	ID             string
-	Name           string
-	Category       string
-	BudgetedWeekly float64
-	ActualWeekly   float64
-	Variance       float64
-	Over           bool // actual > budgeted
-	Significant    bool // variance > 10% of budgeted
-}
-
-// UnmatchedGroup is one Akahu PersonalFinance category worth of unmatched spend.
-type UnmatchedGroup struct {
-	Category    string
-	WeeklyTotal float64
-}
-
-// ActualsData is the view-model for the budget.actuals partial.
-type ActualsData struct {
-	Rows            []ActualsRow
-	UnmatchedGroups []UnmatchedGroup
-	HasTransactions bool
-}
-
-func (app *Application) BudgetActuals(c echo.Context) error {
-	items, err := app.store.ReadBudgetItems()
-	if err != nil {
-		return err
-	}
-
-	// One query covers all frequencies (13 months is the widest window).
-	start := time.Now().AddDate(0, -13, 0)
-	txs, err := app.store.ReadTransactionsByDate(start, time.Now())
-	if err != nil {
-		return err
-	}
-
-	matched, unmatched := matchTransactions(items, txs)
-
-	var rows []ActualsRow
-	for _, item := range items {
-		windowWeeks := frequencyWindowWeeks[item.Frequency]
-		if windowWeeks == 0 {
-			windowWeeks = 4
-		}
-		cutoff := time.Now().AddDate(0, 0, -int(windowWeeks*7))
-
-		var actualTotal float64
-		for _, tx := range matched[item.ID] {
-			if tx.Date.After(cutoff) {
-				actualTotal += math.Abs(tx.Amount)
-			}
-		}
-		actualWeekly := actualTotal / windowWeeks
-		budgetedWeekly := weeklyTarget(item)
-		variance := actualWeekly - budgetedWeekly
-
-		rows = append(rows, ActualsRow{
-			ID:             item.ID,
-			Name:           item.Name,
-			Category:       item.Category,
-			BudgetedWeekly: budgetedWeekly,
-			ActualWeekly:   actualWeekly,
-			Variance:       variance,
-			Over:           variance > 0,
-			Significant:    budgetedWeekly > 0 && math.Abs(variance)/budgetedWeekly > 0.10,
-		})
-	}
-
-	// Group unmatched by Akahu PersonalFinance category over a 4-week window.
-	cutoff4w := time.Now().AddDate(0, 0, -28)
-	unmatchedTotals := make(map[string]float64)
-	var unmatchedOrder []string
-	for _, tx := range unmatched {
-		if !tx.Date.After(cutoff4w) {
-			continue
-		}
-		cat := tx.Category.Groups.PersonalFinance.Name
-		if cat == "" {
-			cat = "Uncategorised"
-		}
-		if _, seen := unmatchedTotals[cat]; !seen {
-			unmatchedOrder = append(unmatchedOrder, cat)
-		}
-		unmatchedTotals[cat] += math.Abs(tx.Amount)
-	}
-	var unmatchedGroups []UnmatchedGroup
-	for _, cat := range unmatchedOrder {
-		unmatchedGroups = append(unmatchedGroups, UnmatchedGroup{
-			Category:    cat,
-			WeeklyTotal: unmatchedTotals[cat] / 4,
-		})
-	}
-
-	return c.Render(http.StatusOK, "budget.actuals", ActualsData{
-		Rows:            rows,
-		UnmatchedGroups: unmatchedGroups,
-		HasTransactions: len(txs) > 0,
-	})
-}
-
-// matchTransactions returns:
-//   - matched: map of BudgetItemID → transactions matched to that item
-//   - unmatched: transactions that didn't match any item
-//
-// Layer 1: keyword match on Merchant.Name / Description (case-insensitive).
-// Layer 2: Akahu PersonalFinance category == item.Category (case-insensitive).
-func matchTransactions(items []models.BudgetItem, txs []models.Transaction) (matched map[string][]models.Transaction, unmatched []models.Transaction) {
-	matched = make(map[string][]models.Transaction)
-
-	for _, tx := range txs {
-		if tx.Amount >= 0 || tx.Type == "TRANSFER" {
-			continue
-		}
-		merchantLower := strings.ToLower(tx.Merchant.Name)
-		descLower := strings.ToLower(tx.Description)
-		txCatBroad    := strings.ToLower(tx.Category.Groups.PersonalFinance.Name)
-		txCatSpecific := strings.ToLower(tx.Category.Name)
-
-		var matchedID string
-		for _, item := range items {
-			// Layer 1: explicit keywords
-			for _, kw := range item.Keywords {
-				kw = strings.ToLower(kw)
-				if strings.Contains(merchantLower, kw) || strings.Contains(descLower, kw) {
-					matchedID = item.ID
-					break
-				}
-			}
-			if matchedID != "" {
-				break
-			}
-			// Layer 2: match against either the broad PersonalFinance category
-			// (e.g. "Transport") or the specific subcategory (e.g. "Fuel stations").
-			itemCat := strings.ToLower(item.Category)
-			if itemCat != "" && (itemCat == txCatBroad || itemCat == txCatSpecific) {
-				matchedID = item.ID
-				break
-			}
-		}
-
-		if matchedID != "" {
-			matched[matchedID] = append(matched[matchedID], tx)
-		} else {
-			unmatched = append(unmatched, tx)
-		}
-	}
-	return matched, unmatched
-}
-
-// MatchedTransaction is one transaction shown in the per-item drill-down.
-type MatchedTransaction struct {
-	Date        string
-	Merchant    string
-	Description string
-	Amount      float64
-	MatchedBy   string // "keyword" or "category"
-}
-
-// BudgetItemActuals returns the matched transactions for a single budget item.
-func (app *Application) BudgetItemActuals(c echo.Context) error {
-	item, err := app.store.GetBudgetItem(c.Param("id"))
-	if err != nil {
-		return err
-	}
-
-	start := time.Now().AddDate(0, -13, 0)
-	txs, err := app.store.ReadTransactionsByDate(start, time.Now())
-	if err != nil {
-		return err
-	}
-
-	windowWeeks := frequencyWindowWeeks[item.Frequency]
-	if windowWeeks == 0 {
-		windowWeeks = 4
-	}
-	cutoff := time.Now().AddDate(0, 0, -int(windowWeeks*7))
-
-	itemCat := strings.ToLower(item.Category)
-
-	var rows []MatchedTransaction
-	for _, tx := range txs {
-		if tx.Amount >= 0 || tx.Type == "TRANSFER" || !tx.Date.After(cutoff) {
-			continue
-		}
-		merchantLower := strings.ToLower(tx.Merchant.Name)
-		descLower := strings.ToLower(tx.Description)
-
-		matchedBy := ""
-		for _, kw := range item.Keywords {
-			if strings.Contains(merchantLower, strings.ToLower(kw)) ||
-				strings.Contains(descLower, strings.ToLower(kw)) {
-				matchedBy = "keyword: " + kw
-				break
-			}
-		}
-		if matchedBy == "" && itemCat != "" {
-			broad    := strings.ToLower(tx.Category.Groups.PersonalFinance.Name)
-			specific := strings.ToLower(tx.Category.Name)
-			if itemCat == broad {
-				matchedBy = "category: " + tx.Category.Groups.PersonalFinance.Name
-			} else if itemCat == specific {
-				matchedBy = "subcategory: " + tx.Category.Name
-			}
-		}
-		if matchedBy == "" {
-			continue
-		}
-
-		label := tx.Merchant.Name
-		if label == "" {
-			label = tx.Description
-		}
-		rows = append(rows, MatchedTransaction{
-			Date:        tx.Date.Format("2 Jan 06"),
-			Merchant:    label,
-			Description: tx.Description,
-			Amount:      math.Abs(tx.Amount),
-			MatchedBy:   matchedBy,
-		})
-	}
-
-	return c.Render(http.StatusOK, "budget.item.actuals", rows)
-}
-
 // ---- suggestions ----
 
 // SuggestionsData powers the two datalists on the budget page.
@@ -926,12 +760,53 @@ func (app *Application) BudgetSuggestions(c echo.Context) error {
 
 // ---- keyword CRUD ----
 
+// ItemTagsData is the view-model for the combined keyword+merchant tags view.
+type ItemTagsData struct {
+	models.BudgetItem
+	AutoMerchants []string // merchants matched by category, not yet saved as keywords
+}
+
 func (app *Application) BudgetItemKeywords(c echo.Context) error {
 	item, err := app.store.GetBudgetItem(c.Param("id"))
 	if err != nil {
 		return err
 	}
-	return c.Render(http.StatusOK, "budget.item.keywords", item)
+
+	// Discover merchants from transactions matched by category (not keyword).
+	txs, _ := app.store.ReadTransactionsByDate(time.Now().AddDate(0, -13, 0), time.Now())
+
+	kwSet := make(map[string]bool)
+	for _, kw := range item.Keywords {
+		kwSet[strings.ToLower(kw)] = true
+	}
+
+	seen := make(map[string]bool)
+	var autoMerchants []string
+	for _, tx := range txs {
+		if tx.Amount >= 0 {
+			continue
+		}
+		broad    := strings.ToLower(tx.Category.Groups.PersonalFinance.Name)
+		specific := strings.ToLower(tx.Category.Name)
+		itemCat  := strings.ToLower(item.Category)
+		if itemCat == "" || (itemCat != broad && itemCat != specific) {
+			continue
+		}
+		name := tx.Merchant.Name
+		if name == "" {
+			continue
+		}
+		lower := strings.ToLower(name)
+		if !seen[lower] && !kwSet[lower] {
+			seen[lower] = true
+			autoMerchants = append(autoMerchants, name)
+		}
+	}
+
+	return c.Render(http.StatusOK, "budget.item.keywords", ItemTagsData{
+		BudgetItem:    item,
+		AutoMerchants: autoMerchants,
+	})
 }
 
 func (app *Application) BudgetAddKeyword(c echo.Context) error {
@@ -945,14 +820,14 @@ func (app *Application) BudgetAddKeyword(c echo.Context) error {
 	}
 	for _, existing := range item.Keywords {
 		if strings.EqualFold(existing, kw) {
-			return c.Render(http.StatusOK, "budget.item.keywords", item) // already present
+			return app.BudgetItemKeywords(c) // already present — refresh view
 		}
 	}
 	item.Keywords = append(item.Keywords, kw)
 	if err := app.store.UpdateBudgetItem(item); err != nil {
 		return err
 	}
-	return c.Render(http.StatusOK, "budget.item.keywords", item)
+	return app.BudgetItemKeywords(c)
 }
 
 func (app *Application) BudgetRemoveKeyword(c echo.Context) error {
@@ -971,5 +846,5 @@ func (app *Application) BudgetRemoveKeyword(c echo.Context) error {
 	if err := app.store.UpdateBudgetItem(item); err != nil {
 		return err
 	}
-	return c.Render(http.StatusOK, "budget.item.keywords", item)
+	return app.BudgetItemKeywords(c)
 }
