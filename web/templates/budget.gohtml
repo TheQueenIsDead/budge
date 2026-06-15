@@ -3,6 +3,12 @@
         <h2 class="fw-bold">Budget Planner</h2>
     </div>
 
+    <!-- Summary cards -->
+    <div id="budget-cards"
+         hx-get="/budget/cards"
+         hx-trigger="load, refreshSummary from:body"
+         hx-swap="innerHTML"></div>
+
     <!-- Weekly performance chart -->
     <div hx-get="/budget/performance"
          hx-trigger="load, refreshSummary from:body"
@@ -67,17 +73,23 @@
         </div>
     </div>
 
-    <!-- Income breakdown (lazy, refreshes on salary change) -->
+    <!-- Summary cards (income / expenses / savings) -->
+    <!-- Income breakdown (PAYE / ACC / KiwiSaver detail) -->
     <div id="budget-summary"
          hx-get="/budget/summary"
          hx-trigger="load, refreshSummary from:body"
          hx-swap="innerHTML"></div>
 
+    <!-- Unallocated income indicator -->
+    <div hx-get="/budget/allocation"
+         hx-trigger="load, refreshSummary from:body"
+         hx-swap="outerHTML"></div>
+
     <!-- Spending Targets Card -->
     <div class="card border rounded-3 p-4 shadow-sm mb-4">
         <h4 class="fw-bold mb-1"><i class="bi bi-bullseye me-2"></i>Spending Targets</h4>
         <p class="text-muted small mb-3">
-            Based on your last 13 months of transactions. Set a target next to any category — it saves automatically.
+            Actual spend window matches your target frequency — weekly targets use the last 4 weeks, monthly 3 months, yearly 13 months. Set a target next to any category and it saves automatically.
         </p>
         {{template "budget.setup" .SetupData}}
     </div>
@@ -157,39 +169,41 @@
         </div>
     </div>
 
-    <!-- Savings Summary -->
-    <div class="card border rounded-3 p-4 shadow-sm mb-4">
-        <h4 class="fw-bold mb-3"><i class="bi bi-piggy-bank me-2"></i>Weekly Summary</h4>
-        <div class="row g-3">
-            <div class="col-12 col-md-4">
-                <div class="card bg-light border-0 p-3 h-100">
-                    <small class="text-muted fw-semibold text-uppercase">Weekly Income</small>
-                    <div class="fs-3 fw-bold mt-1 text-success">{{.NetWeekly | fmtCurrency}}</div>
-                </div>
+{{end}}
+
+{{define "budget.cards"}}
+<div class="row g-3 mb-4">
+    <div class="col-12 col-md-4">
+        <div class="card border rounded-3 p-3 h-100 shadow-sm">
+            <div class="d-flex justify-content-between text-muted mb-2">
+                <span class="fw-semibold">Weekly Income</span>
+                <i class="bi bi-cash-coin"></i>
             </div>
-            <div class="col-12 col-md-4">
-                <div class="card bg-light border-0 p-3 h-100">
-                    <small class="text-muted fw-semibold text-uppercase">Weekly Expenses</small>
-                    <div class="fs-3 fw-bold mt-1 text-danger">{{.TotalWeeklyExpenses | fmtCurrency}}</div>
-                </div>
-            </div>
-            <div class="col-12 col-md-4">
-                {{if .HasDeficit}}
-                <div class="card border-danger p-3 h-100" style="background-color:#fff5f5;">
-                    <small class="text-danger fw-semibold text-uppercase">Weekly Deficit</small>
-                    <div class="fs-3 fw-bold mt-1 text-danger">{{.WeeklySavings | fmtCurrency}}</div>
-                    <small class="text-muted mt-1">Expenses exceed income</small>
-                </div>
-                {{else}}
-                <div class="card border-success p-3 h-100" style="background-color:#f0fff4;">
-                    <small class="text-success fw-semibold text-uppercase">Weekly Savings</small>
-                    <div class="fs-3 fw-bold mt-1 text-success">{{.WeeklySavings | fmtCurrency}}</div>
-                    <small class="text-muted mt-1">Available after expenses</small>
-                </div>
-                {{end}}
-            </div>
+            <h3 class="fw-bold mb-1 text-success">{{.NetWeekly | fmtCurrency}}</h3>
+            <div class="text-muted small">Take-home per week</div>
         </div>
     </div>
+    <div class="col-12 col-md-4">
+        <div class="card border rounded-3 p-3 h-100 shadow-sm">
+            <div class="d-flex justify-content-between text-muted mb-2">
+                <span class="fw-semibold">Weekly Expenses</span>
+                <i class="bi bi-graph-down"></i>
+            </div>
+            <h3 class="fw-bold mb-1 text-danger">{{.TotalWeeklyExpenses | fmtCurrency}}</h3>
+            <div class="text-muted small">Budgeted targets</div>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="card border rounded-3 p-3 h-100 shadow-sm">
+            <div class="d-flex justify-content-between text-muted mb-2">
+                <span class="fw-semibold">{{if .HasDeficit}}Weekly Deficit{{else}}Weekly Savings{{end}}</span>
+                <i class="bi bi-piggy-bank"></i>
+            </div>
+            <h3 class="fw-bold mb-1 {{if .HasDeficit}}text-danger{{else}}text-success{{end}}">{{.WeeklySavings | fmtCurrency}}</h3>
+            <div class="text-muted small">{{if .HasDeficit}}Expenses exceed income{{else}}Available after targets{{end}}</div>
+        </div>
+    </div>
+</div>
 {{end}}
 
 {{define "budget.performance"}}
@@ -210,6 +224,34 @@
 </div>
 {{end}}
 
+{{define "budget.allocation"}}
+{{if .HasSalary}}
+<div class="card border rounded-3 px-4 py-3 shadow-sm mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="text-muted small">
+            <span class="fw-semibold text-body">{{.TotalTargetWeekly | fmtCurrency}}</span>
+            budgeted of
+            <span class="fw-semibold text-body">{{.NetWeekly | fmtCurrency}}</span>
+            /wk take-home
+        </span>
+        <span class="fw-semibold small {{if .IsOverAllocated}}text-danger{{else if gt .Remaining 0.0}}text-success{{else}}text-muted{{end}}">
+            {{if .IsOverAllocated}}
+                {{.Remaining | fmtCurrency}} over-allocated
+            {{else if gt .Remaining 0.0}}
+                {{.Remaining | fmtCurrency}} unallocated
+            {{else}}
+                Fully allocated
+            {{end}}
+        </span>
+    </div>
+    <div class="progress" style="height:5px;">
+        <div class="progress-bar {{if .IsOverAllocated}}bg-danger{{else}}bg-success{{end}}"
+             style="width:{{printf "%.1f" .PctAllocatedCss}}%"></div>
+    </div>
+</div>
+{{end}}
+{{end}}
+
 {{define "budget.setup"}}
 {{if .HasData}}
 <div class="table-responsive">
@@ -224,10 +266,17 @@
             </tr>
         </thead>
         {{range .Groups}}
+        {{/* Broad category header — click folder to collapse/expand subcategories */}}
         <tbody>
             <tr class="table-light">
                 <td class="fw-semibold py-2" colspan="2">
-                    <i class="bi bi-folder2-open me-1 text-primary"></i>{{.Name}}
+                    <button class="btn btn-link btn-sm p-0 me-1 text-primary"
+                            _="on click toggle .d-none on .{{.RowID}}-rows then toggle between .bi-folder2-open and .bi-folder2 on <i/> in me"
+                            title="Collapse / expand">
+                        <i class="bi bi-folder2-open"></i>
+                    </button>
+                    {{.Name}}
+                    {{if gt .PctOfIncome 0.0}}<small class="text-muted fw-normal ms-1">({{.PctOfIncome | fmtPercent}} of income)</small>{{end}}
                 </td>
                 <td class="text-end py-2 fw-semibold" colspan="3">
                     {{if .HasTarget}}
@@ -244,6 +293,46 @@
         {{template "budget.setup.row" .}}
         {{end}}
         {{end}}
+        {{/* Savings goal row — pinned at bottom */}}
+        <tfoot>
+            <tr class="{{if .HasSavingsGoal}}{{if .MeetsSavingsGoal}}table-success{{else}}table-danger{{end}}{{else}}table-light{{end}}"
+                hx-post="/budget/savings-goal"
+                hx-trigger="change"
+                hx-include="this"
+                hx-swap="none"
+                hx-on::after-request="htmx.trigger(document.body, 'refreshSummary')">
+                <td colspan="2" class="fw-semibold py-2">
+                    <i class="bi bi-piggy-bank me-1"></i>Savings
+                    {{if gt .NetWeekly 0.0}}
+                    <small class="fw-normal text-muted ms-1">
+                        {{if .HasSavingsGoal}}
+                            {{if .MeetsSavingsGoal}}Goal met · {{end}}
+                            {{.Remaining | fmtCurrency}}/wk remaining
+                        {{else}}
+                            {{.Remaining | fmtCurrency}}/wk remaining after targets
+                        {{end}}
+                    </small>
+                    {{end}}
+                </td>
+                <td>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">$</span>
+                        <input type="number" name="savings_goal" class="form-control text-end"
+                               placeholder="Goal…" min="0" step="0.01"
+                               {{if .HasSavingsGoal}}value="{{.SavingsGoal | printf "%.2f"}}"{{end}}>
+                    </div>
+                </td>
+                <td>
+                    <select name="savings_goal_frequency" class="form-select form-select-sm">
+                        <option value="weekly"      {{if or (eq .SavingsGoalFrequency "weekly") (eq .SavingsGoalFrequency "")}}selected{{end}}>Weekly</option>
+                        <option value="fortnightly" {{if eq .SavingsGoalFrequency "fortnightly"}}selected{{end}}>Fortnightly</option>
+                        <option value="monthly"     {{if eq .SavingsGoalFrequency "monthly"}}selected{{end}}>Monthly</option>
+                        <option value="yearly"      {{if eq .SavingsGoalFrequency "yearly"}}selected{{end}}>Yearly</option>
+                    </select>
+                </td>
+                <td></td>
+            </tr>
+        </tfoot>
     </table>
 </div>
 {{else}}
@@ -255,7 +344,7 @@
 {{end}}
 
 {{define "budget.setup.row"}}
-<tbody id="{{.RowID}}">
+<tbody id="{{.RowID}}" class="{{.BroadRowID}}-rows{{if .NeedsTarget}} border-start border-3 border-warning{{end}}">
     <tr {{if not .HasSubItems}}
         hx-post="/budget/targets"
         hx-trigger="change"
@@ -266,20 +355,28 @@
         {{end}}>
         <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
         <input type="hidden" name="sub_category"   value="{{.SubCategory}}">
-        <td class="ps-4">{{.SubCategory}}</td>
+        <td class="ps-4">
+            {{if .NeedsTarget}}<i class="bi bi-exclamation-circle text-warning me-1" title="No target set"></i>{{end}}
+            {{.SubCategory}}
+        </td>
         <td class="text-end">
             {{if .HasTarget}}
             <span class="fw-semibold {{if .IsOver}}text-danger{{else}}text-success{{end}}">
+                {{if .TrendUp}}<i class="bi bi-arrow-up-short text-danger" title="Spending up"></i>{{else if .TrendDown}}<i class="bi bi-arrow-down-short text-success" title="Spending down"></i>{{end}}
                 {{.ActualDisplay | fmtCurrency}}/{{.TargetDisplay | printf "%.2f"}} {{.ActualLabel}} ({{.Percentage | fmtPercent}})
             </span>
             {{else}}
-            <span class="text-muted">{{.ActualDisplay | fmtCurrency}} {{.ActualLabel}}</span>
+            <span class="text-muted">
+                {{if .TrendUp}}<i class="bi bi-arrow-up-short text-danger" title="Spending up"></i>{{else if .TrendDown}}<i class="bi bi-arrow-down-short text-success" title="Spending down"></i>{{end}}
+                {{.ActualDisplay | fmtCurrency}} {{.ActualLabel}}
+            </span>
             {{end}}
         </td>
         {{if .HasSubItems}}
         <td class="text-end text-muted" colspan="2">
             <span class="fw-semibold text-body">{{.DerivedWeekly | fmtCurrency}}</span>
             <small class="ms-1">from {{len .SubItems}} items</small>
+            {{if gt .PctOfIncome 0.0}}<small class="d-block text-muted">{{.PctOfIncome | fmtPercent}} of income</small>{{end}}
         </td>
         {{else}}
         <td class="text-end">
@@ -289,6 +386,7 @@
                        placeholder="—" min="0" step="0.01"
                        {{if gt .Target 0.0}}value="{{.Target | printf "%.2f"}}"{{end}}>
             </div>
+            {{if gt .PctOfIncome 0.0}}<small class="text-muted d-block text-end mt-1">{{.PctOfIncome | fmtPercent}} of income</small>{{end}}
         </td>
         <td>
             <select name="target_frequency" class="form-select form-select-sm"

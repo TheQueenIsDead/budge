@@ -21,12 +21,14 @@ func (ias IntegrationAkahuSettings) Bucket() []byte {
 }
 
 type BudgetSalary struct {
-	Salary          float64
-	SalaryFrequency string
-	IncludePAYE     bool
-	KiwiSaverRate   float64
-	StudentLoan     bool
-	Categories      []string
+	Salary               float64
+	SalaryFrequency      string
+	IncludePAYE          bool
+	KiwiSaverRate        float64
+	StudentLoan          bool
+	Categories           []string
+	SavingsGoal          float64
+	SavingsGoalFrequency string
 }
 
 func (bs BudgetSalary) Key() []byte    { return []byte("salary") }
