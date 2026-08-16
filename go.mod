@@ -8,7 +8,7 @@ require (
 	github.com/labstack/gommon v0.5.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.11.1
-	go.etcd.io/bbolt v1.3.11
+	go.etcd.io/bbolt v1.5.0
 	golang.org/x/text v0.40.0
 )
 
