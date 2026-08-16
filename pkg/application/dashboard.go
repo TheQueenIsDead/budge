@@ -66,9 +66,7 @@ func BuildHighestOutgoingTransactions(past, current []models.Transaction, n int)
 	})
 
 	// Limit to n elements
-	if len(outgoing) < n {
-		outgoing = outgoing
-	} else {
+	if len(outgoing) >= n {
 		outgoing = outgoing[:n]
 	}
 
