@@ -16,7 +16,21 @@ Once you have a user and app token, navigate to settings, load in your credentia
 
 ## Deployment
 
-The Budge Docker image can be found over at [docker hub](https://hub.docker.com/r/thequeenisdead/budge) alongside hosting instructions.
+The Budge Docker image is published to the [GitHub Container Registry](https://github.com/TheQueenIsDead/budge/pkgs/container/budge).
+
+```shell
+# Latest release
+docker pull ghcr.io/thequeenisdead/budge:latest
+
+# Or pin to a specific version
+docker pull ghcr.io/thequeenisdead/budge:1.12.0
+```
+
+Images are tagged with the full version (`1.12.0`), the major and minor version
+(`1.12`), the major version (`1`), and `latest`.
+
+> **Note:** Budge was previously published to Docker Hub. That repository is no
+> longer updated, so please switch to `ghcr.io/thequeenisdead/budge`.
 
 ## Development
 
