@@ -127,6 +127,15 @@ body {
     margin-right: 0.5rem;
     color: #64748b;
 }
+/* Budget: transient "Saved" confirmation on the income card. */
+.budge-flash {
+    opacity: 0;
+    transition: opacity 0.15s ease-in-out;
+    pointer-events: none;
+}
+.budge-flash.budge-flash-show {
+    opacity: 1;
+}
 
 /* Allows text-truncate to work on a flex child, which defaults to min-width: auto */
 .min-width-0 {

@@ -89,6 +89,73 @@ func (s *Store) SearchTransactions(search string, account string) ([]models.Tran
 	})
 }
 
+/* Budget Items */
+
+func (s *Store) GetBudgetItem(id string) (models.BudgetItem, error) {
+	return Get[models.BudgetItem](s.db, []byte(id))
+}
+func (s *Store) CreateBudgetItem(item models.BudgetItem) error {
+	return Create[models.BudgetItem](s.db, item)
+}
+func (s *Store) ReadBudgetItems() ([]models.BudgetItem, error) {
+	return Read[models.BudgetItem](s.db)
+}
+func (s *Store) UpdateBudgetItem(item models.BudgetItem) error {
+	return Update[models.BudgetItem](s.db, item)
+}
+func (s *Store) AddBudgetSubItem(itemID string, sub models.BudgetSubItem) error {
+	item, err := Get[models.BudgetItem](s.db, []byte(itemID))
+	if err != nil {
+		return err
+	}
+	item.SubItems = append(item.SubItems, sub)
+	return Update[models.BudgetItem](s.db, item)
+}
+func (s *Store) UpdateBudgetSubItem(itemID string, sub models.BudgetSubItem) error {
+	item, err := Get[models.BudgetItem](s.db, []byte(itemID))
+	if err != nil {
+		return err
+	}
+	for i, si := range item.SubItems {
+		if si.ID == sub.ID {
+			item.SubItems[i] = sub
+			break
+		}
+	}
+	return Update[models.BudgetItem](s.db, item)
+}
+func (s *Store) DeleteBudgetSubItem(itemID, subID string) error {
+	item, err := Get[models.BudgetItem](s.db, []byte(itemID))
+	if err != nil {
+		return err
+	}
+	filtered := item.SubItems[:0]
+	for _, si := range item.SubItems {
+		if si.ID != subID {
+			filtered = append(filtered, si)
+		}
+	}
+	item.SubItems = filtered
+	return Update[models.BudgetItem](s.db, item)
+}
+
+/* Budget Salary */
+
+func (s *Store) GetBudgetSalary() (models.BudgetSalary, error) {
+	salary, err := Get[models.BudgetSalary](s.db, models.BudgetSalary{}.Key())
+	if err != nil {
+		return models.BudgetSalary{
+			SalaryFrequency: "yearly",
+			IncludePAYE:     true,
+			KiwiSaverRate:   3.5,
+		}, nil
+	}
+	return salary, nil
+}
+func (s *Store) SaveBudgetSalary(salary models.BudgetSalary) error {
+	return Update[models.BudgetSalary](s.db, salary)
+}
+
 /* Settings */
 
 func (s *Store) GetAkahuSettings() (models.IntegrationAkahuSettings, error) {

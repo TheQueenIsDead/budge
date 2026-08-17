@@ -20,11 +20,19 @@ import (
 )
 
 // templateFuncs are the formatting helpers made available to every template.
+// It is split out of NewApplication so tests can render templates without a
+// live store.
 func templateFuncs() template.FuncMap {
 	return template.FuncMap{
 		"fmtCurrency": func(number float64) string {
 			p := message.NewPrinter(language.English)
 			return p.Sprintf("$%.2f", number)
+		},
+		// fmtCurrencyAbs drops the sign, for places where an adjacent label
+		// ("deficit", "over-allocated") already carries the direction.
+		"fmtCurrencyAbs": func(number float64) string {
+			p := message.NewPrinter(language.English)
+			return p.Sprintf("$%.2f", math.Abs(number))
 		},
 		"fmtPercent": func(number float64) string {
 			p := message.NewPrinter(language.English)
@@ -129,6 +137,22 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	// Accounts
 	app.http.GET("/accounts", app.Accounts)
 	app.http.GET("/accounts/:id", app.Account)
+
+	// Budget
+	app.http.GET("/budget", app.Budget)
+	app.http.GET("/budget/summary", app.BudgetSummary)
+	app.http.POST("/budget/salary", app.BudgetSaveSalary)
+	app.http.GET("/budget/items/:id/keywords", app.BudgetItemKeywords)
+	app.http.POST("/budget/items/:id/keywords", app.BudgetAddKeyword)
+	app.http.DELETE("/budget/items/:id/keywords", app.BudgetRemoveKeyword)
+	app.http.GET("/budget/suggestions", app.BudgetSuggestions)
+	app.http.GET("/budget/performance", app.BudgetPerformance)
+	app.http.GET("/budget/cards", app.BudgetCards)
+	app.http.POST("/budget/savings-goal", app.BudgetSaveSavingsGoal)
+	app.http.POST("/budget/targets", app.BudgetSaveTarget)
+	app.http.POST("/budget/subitems", app.BudgetAddSubItem)
+	app.http.PUT("/budget/items/:id/subitems/:subid", app.BudgetUpdateSubItem)
+	app.http.DELETE("/budget/items/:id/subitems/:subid", app.BudgetDeleteSubItem)
 
 	// Static Assets
 	app.http.Static("/assets", "./web/public")
