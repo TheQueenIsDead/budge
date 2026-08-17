@@ -21,7 +21,7 @@ jobs:
       # Release
       - uses: actions/checkout@v7
       - id: release
-        uses: googleapis/release-please-action@v4
+        uses: googleapis/release-please-action@v5
 
       # Publish (only if a new release was created)
       - if: ${{ steps.release.outputs.release_created }}
