@@ -9,6 +9,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
+	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 	"html/template"
@@ -17,6 +18,26 @@ import (
 	"net/http"
 	"time"
 )
+
+// templateFuncs are the formatting helpers made available to every template.
+func templateFuncs() template.FuncMap {
+	return template.FuncMap{
+		"fmtCurrency": func(number float64) string {
+			p := message.NewPrinter(language.English)
+			return p.Sprintf("$%.2f", number)
+		},
+		"fmtPercent": func(number float64) string {
+			p := message.NewPrinter(language.English)
+			return p.Sprintf("%.1f%%", math.Abs(number)*100)
+		},
+		"fmtRelative": func(date time.Time) string {
+			return humanize.RelTime(date, time.Now(), "ago", "")
+		},
+		"fmtTitle": func(text string) string {
+			return cases.Title(language.English).String(text)
+		},
+	}
+}
 
 type Application struct {
 	http         *echo.Echo
@@ -35,22 +56,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	app.http.Debug = true
 
-	// Setup HTTP server
-	funcMap := template.FuncMap{
-		"fmtCurrency": func(number float64) string {
-			p := message.NewPrinter(language.English)
-			return p.Sprintf("$%.2f", number)
-		},
-		"fmtPercent": func(number float64) string {
-			p := message.NewPrinter(language.English)
-			return p.Sprintf("%.1f%%", math.Abs(number)*100)
-		},
-		"fmtRelative": func(date time.Time) string {
-			return humanize.RelTime(date, time.Now(), "ago", "")
-		},
-	}
-
-	tpl := template.New("").Funcs(funcMap)
+	tpl := template.New("").Funcs(templateFuncs())
 	tpl = template.Must(tpl.ParseGlob("web/templates/*.gohtml"))
 
 	t := &Template{

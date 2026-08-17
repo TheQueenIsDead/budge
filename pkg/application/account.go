@@ -1,15 +1,19 @@
 package application
 
 import (
+	"cmp"
 	"maps"
 	"math"
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v4"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 type AccountTimeseriesData struct {
@@ -36,16 +40,183 @@ type AccountsPageProps struct {
 	Date          time.Time
 }
 
-func (app *Application) Accounts(c echo.Context) error {
-	accounts, _ := app.store.ReadAccounts()
+// AccountSummary is a single account as it appears in the accounts list, annotated
+// with how its balance has moved over the reporting window.
+type AccountSummary struct {
+	Account         models.Account
+	TypeLabel       string
+	IsActive        bool
+	IsLoan          bool
+	Change          float64 // Net balance movement over the window
+	PreviousBalance float64 // Balance at the start of the window
+	Delta           float64 // Change as a proportion of the previous balance
+	HasHistory      bool    // Whether any transactions fell within the window
+}
 
-	var props []AccountsPageProps
-	for _, account := range accounts {
-		props = append(props, AccountsPageProps{
-			Account: account,
-		})
+// AccountGroup collects every account held with a single connection.
+type AccountGroup struct {
+	Connection string
+	Logo       string
+	Accounts   []AccountSummary
+	Total      float64
+}
+
+// Portfolio is the roll up of every account balance into a single net position.
+type Portfolio struct {
+	Assets      float64
+	Liabilities float64
+	NetWorth    float64
+	Accounts    int
+}
+
+type AccountsListProps struct {
+	Portfolio     Portfolio
+	Groups        []AccountGroup
+	LastRefreshed time.Time
+	HasRefreshed  bool
+}
+
+// accountTypeLabels maps the account types reported by upstream providers onto
+// labels that read well. Anything unmapped falls back to title casing the raw value.
+var accountTypeLabels = map[string]string{
+	"CREDITCARD":  "Credit Card",
+	"TERMDEPOSIT": "Term Deposit",
+	"KIWISAVER":   "KiwiSaver",
+	"FOREIGN":     "Foreign Currency",
+}
+
+// AccountTypeLabel renders a provider account type for display.
+func AccountTypeLabel(accountType string) string {
+	if accountType == "" {
+		return "Account"
 	}
-	return c.Render(http.StatusOK, "accounts", props)
+	if label, ok := accountTypeLabels[strings.ToUpper(accountType)]; ok {
+		return label
+	}
+	return cases.Title(language.English).String(accountType)
+}
+
+// BuildPortfolio totals the current balance of every account into a net position.
+// Accounts are split into assets and liabilities by the sign of their balance rather
+// than by their type, so that the arithmetic holds regardless of how a provider
+// chooses to sign debt.
+func BuildPortfolio(accounts []models.Account) Portfolio {
+	portfolio := Portfolio{Accounts: len(accounts)}
+	for _, account := range accounts {
+		balance := account.Balance.Current
+		if balance < 0 {
+			portfolio.Liabilities += balance
+		} else {
+			portfolio.Assets += balance
+		}
+		portfolio.NetWorth += balance
+	}
+	return portfolio
+}
+
+// BuildAccountGroups arranges accounts under the connection that provides them,
+// annotating each with the balance movement implied by the supplied transactions.
+// Groups and the accounts within them are ordered by balance, largest first.
+func BuildAccountGroups(accounts []models.Account, transactions []models.Transaction) []AccountGroup {
+
+	// Bucket the balance movement by account in a single pass, rather than reading
+	// transactions once per account.
+	changes := make(map[string]float64)
+	seen := make(map[string]bool)
+	for _, tx := range transactions {
+		changes[tx.Account] += tx.Amount
+		seen[tx.Account] = true
+	}
+
+	grouped := make(map[string]*AccountGroup)
+	for _, account := range accounts {
+		connection := account.Connection.Name
+		if connection == "" {
+			connection = "Other"
+		}
+
+		summary := AccountSummary{
+			Account:    account,
+			TypeLabel:  AccountTypeLabel(account.Type),
+			IsActive:   account.Status == "" || strings.EqualFold(account.Status, "ACTIVE"),
+			IsLoan:     strings.EqualFold(account.Type, "LOAN"),
+			Change:     changes[account.Id],
+			HasHistory: seen[account.Id],
+		}
+		summary.PreviousBalance = account.Balance.Current - summary.Change
+		if summary.PreviousBalance != 0 {
+			summary.Delta = summary.Change / math.Abs(summary.PreviousBalance)
+		}
+
+		group, ok := grouped[connection]
+		if !ok {
+			group = &AccountGroup{Connection: connection, Logo: account.Connection.Logo}
+			grouped[connection] = group
+		}
+		group.Accounts = append(group.Accounts, summary)
+		group.Total += account.Balance.Current
+	}
+
+	groups := make([]AccountGroup, 0, len(grouped))
+	for _, group := range grouped {
+		slices.SortFunc(group.Accounts, func(a, b AccountSummary) int {
+			if c := cmp.Compare(b.Account.Balance.Current, a.Account.Balance.Current); c != 0 {
+				return c
+			}
+			return cmp.Compare(a.Account.Name, b.Account.Name)
+		})
+		groups = append(groups, *group)
+	}
+	slices.SortFunc(groups, func(a, b AccountGroup) int {
+		if c := cmp.Compare(b.Total, a.Total); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Connection, b.Connection)
+	})
+
+	return groups
+}
+
+// OldestRefresh returns the least recently refreshed balance across all accounts,
+// which is the earliest point the displayed totals can be trusted from. The boolean
+// reports whether any account has been refreshed at all.
+func OldestRefresh(accounts []models.Account) (time.Time, bool) {
+	var oldest time.Time
+	for _, account := range accounts {
+		refreshed := account.Refreshed.Balance
+		if refreshed.IsZero() {
+			continue
+		}
+		if oldest.IsZero() || refreshed.Before(oldest) {
+			oldest = refreshed
+		}
+	}
+	return oldest, !oldest.IsZero()
+}
+
+func (app *Application) Accounts(c echo.Context) error {
+
+	accounts, err := app.store.ReadAccounts()
+	if err != nil {
+		c.Logger().Error(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to fetch accounts")
+	}
+
+	// Transactions drive the per account movement shown alongside each balance. A
+	// failure here costs us the deltas but not the balances, so carry on without them.
+	transactions, err := app.store.ReadTransactionsByDate(time.Now().AddDate(0, 0, -30), time.Now())
+	if err != nil {
+		c.Logger().Error(err)
+	}
+
+	refreshed, hasRefreshed := OldestRefresh(accounts)
+
+	return c.Render(http.StatusOK, "accounts", AccountsListProps{
+		Portfolio:     BuildPortfolio(accounts),
+		Groups:        BuildAccountGroups(accounts, transactions),
+		LastRefreshed: refreshed,
+		HasRefreshed:  hasRefreshed,
+	})
 }
 
 func (app *Application) Account(c echo.Context) error {

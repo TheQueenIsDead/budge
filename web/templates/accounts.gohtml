@@ -2,32 +2,155 @@
 
     <!-- Header Row -->
     <div class="d-flex justify-content-between align-items-start mb-4">
-        <h2 class="fw-bold">Accounts</h2>
+        <div>
+            <h2 class="fw-bold mb-0">Accounts</h2>
+            {{ if .HasRefreshed }}
+                <p class="text-muted mb-0" data-bs-toggle="tooltip" data-bs-placement="bottom"
+                   title="{{ .LastRefreshed.Format "2 Jan 2006, 3:04pm" }}">
+                    <i class="bi bi-arrow-repeat"></i>
+                    Balances current as of {{ .LastRefreshed | fmtRelative }}
+                </p>
+            {{ end }}
+        </div>
     </div>
 
-    <div class="row g-3 mb-3">
-        {{ range . }}
-            <div class="col-12 col-md-6 col-lg-3" style="min-height: 100px">
-                <a href="/accounts/{{ .Account.Id }}" class="text-decoration-none text-body h-100 d-block">
-                    <div class="card border rounded-3 p-3 h-100 shadow-sm d-flex justify-content-center">
-
-                        <div class="d-flex align-items-center">
-                            <img
-                                    class="rounded-circle me-3 flex-shrink-0"
-                                    width="40"
-                                    height="40"
-                                    src="{{ .Account.Connection.Logo }}"
-                            />
-
-                            <div class="d-flex flex-column">
-                                <h4 class="fw-bold mb-0">{{ .Account.Name }}</h4>
-                                <p class="text-muted mb-0">{{ .Account.Connection.Name }}</p>
-                            </div>
-                        </div>
-
+    {{ if .Groups }}
+        <!-- Portfolio Summary -->
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-md-4">
+                <div class="card border rounded-3 p-3 h-100 shadow-sm">
+                    <div class="d-flex justify-content-between text-muted mb-2">
+                        <span class="fw-semibold">Net Worth</span>
+                        <i class="bi bi-bank2"></i>
                     </div>
-                </a>
+                    <h3 class="fw-bold mb-1 {{ if lt .Portfolio.NetWorth 0.0 }}text-danger{{ end }}">
+                        {{ .Portfolio.NetWorth | fmtCurrency }}
+                    </h3>
+                    <div class="text-muted">
+                        Across {{ .Portfolio.Accounts }} account{{ if ne .Portfolio.Accounts 1 }}s{{ end }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-4">
+                <div class="card border rounded-3 p-3 h-100 shadow-sm">
+                    <div class="d-flex justify-content-between text-muted mb-2">
+                        <span class="fw-semibold">Assets</span>
+                        <i class="bi bi-graph-up"></i>
+                    </div>
+                    <h3 class="fw-bold mb-1 text-success">{{ .Portfolio.Assets | fmtCurrency }}</h3>
+                    <div class="text-muted">What you hold</div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-4">
+                <div class="card border rounded-3 p-3 h-100 shadow-sm">
+                    <div class="d-flex justify-content-between text-muted mb-2">
+                        <span class="fw-semibold">Liabilities</span>
+                        <i class="bi bi-graph-down"></i>
+                    </div>
+                    <h3 class="fw-bold mb-1 {{ if lt .Portfolio.Liabilities 0.0 }}text-danger{{ end }}">
+                        {{ .Portfolio.Liabilities | fmtCurrency }}
+                    </h3>
+                    <div class="text-muted">What you owe</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Accounts, grouped by connection -->
+        {{ range .Groups }}
+            <div class="card border rounded-3 shadow-sm mb-3">
+                <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
+                    <div class="d-flex align-items-center">
+                        <img class="rounded-circle me-3 flex-shrink-0 account-logo"
+                             width="32" height="32"
+                             src="{{ .Logo }}"
+                             alt="{{ .Connection }}"/>
+                        <h5 class="fw-bold mb-0">{{ .Connection }}</h5>
+                    </div>
+                    <div class="fw-bold font-monospace {{ if lt .Total 0.0 }}text-danger{{ end }}">
+                        {{ .Total | fmtCurrency }}
+                    </div>
+                </div>
+
+                <div class="list-group list-group-flush">
+                    {{ range .Accounts }}
+                        <a href="/accounts/{{ .Account.Id }}"
+                           class="list-group-item list-group-item-action py-3">
+                            <div class="d-flex align-items-center justify-content-between gap-3">
+
+                                <div class="min-width-0">
+                                    <div class="fw-semibold text-truncate">{{ .Account.Name }}</div>
+                                    <div class="small text-muted mt-1">
+                                        <span class="badge-category">{{ .TypeLabel }}</span>
+                                        {{ if .Account.FormattedAccount }}
+                                            <span class="ms-2 font-monospace">{{ .Account.FormattedAccount }}</span>
+                                        {{ end }}
+                                        {{ if not .IsActive }}
+                                            <span class="badge-error rounded-pill px-2 py-1 ms-2">
+                                                <i class="bi bi-exclamation-triangle"></i> {{ .Account.Status }}
+                                            </span>
+                                        {{ end }}
+                                        {{ if .Account.Balance.Overdrawn }}
+                                            <span class="badge-error rounded-pill px-2 py-1 ms-2">Overdrawn</span>
+                                        {{ end }}
+                                    </div>
+
+                                    {{ if .IsLoan }}
+                                        <div class="small text-muted mt-1">
+                                            {{ with .Account.Meta.LoanDetails.Interest }}
+                                                {{ if gt .Rate 0.0 }}
+                                                    <i class="bi bi-percent"></i>{{ printf "%.2f%%" .Rate }}
+                                                    {{ if .Type }}{{ .Type | fmtTitle }}{{ end }}
+                                                {{ end }}
+                                            {{ end }}
+                                            {{ with .Account.Meta.LoanDetails.Repayment }}
+                                                {{ if gt .NextAmount 0.0 }}
+                                                    <span class="ms-2">
+                                                        <i class="bi bi-calendar-event"></i>
+                                                        Next {{ .NextAmount | fmtCurrency }}
+                                                        {{ if not .NextDate.IsZero }}
+                                                            on {{ .NextDate.Format "2 Jan" }}
+                                                        {{ end }}
+                                                    </span>
+                                                {{ end }}
+                                            {{ end }}
+                                        </div>
+                                    {{ end }}
+                                </div>
+
+                                <div class="text-end flex-shrink-0">
+                                    <div class="fw-bold font-monospace {{ if lt .Account.Balance.Current 0.0 }}text-danger{{ end }}">
+                                        {{ .Account.Balance.Current | fmtCurrency }}
+                                    </div>
+                                    {{ if .HasHistory }}
+                                        <div class="small {{ if gt .Change 0.0 }}text-success{{ else if lt .Change 0.0 }}text-danger{{ else }}text-muted{{ end }}"
+                                             data-bs-toggle="tooltip" data-bs-placement="left"
+                                             title="{{ .Change | fmtCurrency }} over the last 30 days, from {{ .PreviousBalance | fmtCurrency }}">
+                                            <i class="bi {{ if gt .Change 0.0 }}bi-arrow-up-short{{ else if lt .Change 0.0 }}bi-arrow-down-short{{ else }}bi-dash{{ end }}"></i>{{ .Delta | fmtPercent }}
+                                        </div>
+                                    {{ else }}
+                                        <div class="small text-muted">No activity</div>
+                                    {{ end }}
+                                </div>
+
+                            </div>
+                        </a>
+                    {{ end }}
+                </div>
             </div>
         {{ end }}
-    </div>
+
+    {{ else }}
+        <!-- Empty State -->
+        <div class="card border rounded-3 p-5 shadow-sm text-center">
+            <div class="text-muted mb-3"><i class="bi bi-bank2 fs-1"></i></div>
+            <h4 class="fw-bold">No accounts yet</h4>
+            <p class="text-muted mb-3">Connect a provider to see your balances in one place.</p>
+            <div>
+                <a href="/settings" class="btn btn-outline-secondary fw-semibold">Go to settings</a>
+            </div>
+        </div>
+    {{ end }}
+
 {{ end }}
