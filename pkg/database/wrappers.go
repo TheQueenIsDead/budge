@@ -103,9 +103,6 @@ func (s *Store) ReadBudgetItems() ([]models.BudgetItem, error) {
 func (s *Store) UpdateBudgetItem(item models.BudgetItem) error {
 	return Update[models.BudgetItem](s.db, item)
 }
-func (s *Store) DeleteBudgetItem(id string) error {
-	return Delete[models.BudgetItem](s.db, []byte(id))
-}
 func (s *Store) AddBudgetSubItem(itemID string, sub models.BudgetSubItem) error {
 	item, err := Get[models.BudgetItem](s.db, []byte(itemID))
 	if err != nil {

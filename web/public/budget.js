@@ -58,6 +58,45 @@ function initBudgetPerfChart() {
 document.body.addEventListener('htmx:afterSwap', initBudgetPerfChart);
 initBudgetPerfChart();
 
+// ---- Broad category collapse ----
+//
+// Collapse state lives here rather than in the DOM because saving a target
+// swaps that row's <tbody> out, which would otherwise drop the collapsed class
+// and pop a single row back open inside a collapsed group.
+
+const collapsedGroups = new Set();
+
+function applyGroupCollapse() {
+    document.querySelectorAll('tbody[data-group]').forEach(tbody => {
+        tbody.classList.toggle('d-none', collapsedGroups.has(tbody.dataset.group));
+    });
+}
+
+function toggleBroadGroup(btn, groupId) {
+    const nowCollapsed = !collapsedGroups.has(groupId);
+    if (nowCollapsed) {
+        collapsedGroups.add(groupId);
+    } else {
+        collapsedGroups.delete(groupId);
+    }
+    applyGroupCollapse();
+    btn.setAttribute('aria-expanded', String(!nowCollapsed));
+    const icon = btn.querySelector('i');
+    if (icon) icon.className = nowCollapsed ? 'bi bi-folder2' : 'bi bi-folder2-open';
+}
+
+document.body.addEventListener('htmx:afterSwap', applyGroupCollapse);
+
+// ---- Save confirmation ----
+
+function flashSaved(scope) {
+    const badge = scope.querySelector('[data-saved-flash]');
+    if (!badge) return;
+    badge.classList.add('budge-flash-show');
+    clearTimeout(badge._flashTimer);
+    badge._flashTimer = setTimeout(() => badge.classList.remove('budge-flash-show'), 1500);
+}
+
 // ---- Target frequency conversion ----
 
 function _toWeekly(v, f) {

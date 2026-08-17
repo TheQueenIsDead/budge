@@ -127,3 +127,12 @@ body {
     margin-right: 0.5rem;
     color: #64748b;
 }
+/* Budget: transient "Saved" confirmation on the income card. */
+.budge-flash {
+    opacity: 0;
+    transition: opacity 0.15s ease-in-out;
+    pointer-events: none;
+}
+.budge-flash.budge-flash-show {
+    opacity: 1;
+}

@@ -14,7 +14,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-
 // CategoryTargetRow is one row in the category-based budget setup table.
 type CategoryTargetRow struct {
 	BroadCategory string
@@ -70,36 +69,17 @@ type CategorySetupData struct {
 	HasSavingsGoal       bool
 }
 
-// AllocationData is the view-model for the budget.allocation partial.
-type AllocationData struct {
-	NetWeekly         float64
-	TotalTargetWeekly float64
-	Remaining         float64
-	PctAllocated      float64 // 0–1+, used for progress bar
-	PctAllocatedCss   float64 // clamped to 100 for CSS width
-	IsOverAllocated   bool
-	HasSalary         bool
-}
-
-// BudgetCardsData is the view-model for the three summary cards.
+// BudgetCardsData is the view-model for the summary cards and the allocation
+// bar beneath them. Both are driven by the same three numbers, so they share a
+// single endpoint rather than recomputing the totals independently.
 type BudgetCardsData struct {
 	NetWeekly           float64
 	TotalWeeklyExpenses float64
 	WeeklySavings       float64
 	HasDeficit          bool
-}
-
-// BudgetCalculatedItem is a BudgetItem with its weekly-normalised amount attached.
-type BudgetCalculatedItem struct {
-	models.BudgetItem
-	Weekly float64
-}
-
-// SummaryGroup is one category section in the weekly overview.
-type SummaryGroup struct {
-	Name        string
-	Items       []BudgetCalculatedItem
-	WeeklyTotal float64
+	PctAllocatedCss     float64 // clamped to 100 for CSS width
+	IsOverAllocated     bool
+	HasSalary           bool
 }
 
 // BudgetSummary is the view-model rendered by GET /budget/summary.
@@ -134,10 +114,6 @@ type BudgetSummary struct {
 	NetMonthly           float64
 	NetFortnightly       float64
 	NetWeekly            float64
-	Groups               []SummaryGroup
-	TotalWeeklyExpenses  float64
-	WeeklySavings        float64
-	HasDeficit           bool
 }
 
 func (app *Application) Budget(c echo.Context) error {
@@ -276,38 +252,8 @@ func (app *Application) renderSetupRow(c echo.Context, itemID string) error {
 		buildSetupRowData(item, actualWeekly, computeNetWeekly(salary), false, false))
 }
 
-// BudgetAllocation returns the unallocated income indicator partial.
-func (app *Application) BudgetAllocation(c echo.Context) error {
-	salary, err := app.store.GetBudgetSalary()
-	if err != nil {
-		return err
-	}
-	items, err := app.store.ReadBudgetItems()
-	if err != nil {
-		return err
-	}
-	netWeekly := computeNetWeekly(salary)
-	var totalTarget float64
-	for _, it := range items {
-		totalTarget += weeklyTarget(it)
-	}
-	remaining := netWeekly - totalTarget
-	pct := 0.0
-	if netWeekly > 0 {
-		pct = totalTarget / netWeekly
-	}
-	return c.Render(http.StatusOK, "budget.allocation", AllocationData{
-		NetWeekly:         netWeekly,
-		TotalTargetWeekly: totalTarget,
-		Remaining:         remaining,
-		PctAllocated:      pct,
-		PctAllocatedCss:   math.Min(pct*100, 100),
-		IsOverAllocated:   remaining < 0,
-		HasSalary:         salary.Salary > 0,
-	})
-}
-
-// BudgetCards returns the three summary cards (income / expenses / savings).
+// BudgetCards returns the summary cards (income / expenses / savings) together
+// with the allocation bar that sits beneath them.
 func (app *Application) BudgetCards(c echo.Context) error {
 	salary, err := app.store.GetBudgetSalary()
 	if err != nil {
@@ -323,11 +269,18 @@ func (app *Application) BudgetCards(c echo.Context) error {
 		totalExpenses += weeklyTarget(it)
 	}
 	savings := netWeekly - totalExpenses
+	pct := 0.0
+	if netWeekly > 0 {
+		pct = totalExpenses / netWeekly
+	}
 	return c.Render(http.StatusOK, "budget.cards", BudgetCardsData{
 		NetWeekly:           netWeekly,
 		TotalWeeklyExpenses: totalExpenses,
 		WeeklySavings:       savings,
 		HasDeficit:          savings < 0,
+		PctAllocatedCss:     math.Min(pct*100, 100),
+		IsOverAllocated:     savings < 0,
+		HasSalary:           salary.Salary > 0,
 	})
 }
 
@@ -505,9 +458,15 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 		amt := math.Abs(tx.Amount)
 		totals[key] += amt // always (56-week window)
 		// Independent ifs — each window is cumulative (newer txs hit multiple windows).
-		if tx.Date.After(cut13) { win13[key] += amt }
-		if tx.Date.After(cut8)  { win8[key] += amt }
-		if tx.Date.After(cut4)  { win4[key] += amt }
+		if tx.Date.After(cut13) {
+			win13[key] += amt
+		}
+		if tx.Date.After(cut8) {
+			win8[key] += amt
+		}
+		if tx.Date.After(cut4) {
+			win4[key] += amt
+		}
 		// Trend: compare last 4 weeks vs prior 4 weeks.
 		if tx.Date.After(cut4) {
 			recent4[key] += amt
@@ -625,23 +584,19 @@ func (app *Application) BudgetSaveSalary(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return app.store.SaveBudgetSalary(models.BudgetSalary{
-		Salary:          salary,
-		SalaryFrequency: c.FormValue("salary_frequency"),
-		IncludePAYE:     c.FormValue("include_paye") == "on",
-		KiwiSaverRate:   kiwiSaverRate,
-		StudentLoan:     c.FormValue("student_loan") == "on",
-		Categories:      existing.Categories,
-	})
+	// Mutate in place rather than rebuilding the struct, so fields owned by
+	// other forms (savings goal, categories) survive an income edit.
+	existing.Salary = salary
+	existing.SalaryFrequency = c.FormValue("salary_frequency")
+	existing.IncludePAYE = c.FormValue("include_paye") == "on"
+	existing.KiwiSaverRate = kiwiSaverRate
+	existing.StudentLoan = c.FormValue("student_loan") == "on"
+	return app.store.SaveBudgetSalary(existing)
 }
 
 // BudgetSummary reads saved state and returns calculated summary HTML.
 func (app *Application) BudgetSummary(c echo.Context) error {
 	salary, err := app.store.GetBudgetSalary()
-	if err != nil {
-		return err
-	}
-	items, err := app.store.ReadBudgetItems()
 	if err != nil {
 		return err
 	}
@@ -657,34 +612,6 @@ func (app *Application) BudgetSummary(c echo.Context) error {
 	}
 	kiwiSaverAnnual := annual * (salary.KiwiSaverRate / 100)
 	netAnnual := annual - payeAnnual - accAnnual - kiwiSaverAnnual - studentLoanAnnual
-
-	// Group items by their Category field, preserving first-seen order.
-	byCategory := make(map[string][]BudgetCalculatedItem)
-	var categoryOrder []string
-	categorySeen := make(map[string]bool)
-	for _, it := range items {
-		w := weeklyTarget(it)
-		byCategory[it.Category] = append(byCategory[it.Category], BudgetCalculatedItem{BudgetItem: it, Weekly: w})
-		if !categorySeen[it.Category] {
-			categorySeen[it.Category] = true
-			categoryOrder = append(categoryOrder, it.Category)
-		}
-	}
-
-	var groups []SummaryGroup
-	var totalWeekly float64
-	for _, name := range categoryOrder {
-		its := byCategory[name]
-		var sub float64
-		for _, it := range its {
-			sub += it.Weekly
-		}
-		groups = append(groups, SummaryGroup{Name: name, Items: its, WeeklyTotal: sub})
-		totalWeekly += sub
-	}
-
-	netWeekly := netAnnual / 52
-	savings := netWeekly - totalWeekly
 
 	return c.Render(http.StatusOK, "budget.summary", BudgetSummary{
 		GrossHourly:          annual / 52 / 40,
@@ -716,11 +643,7 @@ func (app *Application) BudgetSummary(c echo.Context) error {
 		NetAnnual:            netAnnual,
 		NetMonthly:           netAnnual / 12,
 		NetFortnightly:       netAnnual / 26,
-		NetWeekly:            netWeekly,
-		Groups:               groups,
-		TotalWeeklyExpenses:  totalWeekly,
-		WeeklySavings:        savings,
-		HasDeficit:           savings < 0,
+		NetWeekly:            netAnnual / 52,
 	})
 }
 
@@ -1015,9 +938,9 @@ func (app *Application) BudgetItemKeywords(c echo.Context) error {
 		if tx.Amount >= 0 {
 			continue
 		}
-		broad    := strings.ToLower(tx.Category.Groups.PersonalFinance.Name)
+		broad := strings.ToLower(tx.Category.Groups.PersonalFinance.Name)
 		specific := strings.ToLower(tx.Category.Name)
-		itemCat  := strings.ToLower(item.Category)
+		itemCat := strings.ToLower(item.Category)
 		if itemCat == "" || (itemCat != broad && itemCat != specific) {
 			continue
 		}
@@ -1059,8 +982,14 @@ func (app *Application) BudgetAddKeyword(c echo.Context) error {
 	return app.BudgetItemKeywords(c)
 }
 
+// BudgetRemoveKeyword deletes a keyword. The keyword arrives as a query param
+// rather than a path segment because merchant names routinely contain "/" and
+// "&", which cannot survive a path segment.
 func (app *Application) BudgetRemoveKeyword(c echo.Context) error {
-	target := c.Param("keyword")
+	target := c.QueryParam("keyword")
+	if target == "" {
+		return c.NoContent(http.StatusBadRequest)
+	}
 	item, err := app.store.GetBudgetItem(c.Param("id"))
 	if err != nil {
 		return err

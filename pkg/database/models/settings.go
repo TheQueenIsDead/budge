@@ -26,7 +26,6 @@ type BudgetSalary struct {
 	IncludePAYE          bool
 	KiwiSaverRate        float64
 	StudentLoan          bool
-	Categories           []string
 	SavingsGoal          float64
 	SavingsGoalFrequency string
 }

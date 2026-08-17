@@ -24,6 +24,30 @@ type Application struct {
 	integrations *integrations.Integrations
 }
 
+// templateFuncs returns the helpers available to every template. It is split
+// out from NewApplication so tests can render templates without a live store.
+func templateFuncs() template.FuncMap {
+	return template.FuncMap{
+		"fmtCurrency": func(number float64) string {
+			p := message.NewPrinter(language.English)
+			return p.Sprintf("$%.2f", number)
+		},
+		// fmtCurrencyAbs drops the sign, for places where an adjacent label
+		// ("deficit", "over-allocated") already carries the direction.
+		"fmtCurrencyAbs": func(number float64) string {
+			p := message.NewPrinter(language.English)
+			return p.Sprintf("$%.2f", math.Abs(number))
+		},
+		"fmtPercent": func(number float64) string {
+			p := message.NewPrinter(language.English)
+			return p.Sprintf("%.1f%%", math.Abs(number)*100)
+		},
+		"fmtRelative": func(date time.Time) string {
+			return humanize.RelTime(date, time.Now(), "ago", "")
+		},
+	}
+}
+
 func NewApplication(store *database.Store, integrations *integrations.Integrations) (*Application, error) {
 
 	app := new(Application)
@@ -36,21 +60,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.Debug = true
 
 	// Setup HTTP server
-	funcMap := template.FuncMap{
-		"fmtCurrency": func(number float64) string {
-			p := message.NewPrinter(language.English)
-			return p.Sprintf("$%.2f", number)
-		},
-		"fmtPercent": func(number float64) string {
-			p := message.NewPrinter(language.English)
-			return p.Sprintf("%.1f%%", math.Abs(number)*100)
-		},
-		"fmtRelative": func(date time.Time) string {
-			return humanize.RelTime(date, time.Now(), "ago", "")
-		},
-	}
-
-	tpl := template.New("").Funcs(funcMap)
+	tpl := template.New("").Funcs(templateFuncs())
 	tpl = template.Must(tpl.ParseGlob("web/templates/*.gohtml"))
 
 	t := &Template{
@@ -130,10 +140,9 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.POST("/budget/salary", app.BudgetSaveSalary)
 	app.http.GET("/budget/items/:id/keywords", app.BudgetItemKeywords)
 	app.http.POST("/budget/items/:id/keywords", app.BudgetAddKeyword)
-	app.http.DELETE("/budget/items/:id/keywords/:keyword", app.BudgetRemoveKeyword)
+	app.http.DELETE("/budget/items/:id/keywords", app.BudgetRemoveKeyword)
 	app.http.GET("/budget/suggestions", app.BudgetSuggestions)
 	app.http.GET("/budget/performance", app.BudgetPerformance)
-	app.http.GET("/budget/allocation", app.BudgetAllocation)
 	app.http.GET("/budget/cards", app.BudgetCards)
 	app.http.POST("/budget/savings-goal", app.BudgetSaveSavingsGoal)
 	app.http.POST("/budget/targets", app.BudgetSaveTarget)
