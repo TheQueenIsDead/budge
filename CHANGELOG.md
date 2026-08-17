@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.13.0](https://github.com/TheQueenIsDead/budge/compare/v1.12.0...v1.13.0) (2026-08-17)
+
+
+### Features
+
+* budget ([#78](https://github.com/TheQueenIsDead/budge/issues/78)) ([0bdfa41](https://github.com/TheQueenIsDead/budge/commit/0bdfa416ebf58f7cc90e81de5219294262cf6b22))
+* **budget:** show merchants as an informational column ([9f3ac85](https://github.com/TheQueenIsDead/budge/commit/9f3ac85d96d58c0c496bb14c1a4d008afffa5f8e))
+* show grouped account overview with portfolio summary ([#75](https://github.com/TheQueenIsDead/budge/issues/75)) ([1525cc3](https://github.com/TheQueenIsDead/budge/commit/1525cc32921b66eeb9b7111d4d2b8cfa01ad3d53))
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/labstack/echo/v4 to v4.15.4 ([#62](https://github.com/TheQueenIsDead/budge/issues/62)) ([4e4a38b](https://github.com/TheQueenIsDead/budge/commit/4e4a38b281ad925fbda83188d395eeeccf8c92c2))
+* **deps:** update module github.com/labstack/gommon to v0.5.0 ([#63](https://github.com/TheQueenIsDead/budge/issues/63)) ([066237a](https://github.com/TheQueenIsDead/budge/commit/066237a784cee86088c05bcb9f08619d3d1b6427))
+* **deps:** update module github.com/sirupsen/logrus to v1.10.0 ([#59](https://github.com/TheQueenIsDead/budge/issues/59)) ([6be2ac6](https://github.com/TheQueenIsDead/budge/commit/6be2ac620d3595c3956741082a2c7ada8bdfcb23))
+* **deps:** update module github.com/stretchr/testify to v1.12.0 ([#64](https://github.com/TheQueenIsDead/budge/issues/64)) ([d4fb8fb](https://github.com/TheQueenIsDead/budge/commit/d4fb8fb7f3e6bdf52330d36e562fb7be7575e223))
+* **deps:** update module go.etcd.io/bbolt to v1.5.0 ([#65](https://github.com/TheQueenIsDead/budge/issues/65)) ([fff9be3](https://github.com/TheQueenIsDead/budge/commit/fff9be35a9129e13e0a53c4465cbdf054cdc865c))
+* **deps:** update module golang.org/x/text to v0.41.0 ([#67](https://github.com/TheQueenIsDead/budge/issues/67)) ([e38a413](https://github.com/TheQueenIsDead/budge/commit/e38a4139c736df8e4ecf5372a26c9142770b03af))
+
 ## [1.12.0](https://github.com/TheQueenIsDead/budge/compare/v1.11.0...v1.12.0) (2025-12-18)
 
 
