@@ -1,11 +1,13 @@
 package application
 
 import (
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Expected values below are derived from the published NZ rates the code cites,
@@ -574,15 +576,6 @@ func TestBudgetTemplatesRender(t *testing.T) {
 		{"performance without data", "budget.performance", BudgetPerformanceData{}},
 		{"setup with data", "budget.setup", setup},
 		{"setup without data", "budget.setup", CategorySetupData{HasData: false}},
-		{"suggestions", "budget.suggestions", SuggestionsData{Categories: []string{"Transport"}, Merchants: []string{"Z Energy"}}},
-		{
-			"keywords",
-			"budget.item.keywords",
-			ItemTagsData{
-				BudgetItem:    models.BudgetItem{ID: "item-1", Keywords: []string{"Z/Caltex", "Mitre 10 & More"}},
-				AutoMerchants: []string{"New World"},
-			},
-		},
 	}
 
 	for _, test := range tests {
@@ -592,15 +585,154 @@ func TestBudgetTemplatesRender(t *testing.T) {
 	}
 }
 
-// TestKeywordDeleteURLIsEscaped covers the bug where a merchant containing "/"
-// produced an unroutable URL. The keyword now travels as an escaped query
-// param, so every character survives the round trip.
-func TestKeywordDeleteURLIsEscaped(t *testing.T) {
-	rendered := renderTemplate(t, "budget.item.keywords", ItemTagsData{
-		BudgetItem: models.BudgetItem{ID: "item-1", Keywords: []string{"Z/Caltex"}},
+func TestTopMerchants(t *testing.T) {
+	t.Run("orders by spend, highest first", func(t *testing.T) {
+		got := topMerchants(map[string]float64{
+			"Countdown":   120,
+			"New World":   340,
+			"Four Square": 15,
+		})
+		assert.Equal(t, []string{"New World", "Countdown", "Four Square"}, got)
 	})
 
-	assert.Contains(t, rendered, "keywords?keyword=Z%2FCaltex",
-		"the slash must be percent-encoded, not left as a path separator")
-	assert.NotContains(t, rendered, "keywords/Z/Caltex")
+	t.Run("ties break alphabetically so rendering is deterministic", func(t *testing.T) {
+		got := topMerchants(map[string]float64{"Zeta": 50, "Alpha": 50, "Mid": 50})
+		assert.Equal(t, []string{"Alpha", "Mid", "Zeta"}, got)
+	})
+
+	t.Run("no merchants yields nil", func(t *testing.T) {
+		assert.Nil(t, topMerchants(nil))
+		assert.Nil(t, topMerchants(map[string]float64{}))
+	})
+}
+
+func TestSetMerchants(t *testing.T) {
+	tests := []struct {
+		name          string
+		names         []string
+		expectedShown []string
+		expectedExtra int
+	}{
+		{"none", nil, nil, 0},
+		{"fewer than the inline limit", []string{"a", "b"}, []string{"a", "b"}, 0},
+		{"exactly the inline limit", []string{"a", "b", "c"}, []string{"a", "b", "c"}, 0},
+		{"one over the limit", []string{"a", "b", "c", "d"}, []string{"a", "b", "c"}, 1},
+		{"well over the limit", []string{"a", "b", "c", "d", "e", "f"}, []string{"a", "b", "c"}, 3},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var row CategoryTargetRow
+			row.setMerchants(test.names)
+
+			assert.Equal(t, test.expectedShown, row.MerchantsShown)
+			assert.Equal(t, test.expectedExtra, row.MerchantsExtra)
+			assert.Equal(t, test.names, row.Merchants, "the popover always gets the full list")
+			assert.Len(t, row.MerchantsShown, len(test.names)-test.expectedExtra)
+		})
+	}
+}
+
+// TestMerchantColumnRenders covers the informational tag column: a truncated
+// row must offer the "+N more" trigger and carry every merchant in the hidden
+// popover source, while a short row must not render a trigger at all.
+func TestMerchantColumnRenders(t *testing.T) {
+	t.Run("truncated row offers a popover with the full list", func(t *testing.T) {
+		row := buildSetupRowData(models.BudgetItem{
+			ID: "item-1", Category: "Groceries", BroadCategory: "Food",
+			Amount: 100, Frequency: "weekly",
+		}, 80, 1_000, false, false)
+		row.setMerchants([]string{"New World", "Countdown", "Pak n Save", "Four Square", "Z/Caltex"})
+
+		html := renderTemplate(t, "budget.setup.row", row)
+
+		assert.Contains(t, html, "+2 more")
+		assert.Contains(t, html, "budge-merchants-more")
+		assert.Contains(t, html, "data-merchant-list")
+		for _, merchant := range []string{"New World", "Countdown", "Pak n Save", "Four Square"} {
+			assert.Contains(t, html, merchant, "popover source must list every merchant")
+		}
+		assert.Contains(t, html, "Z/Caltex", "a slash is just text now, not a URL segment")
+	})
+
+	t.Run("short row renders tags with no popover trigger", func(t *testing.T) {
+		row := buildSetupRowData(models.BudgetItem{
+			ID: "item-2", Category: "Power", BroadCategory: "Utilities",
+		}, 40, 1_000, false, false)
+		row.setMerchants([]string{"Meridian", "Contact"})
+
+		html := renderTemplate(t, "budget.setup.row", row)
+
+		assert.Contains(t, html, "Meridian")
+		assert.Contains(t, html, "Contact")
+		assert.NotContains(t, html, "budge-merchants-more")
+		assert.NotContains(t, html, "data-merchant-list")
+	})
+
+	t.Run("row with no merchants renders a placeholder", func(t *testing.T) {
+		row := buildSetupRowData(models.BudgetItem{ID: "item-3", Category: "Misc"}, 0, 1_000, false, false)
+
+		html := renderTemplate(t, "budget.setup.row", row)
+
+		assert.NotContains(t, html, "budge-merchants-more")
+		assert.Contains(t, html, "—")
+	})
+}
+
+// TestControlCellsStaySingleLine guards the row alignment. A caption rendered
+// underneath the target input makes that cell taller than the "Per" cell next
+// to it, so with vertical-align:middle the input and the select stop lining
+// up — and because the caption is conditional, the misalignment varies row to
+// row. Read-only metrics therefore belong in the subcategory cell, which holds
+// no form controls.
+func TestControlCellsStaySingleLine(t *testing.T) {
+	row := buildSetupRowData(models.BudgetItem{
+		ID: "item-1", Category: "Fuel stations", BroadCategory: "Transport",
+		Amount: 100, Frequency: "weekly",
+	}, 80, 1_000, false, false)
+
+	html := renderTemplate(t, "budget.setup.row", row)
+
+	require.Positive(t, row.PctOfIncome, "fixture must actually produce a share of income")
+	assert.Contains(t, html, "of income", "the metric is still shown somewhere")
+
+	cells := tableCells(t, html)
+	require.NotEmpty(t, cells)
+
+	subcategory := cells[0]
+	assert.Contains(t, subcategory, "Fuel stations")
+	assert.Contains(t, subcategory, "of income",
+		"the metric belongs in the cell that holds no controls")
+
+	var target string
+	for _, cell := range cells {
+		if strings.Contains(cell, `name="target_amount"`) {
+			target = cell
+		}
+	}
+	require.NotEmpty(t, target, "fixture should render a target input")
+	assert.NotContains(t, target, "of income",
+		"a caption under the target input breaks alignment with the Per column")
+}
+
+// tableCells splits rendered markup into the contents of each <td>. Note that
+// the row's hidden inputs sit outside any cell, so a plain string search would
+// match those first.
+func tableCells(t *testing.T, html string) []string {
+	t.Helper()
+
+	var cells []string
+	for rest := html; ; {
+		start := strings.Index(rest, "<td")
+		if start < 0 {
+			return cells
+		}
+		rest = rest[start:]
+
+		end := strings.Index(rest, "</td>")
+		require.GreaterOrEqual(t, end, 0, "unclosed table cell")
+
+		cells = append(cells, rest[:end])
+		rest = rest[end+len("</td>"):]
+	}
 }

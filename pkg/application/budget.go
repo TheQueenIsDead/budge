@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -40,6 +41,45 @@ type CategoryTargetRow struct {
 	TrendDown     bool    // spending decreased >10%
 	PctOfIncome   float64 // targetWeekly / netWeekly (fraction)
 	TargetWeekly  float64 // weekly-normalised target for internal use
+	// Merchants seen in this category, highest spend first. Informational
+	// only — they are derived from transactions, never edited.
+	Merchants      []string // full list, shown in the popover
+	MerchantsShown []string // the first few, rendered inline
+	MerchantsExtra int      // how many the inline list omits
+}
+
+// merchantsInline is how many merchant tags render in the table before the
+// rest are folded into a popover.
+const merchantsInline = 3
+
+func (r *CategoryTargetRow) setMerchants(names []string) {
+	r.Merchants = names
+	if len(names) > merchantsInline {
+		r.MerchantsShown = names[:merchantsInline]
+		r.MerchantsExtra = len(names) - merchantsInline
+		return
+	}
+	r.MerchantsShown = names
+}
+
+// topMerchants orders merchant names by total spend, highest first, so that
+// truncating the list keeps the most significant ones. Ties break by name to
+// keep rendering deterministic.
+func topMerchants(spend map[string]float64) []string {
+	if len(spend) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(spend))
+	for name := range spend {
+		names = append(names, name)
+	}
+	sort.Slice(names, func(i, j int) bool {
+		if spend[names[i]] != spend[names[j]] {
+			return spend[names[i]] > spend[names[j]]
+		}
+		return names[i] < names[j]
+	})
+	return names
 }
 
 // BroadCategoryGroup groups target rows under their parent Akahu category.
@@ -243,13 +283,14 @@ func (app *Application) renderSetupRow(c echo.Context, itemID string) error {
 	if err != nil {
 		return err
 	}
-	actualWeekly, err := app.subcatActualWeekly(item.Category, item.Frequency)
+	actualWeekly, merchants, err := app.subcatSpend(item.Category, item.Frequency)
 	if err != nil {
 		return err
 	}
 	salary, _ := app.store.GetBudgetSalary()
-	return c.Render(http.StatusOK, "budget.setup.row",
-		buildSetupRowData(item, actualWeekly, computeNetWeekly(salary), false, false))
+	row := buildSetupRowData(item, actualWeekly, computeNetWeekly(salary), false, false)
+	row.setMerchants(merchants)
+	return c.Render(http.StatusOK, "budget.setup.row", row)
 }
 
 // BudgetCards returns the summary cards (income / expenses / savings) together
@@ -300,12 +341,15 @@ func (app *Application) BudgetSaveSavingsGoal(c echo.Context) error {
 	return app.store.SaveBudgetSalary(existing)
 }
 
-// subcatActualWeekly computes the weekly-normalised actual spend for one
-// subcategory using a window matched to the item's target frequency.
-func (app *Application) subcatActualWeekly(subCat, freq string) (float64, error) {
+// subcatSpend computes the weekly-normalised actual spend for one subcategory
+// using a window matched to the item's target frequency, plus the merchants
+// seen in that category ordered by spend. Merchants are gathered over the full
+// read window rather than the frequency window, so the tag list does not
+// change shape when the target frequency does.
+func (app *Application) subcatSpend(subCat, freq string) (float64, []string, error) {
 	txs, err := app.store.ReadTransactionsByDate(time.Now().AddDate(0, -13, 0), time.Now())
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	var windowWeeks float64
 	var cutoff time.Time
@@ -322,12 +366,10 @@ func (app *Application) subcatActualWeekly(subCat, freq string) (float64, error)
 	}
 
 	var total float64
+	merchantSpend := make(map[string]float64)
 	subCatLower := strings.ToLower(subCat)
 	for _, tx := range txs {
 		if tx.Amount >= 0 || tx.Type == "TRANSFER" {
-			continue
-		}
-		if !cutoff.IsZero() && !tx.Date.After(cutoff) {
 			continue
 		}
 		specific := strings.ToLower(tx.Category.Name)
@@ -335,11 +377,18 @@ func (app *Application) subcatActualWeekly(subCat, freq string) (float64, error)
 		if specific == "" {
 			specific = broad
 		}
-		if specific == subCatLower || broad == subCatLower {
-			total += math.Abs(tx.Amount)
+		if specific != subCatLower && broad != subCatLower {
+			continue
+		}
+		amt := math.Abs(tx.Amount)
+		if name := tx.Merchant.Name; name != "" {
+			merchantSpend[name] += amt
+		}
+		if cutoff.IsZero() || tx.Date.After(cutoff) {
+			total += amt
 		}
 	}
-	return total / windowWeeks, nil
+	return total / windowWeeks, topMerchants(merchantSpend), nil
 }
 
 func buildSetupRowData(item models.BudgetItem, actualWeekly, netWeekly float64, trendUp, trendDown bool) CategoryTargetRow {
@@ -442,6 +491,9 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 	win13 := make(map[pairKey]float64) // last 13 weeks  (monthly target)
 	// totals = last 56 weeks (yearly target), declared above
 
+	// Merchant spend per category pair, for the informational tag column.
+	merchantSpend := make(map[pairKey]map[string]float64)
+
 	for _, tx := range txs {
 		if tx.Amount >= 0 || tx.Type == "TRANSFER" {
 			continue
@@ -456,6 +508,12 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 		}
 		key := pairKey{broad, specific}
 		amt := math.Abs(tx.Amount)
+		if name := tx.Merchant.Name; name != "" {
+			if merchantSpend[key] == nil {
+				merchantSpend[key] = make(map[string]float64)
+			}
+			merchantSpend[key][name] += amt
+		}
 		totals[key] += amt // always (56-week window)
 		// Independent ifs — each window is cumulative (newer txs hit multiple windows).
 		if tx.Date.After(cut13) {
@@ -525,6 +583,7 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 		if row.BroadRowID == "" {
 			row.BroadRowID = sanitizeBroadID(key.broad)
 		}
+		row.setMerchants(topMerchants(merchantSpend[key]))
 		groupRows[key.broad] = append(groupRows[key.broad], row)
 	}
 
@@ -866,143 +925,4 @@ func newID() string {
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)
 	return fmt.Sprintf("%x", b)
-}
-
-// ---- suggestions ----
-
-// SuggestionsData powers the two datalists on the budget page.
-type SuggestionsData struct {
-	Categories []string
-	Merchants  []string
-}
-
-func (app *Application) BudgetSuggestions(c echo.Context) error {
-	start := time.Now().AddDate(0, -13, 0)
-	txs, err := app.store.ReadTransactionsByDate(start, time.Now())
-	if err != nil {
-		return err
-	}
-
-	catSeen := make(map[string]bool)
-	merchSeen := make(map[string]bool)
-	var categories, merchants []string
-
-	for _, tx := range txs {
-		// Broad category (e.g. "Transport")
-		if cat := tx.Category.Groups.PersonalFinance.Name; cat != "" && !catSeen[cat] {
-			catSeen[cat] = true
-			categories = append(categories, cat)
-		}
-		// Specific subcategory (e.g. "Fuel stations")
-		if cat := tx.Category.Name; cat != "" && !catSeen[cat] {
-			catSeen[cat] = true
-			categories = append(categories, cat)
-		}
-		if m := tx.Merchant.Name; m != "" && !merchSeen[m] {
-			merchSeen[m] = true
-			merchants = append(merchants, m)
-		}
-	}
-
-	return c.Render(http.StatusOK, "budget.suggestions", SuggestionsData{
-		Categories: categories,
-		Merchants:  merchants,
-	})
-}
-
-// ---- keyword CRUD ----
-
-// ItemTagsData is the view-model for the combined keyword+merchant tags view.
-type ItemTagsData struct {
-	models.BudgetItem
-	AutoMerchants []string // merchants matched by category, not yet saved as keywords
-}
-
-func (app *Application) BudgetItemKeywords(c echo.Context) error {
-	item, err := app.store.GetBudgetItem(c.Param("id"))
-	if err != nil {
-		return err
-	}
-
-	// Discover merchants from transactions matched by category (not keyword).
-	txs, _ := app.store.ReadTransactionsByDate(time.Now().AddDate(0, -13, 0), time.Now())
-
-	kwSet := make(map[string]bool)
-	for _, kw := range item.Keywords {
-		kwSet[strings.ToLower(kw)] = true
-	}
-
-	seen := make(map[string]bool)
-	var autoMerchants []string
-	for _, tx := range txs {
-		if tx.Amount >= 0 {
-			continue
-		}
-		broad := strings.ToLower(tx.Category.Groups.PersonalFinance.Name)
-		specific := strings.ToLower(tx.Category.Name)
-		itemCat := strings.ToLower(item.Category)
-		if itemCat == "" || (itemCat != broad && itemCat != specific) {
-			continue
-		}
-		name := tx.Merchant.Name
-		if name == "" {
-			continue
-		}
-		lower := strings.ToLower(name)
-		if !seen[lower] && !kwSet[lower] {
-			seen[lower] = true
-			autoMerchants = append(autoMerchants, name)
-		}
-	}
-
-	return c.Render(http.StatusOK, "budget.item.keywords", ItemTagsData{
-		BudgetItem:    item,
-		AutoMerchants: autoMerchants,
-	})
-}
-
-func (app *Application) BudgetAddKeyword(c echo.Context) error {
-	kw := strings.TrimSpace(c.FormValue("keyword"))
-	if kw == "" {
-		return c.NoContent(http.StatusBadRequest)
-	}
-	item, err := app.store.GetBudgetItem(c.Param("id"))
-	if err != nil {
-		return err
-	}
-	for _, existing := range item.Keywords {
-		if strings.EqualFold(existing, kw) {
-			return app.BudgetItemKeywords(c) // already present — refresh view
-		}
-	}
-	item.Keywords = append(item.Keywords, kw)
-	if err := app.store.UpdateBudgetItem(item); err != nil {
-		return err
-	}
-	return app.BudgetItemKeywords(c)
-}
-
-// BudgetRemoveKeyword deletes a keyword. The keyword arrives as a query param
-// rather than a path segment because merchant names routinely contain "/" and
-// "&", which cannot survive a path segment.
-func (app *Application) BudgetRemoveKeyword(c echo.Context) error {
-	target := c.QueryParam("keyword")
-	if target == "" {
-		return c.NoContent(http.StatusBadRequest)
-	}
-	item, err := app.store.GetBudgetItem(c.Param("id"))
-	if err != nil {
-		return err
-	}
-	filtered := item.Keywords[:0]
-	for _, kw := range item.Keywords {
-		if !strings.EqualFold(kw, target) {
-			filtered = append(filtered, kw)
-		}
-	}
-	item.Keywords = filtered
-	if err := app.store.UpdateBudgetItem(item); err != nil {
-		return err
-	}
-	return app.BudgetItemKeywords(c)
 }

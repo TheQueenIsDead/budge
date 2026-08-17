@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/TheQueenIsDead/budge/pkg/database"
-	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -120,64 +119,4 @@ func TestGetBudgetSalaryDefaults(t *testing.T) {
 	assert.True(t, salary.IncludePAYE)
 	assert.Equal(t, 3.5, salary.KiwiSaverRate)
 	assert.Zero(t, salary.Salary)
-}
-
-// TestBudgetRemoveKeyword covers the routing fix: keywords containing "/" and
-// "&" used to be interpolated into a path segment, producing a URL that could
-// not match the route at all.
-func TestBudgetRemoveKeyword(t *testing.T) {
-	tests := []struct {
-		name    string
-		keyword string
-	}{
-		{"plain name", "New World"},
-		{"contains a slash", "Z/Caltex"},
-		{"contains an ampersand", "Mitre 10 & More"},
-		{"contains a hash", "Store #42"},
-		{"contains a percent", "50% Off Ltd"},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			app := newTestApp(t)
-
-			item := models.BudgetItem{
-				ID:       "item-1",
-				Category: "Groceries",
-				Keywords: []string{test.keyword, "Keep Me"},
-			}
-			require.NoError(t, app.store.CreateBudgetItem(item))
-
-			// Route the request the way echo will, so a keyword that breaks
-			// path matching fails here rather than silently passing.
-			e := app.http
-			e.DELETE("/budget/items/:id/keywords", app.BudgetRemoveKeyword)
-
-			target := "/budget/items/item-1/keywords?keyword=" + url.QueryEscape(test.keyword)
-			req := httptest.NewRequest(http.MethodDelete, target, nil)
-			rec := httptest.NewRecorder()
-			e.ServeHTTP(rec, req)
-
-			require.Equal(t, http.StatusOK, rec.Code, "route must match for %q", test.keyword)
-
-			after, err := app.store.GetBudgetItem("item-1")
-			require.NoError(t, err)
-			assert.Equal(t, []string{"Keep Me"}, after.Keywords,
-				"only the targeted keyword should be removed")
-		})
-	}
-}
-
-func TestBudgetRemoveKeywordRejectsEmpty(t *testing.T) {
-	app := newTestApp(t)
-	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "item-1", Keywords: []string{"a"}}))
-
-	e := app.http
-	e.DELETE("/budget/items/:id/keywords", app.BudgetRemoveKeyword)
-
-	req := httptest.NewRequest(http.MethodDelete, "/budget/items/item-1/keywords", nil)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }

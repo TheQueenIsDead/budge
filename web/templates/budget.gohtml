@@ -3,12 +3,6 @@
         <h2 class="fw-bold">Budget Planner</h2>
     </div>
 
-    <!-- Datalists for category + merchant autocomplete -->
-    <div hx-get="/budget/suggestions" hx-trigger="load" hx-swap="innerHTML">
-        <datalist id="category-suggestions"></datalist>
-        <datalist id="merchant-suggestions"></datalist>
-    </div>
-
     {{/* Page order follows the task: enter income, see what it nets, then
          allocate it to targets, then review how the last 13 weeks went. */}}
 
@@ -267,6 +261,7 @@
         <thead>
             <tr class="text-muted">
                 <th>Subcategory</th>
+                <th style="min-width:180px;">Merchants</th>
                 <th class="text-end">Actual</th>
                 <th class="text-end" style="width:160px;">Target</th>
                 <th style="width:130px;">Per</th>
@@ -278,7 +273,7 @@
         {{/* Broad category header — click folder to collapse/expand subcategories */}}
         <tbody>
             <tr class="table-light">
-                <td class="fw-semibold py-2" colspan="2">
+                <td class="fw-semibold py-2" colspan="3">
                     <button class="btn btn-link btn-sm p-0 me-1 text-primary"
                             type="button"
                             onclick="toggleBroadGroup(this, '{{.RowID}}')"
@@ -307,7 +302,7 @@
         {{else}}
         <tbody>
             <tr>
-                <td colspan="5" class="text-center text-muted py-5">
+                <td colspan="6" class="text-center text-muted py-5">
                     <i class="bi bi-bank2 fs-1 d-block mb-2" aria-hidden="true"></i>
                     No transaction data yet.<br>
                     Sync your accounts from <a href="/settings">Settings</a> to start setting targets.
@@ -323,7 +318,7 @@
                 hx-include="this"
                 hx-swap="none"
                 hx-on::after-request="if (event.detail.successful) { htmx.trigger(document.body, 'refreshSummary') }">
-                <td colspan="2" class="fw-semibold py-2">
+                <td colspan="3" class="fw-semibold py-2">
                     <i class="bi bi-piggy-bank me-1" aria-hidden="true"></i>Savings
                     {{if gt .NetWeekly 0.0}}
                     <small class="fw-normal text-muted ms-1">
@@ -374,11 +369,45 @@
         {{end}}>
         <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
         <input type="hidden" name="sub_category"   value="{{.SubCategory}}">
+        {{/* Read-only metrics live here rather than under the target input:
+             a caption below a form control makes that cell taller than the
+             "Per" cell beside it, and the controls stop lining up. */}}
         <td class="ps-4">
-            {{if .NeedsTarget}}<i class="bi bi-exclamation-circle text-warning me-1" title="No target set" aria-label="No target set"></i>{{end}}
-            {{.SubCategory}}
+            <div>
+                {{if .NeedsTarget}}<i class="bi bi-exclamation-circle text-warning me-1" title="No target set" aria-label="No target set"></i>{{end}}
+                {{.SubCategory}}
+            </div>
+            {{if gt .PctOfIncome 0.0}}
+            <div class="text-muted small">{{.PctOfIncome | fmtPercent}} of income</div>
+            {{end}}
         </td>
-        <td class="text-end">
+        {{/* Informational only — merchants are derived from transactions and
+             ordered by spend, so the truncated list shows the biggest ones. */}}
+        <td>
+            {{if .MerchantsShown}}
+            <div class="d-flex flex-wrap gap-1 align-items-center">
+                {{range .MerchantsShown}}
+                <span class="badge bg-light text-muted border fw-normal text-truncate"
+                      style="max-width:9rem;" title="{{.}}">{{.}}</span>
+                {{end}}
+                {{if .MerchantsExtra}}
+                <span class="d-none" data-merchant-list>
+                    <span class="d-flex flex-wrap gap-1">
+                        {{range .Merchants}}<span class="badge bg-light text-muted border fw-normal">{{.}}</span>{{end}}
+                    </span>
+                </span>
+                <button type="button"
+                        class="btn btn-link btn-sm p-0 text-decoration-none budge-merchants-more"
+                        aria-label="Show all {{len .Merchants}} merchants in {{.SubCategory}}">
+                    +{{.MerchantsExtra}} more
+                </button>
+                {{end}}
+            </div>
+            {{else}}
+            <span class="text-muted">—</span>
+            {{end}}
+        </td>
+        <td class="text-end text-nowrap">
             {{if .HasTarget}}
             <span class="fw-semibold {{if .IsOver}}text-danger{{else}}text-success{{end}}">
                 {{if .TrendUp}}<i class="bi bi-arrow-up-short text-danger" title="Spending up" aria-label="Spending up"></i>{{else if .TrendDown}}<i class="bi bi-arrow-down-short text-success" title="Spending down" aria-label="Spending down"></i>{{end}}
@@ -395,7 +424,6 @@
         <td class="text-end text-muted" colspan="2">
             <span class="fw-semibold text-body">{{.DerivedWeekly | fmtCurrency}}</span>
             <small class="ms-1">from {{len .SubItems}} items</small>
-            {{if gt .PctOfIncome 0.0}}<small class="d-block text-muted">{{.PctOfIncome | fmtPercent}} of income</small>{{end}}
         </td>
         {{else}}
         <td class="text-end">
@@ -406,7 +434,6 @@
                        aria-label="Target amount for {{.SubCategory}}"
                        {{if gt .Target 0.0}}value="{{.Target | printf "%.2f"}}"{{end}}>
             </div>
-            {{if gt .PctOfIncome 0.0}}<small class="text-muted d-block text-end mt-1">{{.PctOfIncome | fmtPercent}} of income</small>{{end}}
         </td>
         <td>
             <select name="target_frequency" class="form-select form-select-sm"
@@ -423,19 +450,6 @@
         {{end}}
         <td class="text-center">
             <div class="d-flex gap-1 justify-content-center">
-                {{if .ItemID}}
-                <button class="btn btn-link btn-sm p-0 text-muted"
-                        type="button"
-                        hx-get="/budget/items/{{.ItemID}}/keywords"
-                        hx-target="#kw-{{.RowID}}"
-                        hx-swap="innerHTML"
-                        hx-trigger="click once"
-                        _="on click toggle .d-none on #kw-row-{{.RowID}}"
-                        title="Matched merchants &amp; keywords"
-                        aria-label="Matched merchants and keywords for {{.SubCategory}}">
-                    <i class="bi bi-tag" aria-hidden="true"></i>
-                </button>
-                {{end}}
                 <form hx-post="/budget/subitems"
                       hx-target="#{{.RowID}}"
                       hx-swap="outerHTML"
@@ -449,9 +463,6 @@
                 </form>
             </div>
         </td>
-    </tr>
-    <tr id="kw-row-{{.RowID}}" class="d-none">
-        <td id="kw-{{.RowID}}" colspan="5" class="ps-4 pb-2"></td>
     </tr>
     {{range .SubItems}}
     <tr class="table-active"
@@ -469,6 +480,7 @@
                        aria-label="Item name">
             </div>
         </td>
+        <td></td>
         <td></td>
         <td>
             <div class="input-group input-group-sm">
@@ -501,64 +513,4 @@
     </tr>
     {{end}}
 </tbody>
-{{end}}
-
-{{define "budget.suggestions"}}
-<datalist id="category-suggestions">
-    {{range .Categories}}<option value="{{.}}">{{end}}
-</datalist>
-<datalist id="merchant-suggestions">
-    {{range .Merchants}}<option value="{{.}}">{{end}}
-</datalist>
-{{end}}
-
-{{define "budget.item.keywords"}}
-<div id="keywords-{{.ID}}" class="py-2 d-flex flex-wrap gap-1 align-items-center">
-    {{/* Saved keywords — solid, removable */}}
-    {{range .Keywords}}
-    <span class="badge bg-primary d-flex align-items-center gap-1 py-1 px-2">
-        <i class="bi bi-tag-fill" style="font-size:0.6rem;" aria-hidden="true"></i>
-        {{.}}
-        <button class="btn-close btn-close-white ms-1" style="font-size:0.55rem;"
-                type="button"
-                aria-label="Remove keyword {{.}}"
-                hx-delete="/budget/items/{{$.ID}}/keywords?keyword={{. | urlquery}}"
-                hx-target="#keywords-{{$.ID}}"
-                hx-swap="outerHTML"
-                hx-on::after-request="if (event.detail.successful) { htmx.trigger(document.body, 'refreshSummary') }">
-        </button>
-    </span>
-    {{end}}
-    {{/* Auto-discovered merchants — outlined, click to pin */}}
-    {{range .AutoMerchants}}
-    <form style="display:inline-flex" class="m-0"
-          hx-post="/budget/items/{{$.ID}}/keywords"
-          hx-target="#keywords-{{$.ID}}"
-          hx-swap="outerHTML"
-          hx-on::after-request="if (event.detail.successful) { htmx.trigger(document.body, 'refreshSummary') }">
-        <input type="hidden" name="keyword" value="{{.}}">
-        <button type="submit"
-                class="badge bg-light text-muted border btn btn-sm d-flex align-items-center gap-1 py-1 px-2"
-                title="Pin as keyword" aria-label="Pin {{.}} as a keyword">
-            <i class="bi bi-search" style="font-size:0.6rem;" aria-hidden="true"></i>
-            {{.}}
-            <i class="bi bi-pin ms-1" style="font-size:0.6rem;" aria-hidden="true"></i>
-        </button>
-    </form>
-    {{end}}
-    {{/* Custom keyword input */}}
-    <form class="d-flex gap-1 m-0"
-          hx-post="/budget/items/{{.ID}}/keywords"
-          hx-target="#keywords-{{.ID}}"
-          hx-swap="outerHTML"
-          hx-on::after-request="if (event.detail.successful) { this.reset(); htmx.trigger(document.body, 'refreshSummary') }">
-        <input type="text" name="keyword" class="form-control form-control-sm"
-               placeholder="Add keyword…" style="width:130px;"
-               list="merchant-suggestions" autocomplete="off"
-               aria-label="Add a keyword">
-        <button type="submit" class="btn btn-outline-secondary btn-sm" aria-label="Add keyword">
-            <i class="bi bi-plus" aria-hidden="true"></i>
-        </button>
-    </form>
-</div>
 {{end}}

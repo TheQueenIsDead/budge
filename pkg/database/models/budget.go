@@ -16,7 +16,6 @@ type BudgetItem struct {
 	Frequency     string
 	Category      string
 	BroadCategory string
-	Keywords      []string
 	SubItems      []BudgetSubItem
 }
 

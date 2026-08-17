@@ -87,6 +87,42 @@ function toggleBroadGroup(btn, groupId) {
 
 document.body.addEventListener('htmx:afterSwap', applyGroupCollapse);
 
+// ---- Merchant tag popovers ----
+//
+// The table shows the highest-spending merchants inline and folds the rest
+// into a popover. Instances are tracked so that rows swapped out by htmx do
+// not leave orphaned popovers attached to the body.
+
+const merchantPopovers = new Map(); // trigger element -> bootstrap.Popover
+
+function initMerchantPopovers() {
+    merchantPopovers.forEach((popover, el) => {
+        if (!document.body.contains(el)) {
+            popover.dispose();
+            merchantPopovers.delete(el);
+        }
+    });
+
+    document.querySelectorAll('.budge-merchants-more').forEach(btn => {
+        if (merchantPopovers.has(btn)) return;
+        const source = btn.parentElement.querySelector('[data-merchant-list]');
+        if (!source) return;
+        merchantPopovers.set(btn, new bootstrap.Popover(btn, {
+            html: true,
+            // 'focus' gives click to open, click-away to dismiss.
+            trigger: 'focus',
+            placement: 'top',
+            container: 'body',
+            title: 'Merchants',
+            // Escaped server-side by html/template.
+            content: () => source.innerHTML,
+        }));
+    });
+}
+
+document.body.addEventListener('htmx:afterSwap', initMerchantPopovers);
+initMerchantPopovers();
+
 // ---- Save confirmation ----
 
 function flashSaved(scope) {
