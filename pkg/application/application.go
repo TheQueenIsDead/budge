@@ -9,6 +9,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
+	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 	"html/template"
@@ -18,14 +19,9 @@ import (
 	"time"
 )
 
-type Application struct {
-	http         *echo.Echo
-	store        *database.Store
-	integrations *integrations.Integrations
-}
-
-// templateFuncs returns the helpers available to every template. It is split
-// out from NewApplication so tests can render templates without a live store.
+// templateFuncs are the formatting helpers made available to every template.
+// It is split out of NewApplication so tests can render templates without a
+// live store.
 func templateFuncs() template.FuncMap {
 	return template.FuncMap{
 		"fmtCurrency": func(number float64) string {
@@ -45,7 +41,16 @@ func templateFuncs() template.FuncMap {
 		"fmtRelative": func(date time.Time) string {
 			return humanize.RelTime(date, time.Now(), "ago", "")
 		},
+		"fmtTitle": func(text string) string {
+			return cases.Title(language.English).String(text)
+		},
 	}
+}
+
+type Application struct {
+	http         *echo.Echo
+	store        *database.Store
+	integrations *integrations.Integrations
 }
 
 func NewApplication(store *database.Store, integrations *integrations.Integrations) (*Application, error) {
@@ -59,7 +64,6 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	app.http.Debug = true
 
-	// Setup HTTP server
 	tpl := template.New("").Funcs(templateFuncs())
 	tpl = template.Must(tpl.ParseGlob("web/templates/*.gohtml"))
 

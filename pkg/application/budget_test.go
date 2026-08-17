@@ -1,14 +1,11 @@
 package application
 
 import (
-	"bytes"
-	"html/template"
 	"testing"
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // Expected values below are derived from the published NZ rates the code cites,
@@ -516,9 +513,6 @@ func TestBuildSetupRowData(t *testing.T) {
 // budget partial. It catches field references that no longer exist on the
 // view-models, which the compiler cannot see.
 func TestBudgetTemplatesRender(t *testing.T) {
-	tpl, err := template.New("").Funcs(templateFuncs()).ParseGlob("../../web/templates/*.gohtml")
-	require.NoError(t, err, "templates must parse")
-
 	setup := CategorySetupData{
 		HasData:   true,
 		NetWeekly: 1_000,
@@ -593,9 +587,7 @@ func TestBudgetTemplatesRender(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			require.NoError(t, tpl.ExecuteTemplate(&buf, test.template, test.data))
-			assert.NotEmpty(t, buf.String())
+			assert.NotEmpty(t, renderTemplate(t, test.template, test.data))
 		})
 	}
 }
@@ -604,15 +596,10 @@ func TestBudgetTemplatesRender(t *testing.T) {
 // produced an unroutable URL. The keyword now travels as an escaped query
 // param, so every character survives the round trip.
 func TestKeywordDeleteURLIsEscaped(t *testing.T) {
-	tpl, err := template.New("").Funcs(templateFuncs()).ParseGlob("../../web/templates/*.gohtml")
-	require.NoError(t, err)
-
-	var buf bytes.Buffer
-	require.NoError(t, tpl.ExecuteTemplate(&buf, "budget.item.keywords", ItemTagsData{
+	rendered := renderTemplate(t, "budget.item.keywords", ItemTagsData{
 		BudgetItem: models.BudgetItem{ID: "item-1", Keywords: []string{"Z/Caltex"}},
-	}))
+	})
 
-	rendered := buf.String()
 	assert.Contains(t, rendered, "keywords?keyword=Z%2FCaltex",
 		"the slash must be percent-encoded, not left as a path separator")
 	assert.NotContains(t, rendered, "keywords/Z/Caltex")
