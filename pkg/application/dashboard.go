@@ -25,7 +25,6 @@ type DashboardData struct {
 	SpendDoughnut   DoughnutData
 
 	TopMerchants                []models.MerchantTotal
-	FrequentMerchants           []models.MerchantFrequency
 	HighestOutgoingTransactions []OutgoingTransaction
 }
 
@@ -35,8 +34,8 @@ type OutgoingTransaction struct {
 	Date        time.Time
 }
 
-func BuildHighestOutgoingTransactions(past, current []models.Transaction, n int) []OutgoingTransaction {
-	if n == 0 || len(current) == 0 {
+func BuildHighestOutgoingTransactions(current []models.Transaction, n int) []OutgoingTransaction {
+	if n <= 0 || len(current) == 0 {
 		return nil
 	}
 
@@ -89,11 +88,17 @@ type DoughnutData struct {
 	Data   []int
 }
 
-// AggregateMonthlyTransactions takes a list of transactions and returns a map with the
-func AggregateMonthlyTransactions(transactions []models.Transaction) map[string][]models.Transaction {
+// AggregateMonthlyTransactions groups transactions by the month they fall in,
+// read in the given location. Akahu stores dates in UTC, so a transaction late
+// on the last of the month counts against the next one unless it is read
+// locally first.
+func AggregateMonthlyTransactions(transactions []models.Transaction, location *time.Location) map[string][]models.Transaction {
+	if location == nil {
+		location = time.Local
+	}
 	monthlyTransactions := make(map[string][]models.Transaction)
 	for _, tx := range transactions {
-		month := tx.Date.Format("Jan 06")
+		month := tx.Date.In(location).Format("Jan 06")
 		if _, ok := monthlyTransactions[month]; !ok {
 			monthlyTransactions[month] = []models.Transaction{tx}
 		} else {
@@ -265,58 +270,59 @@ func BuildDoughnutData(transactions []models.Transaction) DoughnutData {
 
 	return DoughnutData{categoryLabels, categoryData}
 }
+
+// BuildTopMerchants ranks merchants by what was spent with them in the current
+// window, comparing each against the window before it. Totals are positive
+// magnitudes, because a merchant list reads as "what I paid them".
 func BuildTopMerchants(last, current []models.Transaction, n int) []models.MerchantTotal {
 
-	if n == 0 || len(last) == 0 || len(current) == 0 {
+	if n <= 0 || len(current) == 0 {
 		return nil
 	}
 
-	// Aggregate spend across merchants by sum for past and recent
-	recentSpend := make(map[string]float64)
-	for _, transaction := range current {
-		recentSpend[transaction.Merchant.Name] += transaction.Float()
-	}
-	pastSpend := make(map[string]float64)
-	for _, transaction := range last {
-		pastSpend[transaction.Merchant.Name] += transaction.Float()
-	}
-
-	// Place the recent merchant spend in a list of bespoke structs for ordering later on
-	var top []models.MerchantTotal
-	for merchant, total := range recentSpend {
-		if merchant == "" {
-			continue
+	spendByMerchant := func(transactions []models.Transaction) map[string]float64 {
+		totals := make(map[string]float64)
+		for _, tx := range transactions {
+			// Money coming back from a merchant is a refund, not a payment.
+			if tx.Merchant.Name == "" || tx.Amount >= 0 {
+				continue
+			}
+			totals[tx.Merchant.Name] += -tx.Amount
 		}
-		top = append(top, models.MerchantTotal{
-			Merchant: merchant,
-			Total:    total,
-		})
+		return totals
 	}
 
-	// Sort the list by merchant total to find the ones with the most spend
+	pastSpend := spendByMerchant(last)
+	recentSpend := spendByMerchant(current)
+
+	top := make([]models.MerchantTotal, 0, len(recentSpend))
+	for merchant, total := range recentSpend {
+		entry := models.MerchantTotal{Merchant: merchant, Total: total}
+		// A merchant with no spend last window is new, which the template
+		// distinguishes from unchanged by the zero PreviousTotal.
+		if previous, ok := pastSpend[merchant]; ok && previous != 0 {
+			entry.PreviousTotal = previous
+			entry.Delta = (total - previous) / previous
+		}
+		top = append(top, entry)
+	}
+
+	// Highest spend first. The name breaks ties so that map iteration order
+	// cannot reshuffle the list between renders.
 	sort.Slice(top, func(i, j int) bool {
-		return top[i].Total < top[j].Total
+		if top[i].Total == top[j].Total {
+			return top[i].Merchant < top[j].Merchant
+		}
+		return top[i].Total > top[j].Total
 	})
 
-	// Filter the list of top merchants to a max of n elements
-	results := make([]models.MerchantTotal, n)
-	if len(top) >= n {
-		results = top[:n]
+	if len(top) > n {
+		top = top[:n]
 	}
 
-	// For the N merchants, calculate the delta in spend from past to recent transactions
-	for i, merchantTotal := range results {
-		if pastTotal, ok := pastSpend[merchantTotal.Merchant]; ok {
-			if pastTotal != 0 {
-				merchantTotal.Delta = (merchantTotal.Total - pastTotal) / pastTotal
-			}
-			merchantTotal.PreviousTotal = pastTotal
-			results[i] = merchantTotal
-		}
-	}
-
-	return results
+	return top
 }
+
 func BuildFrequentMerchants(transactions []models.Transaction, n int) []models.MerchantFrequency {
 
 	// Count all merchant transactions
@@ -349,9 +355,10 @@ func BuildFrequentMerchants(transactions []models.Transaction, n int) []models.M
 
 func (app *Application) Dashboard(c echo.Context) error {
 
-	// Retrieve accounts and 6 months worth of transactions
+	now := time.Now()
+
 	accounts, accountErr := app.store.ReadAccounts()
-	transactions, transactionErr := app.store.ReadTransactionsByDate(time.Now().AddDate(0, -6, 0), time.Now())
+	transactions, transactionErr := app.store.ReadTransactionsByDate(now.AddDate(0, -6, 0), now)
 	if err := cmp.Or(accountErr, transactionErr); err != nil {
 		app.Toast(c, "Error", "Could not load dashboard data.")
 		return c.NoContent(http.StatusInternalServerError)
@@ -365,23 +372,23 @@ func (app *Application) Dashboard(c echo.Context) error {
 		}
 	}
 
-	// Filter out transfers and categorise transactions into months
-	monthlyTransactions := AggregateMonthlyTransactions(nonTransferTransactions)
+	monthlyTransactions := AggregateMonthlyTransactions(nonTransferTransactions, now.Location())
 	pastTransactions, recentTransactions := FilterRecentTransactions(nonTransferTransactions)
 
 	// Build cards based on differences between the last 30 days, and the 30 days prior to that
 	balance, spend, income, savings := BuildCards(accounts, pastTransactions, recentTransactions)
 
 	return c.Render(http.StatusOK, "dashboard", DashboardData{
-		BalanceCard:                 balance,
-		SpendCard:                   spend,
-		IncomeCard:                  income,
-		SavingsCard:                 savings,
-		SpendTimeseries:             BuildTimeseriesData(monthlyTransactions),
-		SpendDoughnut:               BuildDoughnutData(nonTransferTransactions),
-		TopMerchants:                BuildTopMerchants(pastTransactions, recentTransactions, 10),
-		FrequentMerchants:           BuildFrequentMerchants(nonTransferTransactions, 10),
-		HighestOutgoingTransactions: BuildHighestOutgoingTransactions(nil, nonTransferTransactions, 10),
+		BalanceCard:     balance,
+		SpendCard:       spend,
+		IncomeCard:      income,
+		SavingsCard:     savings,
+		SpendTimeseries: BuildTimeseriesData(monthlyTransactions),
+		SpendDoughnut:   BuildDoughnutData(nonTransferTransactions),
+		TopMerchants:    BuildTopMerchants(pastTransactions, recentTransactions, 10),
+		// Scoped to the same 30 days as the merchants beside it, so the two
+		// lists describe the same period rather than silently differing.
+		HighestOutgoingTransactions: BuildHighestOutgoingTransactions(recentTransactions, 10),
 	})
 }
 func (app *Application) _4XX(c echo.Context) error {

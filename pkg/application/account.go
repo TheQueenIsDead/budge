@@ -269,13 +269,27 @@ func (app *Application) accountBalance(c echo.Context, account models.Account, v
 		return AccountTimeseriesData{}, AccountStatistics{}, err
 	}
 
+	graphData, stats := BuildAccountBalanceHistory(account, transactions, viewDate)
+	return graphData, stats, nil
+}
+
+// BuildAccountBalanceHistory walks an account's balance backwards through the
+// selected year and summarises it. It is split from the handler so the walk can
+// be tested without a store behind it.
+func BuildAccountBalanceHistory(account models.Account, transactions []models.Transaction, viewDate time.Time) (AccountTimeseriesData, AccountStatistics) {
+
 	// Filter transactions for the selected year
 	year := viewDate.Year()
 	startDate := time.Date(year, time.January, 1, 0, 0, 0, 0, time.UTC)
 	endDate := startDate.AddDate(1, 0, 0)
 
-	// Calculate the balance at the end of the selected year by rolling back future transactions
-	balanceAtEndDate := account.Balance.Available
+	// Calculate the balance at the end of the selected year by rolling back future
+	// transactions. Current is the account's actual balance and is what the
+	// accounts list, the portfolio and net worth all report. Available means
+	// something else entirely - on a revolving facility it is the credit left to
+	// draw, and on KiwiSaver, investment and loan accounts the feed leaves it at
+	// zero - so anchoring the history to it charts a balance the account never had.
+	balanceAtEndDate := account.Balance.Current
 	for _, t := range transactions {
 		if t.Date.After(endDate) && (t.Date.Before(account.Refreshed.Balance) || t.Date.Equal(account.Refreshed.Balance)) {
 			balanceAtEndDate -= t.Amount
@@ -289,9 +303,12 @@ func (app *Application) accountBalance(c echo.Context, account models.Account, v
 		}
 	}
 
-	// Calculate statistics on the filtered transactions
+	// Both extremes are seeded outside the range of any real balance. Leaving
+	// HighestBalance at zero would report zero for an account that is always
+	// overdrawn, since no negative balance ever beats it.
 	stats := AccountStatistics{
-		LowestBalance: math.MaxFloat64,
+		LowestBalance:  math.MaxFloat64,
+		HighestBalance: -math.MaxFloat64,
 	}
 	for _, t := range recentTransactions {
 		if t.Amount > 0 {
@@ -333,7 +350,9 @@ func (app *Application) accountBalance(c echo.Context, account models.Account, v
 	if len(data) > 0 {
 		stats.AverageBalance = balanceSum / float64(len(data))
 	} else {
-		stats.LowestBalance = 0 // Avoid showing MaxFloat64
+		// Nothing was seen, so report zero rather than the sentinels.
+		stats.LowestBalance = 0
+		stats.HighestBalance = 0
 	}
 
 	graphData := AccountTimeseriesData{
@@ -341,7 +360,7 @@ func (app *Application) accountBalance(c echo.Context, account models.Account, v
 		Data:   data,
 	}
 
-	return graphData, stats, nil
+	return graphData, stats
 }
 
 // WalkAccount takes a balance and list of changes in balance for a series of periods and calculates the balance at the preceding periods.
