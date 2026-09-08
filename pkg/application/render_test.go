@@ -448,3 +448,140 @@ func TestPortfolioNaming(t *testing.T) {
 		assert.Contains(t, page, "<span>Net Worth</span>")
 	})
 }
+
+func TestBuildTransactionSeries(t *testing.T) {
+	// now is 8 Sep 2026, so the window runs Oct 25 through Sep 26.
+	sep := now
+	aug := now.AddDate(0, -1, 0)
+
+	transactions := []models.Transaction{
+		spendTransaction("Supermarkets and grocery stores", "PAKnSAVE", -140, sep),
+		spendTransaction("Supermarkets and grocery stores", "PAKnSAVE", -60, aug),
+		spendTransaction("Fuel stations", "Z Energy", -90, sep),
+		// No tracked category, so it belongs to the catch-all band.
+		spendTransaction("Building supplies", "Bunnings Warehouse", -240, sep),
+		// Neither of these is spend.
+		spendTransaction("Salary", "Employer", 2100, sep),
+		func() models.Transaction {
+			tx := spendTransaction("Fuel stations", "Z Energy", -999, sep)
+			tx.Type = "TRANSFER"
+			return tx
+		}(),
+		// Outside the twelve month window.
+		spendTransaction("Supermarkets and grocery stores", "PAKnSAVE", -500, now.AddDate(-2, 0, 0)),
+	}
+
+	series := BuildTransactionSeries(transactions, 12, now)
+
+	t.Run("covers a year of months, oldest first", func(t *testing.T) {
+		require.Len(t, series.Labels, 12)
+		assert.Equal(t, "Oct 25", series.Labels[0])
+		assert.Equal(t, "Sep 26", series.Labels[11])
+	})
+
+	t.Run("splits spend into category bands", func(t *testing.T) {
+		bands := map[string][]float64{}
+		for _, group := range series.Groups {
+			bands[group.Label] = group.Data
+		}
+		require.Contains(t, bands, "Groceries")
+		require.Contains(t, bands, "Petrol")
+		require.Contains(t, bands, "Other")
+
+		assert.Equal(t, 140.0, bands["Groceries"][11])
+		assert.Equal(t, 60.0, bands["Groceries"][10])
+		assert.Equal(t, 90.0, bands["Petrol"][11])
+		assert.Equal(t, 240.0, bands["Other"][11])
+	})
+
+	t.Run("excludes transfers, income and anything outside the window", func(t *testing.T) {
+		// 140 + 60 + 90 + 240. The transfer, the salary and the two year old
+		// shop are all left out.
+		assert.Equal(t, 530.0, series.Total)
+	})
+
+	t.Run("drops categories that never appear", func(t *testing.T) {
+		for _, group := range series.Groups {
+			assert.NotContains(t, []string{"Power", "Internet & Mobile", "Eating out"}, group.Label)
+		}
+	})
+
+	t.Run("keeps the catch-all band last", func(t *testing.T) {
+		require.NotEmpty(t, series.Groups)
+		assert.Equal(t, "Other", series.Groups[len(series.Groups)-1].Label)
+	})
+
+	t.Run("bands carry an accent token, not a colour", func(t *testing.T) {
+		for _, group := range series.Groups {
+			assert.NotContains(t, group.Accent, "#")
+			assert.NotEmpty(t, group.Accent)
+		}
+	})
+
+	t.Run("reports no data when nothing qualifies", func(t *testing.T) {
+		income := []models.Transaction{spendTransaction("Salary", "Employer", 2100, sep)}
+		empty := BuildTransactionSeries(income, 12, now)
+		assert.False(t, empty.HasData)
+		assert.Empty(t, empty.Groups)
+	})
+
+	t.Run("reads dates in the reference location", func(t *testing.T) {
+		nz := time.FixedZone("NZST", 12*60*60)
+		reference := time.Date(2026, time.September, 8, 12, 0, 0, 0, nz)
+		// 31 Aug 23:00 UTC is 1 Sep in +12.
+		late := []models.Transaction{
+			spendTransaction("Fuel stations", "Z Energy", -50,
+				time.Date(2026, time.August, 31, 23, 0, 0, 0, time.UTC)),
+		}
+
+		got := BuildTransactionSeries(late, 12, reference)
+		require.Len(t, got.Groups, 1)
+		assert.Equal(t, 50.0, got.Groups[0].Data[11], "should land in September, not August")
+	})
+}
+
+func TestRenderTransactionsChart(t *testing.T) {
+	transactions := []models.Transaction{
+		spendTransaction("Supermarkets and grocery stores", "PAKnSAVE", -140, now),
+		spendTransaction("Fuel stations", "Z Energy", -90, now),
+	}
+
+	render := func(series TransactionSeries) string {
+		return renderTemplate(t, "transactions", map[string]interface{}{
+			"accounts":  []models.Account{},
+			"days":      GroupTransactionsByDay(transactions, time.UTC),
+			"series":    series,
+			"search":    "",
+			"account":   "",
+			"took":      time.Millisecond,
+			"in":        0.0,
+			"out":       -230.0,
+			"total":     2,
+			"showing":   2,
+			"hasMore":   false,
+			"nextLimit": 200,
+		})
+	}
+
+	page := render(BuildTransactionSeries(transactions, 12, now))
+
+	t.Run("charts the result set above the rows", func(t *testing.T) {
+		assert.Contains(t, page, `id="txSeriesChart"`)
+		assert.Contains(t, page, "Spend over time")
+		assert.Contains(t, page, "$230.00")
+	})
+
+	t.Run("keeps the canvas across a search so typing does not flicker", func(t *testing.T) {
+		assert.Contains(t, page, "hx-preserve")
+	})
+
+	t.Run("takes its colours from the shared palette, not a literal", func(t *testing.T) {
+		assert.Contains(t, page, "window.budge.colour(band.Accent)")
+		assert.NotContains(t, page, "#4f8a6d")
+	})
+
+	t.Run("hides the card when there is no spend to show", func(t *testing.T) {
+		bare := render(TransactionSeries{})
+		assert.NotContains(t, bare, "Spend over time")
+	})
+}

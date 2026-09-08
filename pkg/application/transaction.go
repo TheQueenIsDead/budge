@@ -153,7 +153,10 @@ func (app *Application) Transactions(c echo.Context) error {
 	}
 
 	return c.Render(http.StatusOK, "transactions", map[string]interface{}{
-		"accounts":  accounts,
+		"accounts": accounts,
+		// Built from every match, not the page, so the chart describes the
+		// search rather than the hundred rows under it.
+		"series":    BuildTransactionSeries(transactions, transactionSeriesMonths, time.Now()),
 		"days":      GroupTransactionsByDay(page, time.Now().Location()),
 		"search":    search,
 		"account":   account,
@@ -165,4 +168,117 @@ func (app *Application) Transactions(c echo.Context) error {
 		"hasMore":   total > len(page),
 		"nextLimit": limit + transactionPageSize,
 	})
+}
+
+// transactionSeriesMonths is how much history the chart above the results
+// covers. A year of months fits a phone without the labels colliding.
+const transactionSeriesMonths = 12
+
+// TransactionSeriesGroup is one coloured band of the stacked chart. Accent is a
+// token name rather than a colour so the chart and the rows beneath it cannot
+// drift apart.
+type TransactionSeriesGroup struct {
+	Label  string
+	Accent string
+	Data   []float64
+}
+
+// TransactionSeries is monthly spend across the whole result set, split by the
+// same categories that colour the rows. It covers every match rather than the
+// page on screen, so narrowing the search reshapes the chart even when the
+// visible rows do not change.
+type TransactionSeries struct {
+	Labels  []string
+	Groups  []TransactionSeriesGroup
+	HasData bool
+
+	// Total is the spend the chart accounts for, which is less than the result
+	// set's outgoings whenever transfers were filtered out of it.
+	Total float64
+}
+
+// unclassifiedSpendLabel names spend that matches no tracked category.
+const unclassifiedSpendLabel = "Other"
+
+// BuildTransactionSeries totals spend by month and category for a result set.
+//
+// Transfers are excluded. They are money moving between the owner's own
+// accounts, so counting them would swamp every real category and describe
+// nothing. Income is excluded too: this answers "what did this cost", and a
+// salary credit in the same bar would net away the thing being looked at.
+func BuildTransactionSeries(transactions []models.Transaction, months int, now time.Time) TransactionSeries {
+	if months <= 0 {
+		return TransactionSeries{}
+	}
+
+	location := now.Location()
+	current := periodStart(now.In(location), CadenceMonthly)
+
+	labels := make([]string, months)
+	index := make(map[time.Time]int, months)
+	for i := 0; i < months; i++ {
+		start := current.AddDate(0, -(months - 1 - i), 0)
+		labels[i] = start.Format("Jan 06")
+		index[start] = i
+	}
+
+	// Bands are keyed by group so the ordering stays the registry's, which is
+	// the same order the pills use on the insights page.
+	groups := SpendGroups()
+	totals := make(map[string][]float64, len(groups)+1)
+	for _, group := range groups {
+		totals[group.Key] = make([]float64, months)
+	}
+	totals[unclassifiedSpendLabel] = make([]float64, months)
+
+	series := TransactionSeries{Labels: labels}
+
+	for _, tx := range transactions {
+		if tx.Type == "TRANSFER" || tx.Amount >= 0 {
+			continue
+		}
+		i, ok := index[periodStart(tx.Date.In(location), CadenceMonthly)]
+		if !ok {
+			continue
+		}
+
+		key := unclassifiedSpendLabel
+		if matched, ok := ClassifySpend(tx); ok {
+			key = matched
+		}
+		totals[key][i] += -tx.Amount
+		series.Total += -tx.Amount
+	}
+
+	for _, group := range groups {
+		if band, ok := nonEmptyBand(totals[group.Key]); ok {
+			series.Groups = append(series.Groups, TransactionSeriesGroup{
+				Label:  group.Label,
+				Accent: group.Accent,
+				Data:   band,
+			})
+		}
+	}
+	// Unclassified spend sits last, so the named categories read first.
+	if band, ok := nonEmptyBand(totals[unclassifiedSpendLabel]); ok {
+		series.Groups = append(series.Groups, TransactionSeriesGroup{
+			Label:  unclassifiedSpendLabel,
+			Accent: "muted",
+			Data:   band,
+		})
+	}
+
+	series.HasData = len(series.Groups) > 0
+	return series
+}
+
+// nonEmptyBand reports whether a band has any spend in it. A category that
+// never appears in the results should not take up a legend entry.
+func nonEmptyBand(data []float64) ([]float64, bool) {
+	for _, value := range data {
+		if value > 0 {
+			return data, true
+		}
+	}
+	return nil, false
 }

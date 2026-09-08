@@ -28,6 +28,9 @@
         <script defer src="/static/toast.js"></script>
         <script defer src="/static/budget.js"></script>
         <link rel="stylesheet" href="/static/styles.css">
+        <!-- Not deferred: inline chart code in the page body runs during parsing,
+             which is before a deferred script would execute. -->
+        <script src="/static/charts.js"></script>
 
         <!-- HTMX -->
         <script src="https://unpkg.com/htmx.org@2.0.0"></script>

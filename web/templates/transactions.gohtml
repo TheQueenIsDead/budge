@@ -50,6 +50,29 @@
         </div>
     </div>
 
+    <!-- Spend behind the results. Stacked by the same categories that colour the
+         rows, so a band and a row chip of the same colour mean the same thing. -->
+    {{ if .series.HasData }}
+        <div class="b-card b-card-pad mb-3">
+            <div class="b-card-head mb-1">
+                <div>
+                    <h3 class="b-card-title">Spend over time</h3>
+                    <p class="b-card-sub">
+                        Last 12 months of these results by category. Transfers and
+                        money in are left out.
+                    </p>
+                </div>
+                <div class="text-end flex-shrink-0">
+                    <div class="fw-bold b-num">{{ .series.Total | fmtCurrency }}</div>
+                    <div class="b-delta-note">total spend</div>
+                </div>
+            </div>
+            <div class="b-chart b-chart-short">
+                <canvas id="txSeriesChart" hx-preserve="true"></canvas>
+            </div>
+        </div>
+    {{ end }}
+
     {{ if .days }}
 
         <!-- Phone: a card per transaction, grouped under the day it happened. -->
@@ -144,5 +167,88 @@
             </p>
         </div>
     {{ end }}
+
+    <script>
+        (function () {
+            const canvas = document.getElementById("txSeriesChart");
+            if (!canvas || typeof Chart === "undefined" || !window.budge) {
+                return;
+            }
+
+            const labels = {{ .series.Labels }};
+            const bands = {{ .series.Groups }};
+
+            const datasets = (bands || []).map(function (band) {
+                return {
+                    label: band.Label,
+                    data: band.Data,
+                    backgroundColor: window.budge.colour(band.Accent),
+                    borderRadius: 3,
+                    maxBarThickness: 34
+                };
+            });
+
+            // The canvas survives the swap, so a new search updates the chart in
+            // place. Rebuilding it would blank the card for a frame on every
+            // keystroke, which reads as flicker while typing.
+            const existing = Chart.getChart(canvas);
+            if (existing) {
+                existing.data.labels = labels;
+                existing.data.datasets = datasets;
+                existing.update("none");
+                return;
+            }
+
+            new Chart(canvas, {
+                type: "bar",
+                data: {labels: labels, datasets: datasets},
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        // Stacking is what lets a month read as a total and as
+                        // its parts at the same time.
+                        x: {
+                            stacked: true,
+                            border: {display: false},
+                            grid: {display: false},
+                            ticks: {color: window.budge.ink, maxRotation: 0, autoSkipPadding: 6}
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            border: {display: false},
+                            grid: {color: window.budge.grid},
+                            ticks: {
+                                color: window.budge.ink,
+                                maxTicksLimit: 4,
+                                callback: v => "$" + v.toLocaleString()
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: "bottom",
+                            labels: {
+                                color: window.budge.ink,
+                                boxWidth: 10,
+                                boxHeight: 10,
+                                usePointStyle: true,
+                                pointStyle: "circle",
+                                padding: 12
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ctx.dataset.label + ": $" +
+                                    ctx.parsed.y.toLocaleString(undefined, {minimumFractionDigits: 2})
+                            }
+                        }
+                    }
+                }
+            });
+        })();
+    </script>
 
 {{ end }}

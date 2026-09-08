@@ -44,6 +44,8 @@
     --b-slate-soft: #e6eef4;
     --b-brick: #b8635a;
     --b-brick-soft: #f7e8e6;
+    --b-muted-accent: #a9b5bd;
+    --b-muted-accent-soft: #e8edf0;
 
     /* Shape. Hairline borders carry the structure, so shadows stay faint. */
     --b-radius: 14px;
@@ -63,6 +65,7 @@
 .b-accent-plum  { --accent: var(--b-plum);  --accent-soft: var(--b-plum-soft); }
 .b-accent-slate { --accent: var(--b-slate); --accent-soft: var(--b-slate-soft); }
 .b-accent-brick { --accent: var(--b-brick); --accent-soft: var(--b-brick-soft); }
+.b-accent-muted { --accent: var(--b-muted-accent); --accent-soft: var(--b-muted-accent-soft); }
 
 /* ==========================================================================
    Base
@@ -447,6 +450,17 @@ main.container {
 @media (min-width: 768px) {
     .b-chart {
         height: 280px;
+    }
+}
+
+/* A chart that sits above a list is a glance, not the subject of the page. */
+.b-chart-short {
+    height: 180px;
+}
+
+@media (min-width: 768px) {
+    .b-chart-short {
+        height: 200px;
     }
 }
 
