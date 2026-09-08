@@ -100,3 +100,12 @@ fabric.properties
 # Go workspace file
 go.work
 
+# Local runtime artefacts. The bolt database holds real financial history and
+# must never be committed.
+budge.bolt.db
+budge.bolt.db.lock
+tmp/
+uploads/
+.claude/
+.idea/
+_palettes.html
