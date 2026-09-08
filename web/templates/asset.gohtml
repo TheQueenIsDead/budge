@@ -95,11 +95,29 @@
             <div>
                 <h3 class="b-card-title">Record a valuation</h3>
                 <p class="b-card-sub">
-                    A rateable value, an agent's appraisal or your own estimate. There is no
-                    feed for what a house is worth, so each one is entered by hand.
+                    A rateable value, an agent's appraisal or your own estimate.
                 </p>
             </div>
+            {{ if .Summary.Asset.Trackable }}
+                <button class="btn btn-sm btn-primary flex-shrink-0"
+                        hx-post="/assets/{{ .Summary.Asset.Id }}/estimate"
+                        hx-target="#main" hx-swap="innerHTML"
+                        hx-indicator="#estimate-spinner">
+                    <i class="bi bi-arrow-repeat"></i> Fetch estimate
+                    <span id="estimate-spinner" class="htmx-indicator spinner-border spinner-border-sm ms-1"></span>
+                </button>
+            {{ end }}
         </div>
+
+        {{ if .Summary.Asset.Trackable }}
+            <p class="b-card-sub mb-3">
+                Fetching averages
+                {{ if .Summary.Asset.HomesPropertyID }}homes.co.nz{{ end }}
+                {{ if and .Summary.Asset.HomesPropertyID .Summary.Asset.OneRoofURL }}and{{ end }}
+                {{ if .Summary.Asset.OneRoofURL }}OneRoof{{ end }}.
+                Both round to the nearest ten thousand, so the average does too.
+            </p>
+        {{ end }}
 
         <form hx-post="/assets/{{ .Summary.Asset.Id }}/valuations"
               hx-target="#main" hx-swap="innerHTML">

@@ -8,7 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"fmt"
+
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
+	"github.com/TheQueenIsDead/budge/pkg/integrations/property"
 	"github.com/labstack/echo/v4"
 )
 
@@ -231,6 +234,14 @@ func (app *Application) AssetCreate(c echo.Context) error {
 		PurchasePrice: parseAssetAmount(c.FormValue("purchase_price")),
 		PurchaseDate:  parseAssetDate(c.FormValue("purchase_date")),
 		CreatedAt:     time.Now(),
+
+		HomesPropertyID: strings.TrimSpace(c.FormValue("homes_property_id")),
+	}
+
+	// A URL that is not a OneRoof property page is dropped rather than stored:
+	// it is fetched server side later, so it must not point anywhere else.
+	if raw := strings.TrimSpace(c.FormValue("oneroof_url")); property.ValidOneRoofURL(raw) {
+		asset.OneRoofURL = raw
 	}
 
 	if err := app.store.CreateAsset(asset); err != nil {
@@ -301,4 +312,81 @@ func (app *Application) AssetDelete(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return app.Accounts(c)
+}
+
+// AddressSuggest proxies the address lookup so the browser never talks to the
+// property site directly: that keeps the request off a cross origin path and
+// leaves the user agent and rate limiting under this application's control.
+//
+// A lookup failure returns an empty list rather than an error. The address field
+// is an ordinary text input, so losing autocomplete costs nothing but typing.
+func (app *Application) AddressSuggest(c echo.Context) error {
+	query := strings.TrimSpace(c.QueryParam("q"))
+	if len(query) < 3 {
+		return c.JSON(http.StatusOK, []property.Suggestion{})
+	}
+
+	suggestions, err := property.New().SuggestAddresses(c.Request().Context(), query, 6)
+	if err != nil {
+		c.Logger().Error(err)
+		return c.JSON(http.StatusOK, []property.Suggestion{})
+	}
+
+	return c.JSON(http.StatusOK, suggestions)
+}
+
+// AssetRefreshEstimate asks the valuation sources what the property is worth now
+// and records the average as a valuation. Sources that do not answer narrow the
+// average rather than failing the request, and nothing is recorded if none do.
+func (app *Application) AssetRefreshEstimate(c echo.Context) error {
+
+	id := c.Param("id")
+	asset, err := app.store.GetAsset(id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "asset not found")
+	}
+
+	if !asset.Trackable() {
+		app.Toast(c, "Error", "Add an address or a OneRoof link to this asset first.")
+		return echo.NewHTTPError(http.StatusBadRequest, "no valuation source configured")
+	}
+
+	result := property.New().Estimate(c.Request().Context(), asset.HomesPropertyID, asset.OneRoofURL)
+	if len(result.Estimates) == 0 {
+		app.Toast(c, "Error", "No source returned an estimate. Enter one by hand instead.")
+		return app.Asset(c)
+	}
+
+	sources := make([]string, 0, len(result.Estimates))
+	for _, estimate := range result.Estimates {
+		sources = append(sources, fmt.Sprintf("%s %s", estimate.Source, formatShort(estimate.Value)))
+	}
+
+	valuation := models.AssetValuation{
+		ID:    newID(),
+		Date:  time.Now(),
+		Value: result.Average,
+		Note:  strings.Join(sources, " · "),
+	}
+
+	if err := app.store.AddAssetValuation(id, valuation); err != nil {
+		app.Toast(c, "Error", "Could not save the estimate.")
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	if len(result.Failed) > 0 {
+		app.Toast(c, "Warning", fmt.Sprintf("Averaged %d of %d sources. No answer from %s.",
+			len(result.Estimates), len(result.Estimates)+len(result.Failed), strings.Join(result.Failed, ", ")))
+	}
+
+	return app.Asset(c)
+}
+
+// formatShort renders a valuation the way the property sites publish it, since
+// that is the precision they actually offer.
+func formatShort(value float64) string {
+	if value >= 1_000_000 {
+		return fmt.Sprintf("$%.2fM", value/1_000_000)
+	}
+	return fmt.Sprintf("$%.0fK", value/1_000)
 }

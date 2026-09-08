@@ -150,11 +150,13 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.GET("/transactions", app.Transactions)
 
 	// Assets
+	app.http.GET("/assets/address-suggest", app.AddressSuggest)
 	app.http.GET("/assets", app.Assets)
 	app.http.POST("/assets", app.AssetCreate)
 	app.http.GET("/assets/:id", app.Asset)
 	app.http.DELETE("/assets/:id", app.AssetDelete)
 	app.http.POST("/assets/:id/valuations", app.AssetAddValuation)
+	app.http.POST("/assets/:id/estimate", app.AssetRefreshEstimate)
 	app.http.DELETE("/assets/:id/valuations/:valuationId", app.AssetDeleteValuation)
 
 	// Accounts
