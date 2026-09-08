@@ -26,6 +26,11 @@ type DashboardData struct {
 
 	TopMerchants                []models.MerchantTotal
 	HighestOutgoingTransactions []OutgoingTransaction
+
+	// SpendHighlights answer the questions asked most often - what the weekly
+	// shop cost, what petrol cost, what the power bill was - without needing
+	// the insights page.
+	SpendHighlights []SpendSummary
 }
 
 type OutgoingTransaction struct {
@@ -357,23 +362,31 @@ func (app *Application) Dashboard(c echo.Context) error {
 
 	now := time.Now()
 
+	// The spend highlights compare a year of months, so the dashboard reads
+	// further back than the six months its own charts cover.
 	accounts, accountErr := app.store.ReadAccounts()
-	transactions, transactionErr := app.store.ReadTransactionsByDate(now.AddDate(0, -6, 0), now)
+	transactions, transactionErr := app.store.ReadTransactionsByDate(now.AddDate(0, -insightsHistory, 0), now)
 	if err := cmp.Or(accountErr, transactionErr); err != nil {
 		app.Toast(c, "Error", "Could not load dashboard data.")
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	// Filter out transfers
-	var nonTransferTransactions []models.Transaction
+	// Transfers move money between the owner's own accounts, so counting them
+	// as spend would double up every dollar that passes through.
+	sixMonthsAgo := now.AddDate(0, -6, 0)
+	var nonTransfer, lastSixMonths []models.Transaction
 	for _, tx := range transactions {
-		if tx.Type != "TRANSFER" {
-			nonTransferTransactions = append(nonTransferTransactions, tx)
+		if tx.Type == "TRANSFER" {
+			continue
+		}
+		nonTransfer = append(nonTransfer, tx)
+		if tx.Date.After(sixMonthsAgo) {
+			lastSixMonths = append(lastSixMonths, tx)
 		}
 	}
 
-	monthlyTransactions := AggregateMonthlyTransactions(nonTransferTransactions, now.Location())
-	pastTransactions, recentTransactions := FilterRecentTransactions(nonTransferTransactions)
+	monthlyTransactions := AggregateMonthlyTransactions(lastSixMonths, now.Location())
+	pastTransactions, recentTransactions := FilterRecentTransactions(lastSixMonths)
 
 	// Build cards based on differences between the last 30 days, and the 30 days prior to that
 	balance, spend, income, savings := BuildCards(accounts, pastTransactions, recentTransactions)
@@ -384,11 +397,12 @@ func (app *Application) Dashboard(c echo.Context) error {
 		IncomeCard:      income,
 		SavingsCard:     savings,
 		SpendTimeseries: BuildTimeseriesData(monthlyTransactions),
-		SpendDoughnut:   BuildDoughnutData(nonTransferTransactions),
-		TopMerchants:    BuildTopMerchants(pastTransactions, recentTransactions, 10),
+		SpendDoughnut:   BuildDoughnutData(lastSixMonths),
+		TopMerchants:    BuildTopMerchants(pastTransactions, recentTransactions, 6),
 		// Scoped to the same 30 days as the merchants beside it, so the two
 		// lists describe the same period rather than silently differing.
-		HighestOutgoingTransactions: BuildHighestOutgoingTransactions(recentTransactions, 10),
+		HighestOutgoingTransactions: BuildHighestOutgoingTransactions(recentTransactions, 6),
+		SpendHighlights:             BuildSpendSummaries(nonTransfer, []string{"groceries", "petrol", "power"}, now),
 	})
 }
 func (app *Application) _4XX(c echo.Context) error {

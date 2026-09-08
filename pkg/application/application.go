@@ -143,6 +143,9 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.GET("/settings", app.Settings)
 	app.http.POST("/settings/danger/remove/synced", app.SettingsDeleteSynced)
 
+	// Insights
+	app.http.GET("/insights", app.Insights)
+
 	// Transactions
 	app.http.GET("/transactions", app.Transactions)
 

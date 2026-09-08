@@ -1,0 +1,236 @@
+{{ define "insights" }}
+
+    <!-- Every link here swaps only #insights-panel. The header and the utilities
+         card do not depend on the selected category, so replacing them reflows
+         the whole page and moves the viewport out from under whatever was just
+         tapped. show:none stops HTMX scrolling after the swap on top of that. -->
+    <div hx-boost="true"
+         hx-target="#insights-panel"
+         hx-select="#insights-panel"
+         hx-swap="outerHTML show:none">
+
+        <div class="b-page-head">
+            <h2>Insights</h2>
+            <p class="b-page-sub">What the regular things cost, and whether that is moving.</p>
+        </div>
+
+        <div id="insights-panel">
+
+            <!-- Category selector -->
+            <div class="b-pills">
+                {{ range .Groups }}
+                    <a class="b-pill b-accent-{{ .Accent }}{{ if eq .Key $.Selected.Key }} b-pill-active{{ end }}"
+                       href="/insights?group={{ .Key }}&cadence={{ .Cadence }}">
+                        <i class="bi {{ .Icon }}"></i>{{ .Label }}
+                    </a>
+                {{ end }}
+            </div>
+
+            <!-- Selected category -->
+            <div class="b-card b-card-pad mb-3 b-accent-{{ .Selected.Accent }}">
+
+                <div class="b-card-head flex-wrap">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="b-chip"><i class="bi {{ .Selected.Icon }}"></i></span>
+                        <div>
+                            <h3 class="b-card-title">{{ .Selected.Label }}</h3>
+                            <p class="b-card-sub">{{ .Selected.Blurb }}</p>
+                        </div>
+                    </div>
+
+                    <div class="b-segment">
+                        <a href="/insights?group={{ .Selected.Key }}&cadence=weekly"
+                           class="{{ if eq .Cadence "weekly" }}active{{ end }}">Weekly</a>
+                        <a href="/insights?group={{ .Selected.Key }}&cadence=monthly"
+                           class="{{ if eq .Cadence "monthly" }}active{{ end }}">Monthly</a>
+                    </div>
+                </div>
+
+                <!-- The three numbers worth knowing: now, last, and typical. -->
+                <div class="row g-2 mb-3">
+                    <div class="col-4">
+                        <div class="b-stat">
+                            <div class="b-stat-label"><span>This {{ .Cadence.Label }}</span></div>
+                            <div class="b-stat-value">{{ .Summary.Current | fmtCurrency }}</div>
+                            <div class="b-delta-note">{{ if .Summary.Awaiting }}nothing yet{{ else }}so far{{ end }}</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="b-stat">
+                            <div class="b-stat-label"><span>Last {{ .Cadence.Label }}</span></div>
+                            <div class="b-stat-value">{{ .Summary.Previous | fmtCurrency }}</div>
+                            <div>
+                                {{ if .Summary.Awaiting }}
+                                    <span class="b-delta b-delta-flat"><i class="bi bi-hourglass"></i>{{ .Summary.AwaitingLabel }}</span>
+                                {{ else if .Summary.HasPrevious }}
+                                    {{ if gt .Summary.Delta 0.0 }}
+                                        <span class="b-delta b-delta-bad"><i class="bi bi-arrow-up-short"></i>{{ .Summary.Delta | fmtPercent }}</span>
+                                    {{ else if lt .Summary.Delta 0.0 }}
+                                        <span class="b-delta b-delta-good"><i class="bi bi-arrow-down-short"></i>{{ .Summary.Delta | fmtPercent }}</span>
+                                    {{ else }}
+                                        <span class="b-delta b-delta-flat"><i class="bi bi-dash"></i>Level</span>
+                                    {{ end }}
+                                {{ else }}
+                                    <span class="b-delta b-delta-flat">No history</span>
+                                {{ end }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="b-stat">
+                            <div class="b-stat-label"><span>Typical</span></div>
+                            <div class="b-stat-value">{{ .Summary.Average | fmtCurrency }}</div>
+                            <div class="b-delta-note">per {{ .Cadence.Label }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fixed height, so the card does not resize while Chart.js sizes
+                     its canvas and shove the rest of the page around. -->
+                <div class="b-chart">
+                    <canvas id="insightsChart" hx-preserve="true"></canvas>
+                </div>
+                <p class="b-card-sub mt-2 mb-0">
+                    {{ .WindowStart.Format "2 Jan 2006" }} to today. The final bar is the
+                    {{ .Cadence.Label }} still in progress.
+                </p>
+            </div>
+
+            <!-- Merchant breakdown. This is what turns "power costs $180" into
+                 "power is Mercury", without any manual tagging. Each row opens the
+                 transactions behind the number. -->
+            <div class="b-card b-card-pad mb-3 b-accent-{{ .Selected.Accent }}">
+                <div class="b-card-head">
+                    <div>
+                        <h3 class="b-card-title">{{ .Selected.Label }} merchants</h3>
+                        <p class="b-card-sub">Who you paid, since {{ .WindowStart.Format "2 Jan 2006" }}</p>
+                    </div>
+                </div>
+
+                {{ if .Merchants }}
+                    {{ $top := (index .Merchants 0).Total }}
+                    <ul class="b-rank">
+                        {{ range .Merchants }}
+                            <li>
+                                <a class="b-rank-item b-rank-link" href="/transactions?search={{ .Merchant }}"
+                                   hx-boost="false">
+                                    <span class="b-chip b-chip-sm fw-bold">{{ slice .Merchant 0 1 }}</span>
+                                    <div class="b-rank-body">
+                                        <div class="d-flex align-items-baseline justify-content-between gap-2">
+                                            <span class="b-rank-name">{{ .Merchant }}</span>
+                                            <span class="b-rank-value">{{ .Total | fmtCurrency }}</span>
+                                        </div>
+                                        <div class="b-rank-track">
+                                            <span class="b-rank-fill" style="width: {{ printf "%.1f" (pctOf .Total $top) }}%"></span>
+                                        </div>
+                                    </div>
+                                    <i class="bi bi-chevron-right b-rank-go"></i>
+                                </a>
+                            </li>
+                        {{ end }}
+                    </ul>
+                {{ else }}
+                    <div class="b-empty">
+                        <i class="bi {{ .Selected.Icon }}"></i>
+                        <h4>Nothing here yet</h4>
+                        <p>No {{ .Selected.Label }} spending in this window.</p>
+                    </div>
+                {{ end }}
+            </div>
+
+            <script>
+                (function () {
+                    const canvas = document.getElementById("insightsChart");
+                    if (!canvas || typeof Chart === "undefined") {
+                        return;
+                    }
+
+                    // Mirrors the accent tokens in styles.css. Chart.js needs literal
+                    // colours, so the two have to be kept in step by hand.
+                    const accents = {
+                        sage: "#4f8a6d", clay: "#b3803c", plum: "#7b6a9e",
+                        slate: "#3d6b8f", brick: "#b8635a"
+                    };
+                    // A mid tint, not the soft token: the in-progress bar has to stay
+                    // visible against the white card behind it.
+                    const softs = {
+                        sage: "#b4d3c4", clay: "#e0c69c", plum: "#c7c0dc",
+                        slate: "#b0c7d8", brick: "#e2c0bb"
+                    };
+
+                    const key = {{ .Selected.Accent }};
+                    const accent = accents[key] || accents.slate;
+                    const soft = softs[key] || softs.slate;
+
+                    const labels = {{ .Summary.Labels }};
+                    const totals = {{ .Summary.Totals }};
+                    const label = {{ .Selected.Label }};
+
+                    // The last bucket is still filling up, so it is drawn in the lighter
+                    // tint rather than read as a finished period.
+                    const colours = totals.map((_, i) => i === totals.length - 1 ? soft : accent);
+
+                    // hx-preserve keeps this canvas across the swap, so the chart
+                    // already on it is updated in place. Destroying and rebuilding
+                    // blanks the card for a frame, which reads as a flash.
+                    const existing = Chart.getChart(canvas);
+                    if (existing) {
+                        existing.data.labels = labels;
+                        existing.data.datasets[0].data = totals;
+                        existing.data.datasets[0].backgroundColor = colours;
+                        existing.data.datasets[0].label = label;
+                        existing.update("none");
+                        return;
+                    }
+
+                    const ink = '#78858f';
+
+                    new Chart(canvas, {
+                        type: "bar",
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: label,
+                                data: totals,
+                                backgroundColor: colours,
+                                borderRadius: 6,
+                                maxBarThickness: 44
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    border: {display: false},
+                                    grid: {color: "#e6ecf0"},
+                                    ticks: {color: ink, callback: v => "$" + v.toLocaleString()}
+                                },
+                                x: {
+                                    border: {display: false},
+                                    grid: {display: false},
+                                    ticks: {color: ink, maxRotation: 0, autoSkipPadding: 8}
+                                }
+                            },
+                            plugins: {
+                                legend: {display: false},
+                                tooltip: {
+                                    callbacks: {
+                                        // Read the length off the dataset rather than a
+                                        // captured array, so this stays correct after an
+                                        // in place update swaps the data underneath it.
+                                        label: ctx => "$" + ctx.parsed.y.toLocaleString(undefined, {minimumFractionDigits: 2})
+                                            + (ctx.dataIndex === ctx.dataset.data.length - 1 ? " so far" : "")
+                                    }
+                                }
+                            }
+                        }
+                    });
+                })();
+            </script>
+        </div>
+    </div>
+
+{{ end }}

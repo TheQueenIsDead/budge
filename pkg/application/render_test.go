@@ -277,3 +277,132 @@ func TestRenderLayout(t *testing.T) {
 		assert.Contains(t, page, "if (path === lastPath)")
 	})
 }
+
+// dashboardTransactions is a small but realistic feed: a weekly shop, fuel and
+// a power bill, so the highlights have something to compare period on period.
+func dashboardTransactions() []models.Transaction {
+	return []models.Transaction{
+		spendTransaction("Supermarkets and grocery stores", "PAKnSAVE", -142.50, day(0)),
+		spendTransaction("Convenience stores", "Parnwell Superette", -12.00, day(-1)),
+		spendTransaction("Supermarkets and grocery stores", "PAKnSAVE", -180.00, day(-8)),
+		spendTransaction("Fuel stations", "Z Energy", -95.00, day(-3)),
+		spendTransaction("Electricity services", "Mercury", -186.40, day(-5)),
+		spendTransaction("Electricity services", "Mercury", -172.10, day(-36)),
+		spendTransaction("Internet services", "Voyager Internet", -89.00, day(-5)),
+	}
+}
+
+func TestRenderDashboardHighlights(t *testing.T) {
+	page := renderTemplate(t, "dashboard", DashboardData{
+		SpendHighlights: BuildSpendSummaries(dashboardTransactions(), []string{"groceries", "petrol", "power"}, now),
+	})
+
+	t.Run("leads with the recurring questions", func(t *testing.T) {
+		for _, label := range []string{"Groceries", "Petrol", "Power"} {
+			assert.Contains(t, page, label)
+		}
+	})
+
+	t.Run("each tile links through to its own insights view", func(t *testing.T) {
+		for _, key := range []string{"groceries", "petrol", "power"} {
+			assert.Contains(t, page, "/insights?group="+key)
+		}
+	})
+
+	t.Run("carries each category accent through to the markup", func(t *testing.T) {
+		for _, accent := range []string{"b-accent-sage", "b-accent-clay", "b-accent-plum"} {
+			assert.Contains(t, page, accent)
+		}
+	})
+}
+
+func TestRenderInsights(t *testing.T) {
+	transactions := dashboardTransactions()
+	groceries, ok := SpendGroupByKey("groceries")
+	require.True(t, ok)
+
+	summary := BuildSpendSummary(transactions, groceries, CadenceWeekly, now)
+	start, end := summary.Window()
+
+	page := renderTemplate(t, "insights", InsightsData{
+		Groups:      SpendGroups(),
+		Selected:    groceries,
+		Cadence:     CadenceWeekly,
+		Summary:     summary,
+		Merchants:   BuildSpendMerchants(transactions, groceries, start, end, 12),
+		WindowStart: start,
+		WindowEnd:   end,
+	})
+
+	t.Run("offers every tracked category at its own cadence", func(t *testing.T) {
+		for _, group := range SpendGroups() {
+			assert.Contains(t, page, "/insights?group="+group.Key)
+		}
+	})
+
+	t.Run("marks the selected category", func(t *testing.T) {
+		assert.Contains(t, page, "b-pill-active")
+	})
+
+	t.Run("swaps only the panel, leaving the header in place", func(t *testing.T) {
+		// Replacing the whole page reflows everything above the tapped control
+		// and moves the viewport out from under it.
+		assert.Contains(t, page, `id="insights-panel"`)
+		assert.Contains(t, page, `hx-select="#insights-panel"`)
+		assert.Contains(t, page, "show:none")
+	})
+
+	t.Run("keeps the canvas across a swap", func(t *testing.T) {
+		// Rebuilding the canvas blanks the card for a frame, which reads as a flash.
+		assert.Contains(t, page, "hx-preserve")
+	})
+
+	t.Run("names the merchants behind the category", func(t *testing.T) {
+		assert.Contains(t, page, "Parnwell Superette")
+	})
+}
+
+func TestBuildTransactionRow(t *testing.T) {
+	tests := []struct {
+		name   string
+		tx     models.Transaction
+		title  string
+		accent string
+	}{
+		{
+			name:   "spend takes its category accent",
+			tx:     spendTransaction("Fuel stations", "Z Energy", -90, now),
+			title:  "Z Energy",
+			accent: "clay",
+		},
+		{
+			name:   "income is marked regardless of category",
+			tx:     spendTransaction("Salary", "Employer", 2100, now),
+			title:  "Employer",
+			accent: "sage",
+		},
+		{
+			name:   "an untracked category has no accent",
+			tx:     spendTransaction("Building supplies", "Bunnings Warehouse", -240, now),
+			title:  "Bunnings Warehouse",
+			accent: "",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			row := BuildTransactionRow(test.tx)
+			assert.Equal(t, test.title, row.Title)
+			assert.Equal(t, test.accent, row.Accent)
+		})
+	}
+
+	t.Run("falls back through merchant then description", func(t *testing.T) {
+		tx := spendTransaction("Fuel stations", "", -90, now)
+		tx.Description = "Z ENERGY 1234"
+		assert.Equal(t, "Z ENERGY 1234", BuildTransactionRow(tx).Title)
+
+		bare := spendTransaction("Fuel stations", "", -90, now)
+		assert.Equal(t, "Transaction", BuildTransactionRow(bare).Title)
+	})
+}

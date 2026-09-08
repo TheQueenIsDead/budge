@@ -5,6 +5,64 @@
         <p class="b-page-sub">Where your money went, and how that compares.</p>
     </div>
 
+    <!-- Spend highlights. The questions asked most often, answered before any
+         tapping: what the shop cost, what petrol cost, what power cost. -->
+    {{ if .SpendHighlights }}
+        <div class="row g-2 g-md-3 mb-3">
+            {{ range .SpendHighlights }}
+                <div class="col-4">
+                    <a class="b-highlight b-accent-{{ .Group.Accent }}"
+                       href="/insights?group={{ .Group.Key }}"
+                       hx-boost="true" hx-target="#main">
+
+                        <div class="b-highlight-head">
+                            <span class="b-chip b-chip-sm"><i class="bi {{ .Group.Icon }}"></i></span>
+                            <div class="min-width-0 d-none d-sm-block">
+                                <div class="b-highlight-name text-truncate">{{ .Group.Label }}</div>
+                                <div class="b-highlight-period">{{ .HeadlineLabel }}</div>
+                            </div>
+                        </div>
+
+                        <div class="b-highlight-name d-sm-none text-truncate mb-1">{{ .Group.Label }}</div>
+                        <div class="b-highlight-value">{{ .Headline | fmtCurrency }}</div>
+                        <div class="b-highlight-period d-sm-none">{{ .HeadlineLabel }}</div>
+
+                        <div class="mt-1">
+                            {{ if .HasHeadlineDelta }}
+                                {{ if gt .HeadlineDelta 0.0 }}
+                                    <span class="b-delta b-delta-bad">
+                                        <i class="bi bi-arrow-up-short"></i>{{ .HeadlineDelta | fmtPercent }}
+                                    </span>
+                                {{ else if lt .HeadlineDelta 0.0 }}
+                                    <span class="b-delta b-delta-good">
+                                        <i class="bi bi-arrow-down-short"></i>{{ .HeadlineDelta | fmtPercent }}
+                                    </span>
+                                {{ else }}
+                                    <span class="b-delta b-delta-flat">
+                                        <i class="bi bi-dash"></i>Level
+                                    </span>
+                                {{ end }}
+                                <div class="b-delta-note mt-1 d-none d-sm-block">
+                                    vs {{ .HeadlinePrevious | fmtCurrency }} {{ .HeadlineNote }}
+                                </div>
+                            {{ else }}
+                                <span class="b-delta b-delta-flat">No history</span>
+                            {{ end }}
+                        </div>
+
+                        <div class="b-spark d-none d-sm-flex">
+                            {{ range .Bars }}
+                                <span class="b-spark-bar{{ if .Partial }} b-spark-bar-partial{{ else if .Compare }} b-spark-bar-compare{{ end }}"
+                                      style="height: {{ printf "%.1f" .Pct }}%"
+                                      title="{{ .Label }}: {{ .Total | fmtCurrency }}{{ if .Partial }} so far{{ end }}"></span>
+                            {{ end }}
+                        </div>
+                    </a>
+                </div>
+            {{ end }}
+        </div>
+    {{ end }}
+
     <!-- Headline metrics -->
     <div class="row g-2 g-md-3 mb-3">
         <div class="col-6 col-lg-3">

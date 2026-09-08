@@ -51,12 +51,18 @@ func BuildTransactionRow(tx models.Transaction) TransactionRow {
 		row.Title = "Transaction"
 	}
 
-	// Money coming in gets its own mark rather than falling through to the
-	// neutral default.
+	// Money coming in is not classified as spend, so give it its own mark
+	// rather than leaving it to fall through to the neutral default.
 	if tx.Amount > 0 {
 		row.Icon = "bi-arrow-down-left"
 		row.Accent = "sage"
 		return row
+	}
+	if key, ok := ClassifySpend(tx); ok {
+		if group, found := SpendGroupByKey(key); found {
+			row.Accent = group.Accent
+			row.Icon = group.Icon
+		}
 	}
 	return row
 }
