@@ -192,7 +192,7 @@ func TestRenderAccountsStyling(t *testing.T) {
 
 	refreshed, hasRefreshed := OldestRefresh(accounts)
 	page := renderTemplate(t, "accounts", AccountsListProps{
-		Portfolio:     BuildPortfolio(accounts),
+		Portfolio:     BuildPortfolio(accounts, nil),
 		Groups:        BuildAccountGroups(accounts, transactions, hasTransactions(transactions)),
 		LastRefreshed: refreshed,
 		HasRefreshed:  hasRefreshed,
@@ -249,7 +249,7 @@ func TestRenderLayout(t *testing.T) {
 	})
 
 	t.Run("links every destination", func(t *testing.T) {
-		for _, href := range []string{"/", "/transactions", "/accounts", "/budget", "/settings"} {
+		for _, href := range []string{"/", "/insights", "/transactions", "/accounts", "/budget", "/settings"} {
 			assert.Contains(t, page, `href="`+href+`"`)
 		}
 	})
@@ -275,5 +275,176 @@ func TestRenderLayout(t *testing.T) {
 		// leave the reader where they are.
 		assert.Contains(t, page, "lastPath")
 		assert.Contains(t, page, "if (path === lastPath)")
+	})
+}
+
+// dashboardTransactions is a small but realistic feed: a weekly shop, fuel and
+// a power bill, so the highlights have something to compare period on period.
+func dashboardTransactions() []models.Transaction {
+	return []models.Transaction{
+		spendTransaction("Supermarkets and grocery stores", "PAKnSAVE", -142.50, day(0)),
+		spendTransaction("Convenience stores", "Parnwell Superette", -12.00, day(-1)),
+		spendTransaction("Supermarkets and grocery stores", "PAKnSAVE", -180.00, day(-8)),
+		spendTransaction("Fuel stations", "Z Energy", -95.00, day(-3)),
+		spendTransaction("Electricity services", "Mercury", -186.40, day(-5)),
+		spendTransaction("Electricity services", "Mercury", -172.10, day(-36)),
+		spendTransaction("Internet services", "Voyager Internet", -89.00, day(-5)),
+	}
+}
+
+func TestRenderDashboardHighlights(t *testing.T) {
+	page := renderTemplate(t, "dashboard", DashboardData{
+		SpendHighlights: BuildSpendSummaries(dashboardTransactions(), []string{"groceries", "petrol", "power"}, now),
+	})
+
+	t.Run("leads with the recurring questions", func(t *testing.T) {
+		for _, label := range []string{"Groceries", "Petrol", "Power"} {
+			assert.Contains(t, page, label)
+		}
+	})
+
+	t.Run("each tile links through to its own insights view", func(t *testing.T) {
+		for _, key := range []string{"groceries", "petrol", "power"} {
+			assert.Contains(t, page, "/insights?group="+key)
+		}
+	})
+
+	t.Run("carries each category accent through to the markup", func(t *testing.T) {
+		for _, accent := range []string{"b-accent-sage", "b-accent-clay", "b-accent-plum"} {
+			assert.Contains(t, page, accent)
+		}
+	})
+}
+
+func TestRenderInsights(t *testing.T) {
+	transactions := dashboardTransactions()
+	groceries, ok := SpendGroupByKey("groceries")
+	require.True(t, ok)
+
+	summary := BuildSpendSummary(transactions, groceries, CadenceWeekly, now)
+	start, end := summary.Window()
+
+	page := renderTemplate(t, "insights", InsightsData{
+		Groups:      SpendGroups(),
+		Selected:    groceries,
+		Cadence:     CadenceWeekly,
+		Summary:     summary,
+		Merchants:   BuildSpendMerchants(transactions, groceries, start, end, 12),
+		WindowStart: start,
+		WindowEnd:   end,
+	})
+
+	t.Run("offers every tracked category at its own cadence", func(t *testing.T) {
+		for _, group := range SpendGroups() {
+			assert.Contains(t, page, "/insights?group="+group.Key)
+		}
+	})
+
+	t.Run("marks the selected category", func(t *testing.T) {
+		assert.Contains(t, page, "b-pill-active")
+	})
+
+	t.Run("swaps only the panel, leaving the header in place", func(t *testing.T) {
+		// Replacing the whole page reflows everything above the tapped control
+		// and moves the viewport out from under it.
+		assert.Contains(t, page, `id="insights-panel"`)
+		assert.Contains(t, page, `hx-select="#insights-panel"`)
+		assert.Contains(t, page, "show:none")
+	})
+
+	t.Run("keeps the canvas across a swap", func(t *testing.T) {
+		// Rebuilding the canvas blanks the card for a frame, which reads as a flash.
+		assert.Contains(t, page, "hx-preserve")
+	})
+
+	t.Run("names the merchants behind the category", func(t *testing.T) {
+		assert.Contains(t, page, "Parnwell Superette")
+	})
+}
+
+func TestBuildTransactionRow(t *testing.T) {
+	tests := []struct {
+		name   string
+		tx     models.Transaction
+		title  string
+		accent string
+	}{
+		{
+			name:   "spend takes its category accent",
+			tx:     spendTransaction("Fuel stations", "Z Energy", -90, now),
+			title:  "Z Energy",
+			accent: "clay",
+		},
+		{
+			name:   "income is marked regardless of category",
+			tx:     spendTransaction("Salary", "Employer", 2100, now),
+			title:  "Employer",
+			accent: "sage",
+		},
+		{
+			name:   "an untracked category has no accent",
+			tx:     spendTransaction("Building supplies", "Bunnings Warehouse", -240, now),
+			title:  "Bunnings Warehouse",
+			accent: "",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			row := BuildTransactionRow(test.tx)
+			assert.Equal(t, test.title, row.Title)
+			assert.Equal(t, test.accent, row.Accent)
+		})
+	}
+
+	t.Run("falls back through merchant then description", func(t *testing.T) {
+		tx := spendTransaction("Fuel stations", "", -90, now)
+		tx.Description = "Z ENERGY 1234"
+		assert.Equal(t, "Z ENERGY 1234", BuildTransactionRow(tx).Title)
+
+		bare := spendTransaction("Fuel stations", "", -90, now)
+		assert.Equal(t, "Transaction", BuildTransactionRow(bare).Title)
+	})
+}
+
+// TestStaticAssetPaths guards the routing collision that left every page
+// unstyled: the static files were mounted at /assets, so /assets/styles.css
+// resolved as an asset id and 404d once the assets feature claimed that prefix.
+func TestStaticAssetPaths(t *testing.T) {
+	page := renderTemplate(t, "layout", map[string]interface{}{"content": ""})
+
+	t.Run("static files are served from their own prefix", func(t *testing.T) {
+		for _, path := range []string{"/static/styles.css", "/static/toast.js", "/static/budget.js"} {
+			assert.Contains(t, page, path)
+		}
+	})
+
+	t.Run("nothing references the old prefix", func(t *testing.T) {
+		assert.NotContains(t, page, "/assets/styles.css")
+	})
+
+	t.Run("assets do not get a tab of their own", func(t *testing.T) {
+		// They live on the portfolio page, so a tab would be a second route to
+		// the same screen.
+		assert.NotContains(t, page, `href="/assets"`)
+	})
+}
+
+func TestPortfolioNaming(t *testing.T) {
+	accounts := []models.Account{account("everyday", "Everyday", "Kiwibank", "CHECKING", 1100)}
+	transactions := []models.Transaction{transaction("everyday", 100)}
+
+	page := renderTemplate(t, "accounts", AccountsListProps{
+		Portfolio: BuildPortfolio(accounts, nil),
+		Groups:    BuildAccountGroups(accounts, transactions, hasTransactions(transactions)),
+	})
+
+	t.Run("the page is named for the collection", func(t *testing.T) {
+		assert.Contains(t, page, "<h2>Portfolio</h2>")
+	})
+
+	t.Run("the headline tile keeps the metric's own name", func(t *testing.T) {
+		// "Portfolio" names the page; "Net Worth" names the number on it.
+		assert.Contains(t, page, "<span>Net Worth</span>")
 	})
 }

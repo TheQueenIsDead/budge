@@ -1,0 +1,62 @@
+{{ define "assets.form" }}
+    <!-- Adding an asset. Kept as its own template so the accounts page stays
+         readable and the form can be reused elsewhere. -->
+    <div class="b-card b-card-pad mb-3">
+        <div class="b-card-head">
+            <div>
+                <h3 class="b-card-title">Add an asset</h3>
+                <p class="b-card-sub">
+                    A house, a car, anything worth tracking. Record valuations against it
+                    over time and it counts towards your net worth.
+                </p>
+            </div>
+        </div>
+
+        <form hx-post="/assets" hx-target="#main" hx-swap="innerHTML">
+            <div class="row g-2">
+                <div class="col-12 col-md-5">
+                    <label class="b-field-label" for="asset-name">Name</label>
+                    <input id="asset-name" name="name" type="text" class="form-control"
+                           placeholder="e.g. 12 Bealey Ave" required>
+                </div>
+
+                <div class="col-6 col-md-3">
+                    <label class="b-field-label" for="asset-type">Type</label>
+                    <select id="asset-type" name="type" class="form-select">
+                        {{ range .AssetTypes }}
+                            <option value="{{ .Key }}">{{ .Label }}</option>
+                        {{ end }}
+                    </select>
+                </div>
+
+                <div class="col-6 col-md-4">
+                    <label class="b-field-label" for="asset-description">Note</label>
+                    <input id="asset-description" name="description" type="text" class="form-control"
+                           placeholder="Optional">
+                </div>
+
+                <div class="col-6 col-md-4">
+                    <label class="b-field-label" for="asset-price">Purchase price</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input id="asset-price" name="purchase_price" type="number"
+                               class="form-control" min="0" step="0.01" placeholder="0.00">
+                    </div>
+                </div>
+
+                <div class="col-6 col-md-4">
+                    <label class="b-field-label" for="asset-date">Purchase date</label>
+                    <input id="asset-date" name="purchase_date" type="date" class="form-control"
+                           value="{{ .Today }}">
+                </div>
+
+                <div class="col-12 col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-plus-lg"></i> Add asset
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+{{ end }}

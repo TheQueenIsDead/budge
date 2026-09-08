@@ -46,7 +46,7 @@ func TestRenderAccounts(t *testing.T) {
 
 	refreshed, hasRefreshed := OldestRefresh(accounts)
 	html := renderTemplate(t, "accounts", AccountsListProps{
-		Portfolio:     BuildPortfolio(accounts),
+		Portfolio:     BuildPortfolio(accounts, nil),
 		Groups:        BuildAccountGroups(accounts, transactions, hasTransactions(transactions)),
 		LastRefreshed: refreshed,
 		HasRefreshed:  hasRefreshed,
@@ -91,11 +91,16 @@ func TestRenderAccounts(t *testing.T) {
 
 func TestRenderAccountsEmpty(t *testing.T) {
 	html := renderTemplate(t, "accounts", AccountsListProps{
-		Portfolio: BuildPortfolio(nil),
+		Portfolio: BuildPortfolio(nil, nil),
 		Groups:    BuildAccountGroups(nil, nil, nil),
 	})
 
-	assert.Contains(t, html, "No accounts yet")
-	// The portfolio tiles are only meaningful once something is connected.
+	// Assets share this page now, so the empty state offers both routes in.
+	assert.Contains(t, html, "Nothing here yet")
+	// "Portfolio" is the page title and "Net Worth" is a tile, so the check is
+	// for the tiles themselves rather than for either set of words.
 	assert.NotContains(t, html, "b-stat-value")
+
+	// The add-asset form is still reachable with nothing connected.
+	assert.Contains(t, html, `hx-post="/assets"`)
 }
