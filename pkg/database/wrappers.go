@@ -3,6 +3,7 @@ package database
 import (
 	"errors"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -78,6 +79,80 @@ func (s *Store) DeleteAssetValuation(id, valuationID string) error {
 	}
 	asset.Valuations = remaining
 	return Update[models.Asset](s.db, asset)
+}
+
+/* Notifications */
+
+// notificationRetention caps how many notifications are kept. They are a log of
+// things that went wrong, not an archive, and an unbounded bucket would grow
+// forever behind a page nobody scrolls to the bottom of.
+const notificationRetention = 200
+
+func (s *Store) ReadNotifications() ([]models.Notification, error) {
+	return Read[models.Notification](s.db)
+}
+
+// CreateNotification records a notification and drops the oldest once the log
+// is over its cap.
+func (s *Store) CreateNotification(notification models.Notification) error {
+	if err := Create[models.Notification](s.db, notification); err != nil {
+		return err
+	}
+	return s.pruneNotifications()
+}
+
+func (s *Store) MarkNotificationsRead(at time.Time) error {
+	notifications, err := Read[models.Notification](s.db)
+	if err != nil {
+		return err
+	}
+	for _, notification := range notifications {
+		if !notification.Unread() {
+			continue
+		}
+		notification.ReadAt = at
+		if err := Update[models.Notification](s.db, notification); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Store) DeleteNotification(id string) error {
+	return Delete[models.Notification](s.db, []byte(id))
+}
+
+func (s *Store) DeleteNotifications() error {
+	notifications, err := Read[models.Notification](s.db)
+	if err != nil {
+		return err
+	}
+	for _, notification := range notifications {
+		if err := Delete[models.Notification](s.db, notification.Key()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Store) pruneNotifications() error {
+	notifications, err := Read[models.Notification](s.db)
+	if err != nil {
+		return err
+	}
+	if len(notifications) <= notificationRetention {
+		return nil
+	}
+
+	sort.Slice(notifications, func(i, j int) bool {
+		return notifications[i].CreatedAt.After(notifications[j].CreatedAt)
+	})
+	for _, notification := range notifications[notificationRetention:] {
+		if err := Delete[models.Notification](s.db, notification.Key()); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 /* Merchants */

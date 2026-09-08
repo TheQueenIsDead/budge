@@ -143,6 +143,13 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.POST("/integrations/akahu/sync", app.SyncAkahu)
 	app.http.POST("/integrations/akahu/save", app.PutAkahuSettings)
 
+	// Notifications
+	app.http.GET("/notifications", app.Notifications)
+	app.http.GET("/notifications/badge", app.NotificationBadge)
+	app.http.POST("/notifications/read", app.NotificationsRead)
+	app.http.DELETE("/notifications", app.NotificationsClear)
+	app.http.DELETE("/notifications/:id", app.NotificationDelete)
+
 	// Settings
 	app.http.GET("/settings", app.Settings)
 	app.http.POST("/settings/danger/remove/synced", app.SettingsDeleteSynced)

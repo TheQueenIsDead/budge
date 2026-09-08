@@ -1085,6 +1085,49 @@ a.b-acct:focus-visible {
     font-size: 0.8rem;
 }
 
+/* The notification bell and its unread count. */
+.b-bell {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.b-bell-count {
+    position: absolute;
+    top: 0.1rem;
+    right: 0.05rem;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: var(--b-radius-pill);
+    /* Ringed in the surface colour so the count reads as sitting on top of the
+       bell rather than merging into it. */
+    border: 2px solid var(--b-surface);
+    background: var(--b-negative);
+    color: #fff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    line-height: 12px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+/* An unread notification carries its level's colour down the edge. Nothing else
+   uses a rail, which is what makes it read as "not dealt with yet". */
+.b-note-unread {
+    background: var(--accent-soft, var(--b-surface-2));
+    box-shadow: inset 3px 0 0 var(--accent, var(--b-border-strong));
+}
+
+.b-note-message {
+    margin-top: 0.15rem;
+    color: var(--b-ink-2);
+    font-size: 0.85rem;
+    /* Failure text is whatever the upstream said, so it must wrap rather than
+       stretch the row. */
+    overflow-wrap: anywhere;
+}
+
 /* ==========================================================================
    Badges
    ========================================================================== */

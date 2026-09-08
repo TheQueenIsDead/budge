@@ -60,11 +60,29 @@
                     <a class="b-nav-link" data-nav href="/settings">Settings</a>
                 </div>
 
-                <!-- Settings does not earn a tab slot, so on mobile it lives here. -->
-                <a class="b-nav-link d-md-none px-2" data-nav href="/settings"
-                   aria-label="Settings" hx-boost="true" hx-target="#main">
-                    <i class="bi bi-gear fs-5"></i>
-                </a>
+                <div class="d-flex align-items-center">
+                    <!-- The bell sits over every page but opens a list rather than
+                         a popover: a failure worth reporting is worth a page. -->
+                    <a class="b-nav-link b-bell px-2" data-nav href="/notifications"
+                       aria-label="Notifications" hx-boost="true" hx-target="#main">
+                        <i class="bi bi-bell fs-5"></i>
+                        <!-- hx-target is inherited, and this sits inside a link
+                             targeting #main. Without pinning it to itself the
+                             badge swaps its own response over the page body,
+                             which blanks every page a moment after it loads. -->
+                        <span id="notification-badge"
+                              hx-get="/notifications/badge"
+                              hx-trigger="load, notifications from:body"
+                              hx-target="this"
+                              hx-swap="innerHTML"></span>
+                    </a>
+
+                    <!-- Settings does not earn a tab slot, so on mobile it lives here. -->
+                    <a class="b-nav-link d-md-none px-2" data-nav href="/settings"
+                       aria-label="Settings" hx-boost="true" hx-target="#main">
+                        <i class="bi bi-gear fs-5"></i>
+                    </a>
+                </div>
             </div>
         </nav>
 

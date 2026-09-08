@@ -1,9 +1,11 @@
 package application
 
 import (
-	"github.com/labstack/echo/v4"
 	"net/http"
 	"time"
+
+	"github.com/TheQueenIsDead/budge/pkg/database/models"
+	"github.com/labstack/echo/v4"
 )
 
 func (app *Application) Settings(c echo.Context) error {
@@ -43,11 +45,17 @@ func (app *Application) SyncAkahu(c echo.Context) error {
 
 	akahuConfig, err := app.store.GetAkahuSettings()
 	if err != nil {
+		// Recorded as well as returned: once a timer drives this there is nobody
+		// watching the response, and the note is the only trace left.
+		app.Notify(models.NotificationError, SourceAkahuSync,
+			"Sync could not start", "Akahu settings could not be read.")
 		return err
 	}
 
 	err = app.integrations.SyncAkahu(c, akahuConfig.LastSync)
 	if err != nil {
+		app.Notify(models.NotificationError, SourceAkahuSync,
+			"Sync failed", err.Error())
 		return err
 	}
 

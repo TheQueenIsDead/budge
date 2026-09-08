@@ -1,0 +1,76 @@
+{{ define "notifications" }}
+
+    <!-- Opening the list is a plain GET; marking read is the POST it fires here,
+         so a prefetch cannot silently clear the badge. -->
+    <div hx-post="/notifications/read"
+         hx-trigger="load"
+         hx-swap="none"
+         hx-on::after-request="htmx.trigger(document.body, 'notifications')"></div>
+
+    <div class="b-page-head d-flex align-items-start justify-content-between gap-3">
+        <div>
+            <h2>Notifications</h2>
+            <p class="b-page-sub">
+                {{ if .Notifications }}
+                    What happened while you were not looking.
+                {{ else }}
+                    Anything that fails in the background turns up here.
+                {{ end }}
+            </p>
+        </div>
+        {{ if .Notifications }}
+            <button class="btn btn-sm btn-outline-secondary flex-shrink-0"
+                    hx-delete="/notifications"
+                    hx-target="#main" hx-swap="innerHTML"
+                    hx-confirm="Clear every notification?"
+                    hx-on::after-request="htmx.trigger(document.body, 'notifications')">
+                Clear all
+            </button>
+        {{ end }}
+    </div>
+
+    {{ if .Notifications }}
+        <div class="b-card mb-3">
+            <ul class="b-acct-list">
+                {{ range .Notifications }}
+                    <li>
+                        <div class="b-acct b-acct-static b-accent-{{ .Level.Accent }}{{ if .Unread }} b-note-unread{{ end }}">
+                            <span class="b-chip"><i class="bi {{ .Level.Icon }}"></i></span>
+
+                            <div class="b-acct-body">
+                                <div class="b-acct-name">{{ .Title }}</div>
+                                {{ if .Message }}
+                                    <div class="b-note-message">{{ .Message }}</div>
+                                {{ end }}
+                                <div class="b-acct-meta">
+                                    {{ if .Source }}<span class="badge-category">{{ .Source }}</span>{{ end }}
+                                    <span title="{{ .CreatedAt.Format "2 Jan 2006, 3:04pm" }}">
+                                        {{ .CreatedAt | fmtRelative }}
+                                    </span>
+                                    {{ if .Unread }}<span class="b-delta b-delta-flat">New</span>{{ end }}
+                                </div>
+                            </div>
+
+                            <button class="btn btn-sm btn-link text-muted p-0 flex-shrink-0"
+                                    hx-delete="/notifications/{{ .Id }}"
+                                    hx-target="#main" hx-swap="innerHTML"
+                                    hx-on::after-request="htmx.trigger(document.body, 'notifications')"
+                                    title="Dismiss" aria-label="Dismiss this notification">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                    </li>
+                {{ end }}
+            </ul>
+        </div>
+    {{ else }}
+        <div class="b-empty">
+            <i class="bi bi-bell"></i>
+            <h4>Nothing to report</h4>
+            <p>Sync failures and other background problems will show up here.</p>
+        </div>
+    {{ end }}
+
+{{ end }}
+
+{{ define "notifications.badge" }}{{ if gt . 0 }}<span class="b-bell-count">{{ if gt . 9 }}9+{{ else }}{{ . }}{{ end }}</span>{{ end }}{{ end }}
