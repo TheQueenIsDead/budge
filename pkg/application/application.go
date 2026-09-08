@@ -16,6 +16,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -52,6 +53,9 @@ func templateFuncs() template.FuncMap {
 		},
 		"fmtRelative": func(date time.Time) string {
 			return humanize.RelTime(date, time.Now(), "ago", "")
+		},
+		"fmtLower": func(text string) string {
+			return strings.ToLower(text)
 		},
 		"fmtTitle": func(text string) string {
 			return cases.Title(language.English).String(text)
@@ -151,6 +155,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	// Assets
 	app.http.GET("/assets/address-suggest", app.AddressSuggest)
+	app.http.GET("/assets/new", app.AssetNew)
 	app.http.GET("/assets", app.Assets)
 	app.http.POST("/assets", app.AssetCreate)
 	app.http.GET("/assets/:id", app.Asset)

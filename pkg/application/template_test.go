@@ -101,6 +101,6 @@ func TestRenderAccountsEmpty(t *testing.T) {
 	// for the tiles themselves rather than for either set of words.
 	assert.NotContains(t, html, "b-stat-value")
 
-	// The add-asset form is still reachable with nothing connected.
-	assert.Contains(t, html, `hx-post="/assets"`)
+	// Adding an asset is still reachable with nothing connected.
+	assert.Contains(t, html, `href="/assets/new"`)
 }
