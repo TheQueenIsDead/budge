@@ -1,6 +1,7 @@
 package application
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -259,5 +260,40 @@ func TestRenderAsset(t *testing.T) {
 			Today:   "2026-09-08",
 		})
 		assert.Contains(t, flat, "Not enough to chart")
+	})
+}
+
+func TestPortfolioSectionOrder(t *testing.T) {
+	bought := time.Date(2020, time.March, 1, 0, 0, 0, 0, time.UTC)
+	valued := time.Date(2025, time.June, 1, 0, 0, 0, 0, time.UTC)
+
+	accounts := []models.Account{account("everyday", "Everyday", "Kiwibank", "CHECKING", 1100)}
+	assets := []AssetSummary{BuildAssetSummary(house(620000, bought, valuation(910000, valued)))}
+	transactions := []models.Transaction{transaction("everyday", 100)}
+
+	page := renderTemplate(t, "accounts", AccountsListProps{
+		Portfolio:   BuildPortfolio(accounts, assets),
+		Groups:      BuildAccountGroups(accounts, transactions, hasTransactions(transactions)),
+		Assets:      assets,
+		AssetTotals: BuildAssetPortfolio(assets),
+		AssetTypes:  assetTypes,
+		Today:       "2026-09-09",
+	})
+
+	t.Run("assets come before the bank accounts", func(t *testing.T) {
+		assetsAt := strings.Index(page, "12 Bealey Ave")
+		accountsAt := strings.Index(page, "Kiwibank")
+		require.NotEqual(t, -1, assetsAt)
+		require.NotEqual(t, -1, accountsAt)
+		assert.Less(t, assetsAt, accountsAt,
+			"assets are the hand-maintained part and should not sit below a long list of accounts")
+	})
+
+	t.Run("the portfolio tiles still come first", func(t *testing.T) {
+		assert.Less(t, strings.Index(page, "Net Worth"), strings.Index(page, "12 Bealey Ave"))
+	})
+
+	t.Run("the add form stays at the bottom", func(t *testing.T) {
+		assert.Greater(t, strings.Index(page, "Add an asset"), strings.Index(page, "Kiwibank"))
 	})
 }

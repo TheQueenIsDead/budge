@@ -53,6 +53,61 @@
             </div>
         </div>
 
+        <!-- Assets. Tracked by hand rather than synced, but part of the same
+             position, so they sit with the accounts rather than on a page of
+             their own. They lead because they are the part that needs looking
+             after: the bank groups below are the long scrolling stretch. -->
+        {{ if .AssetTotals.HasAsset }}
+            <div class="b-card mb-3">
+                <div class="b-conn">
+                    <span class="b-chip b-chip-sm b-accent-sage"><i class="bi bi-houses"></i></span>
+                    <h3 class="b-conn-name">Assets</h3>
+                    <div class="b-conn-total">{{ .AssetTotals.Total | fmtCurrency }}</div>
+                </div>
+
+                <ul class="b-acct-list">
+                    {{ range .Assets }}
+                        <li>
+                            <a class="b-acct" href="/assets/{{ .Asset.Id }}"
+                               hx-boost="true" hx-target="#main">
+                                <span class="b-chip {{ if lt .Change 0.0 }}b-accent-brick{{ else }}b-accent-sage{{ end }}">
+                                    <i class="bi {{ .Icon }}"></i>
+                                </span>
+
+                                <div class="b-acct-body">
+                                    <div class="b-acct-name">{{ .Asset.Name }}</div>
+                                    <div class="b-acct-meta">
+                                        <span class="badge-category">{{ .TypeLabel }}</span>
+                                        {{ if .Asset.Description }}<span>{{ .Asset.Description }}</span>{{ end }}
+                                        {{ if .Valued }}
+                                            <span><i class="bi bi-clock-history"></i> Valued {{ .LastDate | fmtRelative }}</span>
+                                        {{ else }}
+                                            <span><i class="bi bi-exclamation-circle"></i> Not valued since purchase</span>
+                                        {{ end }}
+                                    </div>
+                                </div>
+
+                                <div class="b-acct-figures">
+                                    <div class="b-acct-balance">{{ .Current | fmtCurrency }}</div>
+                                    {{ if .Valued }}
+                                        <span class="b-delta {{ if gt .Change 0.0 }}b-delta-good{{ else if lt .Change 0.0 }}b-delta-bad{{ else }}b-delta-flat{{ end }}"
+                                              data-bs-toggle="tooltip" data-bs-placement="left"
+                                              title="{{ .Change | fmtCurrency }} against the {{ .Asset.PurchasePrice | fmtCurrency }} paid">
+                                            <i class="bi {{ if gt .Change 0.0 }}bi-arrow-up-short{{ else if lt .Change 0.0 }}bi-arrow-down-short{{ else }}bi-dash{{ end }}"></i>{{ .Delta | fmtPercent }}
+                                        </span>
+                                    {{ else }}
+                                        <span class="b-delta b-delta-flat">At cost</span>
+                                    {{ end }}
+                                </div>
+
+                                <i class="bi bi-chevron-right b-rank-go d-none d-sm-block"></i>
+                            </a>
+                        </li>
+                    {{ end }}
+                </ul>
+            </div>
+        {{ end }}
+
         <!-- Accounts, grouped by the connection that provides them -->
         {{ range .Groups }}
             <div class="b-card mb-3">
@@ -152,60 +207,6 @@
             </div>
         {{ end }}
 
-
-        <!-- Assets. Tracked by hand rather than synced, but part of the same
-             position, so they sit with the accounts rather than on a page of
-             their own. -->
-        {{ if .AssetTotals.HasAsset }}
-            <div class="b-card mb-3">
-                <div class="b-conn">
-                    <span class="b-chip b-chip-sm b-accent-sage"><i class="bi bi-houses"></i></span>
-                    <h3 class="b-conn-name">Assets</h3>
-                    <div class="b-conn-total">{{ .AssetTotals.Total | fmtCurrency }}</div>
-                </div>
-
-                <ul class="b-acct-list">
-                    {{ range .Assets }}
-                        <li>
-                            <a class="b-acct" href="/assets/{{ .Asset.Id }}"
-                               hx-boost="true" hx-target="#main">
-                                <span class="b-chip {{ if lt .Change 0.0 }}b-accent-brick{{ else }}b-accent-sage{{ end }}">
-                                    <i class="bi {{ .Icon }}"></i>
-                                </span>
-
-                                <div class="b-acct-body">
-                                    <div class="b-acct-name">{{ .Asset.Name }}</div>
-                                    <div class="b-acct-meta">
-                                        <span class="badge-category">{{ .TypeLabel }}</span>
-                                        {{ if .Asset.Description }}<span>{{ .Asset.Description }}</span>{{ end }}
-                                        {{ if .Valued }}
-                                            <span><i class="bi bi-clock-history"></i> Valued {{ .LastDate | fmtRelative }}</span>
-                                        {{ else }}
-                                            <span><i class="bi bi-exclamation-circle"></i> Not valued since purchase</span>
-                                        {{ end }}
-                                    </div>
-                                </div>
-
-                                <div class="b-acct-figures">
-                                    <div class="b-acct-balance">{{ .Current | fmtCurrency }}</div>
-                                    {{ if .Valued }}
-                                        <span class="b-delta {{ if gt .Change 0.0 }}b-delta-good{{ else if lt .Change 0.0 }}b-delta-bad{{ else }}b-delta-flat{{ end }}"
-                                              data-bs-toggle="tooltip" data-bs-placement="left"
-                                              title="{{ .Change | fmtCurrency }} against the {{ .Asset.PurchasePrice | fmtCurrency }} paid">
-                                            <i class="bi {{ if gt .Change 0.0 }}bi-arrow-up-short{{ else if lt .Change 0.0 }}bi-arrow-down-short{{ else }}bi-dash{{ end }}"></i>{{ .Delta | fmtPercent }}
-                                        </span>
-                                    {{ else }}
-                                        <span class="b-delta b-delta-flat">At cost</span>
-                                    {{ end }}
-                                </div>
-
-                                <i class="bi bi-chevron-right b-rank-go d-none d-sm-block"></i>
-                            </a>
-                        </li>
-                    {{ end }}
-                </ul>
-            </div>
-        {{ end }}
 
     {{ else }}
         <div class="b-empty">
