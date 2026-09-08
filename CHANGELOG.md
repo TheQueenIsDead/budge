@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.1](https://github.com/TheQueenIsDead/budge/compare/v1.14.0...v1.14.1) (2026-09-08)
+
+
+### Bug Fixes
+
+* **property:** discard response body close errors explicitly ([31baec1](https://github.com/TheQueenIsDead/budge/commit/31baec128c3e295aa2d320a7d784bbb44bdd51cc))
+
 ## [1.14.0](https://github.com/TheQueenIsDead/budge/compare/v1.13.0...v1.14.0) (2026-09-08)
 
 
