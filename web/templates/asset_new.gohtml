@@ -7,7 +7,7 @@
                 <h2>Add an asset</h2>
                 <p class="b-page-sub">What are you tracking?</p>
             </div>
-            <a href="/accounts" class="btn btn-sm btn-outline-secondary flex-shrink-0"
+            <a href="/portfolio" class="btn btn-sm btn-outline-secondary flex-shrink-0"
                hx-boost="true" hx-target="#main" aria-label="Back to portfolio">
                 <i class="bi bi-arrow-left"></i>
             </a>
@@ -19,7 +19,7 @@
             {{ range .Types }}
                 <div class="col-12 col-md-4">
                     <a class="b-choice b-accent-{{ if eq .Key "house" }}sage{{ else if eq .Key "vehicle" }}clay{{ else }}slate{{ end }}"
-                       href="/assets/new?type={{ .Key }}"
+                       href="/portfolio/assets/new?type={{ .Key }}"
                        hx-boost="true" hx-target="#main">
                         <span class="b-chip"><i class="bi {{ .Icon }}"></i></span>
                         <span class="b-choice-body">
@@ -45,7 +45,7 @@
                         <p class="b-page-sub">{{ .Blurb }}</p>
                     </div>
                 </div>
-                <a href="/assets/new" class="btn btn-sm btn-outline-secondary flex-shrink-0"
+                <a href="/portfolio/assets/new" class="btn btn-sm btn-outline-secondary flex-shrink-0"
                    hx-boost="true" hx-target="#main" aria-label="Choose a different type">
                     <i class="bi bi-arrow-left"></i>
                 </a>
@@ -54,8 +54,8 @@
             <div class="b-card b-card-pad mb-3">
                 <!-- The response is the portfolio, so the address bar should say
                      so: without this a refresh after saving reopens the wizard. -->
-                <form hx-post="/assets" hx-target="#main" hx-swap="innerHTML"
-                      hx-push-url="/accounts">
+                <form hx-post="/portfolio/assets" hx-target="#main" hx-swap="innerHTML"
+                      hx-push-url="/portfolio">
                     <input type="hidden" name="type" value="{{ .Key }}">
 
                     <div class="row g-2">
@@ -110,7 +110,7 @@
                             <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-plus-lg"></i> Add {{ .Label | fmtLower }}
                             </button>
-                            <a href="/accounts" class="btn btn-outline-secondary"
+                            <a href="/portfolio" class="btn btn-outline-secondary"
                                hx-boost="true" hx-target="#main">Cancel</a>
                         </div>
                     </div>
@@ -171,7 +171,7 @@
                         controller = new AbortController();
                         try {
                             const response = await fetch(
-                                "/assets/address-suggest?q=" + encodeURIComponent(query),
+                                "/portfolio/assets/address-suggest?q=" + encodeURIComponent(query),
                                 {signal: controller.signal}
                             );
                             if (!response.ok) {

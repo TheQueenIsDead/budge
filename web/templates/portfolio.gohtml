@@ -1,4 +1,4 @@
-{{ define "accounts" }}
+{{ define "portfolio" }}
 
     <div class="b-page-head">
         <h2>Portfolio</h2>
@@ -64,7 +64,7 @@
                     <h3 class="b-conn-name">Assets</h3>
                     <div class="b-conn-total">{{ .AssetTotals.Total | fmtCurrency }}</div>
                     <a class="btn btn-sm btn-outline-secondary flex-shrink-0"
-                       href="/assets/new" hx-boost="true" hx-target="#main"
+                       href="/portfolio/assets/new" hx-boost="true" hx-target="#main"
                        aria-label="Add an asset">
                         <i class="bi bi-plus-lg"></i>
                     </a>
@@ -73,7 +73,7 @@
                 <ul class="b-acct-list">
                     {{ range .Assets }}
                         <li>
-                            <a class="b-acct" href="/assets/{{ .Asset.Id }}"
+                            <a class="b-acct" href="/portfolio/assets/{{ .Asset.Id }}"
                                hx-boost="true" hx-target="#main">
                                 <span class="b-chip {{ if lt .Change 0.0 }}b-accent-brick{{ else }}b-accent-sage{{ end }}">
                                     <i class="bi {{ .Icon }}"></i>
@@ -132,7 +132,7 @@
                                  chart, so the row reports its balance and stops there
                                  rather than leading to an empty screen. -->
                             {{ if .HasTransactions }}
-                            <a class="b-acct" href="/accounts/{{ .Account.Id }}"
+                            <a class="b-acct" href="/portfolio/accounts/{{ .Account.Id }}"
                                hx-boost="true" hx-target="#main">
                             {{ else }}
                             <div class="b-acct b-acct-static">
@@ -222,7 +222,7 @@
                 <a href="/settings" class="btn btn-outline-secondary" hx-boost="true" hx-target="#main">
                     Go to settings
                 </a>
-                <a href="/assets/new" class="btn btn-primary" hx-boost="true" hx-target="#main">
+                <a href="/portfolio/assets/new" class="btn btn-primary" hx-boost="true" hx-target="#main">
                     <i class="bi bi-plus-lg"></i> Add an asset
                 </a>
             </div>

@@ -1,12 +1,15 @@
 package application
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
+	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -192,7 +195,7 @@ func TestRenderAccountsStyling(t *testing.T) {
 	transactions := []models.Transaction{transaction("everyday", 100)}
 
 	refreshed, hasRefreshed := OldestRefresh(accounts)
-	page := renderTemplate(t, "accounts", AccountsListProps{
+	page := renderTemplate(t, "portfolio", PortfolioProps{
 		Portfolio:     BuildPortfolio(accounts, nil),
 		Groups:        BuildAccountGroups(accounts, transactions, hasTransactions(transactions)),
 		LastRefreshed: refreshed,
@@ -211,12 +214,12 @@ func TestRenderAccountsStyling(t *testing.T) {
 	})
 
 	t.Run("links an account that has history", func(t *testing.T) {
-		assert.Contains(t, page, `href="/accounts/everyday"`)
+		assert.Contains(t, page, `href="/portfolio/accounts/everyday"`)
 	})
 
 	t.Run("does not link an account with nothing to chart", func(t *testing.T) {
 		// The detail page would be an empty chart above six zeroed statistics.
-		assert.NotContains(t, page, `href="/accounts/loan"`)
+		assert.NotContains(t, page, `href="/portfolio/accounts/loan"`)
 		assert.Contains(t, page, "b-acct-static")
 	})
 }
@@ -250,7 +253,7 @@ func TestRenderLayout(t *testing.T) {
 	})
 
 	t.Run("links every destination", func(t *testing.T) {
-		for _, href := range []string{"/", "/insights", "/transactions", "/accounts", "/budget", "/settings"} {
+		for _, href := range []string{"/", "/insights", "/transactions", "/portfolio", "/budget", "/settings"} {
 			assert.Contains(t, page, `href="`+href+`"`)
 		}
 	})
@@ -435,7 +438,7 @@ func TestPortfolioNaming(t *testing.T) {
 	accounts := []models.Account{account("everyday", "Everyday", "Kiwibank", "CHECKING", 1100)}
 	transactions := []models.Transaction{transaction("everyday", 100)}
 
-	page := renderTemplate(t, "accounts", AccountsListProps{
+	page := renderTemplate(t, "portfolio", PortfolioProps{
 		Portfolio: BuildPortfolio(accounts, nil),
 		Groups:    BuildAccountGroups(accounts, transactions, hasTransactions(transactions)),
 	})
@@ -678,4 +681,63 @@ func TestRenderTransactionsChartUnsplit(t *testing.T) {
 		page := render(series)
 		assert.Contains(t, page, "existing.options.plugins.legend.display = split")
 	})
+}
+
+// TestLegacyPathRedirects covers the paths the portfolio used to live at. They
+// are the readable entry points, so a bookmark or an open tab has to survive
+// the move rather than land on the 4XX page.
+func TestLegacyPathRedirects(t *testing.T) {
+	tests := []struct {
+		name    string
+		handler echo.HandlerFunc
+		path    string
+		id      string
+		expect  string
+	}{
+		{"the portfolio itself", redirectTo("/portfolio"), "/accounts", "", "/portfolio"},
+		{"the old assets list", redirectTo("/portfolio"), "/assets", "", "/portfolio"},
+		{
+			name:    "an account by id",
+			handler: redirectToID("/portfolio/accounts/"),
+			path:    "/accounts/:id", id: "acc_abc123",
+			expect: "/portfolio/accounts/acc_abc123",
+		},
+		{
+			name:    "an asset by id",
+			handler: redirectToID("/portfolio/assets/"),
+			path:    "/assets/:id", id: "7293a27c09d85e4c",
+			expect: "/portfolio/assets/7293a27c09d85e4c",
+		},
+		{
+			// /assets/new has no route of its own any more; it falls through the
+			// :id redirect and still arrives at the wizard.
+			name:    "the wizard falls through the id redirect",
+			handler: redirectToID("/portfolio/assets/"),
+			path:    "/assets/:id", id: "new",
+			expect: "/portfolio/assets/new",
+		},
+		{
+			name:    "an id needing escaping is not injected into the location",
+			handler: redirectToID("/portfolio/assets/"),
+			path:    "/assets/:id", id: "a b/../c",
+			expect: "/portfolio/assets/a%20b%2F..%2Fc",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			e := echo.New()
+			request := httptest.NewRequest(http.MethodGet, "/", nil)
+			recorder := httptest.NewRecorder()
+			c := e.NewContext(request, recorder)
+			if test.id != "" {
+				c.SetParamNames("id")
+				c.SetParamValues(test.id)
+			}
+
+			require.NoError(t, test.handler(c))
+			assert.Equal(t, http.StatusFound, recorder.Code)
+			assert.Equal(t, test.expect, recorder.Header().Get("Location"))
+		})
+	}
 }

@@ -45,7 +45,7 @@ func TestRenderAccounts(t *testing.T) {
 	transactions := []models.Transaction{transaction("everyday", 100)}
 
 	refreshed, hasRefreshed := OldestRefresh(accounts)
-	html := renderTemplate(t, "accounts", AccountsListProps{
+	html := renderTemplate(t, "portfolio", PortfolioProps{
 		Portfolio:     BuildPortfolio(accounts, nil),
 		Groups:        BuildAccountGroups(accounts, transactions, hasTransactions(transactions)),
 		LastRefreshed: refreshed,
@@ -67,8 +67,8 @@ func TestRenderAccounts(t *testing.T) {
 	t.Run("links only the accounts with something to show", func(t *testing.T) {
 		// Only the everyday account has transactions in this fixture, so it is
 		// the only row worth opening. The others would land on an empty chart.
-		assert.Contains(t, html, `href="/accounts/everyday"`)
-		assert.NotContains(t, html, `href="/accounts/loan"`)
+		assert.Contains(t, html, `href="/portfolio/accounts/everyday"`)
+		assert.NotContains(t, html, `href="/portfolio/accounts/loan"`)
 		assert.Contains(t, html, "b-acct-static")
 	})
 
@@ -90,7 +90,7 @@ func TestRenderAccounts(t *testing.T) {
 }
 
 func TestRenderAccountsEmpty(t *testing.T) {
-	html := renderTemplate(t, "accounts", AccountsListProps{
+	html := renderTemplate(t, "portfolio", PortfolioProps{
 		Portfolio: BuildPortfolio(nil, nil),
 		Groups:    BuildAccountGroups(nil, nil, nil),
 	})
@@ -102,5 +102,5 @@ func TestRenderAccountsEmpty(t *testing.T) {
 	assert.NotContains(t, html, "b-stat-value")
 
 	// Adding an asset is still reachable with nothing connected.
-	assert.Contains(t, html, `href="/assets/new"`)
+	assert.Contains(t, html, `href="/portfolio/assets/new"`)
 }

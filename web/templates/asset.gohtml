@@ -12,7 +12,7 @@
                 </p>
             </div>
         </div>
-        <a href="/accounts" class="btn btn-sm btn-outline-secondary flex-shrink-0"
+        <a href="/portfolio" class="btn btn-sm btn-outline-secondary flex-shrink-0"
            hx-boost="true" hx-target="#main" aria-label="Back to accounts">
             <i class="bi bi-arrow-left"></i>
         </a>
@@ -100,7 +100,7 @@
             </div>
             {{ if .Summary.Asset.Trackable }}
                 <button class="btn btn-sm btn-primary flex-shrink-0"
-                        hx-post="/assets/{{ .Summary.Asset.Id }}/estimate"
+                        hx-post="/portfolio/assets/{{ .Summary.Asset.Id }}/estimate"
                         hx-target="#main" hx-swap="innerHTML"
                         hx-indicator="#estimate-spinner">
                     <i class="bi bi-arrow-repeat"></i> Fetch estimate
@@ -119,7 +119,7 @@
             </p>
         {{ end }}
 
-        <form hx-post="/assets/{{ .Summary.Asset.Id }}/valuations"
+        <form hx-post="/portfolio/assets/{{ .Summary.Asset.Id }}/valuations"
               hx-target="#main" hx-swap="innerHTML">
             <div class="row g-2">
                 <div class="col-6 col-md-3">
@@ -169,7 +169,7 @@
                                 </div>
                             </div>
                             <button class="btn btn-sm btn-link text-danger p-0"
-                                    hx-delete="/assets/{{ $.Summary.Asset.Id }}/valuations/{{ .ID }}"
+                                    hx-delete="/portfolio/assets/{{ $.Summary.Asset.Id }}/valuations/{{ .ID }}"
                                     hx-target="#main" hx-swap="innerHTML"
                                     hx-confirm="Remove this valuation?"
                                     title="Remove valuation" aria-label="Remove this valuation">
@@ -184,7 +184,7 @@
 
     <div class="text-end mb-3">
         <button class="btn btn-sm btn-outline-secondary"
-                hx-delete="/assets/{{ .Summary.Asset.Id }}"
+                hx-delete="/portfolio/assets/{{ .Summary.Asset.Id }}"
                 hx-target="#main" hx-swap="innerHTML"
                 hx-confirm="Remove {{ .Summary.Asset.Name }} and all its valuations?">
             <i class="bi bi-trash"></i> Remove asset

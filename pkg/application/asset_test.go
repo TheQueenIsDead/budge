@@ -182,7 +182,7 @@ func TestRenderAccountsWithAssets(t *testing.T) {
 	assets := []AssetSummary{BuildAssetSummary(house(620000, bought, valuation(910000, valued)))}
 	transactions := []models.Transaction{transaction("everyday", 100)}
 
-	page := renderTemplate(t, "accounts", AccountsListProps{
+	page := renderTemplate(t, "portfolio", PortfolioProps{
 		Portfolio:   BuildPortfolio(accounts, assets),
 		Groups:      BuildAccountGroups(accounts, transactions, hasTransactions(transactions)),
 		Assets:      assets,
@@ -200,17 +200,17 @@ func TestRenderAccountsWithAssets(t *testing.T) {
 
 	t.Run("lists assets alongside the bank accounts", func(t *testing.T) {
 		assert.Contains(t, page, "12 Bealey Ave")
-		assert.Contains(t, page, `href="/assets/asset-1"`)
+		assert.Contains(t, page, `href="/portfolio/assets/asset-1"`)
 		assert.Contains(t, page, "Kiwibank")
 	})
 
 	t.Run("offers a way into the wizard rather than an inline form", func(t *testing.T) {
-		assert.Contains(t, page, `href="/assets/new"`)
-		assert.NotContains(t, page, `hx-post="/assets"`)
+		assert.Contains(t, page, `href="/portfolio/assets/new"`)
+		assert.NotContains(t, page, `hx-post="/portfolio/assets"`)
 	})
 
 	t.Run("renders with assets but no bank accounts", func(t *testing.T) {
-		only := renderTemplate(t, "accounts", AccountsListProps{
+		only := renderTemplate(t, "portfolio", PortfolioProps{
 			Portfolio:   BuildPortfolio(nil, assets),
 			Assets:      assets,
 			AssetTotals: BuildAssetPortfolio(assets),
@@ -241,7 +241,7 @@ func TestRenderAsset(t *testing.T) {
 	})
 
 	t.Run("offers a way to record another valuation", func(t *testing.T) {
-		assert.Contains(t, page, `hx-post="/assets/asset-1/valuations"`)
+		assert.Contains(t, page, `hx-post="/portfolio/assets/asset-1/valuations"`)
 	})
 
 	t.Run("lists the valuation history", func(t *testing.T) {
@@ -269,7 +269,7 @@ func TestPortfolioSectionOrder(t *testing.T) {
 	assets := []AssetSummary{BuildAssetSummary(house(620000, bought, valuation(910000, valued)))}
 	transactions := []models.Transaction{transaction("everyday", 100)}
 
-	page := renderTemplate(t, "accounts", AccountsListProps{
+	page := renderTemplate(t, "portfolio", PortfolioProps{
 		Portfolio:   BuildPortfolio(accounts, assets),
 		Groups:      BuildAccountGroups(accounts, transactions, hasTransactions(transactions)),
 		Assets:      assets,
@@ -293,7 +293,7 @@ func TestPortfolioSectionOrder(t *testing.T) {
 
 	t.Run("the add control sits with the assets it adds to", func(t *testing.T) {
 		// It lives in the assets card header, so above the account groups.
-		assert.Less(t, strings.Index(page, `href="/assets/new"`), strings.Index(page, "Kiwibank"))
+		assert.Less(t, strings.Index(page, `href="/portfolio/assets/new"`), strings.Index(page, "Kiwibank"))
 	})
 }
 
@@ -308,10 +308,10 @@ func TestRenderAssetWizard(t *testing.T) {
 		for _, assetType := range assetTypes {
 			assert.Contains(t, page, assetType.Label)
 			assert.Contains(t, page, assetType.Blurb)
-			assert.Contains(t, page, "/assets/new?type="+assetType.Key)
+			assert.Contains(t, page, "/portfolio/assets/new?type="+assetType.Key)
 		}
 		// Nothing is chosen yet, so there is nothing to submit.
-		assert.NotContains(t, page, `hx-post="/assets"`)
+		assert.NotContains(t, page, `hx-post="/portfolio/assets"`)
 	})
 
 	t.Run("a house is asked for an address and its valuation sources", func(t *testing.T) {
@@ -322,7 +322,7 @@ func TestRenderAssetWizard(t *testing.T) {
 			Types: assetTypes, Selected: house, Chosen: true, Today: "2026-09-09",
 		})
 
-		assert.Contains(t, page, `hx-post="/assets"`)
+		assert.Contains(t, page, `hx-post="/portfolio/assets"`)
 		assert.Contains(t, page, `value="house"`)
 		assert.Contains(t, page, "Address")
 		assert.Contains(t, page, "asset-suggestions")
@@ -365,11 +365,11 @@ func TestRenderAssetWizard(t *testing.T) {
 			Types: assetTypes, Selected: house, Chosen: true, Today: "2026-09-09",
 		})
 		// Back to the chooser from the form, and out to the portfolio from both.
-		assert.Contains(t, form, `href="/assets/new"`)
-		assert.Contains(t, form, `href="/accounts"`)
+		assert.Contains(t, form, `href="/portfolio/assets/new"`)
+		assert.Contains(t, form, `href="/portfolio"`)
 
 		chooser := renderTemplate(t, "asset_new", AssetNewProps{Types: assetTypes})
-		assert.Contains(t, chooser, `href="/accounts"`)
+		assert.Contains(t, chooser, `href="/portfolio"`)
 	})
 }
 
@@ -406,7 +406,7 @@ func TestAssetWizardLandsOnThePortfolio(t *testing.T) {
 
 	// Saving renders the portfolio, so the address bar has to follow it.
 	// Otherwise a refresh after saving reopens the wizard.
-	assert.Contains(t, page, `hx-push-url="/accounts"`)
+	assert.Contains(t, page, `hx-push-url="/portfolio"`)
 }
 
 // TestUpsertValuation covers the fetch button being pressed more than once in a

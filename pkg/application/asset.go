@@ -242,13 +242,6 @@ func parseAssetAmount(raw string) float64 {
 	return value
 }
 
-// Assets used to be a page of its own. Everything owned now sits alongside the
-// bank accounts so that net worth counts the house, which is the whole point of
-// tracking it, so this survives only to keep existing links working.
-func (app *Application) Assets(c echo.Context) error {
-	return c.Redirect(http.StatusFound, "/accounts")
-}
-
 // buildAssetSummaries loads every asset, annotated and ordered by value.
 func (app *Application) buildAssetSummaries() ([]AssetSummary, error) {
 	assets, err := app.store.ReadAssets()
@@ -307,7 +300,7 @@ func (app *Application) AssetCreate(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return app.Accounts(c)
+	return app.Portfolio(c)
 }
 
 func (app *Application) Asset(c echo.Context) error {
@@ -369,7 +362,7 @@ func (app *Application) AssetDelete(c echo.Context) error {
 		app.Toast(c, "Error", "Could not remove the asset.")
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	return app.Accounts(c)
+	return app.Portfolio(c)
 }
 
 // AddressSuggest proxies the address lookup so the browser never talks to the

@@ -90,7 +90,7 @@ type Portfolio struct {
 	AssetCount int
 }
 
-type AccountsListProps struct {
+type PortfolioProps struct {
 	Portfolio     Portfolio
 	Groups        []AccountGroup
 	LastRefreshed time.Time
@@ -253,7 +253,7 @@ func OldestRefresh(accounts []models.Account) (time.Time, bool) {
 	return oldest, !oldest.IsZero()
 }
 
-func (app *Application) Accounts(c echo.Context) error {
+func (app *Application) Portfolio(c echo.Context) error {
 
 	accounts, err := app.store.ReadAccounts()
 	if err != nil {
@@ -289,7 +289,7 @@ func (app *Application) Accounts(c echo.Context) error {
 
 	refreshed, hasRefreshed := OldestRefresh(accounts)
 
-	return c.Render(http.StatusOK, "accounts", AccountsListProps{
+	return c.Render(http.StatusOK, "portfolio", PortfolioProps{
 		Portfolio:     BuildPortfolio(accounts, assets),
 		Groups:        BuildAccountGroups(accounts, recent, hasTransactions),
 		LastRefreshed: refreshed,

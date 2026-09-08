@@ -16,6 +16,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -153,20 +154,27 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	// Transactions
 	app.http.GET("/transactions", app.Transactions)
 
-	// Assets
-	app.http.GET("/assets/address-suggest", app.AddressSuggest)
-	app.http.GET("/assets/new", app.AssetNew)
-	app.http.GET("/assets", app.Assets)
-	app.http.POST("/assets", app.AssetCreate)
-	app.http.GET("/assets/:id", app.Asset)
-	app.http.DELETE("/assets/:id", app.AssetDelete)
-	app.http.POST("/assets/:id/valuations", app.AssetAddValuation)
-	app.http.POST("/assets/:id/estimate", app.AssetRefreshEstimate)
-	app.http.DELETE("/assets/:id/valuations/:valuationId", app.AssetDeleteValuation)
+	// Portfolio: everything owned and owed. Assets tracked by hand sit under it
+	// alongside the synced accounts, so their URLs sit under it too.
+	app.http.GET("/portfolio", app.Portfolio)
+	app.http.GET("/portfolio/accounts/:id", app.Account)
 
-	// Accounts
-	app.http.GET("/accounts", app.Accounts)
-	app.http.GET("/accounts/:id", app.Account)
+	app.http.GET("/portfolio/assets/address-suggest", app.AddressSuggest)
+	app.http.GET("/portfolio/assets/new", app.AssetNew)
+	app.http.POST("/portfolio/assets", app.AssetCreate)
+	app.http.GET("/portfolio/assets/:id", app.Asset)
+	app.http.DELETE("/portfolio/assets/:id", app.AssetDelete)
+	app.http.POST("/portfolio/assets/:id/valuations", app.AssetAddValuation)
+	app.http.POST("/portfolio/assets/:id/estimate", app.AssetRefreshEstimate)
+	app.http.DELETE("/portfolio/assets/:id/valuations/:valuationId", app.AssetDeleteValuation)
+
+	// The page used to live at /accounts and assets at /assets. Redirect the
+	// readable entry points so bookmarks and open tabs still land somewhere.
+	// /assets/new falls through the :id redirect and arrives correctly.
+	app.http.GET("/accounts", redirectTo("/portfolio"))
+	app.http.GET("/accounts/:id", redirectToID("/portfolio/accounts/"))
+	app.http.GET("/assets", redirectTo("/portfolio"))
+	app.http.GET("/assets/:id", redirectToID("/portfolio/assets/"))
 
 	// Budget
 	app.http.GET("/budget", app.Budget)
@@ -185,6 +193,21 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.Static("/static", "./web/public")
 
 	return app, nil
+}
+
+// redirectTo sends a moved page to its new home. Found rather than Moved
+// Permanently: a 301 is cached hard by browsers, which is painful to undo.
+func redirectTo(path string) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		return c.Redirect(http.StatusFound, path)
+	}
+}
+
+// redirectToID carries a single :id segment across to the new prefix.
+func redirectToID(prefix string) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		return c.Redirect(http.StatusFound, prefix+url.PathEscape(c.Param("id")))
+	}
 }
 
 func (app *Application) Start() error {
