@@ -29,6 +29,13 @@ type Asset struct {
 	Description string    `json:"description"`
 	CreatedAt   time.Time `json:"created_at"`
 
+	// HomesPropertyID and OneRoofURL identify the property to the valuation
+	// sources. Homes is looked up by id from the address autocomplete; OneRoof
+	// gates its search behind a request signature, so the public property page
+	// URL is stored instead and read directly.
+	HomesPropertyID string `json:"homes_property_id"`
+	OneRoofURL      string `json:"oneroof_url"`
+
 	// Purchase is the first point on the curve. It is kept separate from the
 	// valuations so that "what I paid" survives even after a revaluation, which
 	// is what any gain has to be measured against.
@@ -54,6 +61,12 @@ func (a Asset) SortedValuations() []AssetValuation {
 		return sorted[i].Date.Before(sorted[j].Date)
 	})
 	return sorted
+}
+
+// Trackable reports whether an automated estimate can be fetched for this
+// asset, which needs at least one source to be identified.
+func (a Asset) Trackable() bool {
+	return a.HomesPropertyID != "" || a.OneRoofURL != ""
 }
 
 // CurrentValue is the most recent valuation, falling back to the purchase price

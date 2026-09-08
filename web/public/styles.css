@@ -993,6 +993,41 @@ a.b-acct:focus-visible {
     color: var(--b-muted);
 }
 
+/* Address suggestions, floating under the field they belong to. */
+.b-suggest {
+    position: absolute;
+    z-index: 5;
+    left: calc(var(--bs-gutter-x, 1.5rem) * 0.5);
+    right: calc(var(--bs-gutter-x, 1.5rem) * 0.5);
+    margin-top: 0.25rem;
+    background: var(--b-surface);
+    border: 1px solid var(--b-border);
+    border-radius: var(--b-radius-sm);
+    box-shadow: var(--b-shadow-lift);
+    overflow: hidden;
+}
+
+.b-suggest-item {
+    display: block;
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    border: 0;
+    background: transparent;
+    color: var(--b-ink);
+    font-size: 0.875rem;
+    text-align: left;
+}
+
+.b-suggest-item + .b-suggest-item {
+    border-top: 1px solid var(--b-surface-3);
+}
+
+.b-suggest-item:hover,
+.b-suggest-item:focus-visible {
+    background: var(--b-primary-soft);
+    color: var(--b-primary-ink);
+}
+
 /* ==========================================================================
    Badges
    ========================================================================== */

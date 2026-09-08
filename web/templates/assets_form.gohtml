@@ -15,9 +15,16 @@
         <form hx-post="/assets" hx-target="#main" hx-swap="innerHTML">
             <div class="row g-2">
                 <div class="col-12 col-md-5">
-                    <label class="b-field-label" for="asset-name">Name</label>
+                    <label class="b-field-label" for="asset-name">Name or address</label>
                     <input id="asset-name" name="name" type="text" class="form-control"
-                           placeholder="e.g. 12 Bealey Ave" required>
+                           placeholder="e.g. 12 Bealey Ave" autocomplete="off"
+                           list="" required
+                           aria-describedby="asset-name-help">
+                    <input type="hidden" id="asset-homes-id" name="homes_property_id" value="">
+                    <div id="asset-suggestions" class="b-suggest" hidden></div>
+                    <div id="asset-name-help" class="b-delta-note mt-1">
+                        Start typing a NZ address for suggestions, or name it whatever you like.
+                    </div>
                 </div>
 
                 <div class="col-6 col-md-3">
@@ -33,6 +40,16 @@
                     <label class="b-field-label" for="asset-description">Note</label>
                     <input id="asset-description" name="description" type="text" class="form-control"
                            placeholder="Optional">
+                </div>
+
+                <div class="col-12">
+                    <label class="b-field-label" for="asset-oneroof">OneRoof page (optional)</label>
+                    <input id="asset-oneroof" name="oneroof_url" type="url" class="form-control"
+                           placeholder="https://www.oneroof.co.nz/property/...">
+                    <div class="b-delta-note mt-1">
+                        Paste the property's OneRoof page and its estimate gets averaged in.
+                        Their search needs a signed request, so the link is stored once instead.
+                    </div>
                 </div>
 
                 <div class="col-6 col-md-4">
@@ -59,4 +76,94 @@
         </form>
     </div>
 
+    <script>
+        (function () {
+            const input = document.getElementById("asset-name");
+            const list = document.getElementById("asset-suggestions");
+            if (!input || !list) {
+                return;
+            }
+
+            let timer = null;
+            let controller = null;
+
+            function hide() {
+                list.hidden = true;
+                list.innerHTML = "";
+            }
+
+            async function lookup(query) {
+                // Only one lookup is ever in flight: the earlier one is stale
+                // the moment another character is typed.
+                if (controller) {
+                    controller.abort();
+                }
+                controller = new AbortController();
+
+                try {
+                    const response = await fetch("/assets/address-suggest?q=" + encodeURIComponent(query), {
+                        signal: controller.signal
+                    });
+                    if (!response.ok) {
+                        hide();
+                        return;
+                    }
+                    render(await response.json());
+                } catch (err) {
+                    // An aborted request is the expected case while typing.
+                    if (err.name !== "AbortError") {
+                        hide();
+                    }
+                }
+            }
+
+            function render(suggestions) {
+                if (!suggestions || !suggestions.length) {
+                    hide();
+                    return;
+                }
+                list.innerHTML = "";
+                suggestions.forEach(function (suggestion) {
+                    const option = document.createElement("button");
+                    option.type = "button";
+                    option.className = "b-suggest-item";
+                    option.textContent = suggestion.address;
+                    option.addEventListener("click", function () {
+                        input.value = suggestion.address;
+                        // Carry the property id through so the estimate lookup
+                        // does not have to search for the address again.
+                        const hidden = document.getElementById("asset-homes-id");
+                        if (hidden) {
+                            hidden.value = suggestion.propertyId || "";
+                        }
+                        hide();
+                        input.focus();
+                    });
+                    list.appendChild(option);
+                });
+                list.hidden = false;
+            }
+
+            input.addEventListener("input", function () {
+                const query = input.value.trim();
+                clearTimeout(timer);
+                if (query.length < 3) {
+                    hide();
+                    return;
+                }
+                timer = setTimeout(function () { lookup(query); }, 250);
+            });
+
+            input.addEventListener("blur", function () {
+                // Let a click on a suggestion land before the list disappears.
+                setTimeout(hide, 150);
+            });
+
+            input.addEventListener("keydown", function (event) {
+                if (event.key === "Escape") {
+                    hide();
+                }
+            });
+        })();
+    </script>
 {{ end }}
