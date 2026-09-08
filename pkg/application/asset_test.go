@@ -460,6 +460,26 @@ func TestUpsertValuation(t *testing.T) {
 		assert.False(t, models.SameDay(morning, yesterday))
 	})
 
+	t.Run("duplicates written before this rule are collapsed", func(t *testing.T) {
+		// Repeated presses of Fetch estimate left one entry per press. Writing a
+		// new reading has to clear all of them, not just the first it finds.
+		var held []models.AssetValuation
+		for i := 0; i < 28; i++ {
+			held = append(held, models.AssetValuation{
+				ID: "old", Date: morning.Add(time.Duration(i) * time.Second), Value: 565000,
+			})
+		}
+		held = append(held, models.AssetValuation{ID: "keep", Date: yesterday, Value: 550000})
+
+		got := models.UpsertValuation(held, models.AssetValuation{
+			ID: "new", Date: evening, Value: 570000,
+		})
+
+		require.Len(t, got, 2, "one entry for yesterday, one for today")
+		assert.Equal(t, 550000.0, got[0].Value, "other days are untouched")
+		assert.Equal(t, 570000.0, got[1].Value)
+	})
+
 	t.Run("an empty history just takes the reading", func(t *testing.T) {
 		got := models.UpsertValuation(nil, models.AssetValuation{ID: "a", Date: morning, Value: 1})
 		assert.Len(t, got, 1)

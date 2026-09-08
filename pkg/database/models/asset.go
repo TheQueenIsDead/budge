@@ -65,14 +65,18 @@ func SameDay(a, b time.Time) bool {
 // that day has none. Two valuations on one day are not two readings: re-fetching
 // an estimate corrects today's figure rather than stacking another copy of it,
 // and a curve with two points on one date says nothing extra.
+// Every same-day entry is dropped, not just the first. Replacing one match would
+// leave any duplicates written before this rule existed in place forever, so the
+// invariant would hold for new writes while the old mess stayed.
 func UpsertValuation(valuations []AssetValuation, next AssetValuation) []AssetValuation {
-	for i, existing := range valuations {
+	kept := make([]AssetValuation, 0, len(valuations)+1)
+	for _, existing := range valuations {
 		if SameDay(existing.Date, next.Date) {
-			valuations[i] = next
-			return valuations
+			continue
 		}
+		kept = append(kept, existing)
 	}
-	return append(valuations, next)
+	return append(kept, next)
 }
 
 // SortedValuations returns the valuations oldest first, which is the order a
