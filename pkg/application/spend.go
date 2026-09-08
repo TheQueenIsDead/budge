@@ -198,9 +198,11 @@ type SpendBar struct {
 	// Pct is the bar's height as a percentage of the tallest bucket in the series.
 	Pct float64
 
-	// Compare marks the last completed period, which the headline delta is
-	// measured against, so the chart can show what it is pointing at.
-	Compare bool
+	// Headline marks the bar the headline figure refers to, so the number and
+	// the chart point at the same period. Which bar that is depends on the
+	// window: a trailing window is complete, so its most recent bar is the
+	// result, while a calendar period still filling up is not a result yet.
+	Headline bool
 }
 
 // SpendSummary is everything the UI needs to answer "how is this tracking?"
@@ -477,9 +479,16 @@ func (s SpendSummary) Bars() []SpendBar {
 			bars[i].Pct = bucket.Total / max * 100
 		}
 	}
-	if len(bars) >= 2 {
-		bars[len(bars)-2].Compare = true
+	// A period still in progress stays hollow rather than solid: it has not
+	// finished accruing, and emphasis would claim a result it does not have.
+	headline := len(bars) - 1
+	if s.HeadlineIsPrevious {
+		headline = len(bars) - 2
 	}
+	if headline >= 0 && headline < len(bars) && !bars[headline].Partial {
+		bars[headline].Headline = true
+	}
+
 	return bars
 }
 

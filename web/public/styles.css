@@ -329,9 +329,9 @@ main.container {
     opacity: 0.65;
 }
 
-/* The last completed period, which the headline delta compares against. Drawn
-   solid so the reader can see what "vs last week" actually points at. */
-.b-spark-bar-compare {
+/* The period the headline figure refers to. Drawn solid so the number above the
+   chart and the bar below it are visibly the same thing. */
+.b-spark-bar-headline {
     background: var(--accent, var(--b-ink-2));
 }
 

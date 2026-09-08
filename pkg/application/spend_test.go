@@ -452,3 +452,83 @@ func TestSpendSummaryHeadline(t *testing.T) {
 		assert.Equal(t, 190.0, summary.HeadlinePrevious)
 	})
 }
+
+// TestSpendSummaryBarsHeadline guards the chart pointing at the same period the
+// headline figure does. Emphasising the previous bar made a rolling tile look
+// like the most recent window held no spend.
+func TestSpendSummaryBarsHeadline(t *testing.T) {
+
+	headlineIndex := func(bars []SpendBar) int {
+		for i, bar := range bars {
+			if bar.Headline {
+				return i
+			}
+		}
+		return -1
+	}
+
+	t.Run("a trailing window emphasises its most recent bar", func(t *testing.T) {
+		groceries, ok := SpendGroupByKey("groceries")
+		require.True(t, ok)
+
+		summary := BuildRollingSummary([]models.Transaction{
+			spendTransaction("Supermarkets and grocery stores", "PAKnSAVE", -140, day(-2)),
+			spendTransaction("Supermarkets and grocery stores", "New World", -190, day(-9)),
+		}, groceries, 7, 4, now)
+
+		bars := summary.Bars()
+		require.Len(t, bars, 4)
+		// Every trailing window is complete, so the last one is the result and
+		// the headline figure is exactly what it shows.
+		assert.Equal(t, 3, headlineIndex(bars))
+		assert.Equal(t, summary.Headline, bars[3].Total)
+	})
+
+	t.Run("a calendar period still in progress is not emphasised", func(t *testing.T) {
+		groceries, ok := SpendGroupByKey("groceries")
+		require.True(t, ok)
+
+		summary := BuildSpendSummary([]models.Transaction{
+			spendTransaction("Supermarkets and grocery stores", "PAKnSAVE", -140, day(0)),
+			spendTransaction("Supermarkets and grocery stores", "PAKnSAVE", -190, day(-7)),
+		}, groceries, CadenceWeekly, now)
+
+		bars := summary.Bars()
+		last := len(bars) - 1
+		assert.True(t, bars[last].Partial)
+		assert.False(t, bars[last].Headline, "an unfinished period is not a result")
+	})
+
+	t.Run("an unbilled month emphasises the last real reading", func(t *testing.T) {
+		power, ok := SpendGroupByKey("power")
+		require.True(t, ok)
+
+		summary := BuildSpendSummary([]models.Transaction{
+			spendTransaction("Electricity services", "Mercury", -245.83, now.AddDate(0, -1, 0)),
+			spendTransaction("Electricity services", "Mercury", -209.32, now.AddDate(0, -2, 0)),
+		}, power, CadenceMonthly, now)
+
+		bars := summary.Bars()
+		require.True(t, summary.HeadlineIsPrevious)
+		// The headline falls back to last month, so the chart points there too.
+		assert.Equal(t, len(bars)-2, headlineIndex(bars))
+		assert.Equal(t, summary.Headline, bars[len(bars)-2].Total)
+	})
+
+	t.Run("exactly one bar is emphasised", func(t *testing.T) {
+		petrol, ok := SpendGroupByKey("petrol")
+		require.True(t, ok)
+
+		summary := BuildRollingSummary([]models.Transaction{
+			spendTransaction("Fuel stations", "Z Energy", -95, day(-3)),
+		}, petrol, 30, 12, now)
+
+		count := 0
+		for _, bar := range summary.Bars() {
+			if bar.Headline {
+				count++
+			}
+		}
+		assert.Equal(t, 1, count)
+	})
+}

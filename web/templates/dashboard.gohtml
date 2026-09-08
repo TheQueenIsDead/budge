@@ -52,7 +52,7 @@
 
                         <div class="b-spark d-none d-sm-flex">
                             {{ range .Bars }}
-                                <span class="b-spark-bar{{ if .Partial }} b-spark-bar-partial{{ else if .Compare }} b-spark-bar-compare{{ end }}"
+                                <span class="b-spark-bar{{ if .Partial }} b-spark-bar-partial{{ else if .Headline }} b-spark-bar-headline{{ end }}"
                                       style="height: {{ printf "%.1f" .Pct }}%"
                                       title="{{ .Label }}: {{ .Total | fmtCurrency }}{{ if .Partial }} so far{{ end }}"></span>
                             {{ end }}
