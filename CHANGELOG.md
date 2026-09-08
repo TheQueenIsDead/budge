@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.14.0](https://github.com/TheQueenIsDead/budge/compare/v1.13.0...v1.14.0) (2026-09-08)
+
+
+### Features
+
+* go 1.26 ([dfebf6c](https://github.com/TheQueenIsDead/budge/commit/dfebf6c0665aa3c45c51f71e32308c7300cda3a1))
+* portfolio assets ([#87](https://github.com/TheQueenIsDead/budge/issues/87)) ([4a01271](https://github.com/TheQueenIsDead/budge/commit/4a01271812cf3ab13853cda9dda22d6d880f3624))
+* **property:** average homes.co.nz and OneRoof estimates for an asset ([#88](https://github.com/TheQueenIsDead/budge/issues/88)) ([ab81e66](https://github.com/TheQueenIsDead/budge/commit/ab81e662118d0839fe93a206b31c10d44e7356db))
+* **ui:** mobile-first refresh on a token-based design system ([#85](https://github.com/TheQueenIsDead/budge/issues/85)) ([b179a78](https://github.com/TheQueenIsDead/budge/commit/b179a78cffd43bc8694ad407017d3b8b878f6681))
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/sirupsen/logrus to v1.10.2 ([#79](https://github.com/TheQueenIsDead/budge/issues/79)) ([e0b3a56](https://github.com/TheQueenIsDead/budge/commit/e0b3a5658565da4f1ea602e7e3a61974a23f1708))
+* reporting correctness ([#84](https://github.com/TheQueenIsDead/budge/issues/84)) ([c3cc62a](https://github.com/TheQueenIsDead/budge/commit/c3cc62a99f7a2d92fe6da3a6b354a14906dd6d04))
+
 ## [1.13.0](https://github.com/TheQueenIsDead/budge/compare/v1.12.0...v1.13.0) (2026-08-17)
 
 
