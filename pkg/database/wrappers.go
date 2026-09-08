@@ -274,6 +274,25 @@ func (s *Store) SaveBudgetSalary(salary models.BudgetSalary) error {
 	return Update[models.BudgetSalary](s.db, salary)
 }
 
+/* Schedule */
+
+// GetScheduleSettings returns what runs by itself. An unset schedule is off:
+// nothing should start reaching out to a bank without being asked to.
+func (s *Store) GetScheduleSettings() (models.ScheduleSettings, error) {
+	schedule, err := Get[models.ScheduleSettings](s.db, models.ScheduleSettings{}.Key())
+	if err != nil {
+		return models.ScheduleSettings{
+			AkahuInterval:  models.AkahuIntervals[1].Key,
+			AssetsInterval: models.AssetIntervals[0].Key,
+		}, nil
+	}
+	return schedule, nil
+}
+
+func (s *Store) SaveScheduleSettings(schedule models.ScheduleSettings) error {
+	return Update[models.ScheduleSettings](s.db, schedule)
+}
+
 /* Settings */
 
 func (s *Store) GetAkahuSettings() (models.IntegrationAkahuSettings, error) {

@@ -54,17 +54,19 @@ func (i *Integrations) Config() map[string]interface{} {
 	}
 }
 
-func (i *Integrations) SyncAkahu(c echo.Context, lastSync time.Time) error {
+// SyncAkahu pulls accounts and transactions. It takes a logger rather than a
+// request context so a scheduled run, which has no request behind it, can call it.
+func (i *Integrations) SyncAkahu(logger echo.Logger, lastSync time.Time) error {
 
 	accounts, err := i.AkahuAccounts()
 	if err != nil {
-		c.Logger().Error(err)
+		logger.Error(err)
 		return err
 	}
 
 	transactions, err := i.AkahuTransactions(lastSync.Add(-7))
 	if err != nil {
-		c.Logger().Error(err)
+		logger.Error(err)
 		return err
 	}
 
@@ -107,7 +109,7 @@ func (i *Integrations) SyncAkahu(c echo.Context, lastSync time.Time) error {
 		// We get given a transaction id from Akahu, which helps us to maintain unique records, overwrite if need be.
 		err := i.store.CreateTransaction(tx)
 		if err != nil {
-			c.Logger().Error(err)
+			logger.Error(err)
 			return err
 		}
 
@@ -125,7 +127,7 @@ func (i *Integrations) SyncAkahu(c echo.Context, lastSync time.Time) error {
 	for _, merchant := range merchants {
 		err = i.store.CreateMerchant(merchant)
 		if err != nil {
-			c.Logger().Error(err)
+			logger.Error(err)
 			return err
 		}
 	}

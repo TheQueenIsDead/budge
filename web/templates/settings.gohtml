@@ -112,6 +112,8 @@
     </div>
 
     <!-- Budge Settings -->
+    <div id="schedule">{{ template "settings.schedule" .schedule }}</div>
+
     <div class="card border rounded-3 p-4 shadow-sm">
         <div id="danger" class="row g-3 mb-3">
             <h3>Danger</h3>
@@ -125,4 +127,95 @@
 
 {{ define "settings.integrations.last-sync" }}
 <p id="last-sync">Last sync {{ .akahuLastSync | fmtRelative }}</p>
+{{ end }}
+
+{{ define "settings.schedule" }}
+<div class="b-card b-card-pad mb-3" id="schedule">
+    <div class="b-card-head">
+        <div>
+            <h3 class="b-card-title"><i class="bi bi-clock-history me-2"></i>Run on a schedule</h3>
+            <p class="b-card-sub">
+                Anything that fails while this is running is reported under the bell,
+                since there is nobody watching a background job.
+            </p>
+        </div>
+    </div>
+
+    <form hx-post="/settings/schedule" hx-target="#schedule" hx-swap="outerHTML">
+        <div class="row g-3">
+
+            <div class="col-12 col-md-6">
+                <div class="b-sched">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch"
+                               id="akahu-enabled" name="akahu_enabled" value="1"
+                               {{ if .Settings.AkahuEnabled }}checked{{ end }}>
+                        <label class="form-check-label fw-semibold" for="akahu-enabled">Sync accounts</label>
+                    </div>
+                    <p class="b-card-sub mb-2">Pull balances and transactions from Akahu.</p>
+
+                    <label class="b-field-label" for="akahu-interval">How often</label>
+                    <select class="form-select" id="akahu-interval" name="akahu_interval">
+                        {{ $current := .Settings.AkahuEvery.Key }}
+                        {{ range .AkahuIntervals }}
+                            <option value="{{ .Key }}" {{ if eq .Key $current }}selected{{ end }}>{{ .Label }}</option>
+                        {{ end }}
+                    </select>
+
+                    <div class="b-delta-note mt-2">
+                        {{ if not .Settings.AkahuEnabled }}
+                            Off.
+                        {{ else if .AkahuNext.IsZero }}
+                            Runs within the minute.
+                        {{ else }}
+                            Next {{ .AkahuNext | fmtRelative }}.
+                        {{ end }}
+                        {{ if not .Settings.AkahuLastRun.IsZero }}
+                            Last ran {{ .Settings.AkahuLastRun | fmtRelative }}.
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-6">
+                <div class="b-sched">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch"
+                               id="assets-enabled" name="assets_enabled" value="1"
+                               {{ if .Settings.AssetsEnabled }}checked{{ end }}>
+                        <label class="form-check-label fw-semibold" for="assets-enabled">Refresh property estimates</label>
+                    </div>
+                    <p class="b-card-sub mb-2">
+                        Re-fetch every asset that has a valuation source, and report the ones that moved.
+                    </p>
+
+                    <label class="b-field-label" for="assets-interval">How often</label>
+                    <select class="form-select" id="assets-interval" name="assets_interval">
+                        {{ $current := .Settings.AssetsEvery.Key }}
+                        {{ range .AssetIntervals }}
+                            <option value="{{ .Key }}" {{ if eq .Key $current }}selected{{ end }}>{{ .Label }}</option>
+                        {{ end }}
+                    </select>
+
+                    <div class="b-delta-note mt-2">
+                        {{ if not .Settings.AssetsEnabled }}
+                            Off.
+                        {{ else if .AssetsNext.IsZero }}
+                            Runs within the minute.
+                        {{ else }}
+                            Next {{ .AssetsNext | fmtRelative }}.
+                        {{ end }}
+                        {{ if not .Settings.AssetsLastRun.IsZero }}
+                            Last ran {{ .Settings.AssetsLastRun | fmtRelative }}.
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">Save schedule</button>
+            </div>
+        </div>
+    </form>
+</div>
 {{ end }}

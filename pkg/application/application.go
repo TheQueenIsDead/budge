@@ -67,6 +67,7 @@ type Application struct {
 	http         *echo.Echo
 	store        *database.Store
 	integrations *integrations.Integrations
+	scheduler    *scheduler
 }
 
 func NewApplication(store *database.Store, integrations *integrations.Integrations) (*Application, error) {
@@ -152,6 +153,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	// Settings
 	app.http.GET("/settings", app.Settings)
+	app.http.POST("/settings/schedule", app.SettingsSaveSchedule)
 	app.http.POST("/settings/danger/remove/synced", app.SettingsDeleteSynced)
 
 	// Insights
@@ -189,6 +191,8 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.PUT("/budget/items/:id/subitems/:subid", app.BudgetUpdateSubItem)
 	app.http.DELETE("/budget/items/:id/subitems/:subid", app.BudgetDeleteSubItem)
 
+	app.scheduler = newScheduler(app)
+
 	// Static files. Mounted at /static rather than /assets so the assets feature
 	// can own /assets/:id without shadowing the stylesheet.
 	app.http.Static("/static", "./web/public")
@@ -197,10 +201,14 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 }
 
 func (app *Application) Start() error {
+	app.scheduler.start()
 	return app.http.Start(":1337")
 }
 
 func (app *Application) Close() error {
+	// Stop the scheduler first and wait for any job in flight, so shutdown does
+	// not cut a sync off midway through writing.
+	app.scheduler.stop()
 	// TODO: Change this to close down gracefully
 	return app.http.Close()
 }

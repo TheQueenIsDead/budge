@@ -1128,6 +1128,21 @@ a.b-acct:focus-visible {
     overflow-wrap: anywhere;
 }
 
+/* One job in the schedule, boxed so the two read as a pair of settings rather
+   than one long column of controls. */
+.b-sched {
+    height: 100%;
+    padding: 0.875rem;
+    background: var(--b-surface-2);
+    border: 1px solid var(--b-border);
+    border-radius: var(--b-radius-sm);
+}
+
+.b-sched .form-check-input:checked {
+    background-color: var(--b-primary);
+    border-color: var(--b-primary);
+}
+
 /* ==========================================================================
    Badges
    ========================================================================== */

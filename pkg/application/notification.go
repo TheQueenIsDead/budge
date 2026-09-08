@@ -13,7 +13,8 @@ import (
 // strings at each call site keeps a run of failures from one place grouped
 // under one name.
 const (
-	SourceAkahuSync = "Akahu sync"
+	SourceAkahuSync      = "Akahu sync"
+	SourceAssetEstimates = "Asset estimates"
 )
 
 // NotificationsProps drives the list.

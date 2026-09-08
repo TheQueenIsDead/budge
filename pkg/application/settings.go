@@ -8,6 +8,34 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// ScheduleView is the schedule as the settings page reads it: what is on, how
+// often, and when it will next happen.
+type ScheduleView struct {
+	Settings       models.ScheduleSettings
+	AkahuIntervals []models.ScheduleInterval
+	AssetIntervals []models.ScheduleInterval
+
+	// Next is zero when a job has never run, in which case it is due at the next
+	// tick and the page says so rather than showing a date in the past.
+	AkahuNext  time.Time
+	AssetsNext time.Time
+}
+
+func buildScheduleView(schedule models.ScheduleSettings) ScheduleView {
+	view := ScheduleView{
+		Settings:       schedule,
+		AkahuIntervals: models.AkahuIntervals,
+		AssetIntervals: models.AssetIntervals,
+	}
+	if !schedule.AkahuLastRun.IsZero() {
+		view.AkahuNext = schedule.AkahuLastRun.Add(schedule.AkahuEvery().Every)
+	}
+	if !schedule.AssetsLastRun.IsZero() {
+		view.AssetsNext = schedule.AssetsLastRun.Add(schedule.AssetsEvery().Every)
+	}
+	return view
+}
+
 func (app *Application) Settings(c echo.Context) error {
 	accounts, err := app.store.ReadAccounts()
 	if err != nil {
@@ -21,11 +49,18 @@ func (app *Application) Settings(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	schedule, err := app.store.GetScheduleSettings()
+	if err != nil {
+		app.Toast(c, "Error", "Could not read the schedule.")
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
 	return c.Render(http.StatusOK, "settings", map[string]interface{}{
 		"accounts":       accounts,
 		"akahuAppToken":  akahuConfig.AppToken,
 		"akahuUserToken": akahuConfig.UserToken,
 		"akahuLastSync":  akahuConfig.LastSync,
+		"schedule":       buildScheduleView(schedule),
 	})
 }
 
@@ -52,7 +87,7 @@ func (app *Application) SyncAkahu(c echo.Context) error {
 		return err
 	}
 
-	err = app.integrations.SyncAkahu(c, akahuConfig.LastSync)
+	err = app.integrations.SyncAkahu(c.Logger(), akahuConfig.LastSync)
 	if err != nil {
 		app.Notify(models.NotificationError, SourceAkahuSync,
 			"Sync failed", err.Error())
@@ -94,4 +129,31 @@ func (app *Application) PutAkahuSettings(c echo.Context) error {
 	}
 	app.Toast(c, "Success", "Akahu settings saved successfully!")
 	return nil
+}
+
+// SettingsSaveSchedule stores what should run by itself. Last-run times are
+// carried across rather than reset, so changing a cadence does not fire a job
+// immediately as a side effect of saving.
+func (app *Application) SettingsSaveSchedule(c echo.Context) error {
+
+	schedule, err := app.store.GetScheduleSettings()
+	if err != nil {
+		app.Toast(c, "Error", "Could not read the schedule.")
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
+	schedule.AkahuEnabled = c.FormValue("akahu_enabled") != ""
+	schedule.AssetsEnabled = c.FormValue("assets_enabled") != ""
+	schedule.AkahuInterval = models.ResolveInterval(
+		models.AkahuIntervals, c.FormValue("akahu_interval"), schedule.AkahuEvery()).Key
+	schedule.AssetsInterval = models.ResolveInterval(
+		models.AssetIntervals, c.FormValue("assets_interval"), schedule.AssetsEvery()).Key
+
+	if err := app.store.SaveScheduleSettings(schedule); err != nil {
+		app.Toast(c, "Error", "Could not save the schedule.")
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
+	app.Toast(c, "Success", "Schedule saved.")
+	return c.Render(http.StatusOK, "settings.schedule", buildScheduleView(schedule))
 }

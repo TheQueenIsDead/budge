@@ -435,11 +435,26 @@ func (app *Application) AssetRefreshEstimate(c echo.Context) error {
 
 // formatShort renders a valuation the way the property sites publish it, since
 // that is the precision they actually offer.
+//
+// The fraction is kept when there is one. Both sources round to the nearest ten
+// thousand, so an average of two lands on a half thousand often enough that
+// dropping it would quietly report $562,500 as $562K - and Go rounds half to
+// even, so it would not even do that consistently.
 func formatShort(value float64) string {
 	if value >= 1_000_000 {
-		return fmt.Sprintf("$%.2fM", value/1_000_000)
+		return "$" + trimZeros(fmt.Sprintf("%.2f", value/1_000_000)) + "M"
 	}
-	return fmt.Sprintf("$%.0fK", value/1_000)
+	return "$" + trimZeros(fmt.Sprintf("%.1f", value/1_000)) + "K"
+}
+
+// trimZeros drops a trailing fraction that says nothing, so a round number reads
+// as one: "1.00" becomes "1", "562.50" becomes "562.5".
+func trimZeros(number string) string {
+	if !strings.Contains(number, ".") {
+		return number
+	}
+	number = strings.TrimRight(number, "0")
+	return strings.TrimSuffix(number, ".")
 }
 
 // AssetNewProps drives the add-an-asset wizard. Without a type chosen it renders
