@@ -105,7 +105,7 @@ func (c *Client) SuggestAddresses(ctx context.Context, query string, limit int) 
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("address search returned %d", response.StatusCode)
@@ -360,7 +360,7 @@ func (c *Client) get(ctx context.Context, endpoint string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%s returned %d", endpoint, response.StatusCode)
