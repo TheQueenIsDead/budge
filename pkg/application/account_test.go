@@ -91,10 +91,28 @@ func TestBuildPortfolio(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.expected, BuildPortfolio(test.accounts))
+			assert.Equal(t, test.expected, BuildPortfolio(test.accounts, nil))
 		})
 	}
 
+	t.Run("tracked assets count towards the position", func(t *testing.T) {
+		accounts := []models.Account{
+			account("a", "Everyday", "Bank", "CHECKING", 1000),
+			account("b", "Mortgage", "Bank", "LOAN", -400000),
+		}
+		assets := []AssetSummary{
+			{Current: 910000},
+			{Current: 25000},
+		}
+
+		portfolio := BuildPortfolio(accounts, assets)
+
+		assert.Equal(t, 935000.0, portfolio.Property)
+		assert.Equal(t, 936000.0, portfolio.Assets) // 1000 in the bank plus the assets
+		assert.Equal(t, -400000.0, portfolio.Liabilities)
+		assert.Equal(t, 536000.0, portfolio.NetWorth) // net worth counts the house
+		assert.Equal(t, 2, portfolio.AssetCount)
+	})
 }
 
 func TestBuildAccountGroups(t *testing.T) {

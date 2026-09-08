@@ -75,12 +75,19 @@ type AccountGroup struct {
 	Total      float64
 }
 
-// Portfolio is the roll up of every account balance into a single net position.
+// Portfolio is the roll up of everything owned and owed into a net position.
+// Bank balances and tracked assets are counted together: net worth that leaves
+// out the house is not net worth.
 type Portfolio struct {
 	Assets      float64
 	Liabilities float64
 	NetWorth    float64
 	Accounts    int
+
+	// Property is the value of the tracked assets, kept separate so the page can
+	// say how much of the position is not coming from a bank feed.
+	Property   float64
+	AssetCount int
 }
 
 type AccountsListProps struct {
@@ -88,6 +95,12 @@ type AccountsListProps struct {
 	Groups        []AccountGroup
 	LastRefreshed time.Time
 	HasRefreshed  bool
+
+	// Assets are the manually tracked holdings shown below the bank accounts.
+	Assets      []AssetSummary
+	AssetTotals AssetPortfolio
+	AssetTypes  []AssetType
+	Today       string
 }
 
 // accountTypeLabels maps the account types reported by upstream providers onto
@@ -132,12 +145,12 @@ func AccountTypeLabel(accountType string) string {
 	return cases.Title(language.English).String(accountType)
 }
 
-// BuildPortfolio totals the current balance of every account into a net position.
-// Accounts are split into assets and liabilities by the sign of their balance rather
-// than by their type, so that the arithmetic holds regardless of how a provider
-// chooses to sign debt.
-func BuildPortfolio(accounts []models.Account) Portfolio {
-	portfolio := Portfolio{Accounts: len(accounts)}
+// BuildPortfolio totals every account balance and tracked asset into a net
+// position. Accounts are split into assets and liabilities by the sign of their
+// balance rather than by their type, so the arithmetic holds regardless of how a
+// provider chooses to sign debt.
+func BuildPortfolio(accounts []models.Account, assets []AssetSummary) Portfolio {
+	portfolio := Portfolio{Accounts: len(accounts), AssetCount: len(assets)}
 	for _, account := range accounts {
 		balance := account.Balance.Current
 		if balance < 0 {
@@ -147,6 +160,12 @@ func BuildPortfolio(accounts []models.Account) Portfolio {
 		}
 		portfolio.NetWorth += balance
 	}
+
+	for _, asset := range assets {
+		portfolio.Property += asset.Current
+	}
+	portfolio.Assets += portfolio.Property
+	portfolio.NetWorth += portfolio.Property
 
 	return portfolio
 }
@@ -261,13 +280,24 @@ func (app *Application) Accounts(c echo.Context) error {
 		}
 	}
 
+	// Assets are tracked by hand rather than synced, so a failure here should not
+	// take the bank balances down with it.
+	assets, err := app.buildAssetSummaries()
+	if err != nil {
+		c.Logger().Error(err)
+	}
+
 	refreshed, hasRefreshed := OldestRefresh(accounts)
 
 	return c.Render(http.StatusOK, "accounts", AccountsListProps{
-		Portfolio:     BuildPortfolio(accounts),
+		Portfolio:     BuildPortfolio(accounts, assets),
 		Groups:        BuildAccountGroups(accounts, recent, hasTransactions),
 		LastRefreshed: refreshed,
 		HasRefreshed:  hasRefreshed,
+		Assets:        assets,
+		AssetTotals:   BuildAssetPortfolio(assets),
+		AssetTypes:    assetTypes,
+		Today:         time.Now().Format("2006-01-02"),
 	})
 }
 

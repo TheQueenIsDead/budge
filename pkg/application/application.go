@@ -149,6 +149,14 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	// Transactions
 	app.http.GET("/transactions", app.Transactions)
 
+	// Assets
+	app.http.GET("/assets", app.Assets)
+	app.http.POST("/assets", app.AssetCreate)
+	app.http.GET("/assets/:id", app.Asset)
+	app.http.DELETE("/assets/:id", app.AssetDelete)
+	app.http.POST("/assets/:id/valuations", app.AssetAddValuation)
+	app.http.DELETE("/assets/:id/valuations/:valuationId", app.AssetDeleteValuation)
+
 	// Accounts
 	app.http.GET("/accounts", app.Accounts)
 	app.http.GET("/accounts/:id", app.Account)
@@ -165,8 +173,9 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.PUT("/budget/items/:id/subitems/:subid", app.BudgetUpdateSubItem)
 	app.http.DELETE("/budget/items/:id/subitems/:subid", app.BudgetDeleteSubItem)
 
-	// Static Assets
-	app.http.Static("/assets", "./web/public")
+	// Static files. Mounted at /static rather than /assets so the assets feature
+	// can own /assets/:id without shadowing the stylesheet.
+	app.http.Static("/static", "./web/public")
 
 	return app, nil
 }

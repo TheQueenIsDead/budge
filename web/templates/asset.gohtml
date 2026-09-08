@@ -1,0 +1,244 @@
+{{ define "asset" }}
+
+    <div class="b-page-head d-flex align-items-start justify-content-between gap-3">
+        <div class="min-width-0 d-flex align-items-center gap-2">
+            <span class="b-chip {{ if lt .Summary.Change 0.0 }}b-accent-brick{{ else }}b-accent-sage{{ end }}">
+                <i class="bi {{ .Summary.Icon }}"></i>
+            </span>
+            <div class="min-width-0">
+                <h2 class="text-truncate">{{ .Summary.Asset.Name }}</h2>
+                <p class="b-page-sub">
+                    {{ .Summary.TypeLabel }}{{ if .Summary.Asset.Description }} &middot; {{ .Summary.Asset.Description }}{{ end }}
+                </p>
+            </div>
+        </div>
+        <a href="/accounts" class="btn btn-sm btn-outline-secondary flex-shrink-0"
+           hx-boost="true" hx-target="#main" aria-label="Back to accounts">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+    </div>
+
+    <div class="row g-2 g-md-3 mb-3">
+        <div class="col-12 col-md-4">
+            <div class="b-stat b-accent-slate">
+                <div class="b-stat-label"><span>Current Value</span><i class="bi bi-cash-stack"></i></div>
+                <div class="b-stat-value">{{ .Summary.Current | fmtCurrency }}</div>
+                <div class="b-delta-note">
+                    {{ if .Summary.Valued }}
+                        Valued {{ .Summary.LastDate.Format "2 Jan 2006" }}
+                    {{ else }}
+                        Still at the purchase price
+                    {{ end }}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-4">
+            <div class="b-stat b-accent-clay">
+                <div class="b-stat-label"><span>Paid</span><i class="bi bi-receipt"></i></div>
+                <div class="b-stat-value">{{ .Summary.Asset.PurchasePrice | fmtCurrency }}</div>
+                <div class="b-delta-note">
+                    {{ if not .Summary.Asset.PurchaseDate.IsZero }}
+                        {{ .Summary.Asset.PurchaseDate.Format "Jan 2006" }}
+                    {{ end }}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-4">
+            <div class="b-stat {{ if lt .Summary.Change 0.0 }}b-accent-brick{{ else }}b-accent-sage{{ end }}">
+                <div class="b-stat-label">
+                    <span>{{ if lt .Summary.Change 0.0 }}Loss{{ else }}Gain{{ end }}</span>
+                    <i class="bi bi-graph-up-arrow"></i>
+                </div>
+                <div class="b-stat-value {{ if lt .Summary.Change 0.0 }}text-danger{{ else if gt .Summary.Change 0.0 }}text-success{{ end }}">
+                    {{ .Summary.Change | fmtCurrencyAbs }}
+                </div>
+                <div>
+                    {{ if .Summary.Valued }}
+                        <span class="b-delta {{ if gt .Summary.Change 0.0 }}b-delta-good{{ else if lt .Summary.Change 0.0 }}b-delta-bad{{ else }}b-delta-flat{{ end }}">
+                            <i class="bi {{ if gt .Summary.Change 0.0 }}bi-arrow-up-short{{ else if lt .Summary.Change 0.0 }}bi-arrow-down-short{{ else }}bi-dash{{ end }}"></i>{{ .Summary.Delta | fmtPercent }}
+                        </span>
+                    {{ else }}
+                        <span class="b-delta b-delta-flat">No valuation yet</span>
+                    {{ end }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Value over time -->
+    <div class="b-card b-card-pad mb-3 b-accent-slate">
+        <div class="b-card-head">
+            <div>
+                <h3 class="b-card-title">Value over time</h3>
+                <p class="b-card-sub">Purchase price, then every valuation you have recorded</p>
+            </div>
+        </div>
+
+        {{ if gt (len .Series.Data) 1 }}
+            <div class="b-chart b-chart-tall">
+                <canvas id="assetChart" hx-preserve="true"></canvas>
+            </div>
+        {{ else }}
+            <div class="b-empty">
+                <i class="bi bi-graph-up"></i>
+                <h4>Not enough to chart</h4>
+                <p>Record a valuation below and the curve will start from what you paid.</p>
+            </div>
+        {{ end }}
+    </div>
+
+    <!-- Record a valuation -->
+    <div class="b-card b-card-pad mb-3">
+        <div class="b-card-head">
+            <div>
+                <h3 class="b-card-title">Record a valuation</h3>
+                <p class="b-card-sub">
+                    A rateable value, an agent's appraisal or your own estimate. There is no
+                    feed for what a house is worth, so each one is entered by hand.
+                </p>
+            </div>
+        </div>
+
+        <form hx-post="/assets/{{ .Summary.Asset.Id }}/valuations"
+              hx-target="#main" hx-swap="innerHTML">
+            <div class="row g-2">
+                <div class="col-6 col-md-3">
+                    <label class="b-field-label" for="valuation-value">Value</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input id="valuation-value" name="value" type="number" class="form-control"
+                               min="0" step="0.01" placeholder="0.00" required>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="b-field-label" for="valuation-date">Date</label>
+                    <input id="valuation-date" name="date" type="date" class="form-control"
+                           value="{{ .Today }}">
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="b-field-label" for="valuation-note">Source</label>
+                    <input id="valuation-note" name="note" type="text" class="form-control"
+                           placeholder="e.g. Council RV, agent appraisal">
+                </div>
+                <div class="col-12 col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-plus-lg"></i> Add
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Valuation history -->
+    {{ if .History }}
+        <div class="b-card mb-3">
+            <div class="b-conn">
+                <h3 class="b-conn-name">Valuation history</h3>
+                <div class="b-conn-total">{{ len .History }}</div>
+            </div>
+            <ul class="b-acct-list">
+                {{ range .History }}
+                    <li>
+                        <div class="b-acct b-acct-static">
+                            <span class="b-chip b-chip-sm b-accent-slate"><i class="bi bi-tag"></i></span>
+                            <div class="b-acct-body">
+                                <div class="b-acct-name">{{ .Value | fmtCurrency }}</div>
+                                <div class="b-acct-meta">
+                                    <span>{{ .Date.Format "2 Jan 2006" }}</span>
+                                    {{ if .Note }}<span class="badge-category">{{ .Note }}</span>{{ end }}
+                                </div>
+                            </div>
+                            <button class="btn btn-sm btn-link text-danger p-0"
+                                    hx-delete="/assets/{{ $.Summary.Asset.Id }}/valuations/{{ .ID }}"
+                                    hx-target="#main" hx-swap="innerHTML"
+                                    hx-confirm="Remove this valuation?"
+                                    title="Remove valuation" aria-label="Remove this valuation">
+                                <i class="bi bi-x-circle"></i>
+                            </button>
+                        </div>
+                    </li>
+                {{ end }}
+            </ul>
+        </div>
+    {{ end }}
+
+    <div class="text-end mb-3">
+        <button class="btn btn-sm btn-outline-secondary"
+                hx-delete="/assets/{{ .Summary.Asset.Id }}"
+                hx-target="#main" hx-swap="innerHTML"
+                hx-confirm="Remove {{ .Summary.Asset.Name }} and all its valuations?">
+            <i class="bi bi-trash"></i> Remove asset
+        </button>
+    </div>
+
+    <script>
+        (function () {
+            const canvas = document.getElementById("assetChart");
+            if (!canvas || typeof Chart === "undefined") {
+                return;
+            }
+
+            const labels = {{ .Series.Labels }};
+            const data = {{ .Series.Data }};
+
+            const existing = Chart.getChart(canvas);
+            if (existing) {
+                existing.data.labels = labels;
+                existing.data.datasets[0].data = data;
+                existing.update("none");
+                return;
+            }
+
+            const ink = '#78858f';
+
+            new Chart(canvas, {
+                type: "line",
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: "Value",
+                        data: data,
+                        borderColor: "#3d6b8f",
+                        backgroundColor: "rgba(61, 107, 143, 0.10)",
+                        pointBackgroundColor: "#3d6b8f",
+                        pointRadius: 3,
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.25
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        y: {
+                            // A valuation curve is read for its shape, so the axis
+                            // frames the range rather than starting at zero.
+                            beginAtZero: false,
+                            border: {display: false},
+                            grid: {color: "#e6ecf0"},
+                            ticks: {color: ink, callback: v => "$" + v.toLocaleString()}
+                        },
+                        x: {
+                            border: {display: false},
+                            grid: {display: false},
+                            ticks: {color: ink, maxRotation: 0, autoSkipPadding: 8}
+                        }
+                    },
+                    plugins: {
+                        legend: {display: false},
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => "$" + ctx.parsed.y.toLocaleString(undefined, {minimumFractionDigits: 2})
+                            }
+                        }
+                    }
+                }
+            });
+        })();
+    </script>
+
+{{ end }}

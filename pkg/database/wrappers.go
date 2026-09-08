@@ -37,6 +37,46 @@ func (s *Store) ReadAccounts() ([]models.Account, error) {
 	return Read[models.Account](s.db)
 }
 
+/* Assets */
+
+func (s *Store) GetAsset(id string) (models.Asset, error) {
+	return Get[models.Asset](s.db, []byte(id))
+}
+func (s *Store) ReadAssets() ([]models.Asset, error) {
+	return Read[models.Asset](s.db)
+}
+func (s *Store) CreateAsset(asset models.Asset) error {
+	return Create[models.Asset](s.db, asset)
+}
+func (s *Store) UpdateAsset(asset models.Asset) error {
+	return Update[models.Asset](s.db, asset)
+}
+func (s *Store) DeleteAsset(id string) error {
+	return Delete[models.Asset](s.db, []byte(id))
+}
+func (s *Store) AddAssetValuation(id string, valuation models.AssetValuation) error {
+	asset, err := Get[models.Asset](s.db, []byte(id))
+	if err != nil {
+		return err
+	}
+	asset.Valuations = append(asset.Valuations, valuation)
+	return Update[models.Asset](s.db, asset)
+}
+func (s *Store) DeleteAssetValuation(id, valuationID string) error {
+	asset, err := Get[models.Asset](s.db, []byte(id))
+	if err != nil {
+		return err
+	}
+	remaining := asset.Valuations[:0]
+	for _, v := range asset.Valuations {
+		if v.ID != valuationID {
+			remaining = append(remaining, v)
+		}
+	}
+	asset.Valuations = remaining
+	return Update[models.Asset](s.db, asset)
+}
+
 /* Merchants */
 
 func (s *Store) CreateMerchant(merchant models.Merchant) error {

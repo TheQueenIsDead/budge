@@ -192,7 +192,7 @@ func TestRenderAccountsStyling(t *testing.T) {
 
 	refreshed, hasRefreshed := OldestRefresh(accounts)
 	page := renderTemplate(t, "accounts", AccountsListProps{
-		Portfolio:     BuildPortfolio(accounts),
+		Portfolio:     BuildPortfolio(accounts, nil),
 		Groups:        BuildAccountGroups(accounts, transactions, hasTransactions(transactions)),
 		LastRefreshed: refreshed,
 		HasRefreshed:  hasRefreshed,
@@ -249,7 +249,7 @@ func TestRenderLayout(t *testing.T) {
 	})
 
 	t.Run("links every destination", func(t *testing.T) {
-		for _, href := range []string{"/", "/transactions", "/accounts", "/budget", "/settings"} {
+		for _, href := range []string{"/", "/insights", "/transactions", "/accounts", "/budget", "/settings"} {
 			assert.Contains(t, page, `href="`+href+`"`)
 		}
 	})
@@ -404,5 +404,47 @@ func TestBuildTransactionRow(t *testing.T) {
 
 		bare := spendTransaction("Fuel stations", "", -90, now)
 		assert.Equal(t, "Transaction", BuildTransactionRow(bare).Title)
+	})
+}
+
+// TestStaticAssetPaths guards the routing collision that left every page
+// unstyled: the static files were mounted at /assets, so /assets/styles.css
+// resolved as an asset id and 404d once the assets feature claimed that prefix.
+func TestStaticAssetPaths(t *testing.T) {
+	page := renderTemplate(t, "layout", map[string]interface{}{"content": ""})
+
+	t.Run("static files are served from their own prefix", func(t *testing.T) {
+		for _, path := range []string{"/static/styles.css", "/static/toast.js", "/static/budget.js"} {
+			assert.Contains(t, page, path)
+		}
+	})
+
+	t.Run("nothing references the old prefix", func(t *testing.T) {
+		assert.NotContains(t, page, "/assets/styles.css")
+	})
+
+	t.Run("assets do not get a tab of their own", func(t *testing.T) {
+		// They live on the portfolio page, so a tab would be a second route to
+		// the same screen.
+		assert.NotContains(t, page, `href="/assets"`)
+	})
+}
+
+func TestPortfolioNaming(t *testing.T) {
+	accounts := []models.Account{account("everyday", "Everyday", "Kiwibank", "CHECKING", 1100)}
+	transactions := []models.Transaction{transaction("everyday", 100)}
+
+	page := renderTemplate(t, "accounts", AccountsListProps{
+		Portfolio: BuildPortfolio(accounts, nil),
+		Groups:    BuildAccountGroups(accounts, transactions, hasTransactions(transactions)),
+	})
+
+	t.Run("the page is named for the collection", func(t *testing.T) {
+		assert.Contains(t, page, "<h2>Portfolio</h2>")
+	})
+
+	t.Run("the headline tile keeps the metric's own name", func(t *testing.T) {
+		// "Portfolio" names the page; "Net Worth" names the number on it.
+		assert.Contains(t, page, "<span>Net Worth</span>")
 	})
 }
