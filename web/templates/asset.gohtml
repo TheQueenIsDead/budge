@@ -209,7 +209,7 @@
                 return;
             }
 
-            const ink = '#78858f';
+            const ink = window.budge ? window.budge.ink : '#78858f';
 
             new Chart(canvas, {
                 type: "line",
@@ -218,9 +218,9 @@
                     datasets: [{
                         label: "Value",
                         data: data,
-                        borderColor: "#3d6b8f",
+                        borderColor: window.budge ? window.budge.primary : "#3d6b8f",
                         backgroundColor: "rgba(61, 107, 143, 0.10)",
-                        pointBackgroundColor: "#3d6b8f",
+                        pointBackgroundColor: window.budge ? window.budge.primary : "#3d6b8f",
                         pointRadius: 3,
                         borderWidth: 2,
                         fill: true,
@@ -237,7 +237,7 @@
                             // frames the range rather than starting at zero.
                             beginAtZero: false,
                             border: {display: false},
-                            grid: {color: "#e6ecf0"},
+                            grid: {color: window.budge ? window.budge.grid : "#e6ecf0"},
                             ticks: {color: ink, callback: v => "$" + v.toLocaleString()}
                         },
                         x: {

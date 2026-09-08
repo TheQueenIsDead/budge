@@ -145,22 +145,14 @@
                         return;
                     }
 
-                    // Mirrors the accent tokens in styles.css. Chart.js needs literal
-                    // colours, so the two have to be kept in step by hand.
-                    const accents = {
-                        sage: "#4f8a6d", clay: "#b3803c", plum: "#7b6a9e",
-                        slate: "#3d6b8f", brick: "#b8635a"
-                    };
-                    // A mid tint, not the soft token: the in-progress bar has to stay
-                    // visible against the white card behind it.
-                    const softs = {
-                        sage: "#b4d3c4", clay: "#e0c69c", plum: "#c7c0dc",
-                        slate: "#b0c7d8", brick: "#e2c0bb"
-                    };
-
+                    if (!window.budge) {
+                        return;
+                    }
                     const key = {{ .Selected.Accent }};
-                    const accent = accents[key] || accents.slate;
-                    const soft = softs[key] || softs.slate;
+                    const accent = window.budge.colour(key);
+                    // The soft token is too pale against a white card, so the
+                    // in-progress bar sits between the two.
+                    const soft = window.budge.mix(key, 0.45);
 
                     const labels = {{ .Summary.Labels }};
                     const totals = {{ .Summary.Totals }};
@@ -183,7 +175,7 @@
                         return;
                     }
 
-                    const ink = '#78858f';
+                    const ink = window.budge.ink;
 
                     new Chart(canvas, {
                         type: "bar",
@@ -205,7 +197,7 @@
                                 y: {
                                     beginAtZero: true,
                                     border: {display: false},
-                                    grid: {color: "#e6ecf0"},
+                                    grid: {color: window.budge.grid},
                                     ticks: {color: ink, callback: v => "$" + v.toLocaleString()}
                                 },
                                 x: {

@@ -260,8 +260,8 @@
         (function () {
             // Charts are rebuilt on every swap, so tear down any instance still
             // attached to these canvases before drawing over them.
-            const ink = '#78858f';
-            const grid = '#e6ecf0';
+            const ink = window.budge ? window.budge.ink : '#78858f';
+            const grid = window.budge ? window.budge.grid : '#e6ecf0';
 
             const barCanvas = document.getElementById("barChart");
             if (barCanvas) {
@@ -273,8 +273,8 @@
                         datasets: [{
                             label: "Spending",
                             data: {{ .SpendTimeseries.Data }},
-                            backgroundColor: "#3d6b8f",
-                            hoverBackgroundColor: "#315774",
+                            backgroundColor: window.budge ? window.budge.primary : "#3d6b8f",
+                            hoverBackgroundColor: window.budge ? window.budge.primaryInk : "#315774",
                             borderRadius: 6,
                             maxBarThickness: 48
                         }]
@@ -308,12 +308,9 @@
                         labels: {{ .SpendDoughnut.Labels }},
                         datasets: [{
                             data: {{ .SpendDoughnut.Data }},
-                            backgroundColor: [
-                                "#4f8a6d", "#b3803c", "#7b6a9e", "#3d6b8f", "#b8635a",
-                                "#5f8a8a", "#8a7b9e", "#9e8a5f", "#6d8a4f", "#a86b7b"
-                            ],
+                            backgroundColor: window.budge ? window.budge.series : undefined,
                             borderWidth: 2,
-                            borderColor: "#ffffff"
+                            borderColor: window.budge ? window.budge.surface : "#ffffff"
                         }]
                     },
                     options: {

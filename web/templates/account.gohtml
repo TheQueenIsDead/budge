@@ -137,7 +137,7 @@
                 return;
             }
 
-            const ink = '#78858f';
+            const ink = window.budge ? window.budge.ink : '#78858f';
 
             new Chart(canvas, {
                 type: "bar",
@@ -146,8 +146,8 @@
                     datasets: [{
                         label: "Balance",
                         data: data,
-                        backgroundColor: "#3d6b8f",
-                        hoverBackgroundColor: "#315774",
+                        backgroundColor: window.budge ? window.budge.primary : "#3d6b8f",
+                        hoverBackgroundColor: window.budge ? window.budge.primaryInk : "#315774",
                         borderRadius: 6,
                         maxBarThickness: 48
                     }]
@@ -162,7 +162,7 @@
                             // must not be pinned to zero.
                             beginAtZero: false,
                             border: {display: false},
-                            grid: {color: "#e6ecf0"},
+                            grid: {color: window.budge ? window.budge.grid : "#e6ecf0"},
                             ticks: {color: ink, callback: v => "$" + v.toLocaleString()}
                         },
                         x: {
