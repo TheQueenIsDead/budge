@@ -1,91 +1,148 @@
 {{ define "transactions" }}
 
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-start mb-4">
-        <h2 class="fw-bold">Transactions</h2>
+    <div class="b-page-head">
+        <h2>Transactions</h2>
+        <p class="b-page-sub">Everything that moved, newest first.</p>
     </div>
 
-    <!-- Search Form -->
-    <form hx-include="select"
-          class="d-flex justify-content-between align-items-center flex-wrap mb-3"
-          hx-get="/transactions"
-          hx-trigger="input delay:500ms from:input, change from:select"
-          hx-target="#main"
-          hx-push-url="true"
-    >
-        <!-- Left side: Search + Stats -->
-        <div class="d-flex gap-2 align-items-center">
-            <input id="search" type="text" name="search"
-                   class="form-control"
-                   style="max-width: 300px;"
-                   value="{{ .search }}">
+    <!-- Filters. Sticky, so search stays reachable well down a long list. -->
+    <div class="b-filters">
+        <form hx-get="/transactions"
+              hx-trigger="input delay:400ms from:input[name='search'], change from:select"
+              hx-target="#main"
+              hx-push-url="true">
 
-            <div class="text-muted small d-flex align-items-center" style="white-space: nowrap;">
-                <span class="me-3">
-                    {{ len .transactions }} results in {{ .took }}
-                    (
-                        <i class="bi bi-arrow-up-short"></i> {{.in | fmtCurrency}}
-                        /
-                        <i class="bi bi-arrow-down-short"></i> {{.out | fmtCurrency}}
-                    )
-                </span>
-            </div>
-        </div>
-
-
-        <!-- Right side: Filters + Export -->
-        <div class="d-flex gap-2">
-            <select id="account" name="account" class="form-select" style="min-width: 150px;">
-                <option value="">All Accounts</option>
-                {{ range .accounts }}
-                    <option value="{{ .Id }}" {{ if eq $.account .Id }}selected{{ end }}>{{.Name}}</option>
-                {{ end }}
-            </select>
-        </div>
-    </form>
-
-
-    <!-- Transactions -->
-    <div class="table-container">
-        <table class="table">
-            <thead>
-            <tr>
-                <th>Merchant</th>
-                <th>Category</th>
-                <th>Date</th>
-                <th>Amount</th>
-            </tr>
-            </thead>
-            <tbody>
-            {{ range .transactions }}
-                <tr>
-
-                    <td>
-                        <div class="d-flex align-items-center">
-                            <div class="bg-light rounded-circle p-2 me-3">
-                                <i class="bi bi-credit-card fs-5 text-dark"></i>
-                            </div>
-                            {{if .Merchant.Name}}
-                                {{.Merchant.Name}}
-                            {{ else}}
-                                {{.Description}}
-                            {{end}}
-                        </div>
-                    </td>
-                    <td>
-                        {{ range .Categories }}
-                            <span class="badge-category">{{.}}</span>
+            <div class="row g-2">
+                <div class="col-12 col-sm-7">
+                    <div class="position-relative">
+                        <i class="bi bi-search position-absolute text-muted"
+                           style="left: 0.75rem; top: 50%; transform: translateY(-50%);"></i>
+                        <input id="search" type="search" name="search"
+                               class="form-control ps-5"
+                               placeholder="Search merchants, categories&hellip;"
+                               autocomplete="off"
+                               value="{{ .search }}">
+                    </div>
+                </div>
+                <div class="col-12 col-sm-5">
+                    <select id="account" name="account" class="form-select">
+                        <option value="">All accounts</option>
+                        {{ range .accounts }}
+                            <option value="{{ .Id }}" {{ if eq $.account .Id }}selected{{ end }}>{{ .Name }}</option>
                         {{ end }}
-                    </td>
-                    <td>{{.Date.Format "02/01/2006"}}</td>
-                    {{ if gt .Amount 0.0 }}
-                        <td class="text-success">{{ .Amount | fmtCurrency }}</td>
-                    {{else}}
-                        <td class="text-danger">{{ .Amount | fmtCurrency }}</td>
-                    {{end}}
-                </tr>
-            {{ end }}
-            </tbody>
-        </table>
+                    </select>
+                </div>
+            </div>
+        </form>
+
+        <div class="b-summary-bar mt-2">
+            <span class="b-summary-item fw-semibold">
+                {{ .showing }}{{ if .hasMore }} of {{ .total }}{{ end }}
+                result{{ if ne .total 1 }}s{{ end }}
+            </span>
+            <span class="b-summary-item text-success">
+                <i class="bi bi-arrow-down-left"></i>{{ .in | fmtCurrency }}
+            </span>
+            <span class="b-summary-item text-danger">
+                <i class="bi bi-arrow-up-right"></i>{{ .out | fmtCurrencyAbs }}
+            </span>
+            <span class="b-summary-item text-muted ms-auto d-none d-sm-inline-flex">{{ .took }}</span>
+        </div>
     </div>
+
+    {{ if .days }}
+
+        <!-- Phone: a card per transaction, grouped under the day it happened. -->
+        <div class="d-md-none">
+            {{ range .days }}
+                <div class="b-tx-day">
+                    <span>{{ .Date.Format "Mon 2 Jan 2006" }}</span>
+                    <span class="{{ if gt .Net 0.0 }}text-success{{ else }}text-danger{{ end }}">
+                        {{ .Net | fmtCurrency }}
+                    </span>
+                </div>
+                <div class="b-tx-list mb-2">
+                    {{ range .Rows }}
+                        <div class="b-tx{{ if .Accent }} b-accent-{{ .Accent }}{{ end }}">
+                            <span class="b-chip"><i class="bi {{ .Icon }}"></i></span>
+                            <div class="b-tx-body">
+                                <div class="b-tx-name">{{ .Title }}</div>
+                                <div class="b-tx-meta">
+                                    {{ range .Categories }}
+                                        <span class="badge-category">{{ . }}</span>
+                                    {{ end }}
+                                </div>
+                            </div>
+                            <div class="b-tx-amount {{ if gt .Amount 0.0 }}text-success{{ else }}text-danger{{ end }}">
+                                {{ .Amount | fmtCurrency }}
+                            </div>
+                        </div>
+                    {{ end }}
+                </div>
+            {{ end }}
+        </div>
+
+        <!-- Desktop: the table, which has the room to carry more columns. -->
+        <div class="table-container d-none d-md-block">
+            <table class="table">
+                <thead>
+                <tr>
+                    <th>Merchant</th>
+                    <th>Category</th>
+                    <th>Date</th>
+                    <th class="text-end">Amount</th>
+                </tr>
+                </thead>
+                <tbody>
+                {{ range .days }}
+                    {{ $date := .Date }}
+                    {{ range .Rows }}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-2{{ if .Accent }} b-accent-{{ .Accent }}{{ end }}">
+                                    <span class="b-chip b-chip-sm"><i class="bi {{ .Icon }}"></i></span>
+                                    <span class="fw-semibold">{{ .Title }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                {{ range .Categories }}
+                                    <span class="badge-category">{{ . }}</span>
+                                {{ end }}
+                            </td>
+                            <td class="text-muted">{{ $date.Format "2 Jan 2006" }}</td>
+                            <td class="text-end fw-semibold b-num {{ if gt .Amount 0.0 }}text-success{{ else }}text-danger{{ end }}">
+                                {{ .Amount | fmtCurrency }}
+                            </td>
+                        </tr>
+                    {{ end }}
+                {{ end }}
+                </tbody>
+            </table>
+        </div>
+
+        {{ if .hasMore }}
+            <div class="text-center my-3">
+                <a class="btn btn-outline-secondary"
+                   href="/transactions?search={{ .search }}&account={{ .account }}&limit={{ .nextLimit }}"
+                   hx-boost="true" hx-target="#main">
+                    Load more
+                    <span class="text-muted">({{ .total }} in total)</span>
+                </a>
+            </div>
+        {{ end }}
+
+    {{ else }}
+        <div class="b-empty">
+            <i class="bi bi-search"></i>
+            <h4>No transactions found</h4>
+            <p>
+                {{ if or .search .account }}
+                    Nothing matches those filters. Try a broader search.
+                {{ else }}
+                    Sync an account from settings to see your transactions here.
+                {{ end }}
+            </p>
+        </div>
+    {{ end }}
+
 {{ end }}

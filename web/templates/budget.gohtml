@@ -1,22 +1,23 @@
 {{define "budget"}}
-    <div class="d-flex justify-content-between align-items-start mb-4">
-        <h2 class="fw-bold">Budget Planner</h2>
+    <div class="b-page-head">
+        <h2>Budget Planner</h2>
+        <p class="b-page-sub">Set what you earn, allocate it, then see how the weeks land.</p>
     </div>
 
     {{/* Page order follows the task: enter income, see what it nets, then
          allocate it to targets, then review how the last 13 weeks went. */}}
 
     <!-- Income -->
-    <div class="card border rounded-3 p-4 shadow-sm mb-4"
+    <div class="b-card b-card-pad mb-3"
          hx-post="/budget/salary"
          hx-trigger="change"
          hx-include="this"
          hx-swap="none"
          hx-on::after-request="if (event.detail.successful) { flashSaved(this); htmx.trigger(document.body, 'refreshSummary') }">
-        <h4 class="fw-bold mb-3">
+        <h3 class="b-card-title mb-3">
             <i class="bi bi-cash-coin me-2"></i>Income
-            <span class="badge text-bg-success ms-2 budge-flash" data-saved-flash aria-live="polite">Saved</span>
-        </h4>
+            <span class="badge-success rounded-pill px-2 ms-2 budge-flash" data-saved-flash aria-live="polite">Saved</span>
+        </h3>
         <div class="row g-3 align-items-end">
             <div class="col-12 col-md-5">
                 <label class="form-label fw-semibold" for="salaryAmount">Salary</label>
@@ -75,9 +76,9 @@
          hx-swap="innerHTML"></div>
 
     <!-- Spending Targets Card -->
-    <div class="card border rounded-3 p-4 shadow-sm mb-4">
-        <h4 class="fw-bold mb-1"><i class="bi bi-bullseye me-2"></i>Spending Targets</h4>
-        <p class="text-muted small mb-3">
+    <div class="b-card b-card-pad mb-3">
+        <h3 class="b-card-title mb-1"><i class="bi bi-bullseye me-2"></i>Spending Targets</h3>
+        <p class="b-card-sub mb-3">
             Actual spend window matches your target frequency — weekly targets use the last 4 weeks, monthly 3 months, yearly 13 months.
             Set a target next to any category and it saves automatically; switching a target's frequency converts the amount for you.
         </p>
@@ -95,8 +96,8 @@
 
 {{define "budget.summary"}}
     <!-- Income Breakdown -->
-    <div class="card border rounded-3 p-4 shadow-sm mb-4">
-        <h4 class="fw-bold mb-3"><i class="bi bi-graph-up-arrow me-2"></i>Income Breakdown</h4>
+    <div class="b-card b-card-pad mb-3">
+        <h3 class="b-card-title mb-3"><i class="bi bi-graph-up-arrow me-2"></i>Income Breakdown</h3>
         <div class="table-responsive">
             <table class="table table-sm table-borderless mb-0">
                 <thead>
@@ -171,35 +172,29 @@
 {{end}}
 
 {{define "budget.cards"}}
-<div class="row g-3 mb-3">
+<div class="row g-2 g-md-3 mb-3">
     <div class="col-12 col-md-4">
-        <div class="card border rounded-3 p-3 h-100 shadow-sm">
-            <div class="d-flex justify-content-between text-muted mb-2">
-                <span class="fw-semibold">Weekly Income</span>
-                <i class="bi bi-cash-coin" aria-hidden="true"></i>
-            </div>
-            <h3 class="fw-bold mb-1 text-success">{{.NetWeekly | fmtCurrency}}</h3>
-            <div class="text-muted small">Take-home per week</div>
+        <div class="b-stat b-accent-sage">
+            <div class="b-stat-label"><span>Net Income</span><i class="bi bi-wallet2"></i></div>
+            <div class="b-stat-value text-success">{{.NetWeekly | fmtCurrency}}</div>
+            <div class="b-delta-note">Take-home per week</div>
         </div>
     </div>
-    <div class="col-12 col-md-4">
-        <div class="card border rounded-3 p-3 h-100 shadow-sm">
-            <div class="d-flex justify-content-between text-muted mb-2">
-                <span class="fw-semibold">Weekly Expenses</span>
-                <i class="bi bi-graph-down" aria-hidden="true"></i>
-            </div>
-            <h3 class="fw-bold mb-1 text-danger">{{.TotalWeeklyExpenses | fmtCurrency}}</h3>
-            <div class="text-muted small">Budgeted targets</div>
+    <div class="col-6 col-md-4">
+        <div class="b-stat b-accent-brick">
+            <div class="b-stat-label"><span>Expenses</span><i class="bi bi-bullseye"></i></div>
+            <div class="b-stat-value text-danger">{{.TotalWeeklyExpenses | fmtCurrency}}</div>
+            <div class="b-delta-note">Budgeted targets</div>
         </div>
     </div>
-    <div class="col-12 col-md-4">
-        <div class="card border rounded-3 p-3 h-100 shadow-sm">
-            <div class="d-flex justify-content-between text-muted mb-2">
-                <span class="fw-semibold">{{if .HasDeficit}}Weekly Deficit{{else}}Weekly Savings{{end}}</span>
-                <i class="bi bi-piggy-bank" aria-hidden="true"></i>
+    <div class="col-6 col-md-4">
+        <div class="b-stat {{if .HasDeficit}}b-accent-brick{{else}}b-accent-slate{{end}}">
+            <div class="b-stat-label">
+                <span>{{if .HasDeficit}}Deficit{{else}}Savings{{end}}</span>
+                <i class="bi bi-piggy-bank"></i>
             </div>
-            <h3 class="fw-bold mb-1 {{if .HasDeficit}}text-danger{{else}}text-success{{end}}">{{.WeeklySavings | fmtCurrencyAbs}}</h3>
-            <div class="text-muted small">{{if .HasDeficit}}Expenses exceed income{{else}}Available after targets{{end}}</div>
+            <div class="b-stat-value {{if .HasDeficit}}text-danger{{else}}text-success{{end}}">{{.WeeklySavings | fmtCurrencyAbs}}</div>
+            <div class="b-delta-note">{{if .HasDeficit}}Expenses exceed income{{else}}Available after targets{{end}}</div>
         </div>
     </div>
 </div>
@@ -207,8 +202,8 @@
 {{/* Allocation bar — same three numbers as the cards above, so it is rendered
      from the same payload rather than a second endpoint. */}}
 {{if .HasSalary}}
-<div class="card border rounded-3 px-4 py-3 shadow-sm mb-4">
-    <div class="d-flex justify-content-between align-items-center mb-1">
+<div class="b-card b-card-pad mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
         <span class="text-muted small">
             <span class="fw-semibold text-body">{{.TotalWeeklyExpenses | fmtCurrency}}</span>
             budgeted of
@@ -236,19 +231,21 @@
 {{end}}
 
 {{define "budget.performance"}}
-<div class="card border rounded-3 p-4 shadow-sm mb-4">
-    <h4 class="fw-bold mb-3"><i class="bi bi-graph-up me-2"></i>Weekly Performance — Last 13 Weeks</h4>
+<div class="b-card b-card-pad mb-3">
+    <h3 class="b-card-title mb-3"><i class="bi bi-graph-up me-2"></i>Weekly Performance — Last 13 Weeks</h3>
     {{if .HasData}}
-    <div style="position:relative; height:220px;">
+    <div class="b-chart">
         <canvas id="budget-perf-chart"
                 data-labels="{{.Labels}}"
                 data-actuals="{{.Actuals}}"
                 data-target="{{printf "%.2f" .Target}}"></canvas>
     </div>
     {{else}}
-    <p class="text-muted text-center py-3 mb-0">
-        No data yet — sync transactions and set spending targets to see weekly performance.
-    </p>
+    <div class="b-empty">
+        <i class="bi bi-graph-up"></i>
+        <h4>No performance yet</h4>
+        <p>Sync transactions and set spending targets to see how each week lands.</p>
+    </div>
     {{end}}
 </div>
 {{end}}

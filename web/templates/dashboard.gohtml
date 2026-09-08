@@ -1,226 +1,276 @@
 {{define "dashboard"}}
 
-<!-- Header Row -->
-<div class="d-flex justify-content-between align-items-start mb-4">
-    <h2 class="fw-bold">Dashboard</h2>
-            <button class="btn btn-outline-light border fw-semibold">Share</button>
-</div>
-
-<!-- Metric Cards -->
-<div class="row g-3 mb-3">
-    <!-- Total Balance -->
-    <div class="col-12 col-md-6 col-lg-3">
-        <div class="card border rounded-3 p-3 h-100 shadow-sm">
-            <div class="d-flex justify-content-between text-muted mb-2">
-                <span class="fw-semibold">Total Balance</span>
-                <i class="bi bi-bank2"></i>
-            </div>
-            <h3 class="fw-bold mb-1">{{ .BalanceCard.Total | fmtCurrency }}</h3>
-            <div class="{{if gt .BalanceCard.Delta 0.0}}text-success{{else}}text-danger{{end}}" data-bs-toggle="tooltip" data-bs-placement="top" title="Previously {{ .BalanceCard.PreviousTotal | fmtCurrency }}">
-                <i class="bi {{if gt .BalanceCard.Delta 0.0}}bi-arrow-up-short{{else}}bi-arrow-down-short{{end}}"></i>{{ .BalanceCard.Delta | fmtPercent }} from last month
-            </div>
-        </div>
+    <div class="b-page-head">
+        <h2>Dashboard</h2>
+        <p class="b-page-sub">Where your money went, and how that compares.</p>
     </div>
 
-    <!-- Monthly Spending -->
-    <div class="col-12 col-md-6 col-lg-3">
-        <div class="card border rounded-3 p-3 h-100 shadow-sm">
-            <div class="d-flex justify-content-between text-muted mb-2">
-                <span class="fw-semibold">Monthly Spending</span>
-                <i class="bi bi-graph-down"></i>
-            </div>
-            <h3 class="fw-bold mb-1">{{ .SpendCard.Total | fmtCurrency }}</h3>
-            <div class="{{if gt .SpendCard.Delta 0.0}}text-danger{{else}}text-success{{end}}" data-bs-toggle="tooltip" data-bs-placement="top" title="Previously {{ .SpendCard.PreviousTotal | fmtCurrency }}">
-                <i class="bi {{if gt .SpendCard.Delta 0.0}}bi-arrow-up-short{{else}}bi-arrow-down-short{{end}}"></i>{{ .SpendCard.Delta | fmtPercent }} from last month
-            </div>
-        </div>
-    </div>
-
-    <!-- Income -->
-    <div class="col-12 col-md-6 col-lg-3 ">
-        <div class="card border rounded-3 p-3 h-100 shadow-sm">
-            <div class="d-flex justify-content-between text-muted mb-2">
-                <span class="fw-semibold">Income</span>
-                <i class="bi bi-graph-up"></i>
-            </div>
-            <h3 class="fw-bold mb-1">{{ .IncomeCard.Total | fmtCurrency }}</h3>
-            <div class="{{if gt .IncomeCard.Delta 0.0}}text-success{{else}}text-danger{{end}}" data-bs-toggle="tooltip" data-bs-placement="top" title="Previously {{ .IncomeCard.PreviousTotal | fmtCurrency }}">
-                <i class="bi {{if gt .IncomeCard.Delta 0.0}}bi-arrow-up-short{{else}}bi-arrow-down-short{{end}}"></i>{{ .IncomeCard.Delta | fmtPercent }} from last month
-            </div>
-        </div>
-    </div>
-
-    <!-- Savings -->
-    <div class="col-12 col-md-6 col-lg-3">
-        <div class="card border rounded-3 p-3 h-100 shadow-sm">
-            <div class="d-flex justify-content-between text-muted mb-2">
-                <span class="fw-semibold">Savings</span>
-                <i class="bi bi-piggy-bank"></i>
-            </div>
-            <h3 class="fw-bold mb-1">{{ .SavingsCard.Total | fmtCurrency }}</h3>
-            <div class="{{if gt .SavingsCard.Delta 0.0}}text-success{{else}}text-danger{{end}}" data-bs-toggle="tooltip" data-bs-placement="top" title="Previously {{ .SavingsCard.PreviousTotal | fmtCurrency }}">
-                <i class="bi {{if gt .SavingsCard.Delta 0.0}}bi-arrow-up-short{{else}}bi-arrow-down-short{{end}}"></i>{{ .SavingsCard.Delta | fmtPercent }} from last month
-            </div>
-        </div>
-    </div>
-</div>
-
-{{/*        <body class="bg-light">*/}}
-
-{{/*    <!-- Tabs -->*/}}
-{{/*    <ul class="nav nav-pills mb-4">*/}}
-{{/*        <li class="nav-item">*/}}
-{{/*            <a class="nav-link active" href="#">Overview</a>*/}}
-{{/*        </li>*/}}
-{{/*        <li class="nav-item">*/}}
-{{/*            <a class="nav-link" href="#">Spending Analysis</a>*/}}
-{{/*        </li>*/}}
-{{/*        <li class="nav-item">*/}}
-{{/*            <a class="nav-link" href="#">Top Merchants</a>*/}}
-{{/*        </li>*/}}
-{{/*    </ul>*/}}
-
-
-            <!-- Charts Row -->
-            <div class="row g-3 mb-3">
-                <!-- Monthly Spending Bar Chart -->
-                <div class="col-lg-6">
-                    <div class="card border rounded-3 p-3 h-100 d-flex flex-column shadow-sm">
-                        <h4 class="fw-bold">Monthly Spending</h4>
-                        <p class="text-muted">Your spending trends over the past 6 months</p>
-                        <canvas id="barChart" style="max-height: 250px"></canvas>
-                    </div>
-                </div>
-
-                <!-- Spending by Category Doughnut Chart -->
-                <div class="col-lg-6">
-                    <div class="card border rounded-3 p-3 h-100 d-flex flex-column shadow-sm">
-                        <h4 class="fw-bold">Spending by Category</h4>
-                        <p class="text-muted">Your spending breakdown by category</p>
-                        <canvas id="doughnutChart" style="max-height: 250px"></canvas>
-                    </div>
+    <!-- Headline metrics -->
+    <div class="row g-2 g-md-3 mb-3">
+        <div class="col-6 col-lg-3">
+            <div class="b-stat b-accent-slate">
+                <div class="b-stat-label"><span>Total Balance</span><i class="bi bi-bank2"></i></div>
+                <div class="b-stat-value">{{ .BalanceCard.Total | fmtCurrency }}</div>
+                <div>
+                    <span class="b-delta {{ if gt .BalanceCard.Delta 0.0 }}b-delta-good{{ else if lt .BalanceCard.Delta 0.0 }}b-delta-bad{{ else }}b-delta-flat{{ end }}"
+                          data-bs-toggle="tooltip" data-bs-placement="top"
+                          title="Previously {{ .BalanceCard.PreviousTotal | fmtCurrency }}">
+                        <i class="bi {{ if gt .BalanceCard.Delta 0.0 }}bi-arrow-up-short{{ else if lt .BalanceCard.Delta 0.0 }}bi-arrow-down-short{{ else }}bi-dash{{ end }}"></i>{{ .BalanceCard.Delta | fmtPercent }}
+                    </span>
                 </div>
             </div>
+        </div>
 
-        <!-- Chart.js Scripts -->
-        <script>
-            // Bar Chart
-            new Chart(document.getElementById("barChart"), {
-                type: "bar",
-                data: {
-                    labels: {{.SpendTimeseries.Labels}},
-                    datasets: [{
-                        label: "Spending",
-                        data: {{.SpendTimeseries.Data}},
-                        backgroundColor: "#000"
-                    }]
-                },
-                options: {
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
+        <div class="col-6 col-lg-3">
+            <div class="b-stat b-accent-brick">
+                <div class="b-stat-label"><span>Spending</span><i class="bi bi-graph-down"></i></div>
+                <div class="b-stat-value">{{ .SpendCard.Total | fmtCurrencyAbs }}</div>
+                <div>
+                    <span class="b-delta {{ if gt .SpendCard.Delta 0.0 }}b-delta-bad{{ else if lt .SpendCard.Delta 0.0 }}b-delta-good{{ else }}b-delta-flat{{ end }}"
+                          data-bs-toggle="tooltip" data-bs-placement="top"
+                          title="Previously {{ .SpendCard.PreviousTotal | fmtCurrencyAbs }}">
+                        <i class="bi {{ if gt .SpendCard.Delta 0.0 }}bi-arrow-up-short{{ else if lt .SpendCard.Delta 0.0 }}bi-arrow-down-short{{ else }}bi-dash{{ end }}"></i>{{ .SpendCard.Delta | fmtPercent }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="b-stat b-accent-sage">
+                <div class="b-stat-label"><span>Income</span><i class="bi bi-graph-up"></i></div>
+                <div class="b-stat-value">{{ .IncomeCard.Total | fmtCurrency }}</div>
+                <div>
+                    <span class="b-delta {{ if gt .IncomeCard.Delta 0.0 }}b-delta-good{{ else if lt .IncomeCard.Delta 0.0 }}b-delta-bad{{ else }}b-delta-flat{{ end }}"
+                          data-bs-toggle="tooltip" data-bs-placement="top"
+                          title="Previously {{ .IncomeCard.PreviousTotal | fmtCurrency }}">
+                        <i class="bi {{ if gt .IncomeCard.Delta 0.0 }}bi-arrow-up-short{{ else if lt .IncomeCard.Delta 0.0 }}bi-arrow-down-short{{ else }}bi-dash{{ end }}"></i>{{ .IncomeCard.Delta | fmtPercent }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="b-stat b-accent-slate">
+                <div class="b-stat-label"><span>Savings</span><i class="bi bi-piggy-bank"></i></div>
+                <div class="b-stat-value {{ if lt .SavingsCard.Total 0.0 }}text-danger{{ end }}">{{ .SavingsCard.Total | fmtCurrency }}</div>
+                <div>
+                    <span class="b-delta {{ if gt .SavingsCard.Delta 0.0 }}b-delta-good{{ else if lt .SavingsCard.Delta 0.0 }}b-delta-bad{{ else }}b-delta-flat{{ end }}"
+                          data-bs-toggle="tooltip" data-bs-placement="top"
+                          title="Previously {{ .SavingsCard.PreviousTotal | fmtCurrency }}">
+                        <i class="bi {{ if gt .SavingsCard.Delta 0.0 }}bi-arrow-up-short{{ else if lt .SavingsCard.Delta 0.0 }}bi-arrow-down-short{{ else }}bi-dash{{ end }}"></i>{{ .SavingsCard.Delta | fmtPercent }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="row g-2 g-md-3 mb-3">
+        <div class="col-12 col-lg-6">
+            <div class="b-card b-card-pad h-100">
+                <div class="b-card-head">
+                    <div>
+                        <h3 class="b-card-title">Monthly Spending</h3>
+                        <p class="b-card-sub">Your spending over the past 6 months</p>
+                    </div>
+                </div>
+                <canvas id="barChart" style="max-height: 220px"></canvas>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="b-card b-card-pad h-100">
+                <div class="b-card-head">
+                    <div>
+                        <h3 class="b-card-title">Spending by Category</h3>
+                        <p class="b-card-sub">Where it goes, as a share of the total</p>
+                    </div>
+                </div>
+                <canvas id="doughnutChart" style="max-height: 220px"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Merchants and biggest transactions -->
+    <div class="row g-2 g-md-3 mb-3">
+        <div class="col-12 col-lg-6">
+            <div class="b-card b-card-pad h-100 b-accent-slate">
+                <div class="b-card-head">
+                    <div>
+                        <h3 class="b-card-title">Top Merchants</h3>
+                        <p class="b-card-sub">Most paid over the last 30 days</p>
+                    </div>
+
+                </div>
+
+                {{ if .TopMerchants }}
+                    {{ $top := (index .TopMerchants 0).Total }}
+                    <ul class="b-rank">
+                        {{ range .TopMerchants }}
+                            <li>
+                                <a class="b-rank-item b-rank-link" href="/transactions?search={{ .Merchant }}"
+                                   hx-boost="true" hx-target="#main">
+                                <span class="b-chip b-chip-sm fw-bold">{{ slice .Merchant 0 1 }}</span>
+                                <div class="b-rank-body">
+                                    <div class="d-flex align-items-baseline justify-content-between gap-2">
+                                        <span class="b-rank-name">{{ .Merchant }}</span>
+                                        <span class="b-rank-value">{{ .Total | fmtCurrency }}</span>
+                                    </div>
+                                    <div class="b-rank-track">
+                                        <span class="b-rank-fill" style="width: {{ printf "%.1f" (pctOf .Total $top) }}%"></span>
+                                    </div>
+                                    <div class="b-rank-meta mt-1">
+                                        {{ if eq .PreviousTotal 0.0 }}
+                                            <i class="bi bi-stars"></i> New this period
+                                        {{ else if gt .Delta 0.0 }}
+                                            <span class="text-danger fw-semibold">
+                                                <i class="bi bi-arrow-up-short"></i>{{ .Delta | fmtPercent }}
+                                            </span>
+                                            from {{ .PreviousTotal | fmtCurrency }}
+                                        {{ else if lt .Delta 0.0 }}
+                                            <span class="text-success fw-semibold">
+                                                <i class="bi bi-arrow-down-short"></i>{{ .Delta | fmtPercent }}
+                                            </span>
+                                            from {{ .PreviousTotal | fmtCurrency }}
+                                        {{ else }}
+                                            Unchanged from {{ .PreviousTotal | fmtCurrency }}
+                                        {{ end }}
+                                    </div>
+                                </div>
+                                <i class="bi bi-chevron-right b-rank-go"></i>
+                                </a>
+                            </li>
+                        {{ end }}
+                    </ul>
+                {{ else }}
+                    <div class="b-empty">
+                        <i class="bi bi-shop"></i>
+                        <h4>No merchant activity</h4>
+                        <p>Nothing was spent with a named merchant in the last 30 days.</p>
+                    </div>
+                {{ end }}
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="b-card b-card-pad h-100 b-accent-brick">
+                <div class="b-card-head">
+                    <div>
+                        <h3 class="b-card-title">Biggest Transactions</h3>
+                        <p class="b-card-sub">Largest single payments in the last 30 days</p>
+                    </div>
+                    <a class="b-pill" href="/transactions" hx-boost="true" hx-target="#main">
+                        All <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+
+                {{ if .HighestOutgoingTransactions }}
+                    {{ $largest := (index .HighestOutgoingTransactions 0).Amount }}
+                    <ul class="b-rank">
+                        {{ range .HighestOutgoingTransactions }}
+                            <li>
+                                <a class="b-rank-item b-rank-link" href="/transactions?search={{ .Description }}"
+                                   hx-boost="true" hx-target="#main">
+                                <span class="b-chip b-chip-sm"><i class="bi bi-arrow-down-left"></i></span>
+                                <div class="b-rank-body">
+                                    <div class="d-flex align-items-baseline justify-content-between gap-2">
+                                        <span class="b-rank-name">{{ .Description }}</span>
+                                        <span class="b-rank-value">{{ .Amount | fmtCurrencyAbs }}</span>
+                                    </div>
+                                    <div class="b-rank-track">
+                                        <span class="b-rank-fill" style="width: {{ printf "%.1f" (pctOf .Amount $largest) }}%"></span>
+                                    </div>
+                                    <div class="b-rank-meta mt-1">{{ .Date.Format "Mon 2 Jan" }}</div>
+                                </div>
+                                <i class="bi bi-chevron-right b-rank-go"></i>
+                                </a>
+                            </li>
+                        {{ end }}
+                    </ul>
+                {{ else }}
+                    <div class="b-empty">
+                        <i class="bi bi-receipt"></i>
+                        <h4>Nothing to show</h4>
+                        <p>No outgoing transactions in the last 30 days.</p>
+                    </div>
+                {{ end }}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            // Charts are rebuilt on every swap, so tear down any instance still
+            // attached to these canvases before drawing over them.
+            const ink = '#78858f';
+            const grid = '#e6ecf0';
+
+            const barCanvas = document.getElementById("barChart");
+            if (barCanvas) {
+                Chart.getChart(barCanvas)?.destroy();
+                new Chart(barCanvas, {
+                    type: "bar",
+                    data: {
+                        labels: {{ .SpendTimeseries.Labels }},
+                        datasets: [{
+                            label: "Spending",
+                            data: {{ .SpendTimeseries.Data }},
+                            backgroundColor: "#3d6b8f",
+                            hoverBackgroundColor: "#315774",
+                            borderRadius: 6,
+                            maxBarThickness: 48
+                        }]
                     },
-                    plugins: {
-                        legend: { display: false }
+                    options: {
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                border: {display: false},
+                                grid: {color: grid},
+                                ticks: {color: ink, callback: v => "$" + v.toLocaleString()}
+                            },
+                            x: {
+                                border: {display: false},
+                                grid: {display: false},
+                                ticks: {color: ink}
+                            }
+                        },
+                        plugins: {legend: {display: false}}
                     }
-                }
-            });
+                });
+            }
 
-            // Doughnut Chart
-            new Chart(document.getElementById("doughnutChart"), {
-                type: "doughnut",
-                data: {
-                    labels: {{.SpendDoughnut.Labels}},
-                    datasets: [{
-                        data: {{.SpendDoughnut.Data}},
-                        backgroundColor: ["#000", "#444", "#888", "#bbb", "#ddd"]
-                    }]
-                },
-                options: {
-                    plugins: {
-                        legend: {
-                            position: "right"
+            const doughnutCanvas = document.getElementById("doughnutChart");
+            if (doughnutCanvas) {
+                Chart.getChart(doughnutCanvas)?.destroy();
+                new Chart(doughnutCanvas, {
+                    type: "doughnut",
+                    data: {
+                        labels: {{ .SpendDoughnut.Labels }},
+                        datasets: [{
+                            data: {{ .SpendDoughnut.Data }},
+                            backgroundColor: [
+                                "#4f8a6d", "#b3803c", "#7b6a9e", "#3d6b8f", "#b8635a",
+                                "#5f8a8a", "#8a7b9e", "#9e8a5f", "#6d8a4f", "#a86b7b"
+                            ],
+                            borderWidth: 2,
+                            borderColor: "#ffffff"
+                        }]
+                    },
+                    options: {
+                        maintainAspectRatio: false,
+                        cutout: "62%",
+                        plugins: {
+                            legend: {
+                                position: "right",
+                                labels: {color: ink, boxWidth: 10, boxHeight: 10, usePointStyle: true, pointStyle: "circle"}
+                            }
                         }
                     }
-                }
-            });
-        </script>
-
-<!-- Card for Top Merchants and Highest Outgoing Transactions -->
-<div class="row g-3 mb-3">
-    <!-- Top Merchants -->
-    <div class="col-12 col-lg-6">
-        <div class="card border rounded-3 p-4 h-100 shadow-sm">
-            <div class="d-flex justify-content-between align-items-start mb-4">
-                <div>
-                    <h4 class="fw-bold">Merchants</h4>
-                    <p class="text-muted">Your highest paid merchants over the last 30 days.</p>
-                </div>
-            </div>
-
-            <div class="row">
-                <ul class="list-unstyled">
-                {{ range .TopMerchants }}
-                    <li class="d-flex align-items-center justify-content-between mb-4">
-                        <div class="d-flex align-items-center">
-                            <div class="bg-light rounded-circle p-2 me-3">
-                                <i class="bi bi-credit-card fs-5 text-dark"></i>
-                            </div>
-                            <div>
-                                <div class="fw-semibold">{{ .Merchant }}</div>
-                                <small class="text-muted">{{ .Total | fmtCurrency }}</small>
-                            </div>
-                        </div>
-                        {{if gt .Delta 0.0}}
-                        <div class="text-danger fw-semibold" data-bs-toggle="tooltip" data-bs-placement="top" title="Previously {{ .PreviousTotal | fmtCurrency }}">
-                            <i class="bi bi-arrow-up-short"></i>{{ .Delta | fmtPercent }}
-                        </div>
-                        {{else if lt .Delta 0.0}}
-                            <div class="text-success fw-semibold" data-bs-toggle="tooltip" data-bs-placement="top" title="Previously {{ .PreviousTotal | fmtCurrency }}">
-                                <i class="bi bi-arrow-down-short"></i>{{ .Delta | fmtPercent }}
-                            </div>
-                        {{else}}
-                        <div class="text-muted fw-semibold">
-                            <i class="bi bi-stars"></i>New
-                        </div>
-                        {{end}}
-                    </li>
-                {{ end }}
-                </ul>
-            </div>
-        </div>
-    </div>
-
-    <!-- Highest Outgoing Transactions -->
-    <div class="col-12 col-lg-6">
-        <div class="card border rounded-3 p-4 h-100 shadow-sm">
-            <div class="d-flex justify-content-between align-items-start mb-4">
-                <div>
-                    <h4 class="fw-bold">Highest Outgoing Transactions</h4>
-                    <p class="text-muted">Your highest spending transactions this period.</p>
-                </div>
-            </div>
-            <ul class="list-unstyled">
-                {{ range .HighestOutgoingTransactions }}
-                <li class="d-flex align-items-center justify-content-between mb-4">
-                    <div class="d-flex align-items-center">
-                        <div class="bg-light rounded-circle p-2 me-3">
-                            <i class="bi bi-cash-stack fs-5 text-dark"></i>
-                        </div>
-                        <div>
-                            <div class="fw-semibold">{{ .Description }}</div>
-                            <small class="text-muted">{{ .Amount | fmtCurrency }}</small>
-                        </div>
-                    </div>
-                    <div class="text-muted fw-semibold">
-                        {{ .Date.Format "Jan 02" }}
-                    </div>
-                </li>
-                {{ end }}
-            </ul>
-        </div>
-    </div>
-</div>
+                });
+            }
+        })();
+    </script>
 
 {{ end }}

@@ -42,6 +42,14 @@ func templateFuncs() template.FuncMap {
 			p := message.NewPrinter(language.English)
 			return p.Sprintf("%.1f%%", math.Abs(number)*100)
 		},
+		// pctOf expresses a value as a percentage of a maximum, for the share
+		// bars behind ranked lists. A zero maximum yields zero rather than NaN.
+		"pctOf": func(value, max float64) float64 {
+			if max == 0 {
+				return 0
+			}
+			return math.Abs(value) / math.Abs(max) * 100
+		},
 		"fmtRelative": func(date time.Time) string {
 			return humanize.RelTime(date, time.Now(), "ago", "")
 		},

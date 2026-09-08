@@ -1,16 +1,695 @@
+/* ==========================================================================
+   Budge design tokens
 
+   One warm neutral ground, one indigo primary, and a fixed accent per spending
+   category. Categories keep the same colour everywhere they appear - tile,
+   chart, badge, chip - so a colour becomes a label you can read at a glance.
+   ========================================================================== */
+
+:root {
+    /* Ground and ink. A pale blue-grey ground under white cards. The neutral
+       carries a slight blue bias toward the primary, so it reads as chosen
+       rather than as an off-the-shelf grey. */
+    --b-bg: #f3f5f7;
+    --b-surface: #ffffff;
+    --b-surface-2: #f9fafb;
+    --b-surface-3: #eaeef1;
+    --b-border: #e0e6ea;
+    --b-border-strong: #cbd4db;
+    --b-ink: #16202b;
+    --b-ink-2: #48555f;
+    --b-muted: #78858f;
+
+    /* Brand. A slate blue, dark enough to carry text at small sizes. */
+    --b-primary: #3d6b8f;
+    --b-primary-ink: #315774;
+    --b-primary-soft: #e6eef4;
+
+    /* Direction. Money in is good, money out is not. Both are held low in
+       chroma so an ordinary balance sheet does not read as a set of alarms. */
+    --b-positive: #2f7359;
+    --b-positive-soft: #e2efea;
+    --b-negative: #a8504e;
+    --b-negative-soft: #f6e7e6;
+
+    /* Category accents. One fixed hue per spending category, low chroma so
+       colour identifies a category without ever raising its voice. */
+    --b-sage: #4f8a6d;
+    --b-sage-soft: #e3efe9;
+    --b-clay: #b3803c;
+    --b-clay-soft: #f5ebdc;
+    --b-plum: #7b6a9e;
+    --b-plum-soft: #eceaf4;
+    --b-slate: #3d6b8f;
+    --b-slate-soft: #e6eef4;
+    --b-brick: #b8635a;
+    --b-brick-soft: #f7e8e6;
+
+    /* Shape. Hairline borders carry the structure, so shadows stay faint. */
+    --b-radius: 14px;
+    --b-radius-sm: 10px;
+    --b-radius-pill: 999px;
+    --b-shadow: 0 1px 2px rgba(22, 32, 43, 0.04);
+    --b-shadow-lift: 0 2px 10px rgba(22, 32, 43, 0.08);
+
+    /* Height of the mobile tab bar, so page padding can stay in step with it */
+    --b-tabbar: 64px;
+}
+
+/* Accent helper. Set --accent / --accent-soft on a container and every
+   descendant that reads them picks up that category's colour. */
+.b-accent-sage  { --accent: var(--b-sage);  --accent-soft: var(--b-sage-soft); }
+.b-accent-clay  { --accent: var(--b-clay);  --accent-soft: var(--b-clay-soft); }
+.b-accent-plum  { --accent: var(--b-plum);  --accent-soft: var(--b-plum-soft); }
+.b-accent-slate { --accent: var(--b-slate); --accent-soft: var(--b-slate-soft); }
+.b-accent-brick { --accent: var(--b-brick); --accent-soft: var(--b-brick-soft); }
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+body {
+    background-color: var(--b-bg);
+    color: var(--b-ink);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'tnum';
+    -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.02em;
+    color: var(--b-ink);
+}
+
+/* Money should line up in columns and never reflow as digits change. */
+.b-num {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
+.text-muted {
+    color: var(--b-muted) !important;
+}
+
+main.container {
+    padding-top: 0.5rem;
+    /* Clear the mobile tab bar so the last card is never trapped behind it. */
+    padding-bottom: calc(var(--b-tabbar) + 1.5rem);
+}
+
+@media (min-width: 768px) {
+    main.container {
+        padding-bottom: 3rem;
+    }
+}
+
+/* ==========================================================================
+   Page header
+   ========================================================================== */
+
+.b-page-head {
+    padding: 1.25rem 0 1rem;
+}
+
+.b-page-head h1,
+.b-page-head h2 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.b-page-head .b-page-sub {
+    color: var(--b-muted);
+    font-size: 0.9rem;
+    margin: 0.25rem 0 0;
+}
+
+@media (min-width: 768px) {
+    .b-page-head h1,
+    .b-page-head h2 {
+        font-size: 2rem;
+    }
+}
+
+/* ==========================================================================
+   Cards
+   ========================================================================== */
+
+.b-card {
+    background: var(--b-surface);
+    border: 1px solid var(--b-border);
+    border-radius: var(--b-radius);
+    box-shadow: var(--b-shadow);
+}
+
+.b-card-pad {
+    padding: 1rem;
+}
+
+@media (min-width: 768px) {
+    .b-card-pad {
+        padding: 1.25rem;
+    }
+}
+
+.b-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.875rem;
+}
+
+.b-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.b-card-sub {
+    color: var(--b-muted);
+    font-size: 0.825rem;
+    margin: 0.125rem 0 0;
+}
+
+/* Bootstrap cards elsewhere in the app inherit the new shape rather than
+   keeping the old square, hard-bordered look. */
+.card {
+    border-color: var(--b-border);
+    border-radius: var(--b-radius);
+}
+
+.card.shadow-sm {
+    box-shadow: var(--b-shadow) !important;
+}
+
+/* ==========================================================================
+   Icon chip. A rounded square in the category colour.
+   ========================================================================== */
+
+.b-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    background: var(--accent-soft, var(--b-surface-3));
+    color: var(--accent, var(--b-ink-2));
+    font-size: 1.05rem;
+}
+
+.b-chip-sm {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    font-size: 0.85rem;
+}
+
+/* ==========================================================================
+   Stat tile. The four dashboard metrics.
+   ========================================================================== */
+
+.b-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    height: 100%;
+    padding: 0.875rem;
+    background: var(--b-surface);
+    border: 1px solid var(--b-border);
+    border-radius: var(--b-radius);
+    box-shadow: var(--b-shadow);
+}
+
+.b-stat-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    color: var(--b-muted);
+    font-size: 0.775rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.b-stat-label i {
+    color: var(--accent, var(--b-muted));
+    font-size: 0.95rem;
+}
+
+.b-stat-value {
+    font-size: 1.3rem;
+    font-weight: 700;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+
+@media (min-width: 576px) {
+    .b-stat {
+        padding: 1.125rem;
+    }
+
+    .b-stat-value {
+        font-size: 1.6rem;
+    }
+}
+
+/* ==========================================================================
+   Delta pill. Direction of travel against the previous period.
+   ========================================================================== */
+
+.b-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.15rem 0.5rem 0.15rem 0.35rem;
+    border-radius: var(--b-radius-pill);
+    font-size: 0.775rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.b-delta-good {
+    background: var(--b-positive-soft);
+    color: var(--b-positive);
+}
+
+.b-delta-bad {
+    background: var(--b-negative-soft);
+    color: var(--b-negative);
+}
+
+.b-delta-flat {
+    background: var(--b-surface-3);
+    color: var(--b-muted);
+}
+
+.b-delta-note {
+    color: var(--b-muted);
+    font-size: 0.775rem;
+}
+
+/* ==========================================================================
+   Sparkline. A CSS bar chart, so the dashboard tiles carry history without
+   spinning up a canvas per tile on a phone.
+   ========================================================================== */
+
+.b-spark {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 40px;
+    margin-top: 0.25rem;
+}
+
+.b-spark-bar {
+    flex: 1 1 0;
+    min-height: 2px;
+    border-radius: 3px 3px 1px 1px;
+    background: var(--accent-soft, var(--b-surface-3));
+    transition: background-color 0.15s ease;
+}
+
+/* The last bar is the period still in progress, drawn as a hollow outline so a
+   part week is never mistaken for a finished one. It keeps a floor height: at
+   2px an empty in-progress period reads as a rendering speck rather than as an
+   open slot waiting to be filled. */
+.b-spark-bar-partial {
+    min-height: 12px;
+    background: transparent;
+    border: 1px dashed var(--accent, var(--b-border-strong));
+    opacity: 0.65;
+}
+
+/* The last completed period, which the headline delta compares against. Drawn
+   solid so the reader can see what "vs last week" actually points at. */
+.b-spark-bar-compare {
+    background: var(--accent, var(--b-ink-2));
+}
+
+/* ==========================================================================
+   Highlight tile. Groceries / petrol / power on the dashboard.
+   ========================================================================== */
+
+.b-highlight {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 0.875rem;
+    background: var(--b-surface);
+    border: 1px solid var(--b-border);
+    border-radius: var(--b-radius);
+    box-shadow: var(--b-shadow);
+    text-decoration: none;
+    color: inherit;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.b-highlight:hover,
+.b-highlight:focus-visible {
+    box-shadow: var(--b-shadow-lift);
+    transform: translateY(-1px);
+    color: inherit;
+}
+
+.b-highlight-head {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin-bottom: 0.625rem;
+}
+
+.b-highlight-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--b-ink-2);
+}
+
+.b-highlight-period {
+    font-size: 0.7rem;
+    color: var(--b-muted);
+}
+
+.b-highlight-value {
+    font-size: 1.45rem;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+
+/* ==========================================================================
+   Ranked list. Top merchants and biggest transactions.
+   ========================================================================== */
+
+.b-rank {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.b-rank > li {
+    border-bottom: 1px solid var(--b-surface-3);
+}
+
+.b-rank > li:last-child {
+    border-bottom: 0;
+}
+
+.b-rank-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0;
+}
+
+/* A ranked row that opens the transactions behind its number. The negative
+   margin lets the hover state bleed to the card padding rather than stopping
+   short of it. */
+.b-rank-link {
+    color: inherit;
+    text-decoration: none;
+    border-radius: var(--b-radius-sm);
+    margin-inline: -0.5rem;
+    padding-inline: 0.5rem;
+    transition: background-color 0.15s ease;
+}
+
+.b-rank-link:hover,
+.b-rank-link:focus-visible {
+    background: var(--b-surface-2);
+    color: inherit;
+}
+
+.b-rank-link:focus-visible {
+    outline: 2px solid var(--b-primary);
+    outline-offset: 1px;
+}
+
+.b-rank-go {
+    flex: 0 0 auto;
+    color: var(--b-muted);
+    font-size: 0.75rem;
+}
+
+/* Chart wrapper. A fixed height stops the card resizing while Chart.js measures
+   its canvas, which otherwise shoves the page down on every swap. */
+.b-chart {
+    position: relative;
+    height: 240px;
+}
+
+@media (min-width: 768px) {
+    .b-chart {
+        height: 280px;
+    }
+}
+
+/* The account history chart carries a full year, so it earns more room. */
+.b-chart-tall {
+    height: 280px;
+}
+
+@media (min-width: 768px) {
+    .b-chart-tall {
+        height: 360px;
+    }
+}
+
+.b-rank-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.b-rank-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.b-rank-meta {
+    color: var(--b-muted);
+    font-size: 0.775rem;
+}
+
+.b-rank-value {
+    flex: 0 0 auto;
+    text-align: right;
+    font-weight: 700;
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* A share bar behind the name, so relative size is visible without reading
+   every number in the column. */
+.b-rank-track {
+    height: 4px;
+    margin-top: 0.3rem;
+    border-radius: var(--b-radius-pill);
+    background: var(--b-surface-3);
+    overflow: hidden;
+}
+
+.b-rank-fill {
+    display: block;
+    height: 100%;
+    border-radius: var(--b-radius-pill);
+    background: var(--accent, var(--b-primary));
+}
+
+/* ==========================================================================
+   Pills. The insights category selector.
+   ========================================================================== */
+
+.b-pills {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding: 0.125rem 0 0.5rem;
+    /* Let the row bleed to the screen edge on a phone so the last pill does
+       not look clipped by the container gutter. */
+    margin-inline: -0.75rem;
+    padding-inline: 0.75rem;
+    scrollbar-width: none;
+}
+
+.b-pills::-webkit-scrollbar {
+    display: none;
+}
+
+.b-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 0 0 auto;
+    padding: 0.45rem 0.85rem;
+    border: 1px solid var(--b-border);
+    border-radius: var(--b-radius-pill);
+    background: var(--b-surface);
+    color: var(--b-ink-2);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.b-pill i {
+    color: var(--accent, var(--b-muted));
+}
+
+.b-pill:hover {
+    border-color: var(--b-border-strong);
+    color: var(--b-ink);
+}
+
+.b-pill-active {
+    background: var(--accent-soft, var(--b-primary-soft));
+    border-color: var(--accent, var(--b-primary));
+    color: var(--accent, var(--b-primary-ink));
+}
+
+.b-pill-active i {
+    color: inherit;
+}
+
+/* Segmented control for the weekly / monthly toggle. */
+.b-segment {
+    display: inline-flex;
+    padding: 3px;
+    background: var(--b-surface-3);
+    border-radius: var(--b-radius-pill);
+}
+
+.b-segment a {
+    padding: 0.35rem 0.9rem;
+    border-radius: var(--b-radius-pill);
+    color: var(--b-ink-2);
+    font-size: 0.825rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.b-segment a.active {
+    background: var(--b-surface);
+    color: var(--b-ink);
+    box-shadow: 0 1px 2px rgba(28, 25, 23, 0.08);
+}
+
+/* ==========================================================================
+   Navigation
+   ========================================================================== */
+
+.b-navbar {
+    background: var(--b-surface);
+    border-bottom: 1px solid var(--b-border);
+}
+
+.navbar-brand {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--b-ink);
+}
+
+.b-nav-link {
+    padding: 0.5rem 0.9rem;
+    border-radius: var(--b-radius-pill);
+    color: var(--b-ink-2);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.b-nav-link:hover {
+    background: var(--b-surface-3);
+    color: var(--b-ink);
+}
+
+.b-nav-link.active {
+    background: var(--b-primary-soft);
+    color: var(--b-primary-ink);
+    box-shadow: inset 0 0 0 1px rgba(61, 107, 143, 0.18);
+}
+
+/* Mobile tab bar. Thumb-reachable, and the primary navigation under 768px. */
+.b-tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1030;
+    display: flex;
+    height: var(--b-tabbar);
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--b-surface);
+    border-top: 1px solid var(--b-border);
+}
+
+.b-tabbar a {
+    flex: 1 1 0;
+    min-width: 0;
+    white-space: nowrap;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem;
+    color: var(--b-muted);
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-decoration: none;
+    padding-top: 0.35rem;
+}
+
+.b-tabbar a i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 46px;
+    height: 26px;
+    border-radius: var(--b-radius-pill);
+    font-size: 1.15rem;
+    line-height: 1;
+    background: transparent;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.b-tabbar a.active {
+    color: var(--b-primary-ink);
+}
+
+.b-tabbar a.active i {
+    background: var(--b-primary-soft);
+    color: var(--b-primary);
+}
+
+@media (min-width: 768px) {
+    .b-tabbar {
+        display: none;
+    }
+}
+
+/* Keep the old nav-pill styling working for any page still using it. */
 .nav-item .nav-link {
     border: none;
-    border-radius: 0.5rem;
-    color: #6c757d;
+    border-radius: var(--b-radius-pill);
+    color: var(--b-ink-2);
     padding: 0.5rem 1rem;
-    font-weight: 500;
+    font-weight: 600;
 }
 
 .nav-item .nav-link.active {
-    background-color: #f1f5f9;
-    color: #0f172a;
-    font-weight: 600;
+    background-color: var(--b-primary-soft);
+    color: var(--b-primary-ink);
 }
 
 .nav-item {
@@ -18,121 +697,442 @@
     gap: 0.5rem;
 }
 
-body {
-    background-color: #f8fafc;
-    font-family: 'Segoe UI', sans-serif;
-}
+/* ==========================================================================
+   Transactions
+   ========================================================================== */
 
-.tab-btn {
-    background-color: #f1f5f9;
-    border: none;
-    border-radius: 8px;
-    padding: 0.5rem 1rem;
-    margin-right: 0.5rem;
-}
-
-.tab-btn.active {
-    background-color: white;
-    border: 1px solid #e2e8f0;
-    font-weight: 600;
-}
-
-.card-status {
-    border-left: 4px solid transparent;
-    border-radius: 12px;
-}
-
-.connected {
-    border-left-color: #22c55e;
-}
-
-.error {
-    border-left-color: #ef4444;
-}
-
-.badge-success {
-    background-color: #dcfce7;
-    color: #16a34a;
-    font-weight: 500;
-}
-
-.badge-error {
-    background-color: #fee2e2;
-    color: #dc2626;
-    font-weight: 500;
-}
-
-.integration-card {
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 1rem;
-    margin-bottom: 1rem;
-    text-align: center;
-}
-
-body {
-    background-color: #f8fafc;
-    font-family: 'Segoe UI', sans-serif;
-}
 .table-container {
-    background: white;
-    border-radius: 12px;
-    padding: 1rem;
-    box-shadow: 0 0 0 1px #e2e8f0;
-}
-.badge-category {
-    border: 1px solid #000;
-    padding: 2px 10px;
-    border-radius: 999px;
-    font-size: 0.875rem;
-    font-weight: 500;
-}
-.search-bar, .filters {
-    margin-bottom: 1rem;
-}
-.action-links a {
-    margin-right: 0.75rem;
-    color: #0f172a;
-    text-decoration: none;
-    font-weight: 500;
-}
-.action-links a:hover {
-    text-decoration: underline;
+    background: var(--b-surface);
+    border: 1px solid var(--b-border);
+    border-radius: var(--b-radius);
+    box-shadow: var(--b-shadow);
+    overflow: hidden;
 }
 
-.date-reset-link {
-    text-decoration: none;
-    color: inherit;
-    transition: background-color 0.3s ease, color 0.3s ease;
-    padding: 0.25rem 0.5rem; /* Add some padding for better hover area */
-    border-radius: 0.25rem;
+.table-container .table {
+    margin-bottom: 0;
 }
 
-.date-reset-link:hover {
-    background-color: black;
-    color: white;
-    cursor: pointer;
+.table-container .table > thead > tr > th {
+    background: var(--b-surface-2);
+    border-bottom: 1px solid var(--b-border);
+    color: var(--b-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.75rem 1rem;
 }
 
-.date-reset-link span {
-    display: inline-block; /* Required for min-width to work */
-    min-width: 120px; /* Adjust as needed to fit the longest possible date string */
-    text-align: center;
+.table-container .table > tbody > tr > td {
+    border-bottom: 1px solid var(--b-surface-3);
+    padding: 0.75rem 1rem;
+}
+
+.table-container .table > tbody > tr:last-child > td {
+    border-bottom: 0;
 }
 
 .table > :not(caption) > * > * {
     vertical-align: middle;
 }
-.merchant-icon {
-    margin-right: 0.5rem;
-    color: #64748b;
+
+/* Transaction rows as cards, which is the only readable shape on a phone. */
+.b-tx-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
 }
+
+.b-tx {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: var(--b-surface);
+    border: 1px solid var(--b-border);
+    border-radius: var(--b-radius-sm);
+    box-shadow: var(--b-shadow);
+}
+
+.b-tx-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.b-tx-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.b-tx-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-top: 0.2rem;
+    color: var(--b-muted);
+    font-size: 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.b-tx-amount {
+    flex: 0 0 auto;
+    font-weight: 700;
+    font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* Day separator in the transaction list. */
+.b-tx-day {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.75rem 0.25rem 0.375rem;
+    background: var(--b-bg);
+    color: var(--b-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Sticky filter bar, so search and account stay reachable down a long list. */
+.b-filters {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 0.5rem 0 0.75rem;
+    background: var(--b-bg);
+}
+
+.b-filters .form-control,
+.b-filters .form-select {
+    border-color: var(--b-border);
+    border-radius: var(--b-radius-sm);
+    /* 16px keeps iOS Safari from zooming the viewport on focus. */
+    font-size: 16px;
+    padding: 0.5rem 0.75rem;
+}
+
+.b-filters .form-control:focus,
+.b-filters .form-select:focus {
+    border-color: var(--b-primary);
+    box-shadow: 0 0 0 3px var(--b-primary-soft);
+}
+
+.b-summary-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1rem;
+    padding: 0.625rem 0.75rem;
+    background: var(--b-surface);
+    border: 1px solid var(--b-border);
+    border-radius: var(--b-radius-sm);
+    font-size: 0.8rem;
+}
+
+.b-summary-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   Accounts
+   ========================================================================== */
+
+/* Connection header. The provider a group of accounts is held with. */
+.b-conn {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--b-border);
+}
+
+.b-conn-logo {
+    flex: 0 0 auto;
+    border-radius: 50%;
+    object-fit: contain;
+    background: var(--b-surface-3);
+}
+
+.b-conn-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.b-conn-total {
+    flex: 0 0 auto;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.b-acct-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.b-acct-list > li + li {
+    border-top: 1px solid var(--b-surface-3);
+}
+
+.b-acct {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    color: inherit;
+    text-decoration: none;
+    transition: background-color 0.15s ease;
+}
+
+a.b-acct:hover,
+a.b-acct:focus-visible {
+    background: var(--b-surface-2);
+    color: inherit;
+}
+
+/* An account with no history is shown but not offered as a link. */
+.b-acct-static {
+    cursor: default;
+}
+
+.b-acct:focus-visible {
+    outline: 2px solid var(--b-primary);
+    outline-offset: -2px;
+}
+
+.b-acct-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.b-acct-name {
+    font-weight: 600;
+    font-size: 0.925rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Metadata wraps rather than truncating: on a phone the account number and the
+   type badge need two lines, not an ellipsis that hides both. */
+.b-acct-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+    margin-top: 0.3rem;
+    color: var(--b-muted);
+    font-size: 0.75rem;
+}
+
+.b-acct-figures {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+    text-align: right;
+}
+
+.b-acct-balance {
+    font-weight: 700;
+    font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Form field labels, small and quiet above the control they name. */
+.b-field-label {
+    display: block;
+    margin-bottom: 0.25rem;
+    color: var(--b-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Forms outside the sticky filter bar need the same treatment it gets: 16px
+   text so iOS does not zoom the viewport when a field takes focus. */
+.b-card .form-control,
+.b-card .form-select {
+    border-color: var(--b-border);
+    border-radius: var(--b-radius-sm);
+    font-size: 16px;
+}
+
+.b-card .form-control:focus,
+.b-card .form-select:focus {
+    border-color: var(--b-primary);
+    box-shadow: 0 0 0 3px var(--b-primary-soft);
+}
+
+.b-card .input-group-text {
+    background: var(--b-surface-3);
+    border-color: var(--b-border);
+    color: var(--b-muted);
+}
+
+/* ==========================================================================
+   Badges
+   ========================================================================== */
+
+.badge-category {
+    display: inline-block;
+    padding: 0.15rem 0.55rem;
+    border: 1px solid var(--b-border);
+    border-radius: var(--b-radius-pill);
+    background: var(--b-surface-2);
+    color: var(--b-ink-2);
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.badge-link {
+    text-decoration: none;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.badge-link:hover,
+.badge-link:focus-visible {
+    background: var(--b-surface-3);
+    border-color: var(--b-border-strong);
+    color: var(--b-ink);
+}
+
+.badge-success {
+    background-color: var(--b-positive-soft);
+    color: var(--b-positive);
+    font-weight: 600;
+}
+
+.badge-error {
+    background-color: var(--b-negative-soft);
+    color: var(--b-negative);
+    font-weight: 600;
+}
+
+.text-success {
+    color: var(--b-positive) !important;
+}
+
+.text-danger {
+    color: var(--b-negative) !important;
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+
+.btn {
+    border-radius: var(--b-radius-sm);
+    font-weight: 600;
+}
+
+.btn-primary {
+    background-color: var(--b-primary);
+    border-color: var(--b-primary);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background-color: var(--b-primary-ink);
+    border-color: var(--b-primary-ink);
+}
+
+.btn-outline-secondary {
+    border-color: var(--b-border-strong);
+    color: var(--b-ink-2);
+}
+
+.btn-outline-secondary:hover {
+    background-color: var(--b-surface-3);
+    border-color: var(--b-border-strong);
+    color: var(--b-ink);
+}
+
+/* ==========================================================================
+   Empty state
+   ========================================================================== */
+
+.b-empty {
+    padding: 2.5rem 1.25rem;
+    text-align: center;
+    background: var(--b-surface);
+    border: 1px dashed var(--b-border-strong);
+    border-radius: var(--b-radius);
+}
+
+.b-empty i {
+    font-size: 2rem;
+    color: var(--b-border-strong);
+}
+
+.b-empty h4 {
+    margin-top: 0.75rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.b-empty p {
+    margin: 0.25rem 0 0;
+    color: var(--b-muted);
+    font-size: 0.875rem;
+}
+
+/* ==========================================================================
+   Retained from the previous stylesheet, still referenced by the accounts,
+   settings and budget pages.
+   ========================================================================== */
+
+.date-reset-link {
+    text-decoration: none;
+    color: inherit;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--b-radius-sm);
+}
+
+.date-reset-link:hover {
+    background-color: var(--b-ink);
+    color: var(--b-surface);
+    cursor: pointer;
+}
+
+.date-reset-link span {
+    display: inline-block;
+    min-width: 120px;
+    text-align: center;
+}
+
 /* Budget: transient "Saved" confirmation on the income card. */
 .budge-flash {
     opacity: 0;
     transition: opacity 0.15s ease-in-out;
     pointer-events: none;
 }
+
 .budge-flash.budge-flash-show {
     opacity: 1;
 }
@@ -144,7 +1144,7 @@ body {
 
 .account-logo {
     object-fit: contain;
-    background-color: #f1f5f9;
+    background-color: var(--b-surface-3);
 }
 
 /* The accounts list sits flush inside a card, so it should not draw its own edges */
@@ -153,5 +1153,18 @@ body {
 }
 
 .list-group-item-action:hover {
-    background-color: #f8fafc;
+    background-color: var(--b-surface-2);
+}
+
+/* ==========================================================================
+   Motion
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        transition-duration: 0.001ms !important;
+    }
 }
