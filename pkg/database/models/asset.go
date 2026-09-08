@@ -52,6 +52,29 @@ func (a *Asset) Value() ([]byte, error) {
 	return json.Marshal(a)
 }
 
+// SameDay reports whether two valuation dates fall on the same calendar day.
+// Dates are compared in local time because that is the day the owner means: a
+// valuation recorded at 11pm belongs to the day it felt like.
+func SameDay(a, b time.Time) bool {
+	ay, am, ad := a.Local().Date()
+	by, bm, bd := b.Local().Date()
+	return ay == by && am == bm && ad == bd
+}
+
+// UpsertValuation replaces the valuation held for the same day, or appends when
+// that day has none. Two valuations on one day are not two readings: re-fetching
+// an estimate corrects today's figure rather than stacking another copy of it,
+// and a curve with two points on one date says nothing extra.
+func UpsertValuation(valuations []AssetValuation, next AssetValuation) []AssetValuation {
+	for i, existing := range valuations {
+		if SameDay(existing.Date, next.Date) {
+			valuations[i] = next
+			return valuations
+		}
+	}
+	return append(valuations, next)
+}
+
 // SortedValuations returns the valuations oldest first, which is the order a
 // chart needs and not an order the caller can rely on the stored slice being in.
 func (a Asset) SortedValuations() []AssetValuation {

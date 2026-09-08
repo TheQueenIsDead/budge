@@ -54,12 +54,15 @@ func (s *Store) UpdateAsset(asset models.Asset) error {
 func (s *Store) DeleteAsset(id string) error {
 	return Delete[models.Asset](s.db, []byte(id))
 }
+
+// AddAssetValuation records a valuation, replacing whatever the asset already
+// held for that day. An asset carries at most one valuation per day.
 func (s *Store) AddAssetValuation(id string, valuation models.AssetValuation) error {
 	asset, err := Get[models.Asset](s.db, []byte(id))
 	if err != nil {
 		return err
 	}
-	asset.Valuations = append(asset.Valuations, valuation)
+	asset.Valuations = models.UpsertValuation(asset.Valuations, valuation)
 	return Update[models.Asset](s.db, asset)
 }
 func (s *Store) DeleteAssetValuation(id, valuationID string) error {

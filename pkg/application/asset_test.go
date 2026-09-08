@@ -204,11 +204,9 @@ func TestRenderAccountsWithAssets(t *testing.T) {
 		assert.Contains(t, page, "Kiwibank")
 	})
 
-	t.Run("offers the add form", func(t *testing.T) {
-		assert.Contains(t, page, `hx-post="/assets"`)
-		for _, assetType := range assetTypes {
-			assert.Contains(t, page, `value="`+assetType.Key+`"`)
-		}
+	t.Run("offers a way into the wizard rather than an inline form", func(t *testing.T) {
+		assert.Contains(t, page, `href="/assets/new"`)
+		assert.NotContains(t, page, `hx-post="/assets"`)
 	})
 
 	t.Run("renders with assets but no bank accounts", func(t *testing.T) {
@@ -293,7 +291,193 @@ func TestPortfolioSectionOrder(t *testing.T) {
 		assert.Less(t, strings.Index(page, "Net Worth"), strings.Index(page, "12 Bealey Ave"))
 	})
 
-	t.Run("the add form stays at the bottom", func(t *testing.T) {
-		assert.Greater(t, strings.Index(page, "Add an asset"), strings.Index(page, "Kiwibank"))
+	t.Run("the add control sits with the assets it adds to", func(t *testing.T) {
+		// It lives in the assets card header, so above the account groups.
+		assert.Less(t, strings.Index(page, `href="/assets/new"`), strings.Index(page, "Kiwibank"))
 	})
+}
+
+func TestRenderAssetWizard(t *testing.T) {
+
+	t.Run("the chooser offers every type with its own blurb", func(t *testing.T) {
+		page := renderTemplate(t, "asset_new", AssetNewProps{
+			Types: assetTypes,
+			Today: "2026-09-09",
+		})
+
+		for _, assetType := range assetTypes {
+			assert.Contains(t, page, assetType.Label)
+			assert.Contains(t, page, assetType.Blurb)
+			assert.Contains(t, page, "/assets/new?type="+assetType.Key)
+		}
+		// Nothing is chosen yet, so there is nothing to submit.
+		assert.NotContains(t, page, `hx-post="/assets"`)
+	})
+
+	t.Run("a house is asked for an address and its valuation sources", func(t *testing.T) {
+		house, ok := AssetTypeByKey("house")
+		require.True(t, ok)
+
+		page := renderTemplate(t, "asset_new", AssetNewProps{
+			Types: assetTypes, Selected: house, Chosen: true, Today: "2026-09-09",
+		})
+
+		assert.Contains(t, page, `hx-post="/assets"`)
+		assert.Contains(t, page, `value="house"`)
+		assert.Contains(t, page, "Address")
+		assert.Contains(t, page, "asset-suggestions")
+		assert.Contains(t, page, "homes_property_id")
+		assert.Contains(t, page, "oneroof_url")
+	})
+
+	t.Run("a vehicle is not asked for things only property has", func(t *testing.T) {
+		vehicle, ok := AssetTypeByKey("vehicle")
+		require.True(t, ok)
+
+		page := renderTemplate(t, "asset_new", AssetNewProps{
+			Types: assetTypes, Selected: vehicle, Chosen: true, Today: "2026-09-09",
+		})
+
+		assert.Contains(t, page, "2018 Toyota Hilux")
+		assert.Contains(t, page, "Registration")
+		// An address lookup and a OneRoof page are meaningless for a car.
+		assert.NotContains(t, page, "asset-suggestions")
+		assert.NotContains(t, page, "oneroof_url")
+		assert.NotContains(t, page, "homes_property_id")
+	})
+
+	t.Run("other gets the plainest form of all", func(t *testing.T) {
+		other, ok := AssetTypeByKey("other")
+		require.True(t, ok)
+
+		page := renderTemplate(t, "asset_new", AssetNewProps{
+			Types: assetTypes, Selected: other, Chosen: true, Today: "2026-09-09",
+		})
+
+		assert.Contains(t, page, "Wedding ring")
+		assert.NotContains(t, page, "asset-suggestions")
+		assert.NotContains(t, page, "oneroof_url")
+	})
+
+	t.Run("every step offers a way back", func(t *testing.T) {
+		house, _ := AssetTypeByKey("house")
+		form := renderTemplate(t, "asset_new", AssetNewProps{
+			Types: assetTypes, Selected: house, Chosen: true, Today: "2026-09-09",
+		})
+		// Back to the chooser from the form, and out to the portfolio from both.
+		assert.Contains(t, form, `href="/assets/new"`)
+		assert.Contains(t, form, `href="/accounts"`)
+
+		chooser := renderTemplate(t, "asset_new", AssetNewProps{Types: assetTypes})
+		assert.Contains(t, chooser, `href="/accounts"`)
+	})
+}
+
+func TestAssetTypeByKey(t *testing.T) {
+	tests := []struct {
+		key   string
+		found bool
+	}{
+		{"house", true},
+		{"vehicle", true},
+		{"other", true},
+		{"spaceship", false},
+		{"", false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.key, func(t *testing.T) {
+			got, ok := AssetTypeByKey(test.key)
+			assert.Equal(t, test.found, ok)
+			if test.found {
+				assert.Equal(t, test.key, got.Key)
+			}
+		})
+	}
+}
+
+func TestAssetWizardLandsOnThePortfolio(t *testing.T) {
+	house, ok := AssetTypeByKey("house")
+	require.True(t, ok)
+
+	page := renderTemplate(t, "asset_new", AssetNewProps{
+		Types: assetTypes, Selected: house, Chosen: true, Today: "2026-09-09",
+	})
+
+	// Saving renders the portfolio, so the address bar has to follow it.
+	// Otherwise a refresh after saving reopens the wizard.
+	assert.Contains(t, page, `hx-push-url="/accounts"`)
+}
+
+// TestUpsertValuation covers the fetch button being pressed more than once in a
+// day. Each press used to append another copy of the same figure.
+func TestUpsertValuation(t *testing.T) {
+	morning := time.Date(2026, time.September, 9, 9, 0, 0, 0, time.Local)
+	evening := time.Date(2026, time.September, 9, 21, 30, 0, 0, time.Local)
+	yesterday := time.Date(2026, time.September, 8, 9, 0, 0, 0, time.Local)
+
+	t.Run("a second reading on the same day replaces the first", func(t *testing.T) {
+		held := []models.AssetValuation{
+			{ID: "a", Date: morning, Value: 550000, Note: "homes.co.nz $550K"},
+		}
+
+		got := models.UpsertValuation(held, models.AssetValuation{
+			ID: "b", Date: evening, Value: 562500, Note: "OneRoof $575K · homes.co.nz $550K",
+		})
+
+		require.Len(t, got, 1)
+		assert.Equal(t, 562500.0, got[0].Value, "the later reading wins")
+		assert.Equal(t, "OneRoof $575K · homes.co.nz $550K", got[0].Note)
+	})
+
+	t.Run("a reading on a new day is appended", func(t *testing.T) {
+		held := []models.AssetValuation{{ID: "a", Date: yesterday, Value: 550000}}
+
+		got := models.UpsertValuation(held, models.AssetValuation{
+			ID: "b", Date: morning, Value: 562500,
+		})
+
+		require.Len(t, got, 2)
+		assert.Equal(t, 550000.0, got[0].Value)
+		assert.Equal(t, 562500.0, got[1].Value)
+	})
+
+	t.Run("pressing fetch repeatedly leaves one entry", func(t *testing.T) {
+		var held []models.AssetValuation
+		for i := 0; i < 5; i++ {
+			held = models.UpsertValuation(held, models.AssetValuation{
+				ID: "v", Date: morning.Add(time.Duration(i) * time.Minute), Value: 550000,
+			})
+		}
+		assert.Len(t, held, 1)
+	})
+
+	t.Run("the day is the local one, not the stored instant's", func(t *testing.T) {
+		// Late evening and early morning of the same local day are one day, even
+		// though they straddle midnight UTC in a +12 zone.
+		late := time.Date(2026, time.September, 9, 23, 30, 0, 0, time.Local)
+		assert.True(t, models.SameDay(morning, late))
+		assert.False(t, models.SameDay(morning, yesterday))
+	})
+
+	t.Run("an empty history just takes the reading", func(t *testing.T) {
+		got := models.UpsertValuation(nil, models.AssetValuation{ID: "a", Date: morning, Value: 1})
+		assert.Len(t, got, 1)
+	})
+}
+
+func TestParseAssetDateIsLocal(t *testing.T) {
+	// A date picked in the form is a calendar date the owner chose, not a UTC
+	// instant. Parsing as UTC put it on the wrong side of midnight, so a manual
+	// entry and a same-day fetch looked like different days.
+	parsed := parseAssetDate("2026-09-09")
+	assert.Equal(t, time.Local, parsed.Location())
+
+	year, month, day := parsed.Date()
+	assert.Equal(t, 2026, year)
+	assert.Equal(t, time.September, month)
+	assert.Equal(t, 9, day)
+
+	assert.True(t, models.SameDay(parsed,
+		time.Date(2026, time.September, 9, 23, 0, 0, 0, time.Local)))
 }

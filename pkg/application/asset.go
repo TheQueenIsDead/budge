@@ -15,19 +15,77 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// AssetType is a kind of asset the form offers.
+// AssetType is a kind of asset, along with how its form should read. Different
+// things are worth knowing about a house and a car, so the wizard asks each type
+// its own questions rather than showing one form with fields that do not apply.
 type AssetType struct {
 	Key   string
 	Label string
 	Icon  string
+	Blurb string
+
+	// NameLabel and NamePlaceholder word the identifying field: an address for
+	// a property, a description for anything else.
+	NameLabel       string
+	NamePlaceholder string
+
+	// DetailLabel and DetailPlaceholder word the optional second field, which
+	// carries whatever is worth noting about that kind of thing.
+	DetailLabel       string
+	DetailPlaceholder string
+
+	// AddressLookup offers NZ address autocomplete on the name field and
+	// captures the homes.co.nz property id behind the chosen address.
+	AddressLookup bool
+
+	// ValuationSources asks for a OneRoof page. Only property has one.
+	ValuationSources bool
 }
 
-// assetTypes are the kinds of asset the form offers. Anything owned whose value
-// drifts fits the same shape; a house is simply the one worth the most.
+// assetTypes are the kinds of asset the wizard offers.
 var assetTypes = []AssetType{
-	{"house", "House", "bi-house"},
-	{"vehicle", "Vehicle", "bi-car-front"},
-	{"other", "Other", "bi-box-seam"},
+	{
+		Key:               "house",
+		Label:             "House",
+		Icon:              "bi-house",
+		Blurb:             "A home or an investment property. Estimates can be fetched for it.",
+		NameLabel:         "Address",
+		NamePlaceholder:   "Start typing a NZ address",
+		DetailLabel:       "Note",
+		DetailPlaceholder: "Optional, e.g. rental",
+		AddressLookup:     true,
+		ValuationSources:  true,
+	},
+	{
+		Key:               "vehicle",
+		Label:             "Vehicle",
+		Icon:              "bi-car-front",
+		Blurb:             "A car, bike, boat or trailer. Valued by hand.",
+		NameLabel:         "Vehicle",
+		NamePlaceholder:   "e.g. 2018 Toyota Hilux",
+		DetailLabel:       "Registration",
+		DetailPlaceholder: "Optional",
+	},
+	{
+		Key:               "other",
+		Label:             "Other",
+		Icon:              "bi-box-seam",
+		Blurb:             "Anything else worth keeping track of.",
+		NameLabel:         "Name",
+		NamePlaceholder:   "e.g. Wedding ring",
+		DetailLabel:       "Note",
+		DetailPlaceholder: "Optional",
+	},
+}
+
+// AssetTypeByKey looks up a type, reporting whether it exists.
+func AssetTypeByKey(key string) (AssetType, bool) {
+	for _, t := range assetTypes {
+		if t.Key == key {
+			return t, true
+		}
+	}
+	return AssetType{}, false
 }
 
 // AssetTypeLabel names an asset type for display.
@@ -169,7 +227,7 @@ func parseAssetDate(raw string) time.Time {
 	if raw == "" {
 		return time.Now()
 	}
-	parsed, err := time.Parse("2006-01-02", raw)
+	parsed, err := time.ParseInLocation("2006-01-02", raw, time.Local)
 	if err != nil {
 		return time.Now()
 	}
@@ -222,7 +280,7 @@ func (app *Application) AssetCreate(c echo.Context) error {
 	}
 
 	assetType := c.FormValue("type")
-	if AssetTypeLabel(assetType) == "Asset" {
+	if _, ok := AssetTypeByKey(assetType); !ok {
 		assetType = "other"
 	}
 
@@ -389,4 +447,28 @@ func formatShort(value float64) string {
 		return fmt.Sprintf("$%.2fM", value/1_000_000)
 	}
 	return fmt.Sprintf("$%.0fK", value/1_000)
+}
+
+// AssetNewProps drives the add-an-asset wizard. Without a type chosen it renders
+// the chooser; with one it renders that type's own form.
+type AssetNewProps struct {
+	Types    []AssetType
+	Selected AssetType
+	Chosen   bool
+	Today    string
+}
+
+// AssetNew renders the wizard. Picking a type is a real step rather than a
+// dropdown on a single form, because the type decides which questions are worth
+// asking: an address lookup is meaningless for a trailer.
+func (app *Application) AssetNew(c echo.Context) error {
+	props := AssetNewProps{
+		Types: assetTypes,
+		Today: time.Now().Format("2006-01-02"),
+	}
+	if selected, ok := AssetTypeByKey(c.QueryParam("type")); ok {
+		props.Selected = selected
+		props.Chosen = true
+	}
+	return c.Render(http.StatusOK, "asset_new", props)
 }
