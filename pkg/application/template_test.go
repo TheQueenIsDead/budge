@@ -54,7 +54,7 @@ func TestRenderAccounts(t *testing.T) {
 
 	t.Run("shows the portfolio position", func(t *testing.T) {
 		assert.Contains(t, html, "Net Worth")
-		assert.Contains(t, html, "$-248,940.00") // 1100 - 250000 - 40
+		assert.Contains(t, html, "-$248,940.00") // 1100 - 250000 - 40
 		assert.Contains(t, html, "$1,100.00")    // Assets
 		assert.Contains(t, html, "Across 3 accounts")
 	})

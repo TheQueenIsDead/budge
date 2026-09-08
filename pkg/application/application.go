@@ -24,8 +24,12 @@ import (
 // live store.
 func templateFuncs() template.FuncMap {
 	return template.FuncMap{
+		// The sign belongs in front of the symbol: "-$40.51", not "$-40.51".
 		"fmtCurrency": func(number float64) string {
 			p := message.NewPrinter(language.English)
+			if number < 0 {
+				return p.Sprintf("-$%.2f", math.Abs(number))
+			}
 			return p.Sprintf("$%.2f", number)
 		},
 		// fmtCurrencyAbs drops the sign, for places where an adjacent label
