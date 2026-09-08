@@ -19,7 +19,7 @@
             {{ range .Types }}
                 <div class="col-12 col-md-4">
                     <a class="b-choice b-accent-{{ if eq .Key "house" }}sage{{ else if eq .Key "vehicle" }}clay{{ else }}slate{{ end }}"
-                       href="/portfolio/assets/new?type={{ .Key }}"
+                       href="/portfolio/new?type={{ .Key }}"
                        hx-boost="true" hx-target="#main">
                         <span class="b-chip"><i class="bi {{ .Icon }}"></i></span>
                         <span class="b-choice-body">
@@ -45,7 +45,7 @@
                         <p class="b-page-sub">{{ .Blurb }}</p>
                     </div>
                 </div>
-                <a href="/portfolio/assets/new" class="btn btn-sm btn-outline-secondary flex-shrink-0"
+                <a href="/portfolio/new" class="btn btn-sm btn-outline-secondary flex-shrink-0"
                    hx-boost="true" hx-target="#main" aria-label="Choose a different type">
                     <i class="bi bi-arrow-left"></i>
                 </a>
@@ -171,7 +171,7 @@
                         controller = new AbortController();
                         try {
                             const response = await fetch(
-                                "/portfolio/assets/address-suggest?q=" + encodeURIComponent(query),
+                                "/portfolio/address-suggest?q=" + encodeURIComponent(query),
                                 {signal: controller.signal}
                             );
                             if (!response.ok) {

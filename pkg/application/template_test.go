@@ -102,5 +102,5 @@ func TestRenderAccountsEmpty(t *testing.T) {
 	assert.NotContains(t, html, "b-stat-value")
 
 	// Adding an asset is still reachable with nothing connected.
-	assert.Contains(t, html, `href="/portfolio/assets/new"`)
+	assert.Contains(t, html, `href="/portfolio/new"`)
 }

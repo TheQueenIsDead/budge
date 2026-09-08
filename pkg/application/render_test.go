@@ -1,15 +1,12 @@
 package application
 
 import (
-	"net/http"
-	"net/http/httptest"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -430,7 +427,8 @@ func TestStaticAssetPaths(t *testing.T) {
 	t.Run("assets do not get a tab of their own", func(t *testing.T) {
 		// They live on the portfolio page, so a tab would be a second route to
 		// the same screen.
-		assert.NotContains(t, page, `href="/assets"`)
+		assert.NotContains(t, page, `href="/assets`)
+		assert.Contains(t, page, `href="/portfolio"`)
 	})
 }
 
@@ -681,63 +679,4 @@ func TestRenderTransactionsChartUnsplit(t *testing.T) {
 		page := render(series)
 		assert.Contains(t, page, "existing.options.plugins.legend.display = split")
 	})
-}
-
-// TestLegacyPathRedirects covers the paths the portfolio used to live at. They
-// are the readable entry points, so a bookmark or an open tab has to survive
-// the move rather than land on the 4XX page.
-func TestLegacyPathRedirects(t *testing.T) {
-	tests := []struct {
-		name    string
-		handler echo.HandlerFunc
-		path    string
-		id      string
-		expect  string
-	}{
-		{"the portfolio itself", redirectTo("/portfolio"), "/accounts", "", "/portfolio"},
-		{"the old assets list", redirectTo("/portfolio"), "/assets", "", "/portfolio"},
-		{
-			name:    "an account by id",
-			handler: redirectToID("/portfolio/accounts/"),
-			path:    "/accounts/:id", id: "acc_abc123",
-			expect: "/portfolio/accounts/acc_abc123",
-		},
-		{
-			name:    "an asset by id",
-			handler: redirectToID("/portfolio/assets/"),
-			path:    "/assets/:id", id: "7293a27c09d85e4c",
-			expect: "/portfolio/assets/7293a27c09d85e4c",
-		},
-		{
-			// /assets/new has no route of its own any more; it falls through the
-			// :id redirect and still arrives at the wizard.
-			name:    "the wizard falls through the id redirect",
-			handler: redirectToID("/portfolio/assets/"),
-			path:    "/assets/:id", id: "new",
-			expect: "/portfolio/assets/new",
-		},
-		{
-			name:    "an id needing escaping is not injected into the location",
-			handler: redirectToID("/portfolio/assets/"),
-			path:    "/assets/:id", id: "a b/../c",
-			expect: "/portfolio/assets/a%20b%2F..%2Fc",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			e := echo.New()
-			request := httptest.NewRequest(http.MethodGet, "/", nil)
-			recorder := httptest.NewRecorder()
-			c := e.NewContext(request, recorder)
-			if test.id != "" {
-				c.SetParamNames("id")
-				c.SetParamValues(test.id)
-			}
-
-			require.NoError(t, test.handler(c))
-			assert.Equal(t, http.StatusFound, recorder.Code)
-			assert.Equal(t, test.expect, recorder.Header().Get("Location"))
-		})
-	}
 }

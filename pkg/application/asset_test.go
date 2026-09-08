@@ -205,7 +205,7 @@ func TestRenderAccountsWithAssets(t *testing.T) {
 	})
 
 	t.Run("offers a way into the wizard rather than an inline form", func(t *testing.T) {
-		assert.Contains(t, page, `href="/portfolio/assets/new"`)
+		assert.Contains(t, page, `href="/portfolio/new"`)
 		assert.NotContains(t, page, `hx-post="/portfolio/assets"`)
 	})
 
@@ -293,7 +293,7 @@ func TestPortfolioSectionOrder(t *testing.T) {
 
 	t.Run("the add control sits with the assets it adds to", func(t *testing.T) {
 		// It lives in the assets card header, so above the account groups.
-		assert.Less(t, strings.Index(page, `href="/portfolio/assets/new"`), strings.Index(page, "Kiwibank"))
+		assert.Less(t, strings.Index(page, `href="/portfolio/new"`), strings.Index(page, "Kiwibank"))
 	})
 }
 
@@ -308,7 +308,7 @@ func TestRenderAssetWizard(t *testing.T) {
 		for _, assetType := range assetTypes {
 			assert.Contains(t, page, assetType.Label)
 			assert.Contains(t, page, assetType.Blurb)
-			assert.Contains(t, page, "/portfolio/assets/new?type="+assetType.Key)
+			assert.Contains(t, page, "/portfolio/new?type="+assetType.Key)
 		}
 		// Nothing is chosen yet, so there is nothing to submit.
 		assert.NotContains(t, page, `hx-post="/portfolio/assets"`)
@@ -365,7 +365,7 @@ func TestRenderAssetWizard(t *testing.T) {
 			Types: assetTypes, Selected: house, Chosen: true, Today: "2026-09-09",
 		})
 		// Back to the chooser from the form, and out to the portfolio from both.
-		assert.Contains(t, form, `href="/portfolio/assets/new"`)
+		assert.Contains(t, form, `href="/portfolio/new"`)
 		assert.Contains(t, form, `href="/portfolio"`)
 
 		chooser := renderTemplate(t, "asset_new", AssetNewProps{Types: assetTypes})
@@ -480,4 +480,29 @@ func TestParseAssetDateIsLocal(t *testing.T) {
 
 	assert.True(t, models.SameDay(parsed,
 		time.Date(2026, time.September, 9, 23, 0, 0, 0, time.Local)))
+}
+
+// TestWizardPathAvoidsTheIdSlot guards where the wizard lives. Under
+// /portfolio/assets/new it sat as a static sibling of /portfolio/assets/:id and
+// depended on the router preferring one over the other; a level up there is
+// nothing to resolve.
+func TestWizardPathAvoidsTheIdSlot(t *testing.T) {
+	chooser := renderTemplate(t, "asset_new", AssetNewProps{Types: assetTypes})
+
+	for _, assetType := range assetTypes {
+		assert.Contains(t, chooser, "/portfolio/new?type="+assetType.Key)
+	}
+	assert.NotContains(t, chooser, "/portfolio/assets/new")
+
+	house, ok := AssetTypeByKey("house")
+	require.True(t, ok)
+	form := renderTemplate(t, "asset_new", AssetNewProps{
+		Types: assetTypes, Selected: house, Chosen: true, Today: "2026-09-09",
+	})
+
+	// The supporting lookup moves with it, for the same reason.
+	assert.Contains(t, form, "/portfolio/address-suggest")
+	assert.NotContains(t, form, "/portfolio/assets/address-suggest")
+	// Creating still posts to the collection.
+	assert.Contains(t, form, `hx-post="/portfolio/assets"`)
 }
