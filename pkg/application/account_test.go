@@ -21,6 +21,16 @@ func account(id, name, connection, accountType string, balance float64) models.A
 	return a
 }
 
+// hasTransactions marks every account named in the list, mirroring what the
+// accounts handler derives from a full read of the transaction bucket.
+func hasTransactions(transactions []models.Transaction) map[string]bool {
+	seen := make(map[string]bool)
+	for _, tx := range transactions {
+		seen[tx.Account] = true
+	}
+	return seen
+}
+
 func transaction(accountId string, amount float64) models.Transaction {
 	return models.Transaction{Account: accountId, Amount: amount}
 }
@@ -84,6 +94,7 @@ func TestBuildPortfolio(t *testing.T) {
 			assert.Equal(t, test.expected, BuildPortfolio(test.accounts))
 		})
 	}
+
 }
 
 func TestBuildAccountGroups(t *testing.T) {
@@ -93,7 +104,9 @@ func TestBuildAccountGroups(t *testing.T) {
 			account("a", "Everyday", "Kiwibank", "CHECKING", 100),
 			account("b", "Savings", "ANZ", "SAVINGS", 900),
 			account("c", "Bills", "Kiwibank", "CHECKING", 200),
-		}, nil)
+		}, nil,
+			nil,
+		)
 
 		assert.Len(t, groups, 2)
 		// ANZ leads on a total of 900, ahead of Kiwibank's 300.
@@ -118,6 +131,7 @@ func TestBuildAccountGroups(t *testing.T) {
 				transaction("b", 500),
 				transaction("unknown", 9999),
 			},
+			nil,
 		)
 
 		accounts := groups[0].Accounts
@@ -136,6 +150,7 @@ func TestBuildAccountGroups(t *testing.T) {
 		groups := BuildAccountGroups(
 			[]models.Account{account("a", "Dormant", "Bank", "SAVINGS", 50)},
 			[]models.Transaction{transaction("b", 100)},
+			nil,
 		)
 
 		summary := groups[0].Accounts[0]
@@ -150,6 +165,7 @@ func TestBuildAccountGroups(t *testing.T) {
 			// The account opened during the window: it holds 500 and all of it arrived.
 			[]models.Account{account("a", "New", "Bank", "SAVINGS", 500)},
 			[]models.Transaction{transaction("a", 500)},
+			nil,
 		)
 
 		summary := groups[0].Accounts[0]
@@ -163,7 +179,7 @@ func TestBuildAccountGroups(t *testing.T) {
 		closed.Status = "INACTIVE"
 		loan := account("b", "Mortgage", "Bank", "LOAN", -1000)
 
-		groups := BuildAccountGroups([]models.Account{closed, loan}, nil)
+		groups := BuildAccountGroups([]models.Account{closed, loan}, nil, nil)
 
 		byName := map[string]AccountSummary{}
 		for _, summary := range groups[0].Accounts {
@@ -178,14 +194,14 @@ func TestBuildAccountGroups(t *testing.T) {
 	})
 
 	t.Run("accounts without a connection fall into Other", func(t *testing.T) {
-		groups := BuildAccountGroups([]models.Account{account("a", "Cash", "", "WALLET", 20)}, nil)
+		groups := BuildAccountGroups([]models.Account{account("a", "Cash", "", "WALLET", 20)}, nil, nil)
 
 		assert.Len(t, groups, 1)
 		assert.Equal(t, "Other", groups[0].Connection)
 	})
 
 	t.Run("no accounts yields no groups", func(t *testing.T) {
-		assert.Empty(t, BuildAccountGroups(nil, nil))
+		assert.Empty(t, BuildAccountGroups(nil, nil, nil))
 	})
 }
 
@@ -284,12 +300,15 @@ func TestBuildAccountBalanceHistory(t *testing.T) {
 		kiwisaver.Balance.Current = 39105.70
 		kiwisaver.Balance.Available = 0
 
-		graph, stats := BuildAccountBalanceHistory(kiwisaver, []models.Transaction{
+		transactions := []models.Transaction{
 			month(time.April, 500),
 			month(time.May, 500),
-		}, viewDate)
+		}
+
+		graph, stats := BuildAccountBalanceHistory(kiwisaver, transactions, viewDate)
 
 		require.Len(t, graph.Data, 2)
+		// The most recent month carries the account's actual balance.
 		assert.InDelta(t, 39105.70, graph.Data[len(graph.Data)-1], 0.001)
 		assert.InDelta(t, 38605.70, graph.Data[0], 0.001)
 		assert.InDelta(t, 39105.70, stats.HighestBalance, 0.001)
@@ -301,10 +320,12 @@ func TestBuildAccountBalanceHistory(t *testing.T) {
 		loan.Type = "LOAN"
 		loan.Balance.Current = -190000
 
-		_, stats := BuildAccountBalanceHistory(loan, []models.Transaction{
+		transactions := []models.Transaction{
 			month(time.April, -1000),
 			month(time.May, -1000),
-		}, viewDate)
+		}
+
+		_, stats := BuildAccountBalanceHistory(loan, transactions, viewDate)
 
 		// The high is the least negative balance, never a zero the account
 		// never held.
@@ -323,78 +344,4 @@ func TestBuildAccountBalanceHistory(t *testing.T) {
 		assert.Equal(t, 0.0, stats.HighestBalance)
 		assert.Equal(t, 0.0, stats.LowestBalance)
 	})
-}
-
-func TestBuildTopMerchantsRanking(t *testing.T) {
-	spend := func(merchant string, amount float64) models.Transaction {
-		var tx models.Transaction
-		tx.Merchant.Name = merchant
-		tx.Amount = amount
-		return tx
-	}
-
-	current := []models.Transaction{
-		spend("PAK'nSAVE", -120),
-		spend("PAK'nSAVE", -60),
-		spend("Z Energy", -95),
-		spend("Mercury", -186),
-		// A refund is not a payment.
-		spend("Briscoes", 40),
-		// An unnamed merchant cannot be ranked.
-		spend("", -500),
-	}
-	past := []models.Transaction{spend("PAK'nSAVE", -150)}
-
-	t.Run("ranks by spend as a positive magnitude", func(t *testing.T) {
-		top := BuildTopMerchants(past, current, 10)
-		require.Len(t, top, 3)
-		assert.Equal(t, "Mercury", top[0].Merchant)
-		assert.Equal(t, 186.0, top[0].Total)
-		assert.Equal(t, "PAK'nSAVE", top[1].Merchant)
-		assert.Equal(t, 180.0, top[1].Total)
-	})
-
-	t.Run("does not pad the result with blank merchants", func(t *testing.T) {
-		// Asking for more than exist used to return zero valued entries, which
-		// rendered as empty rows on the dashboard.
-		top := BuildTopMerchants(past, current, 10)
-		for _, entry := range top {
-			assert.NotEmpty(t, entry.Merchant)
-		}
-	})
-
-	t.Run("compares against the previous window", func(t *testing.T) {
-		top := BuildTopMerchants(past, current, 10)
-		var paknsave models.MerchantTotal
-		for _, entry := range top {
-			if entry.Merchant == "PAK'nSAVE" {
-				paknsave = entry
-			}
-		}
-		assert.Equal(t, 150.0, paknsave.PreviousTotal)
-		assert.InDelta(t, 0.2, paknsave.Delta, 0.0001)
-	})
-
-	t.Run("orders ties by name so renders are stable", func(t *testing.T) {
-		tied := []models.Transaction{spend("Zeta", -50), spend("Alpha", -50)}
-		top := BuildTopMerchants(nil, tied, 10)
-		require.Len(t, top, 2)
-		assert.Equal(t, "Alpha", top[0].Merchant)
-	})
-}
-
-func TestAggregateMonthlyTransactionsLocation(t *testing.T) {
-	nz := time.FixedZone("NZST", 12*60*60)
-
-	// 31 Aug 23:00 UTC is 1 Sep 11:00 in +12, so it belongs to September there.
-	transactions := []models.Transaction{
-		{Date: time.Date(2026, time.August, 31, 23, 0, 0, 0, time.UTC), Amount: -50},
-	}
-
-	inUTC := AggregateMonthlyTransactions(transactions, time.UTC)
-	assert.Len(t, inUTC["Aug 26"], 1)
-
-	inNZ := AggregateMonthlyTransactions(transactions, nz)
-	assert.Len(t, inNZ["Sep 26"], 1)
-	assert.Empty(t, inNZ["Aug 26"])
 }

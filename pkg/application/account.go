@@ -38,6 +38,12 @@ type AccountsPageProps struct {
 	PrevYear      int
 	NextYear      int
 	Date          time.Time
+
+	// HasData is whether the selected year holds anything to chart. The list
+	// does not link accounts that have no history at all, but a bookmark or a
+	// year with no activity can still land here, and an empty chart above six
+	// zeroed statistics reads as a broken page rather than an empty one.
+	HasData bool
 }
 
 // AccountSummary is a single account as it appears in the accounts list, annotated
@@ -45,12 +51,20 @@ type AccountsPageProps struct {
 type AccountSummary struct {
 	Account         models.Account
 	TypeLabel       string
+	Icon            string
 	IsActive        bool
 	IsLoan          bool
 	Change          float64 // Net balance movement over the window
 	PreviousBalance float64 // Balance at the start of the window
 	Delta           float64 // Change as a proportion of the previous balance
 	HasHistory      bool    // Whether any transactions fell within the window
+
+	// HasTransactions is whether the account has any transactions at all, which
+	// is a different question from HasHistory: an account can be quiet for the
+	// last thirty days and still have a year of balance history worth opening.
+	// Without any transactions the detail page has nothing to chart, so the row
+	// does not link anywhere.
+	HasTransactions bool
 }
 
 // AccountGroup collects every account held with a single connection.
@@ -85,6 +99,28 @@ var accountTypeLabels = map[string]string{
 	"FOREIGN":     "Foreign Currency",
 }
 
+// accountTypeIcons gives each account type a mark, so a list of balances can be
+// scanned by shape rather than read line by line.
+var accountTypeIcons = map[string]string{
+	"CHECKING":    "bi-wallet2",
+	"SAVINGS":     "bi-piggy-bank",
+	"LOAN":        "bi-house",
+	"CREDITCARD":  "bi-credit-card",
+	"TERMDEPOSIT": "bi-safe",
+	"KIWISAVER":   "bi-umbrella",
+	"FOREIGN":     "bi-currency-exchange",
+	"INVESTMENT":  "bi-graph-up-arrow",
+}
+
+// AccountTypeIcon returns the icon for an account type, falling back to a
+// generic one rather than rendering an empty box.
+func AccountTypeIcon(accountType string) string {
+	if icon, ok := accountTypeIcons[strings.ToUpper(accountType)]; ok {
+		return icon
+	}
+	return "bi-bank2"
+}
+
 // AccountTypeLabel renders a provider account type for display.
 func AccountTypeLabel(accountType string) string {
 	if accountType == "" {
@@ -111,13 +147,15 @@ func BuildPortfolio(accounts []models.Account) Portfolio {
 		}
 		portfolio.NetWorth += balance
 	}
+
 	return portfolio
 }
 
-// BuildAccountGroups arranges accounts under the connection that provides them,
-// annotating each with the balance movement implied by the supplied transactions.
-// Groups and the accounts within them are ordered by balance, largest first.
-func BuildAccountGroups(accounts []models.Account, transactions []models.Transaction) []AccountGroup {
+// BuildAccountGroups arranges accounts under their connection. transactions are
+// those inside the reporting window and drive the movement shown against each
+// balance; hasTransactions says which accounts have any history at all, which
+// decides whether a row is worth opening.
+func BuildAccountGroups(accounts []models.Account, transactions []models.Transaction, hasTransactions map[string]bool) []AccountGroup {
 
 	// Bucket the balance movement by account in a single pass, rather than reading
 	// transactions once per account.
@@ -136,12 +174,14 @@ func BuildAccountGroups(accounts []models.Account, transactions []models.Transac
 		}
 
 		summary := AccountSummary{
-			Account:    account,
-			TypeLabel:  AccountTypeLabel(account.Type),
-			IsActive:   account.Status == "" || strings.EqualFold(account.Status, "ACTIVE"),
-			IsLoan:     strings.EqualFold(account.Type, "LOAN"),
-			Change:     changes[account.Id],
-			HasHistory: seen[account.Id],
+			Account:         account,
+			TypeLabel:       AccountTypeLabel(account.Type),
+			Icon:            AccountTypeIcon(account.Type),
+			IsActive:        account.Status == "" || strings.EqualFold(account.Status, "ACTIVE"),
+			IsLoan:          strings.EqualFold(account.Type, "LOAN"),
+			Change:          changes[account.Id],
+			HasHistory:      seen[account.Id],
+			HasTransactions: hasTransactions[account.Id],
 		}
 		summary.PreviousBalance = account.Balance.Current - summary.Change
 		if summary.PreviousBalance != 0 {
@@ -204,16 +244,28 @@ func (app *Application) Accounts(c echo.Context) error {
 
 	// Transactions drive the per account movement shown alongside each balance. A
 	// failure here costs us the deltas but not the balances, so carry on without them.
-	transactions, err := app.store.ReadTransactionsByDate(time.Now().AddDate(0, 0, -30), time.Now())
+	// One read serves both questions: which accounts moved recently, and which have
+	// any history at all.
+	transactions, err := app.store.ReadTransactions()
 	if err != nil {
 		c.Logger().Error(err)
+	}
+
+	cutoff := time.Now().AddDate(0, 0, -30)
+	recent := make([]models.Transaction, 0, len(transactions))
+	hasTransactions := make(map[string]bool)
+	for _, tx := range transactions {
+		hasTransactions[tx.Account] = true
+		if tx.Date.After(cutoff) {
+			recent = append(recent, tx)
+		}
 	}
 
 	refreshed, hasRefreshed := OldestRefresh(accounts)
 
 	return c.Render(http.StatusOK, "accounts", AccountsListProps{
 		Portfolio:     BuildPortfolio(accounts),
-		Groups:        BuildAccountGroups(accounts, transactions),
+		Groups:        BuildAccountGroups(accounts, recent, hasTransactions),
 		LastRefreshed: refreshed,
 		HasRefreshed:  hasRefreshed,
 	})
@@ -251,6 +303,7 @@ func (app *Application) Account(c echo.Context) error {
 		Account:       account,
 		GraphData:     graphData,
 		Statistics:    statistics,
+		HasData:       len(graphData.Data) > 0,
 		Date:          viewDate,
 		IsCurrentYear: viewDate.Year() == time.Now().Year(),
 		PrevYear:      viewDate.AddDate(-1, 0, 0).Year(),

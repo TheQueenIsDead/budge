@@ -1,119 +1,188 @@
 {{ define "account" }}
-    <!-- Header Row -->
-    <div class="d-flex justify-content-between align-items-start mb-4">
-        <div>
-            <h2 class="fw-bold">{{ .Account.Name }}</h2>
-            <p class="text-muted">
-                <img class="rounded-circle" width="16" height="16" style="margin-top: -4px"
-                     src="{{.Account.Connection.Logo}}"/>
+
+    <div class="b-page-head d-flex align-items-start justify-content-between gap-3">
+        <div class="min-width-0">
+            <h2 class="text-truncate">{{ .Account.Name }}</h2>
+            <p class="b-page-sub">
+                <img class="rounded-circle account-logo" width="16" height="16"
+                     style="margin-top: -3px" src="{{ .Account.Connection.Logo }}"
+                     alt="{{ .Account.Connection.Name }}"/>
                 {{ .Account.Connection.Name }}
             </p>
         </div>
-        <a href="/accounts" class="btn btn-sm btn-outline-secondary">
-            <i class="bi bi-arrow-left fw-bold"></i>
+        <a href="/accounts" class="btn btn-sm btn-outline-secondary flex-shrink-0"
+           hx-boost="true" hx-target="#main" aria-label="Back to accounts">
+            <i class="bi bi-arrow-left"></i>
         </a>
     </div>
 
     <div id="account-details">
-        <div class="card border rounded-3 p-3 shadow-sm mb-3">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h4 class="fw-bold mb-0">Balance History</h4>
-                <div class="d-flex align-items-center">
-                    <a href="?year={{.PrevYear}}" class="btn btn-sm btn-outline-secondary">
-                        <i class="bi bi-arrow-bar-left"></i>
+
+        <div class="b-card b-card-pad mb-3 b-accent-slate">
+            <div class="b-card-head flex-wrap">
+                <div>
+                    <h3 class="b-card-title">Balance History</h3>
+                    <p class="b-card-sub">End of month balance across {{ .Date.Format "2006" }}</p>
+                </div>
+
+                <div class="d-flex align-items-center gap-1">
+                    <a href="?year={{ .PrevYear }}" class="btn btn-sm btn-outline-secondary"
+                       hx-boost="true" hx-target="#main" aria-label="Previous year">
+                        <i class="bi bi-chevron-left"></i>
                     </a>
-                    <a href="?" class="date-reset-link" title="Click to reset to current year">
-                        <span class="mx-3 fw-semibold">{{ .Date.Format "2006" }}</span>
+                    <a href="?" class="date-reset-link" title="Click to reset to current year"
+                       hx-boost="true" hx-target="#main">
+                        <span class="fw-semibold">{{ .Date.Format "2006" }}</span>
                     </a>
                     {{ if .IsCurrentYear }}
-                        <a class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true">
-                            <i class="bi bi-arrow-bar-right"></i>
-                        </a>
+                        <span class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true">
+                            <i class="bi bi-chevron-right"></i>
+                        </span>
                     {{ else }}
-                        <a href="?year={{.NextYear}}" class="btn btn-sm btn-outline-secondary">
-                            <i class="bi bi-arrow-bar-right fw-bold"></i>
+                        <a href="?year={{ .NextYear }}" class="btn btn-sm btn-outline-secondary"
+                           hx-boost="true" hx-target="#main" aria-label="Next year">
+                            <i class="bi bi-chevron-right"></i>
                         </a>
                     {{ end }}
                 </div>
             </div>
-            <canvas id="{{.Account.Id}}" style="max-height: 400px"></canvas>
+
+            {{ if .HasData }}
+                <!-- Fixed height, so the card does not resize while Chart.js measures
+                     its canvas and shove the statistics below it around. -->
+                <div class="b-chart b-chart-tall">
+                    <canvas id="{{ .Account.Id }}" hx-preserve="true"></canvas>
+                </div>
+            {{ else }}
+                <div class="b-empty">
+                    <i class="bi bi-calendar-x"></i>
+                    <h4>Nothing in {{ .Date.Format "2006" }}</h4>
+                    <p>This account has no transactions for the selected year.</p>
+                </div>
+            {{ end }}
         </div>
 
-        <!-- Chart.js Scripts -->
-        <script>
-            // Bar Chart
-            new Chart(document.getElementById("{{.Account.Id}}"), {
+        {{ if .HasData }}
+        <div class="row g-2 g-md-3">
+            <div class="col-6 col-lg-4">
+                <div class="b-stat b-accent-sage">
+                    <div class="b-stat-label"><span>Total Inflow</span><i class="bi bi-arrow-down-left"></i></div>
+                    <div class="b-stat-value text-success">{{ .Statistics.TotalInflow | fmtCurrency }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-4">
+                <div class="b-stat b-accent-brick">
+                    <div class="b-stat-label"><span>Total Outflow</span><i class="bi bi-arrow-up-right"></i></div>
+                    <div class="b-stat-value text-danger">{{ .Statistics.TotalOutflow | fmtCurrencyAbs }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-4">
+                <div class="b-stat b-accent-slate">
+                    <div class="b-stat-label"><span>Net Change</span><i class="bi bi-arrow-left-right"></i></div>
+                    <div class="b-stat-value {{ if gt .Statistics.NetChange 0.0 }}text-success{{ else if lt .Statistics.NetChange 0.0 }}text-danger{{ end }}">
+                        {{ .Statistics.NetChange | fmtCurrency }}
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-4">
+                <div class="b-stat b-accent-slate">
+                    <div class="b-stat-label"><span>Highest Balance</span><i class="bi bi-graph-up"></i></div>
+                    <div class="b-stat-value">{{ .Statistics.HighestBalance | fmtCurrency }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-4">
+                <div class="b-stat b-accent-slate">
+                    <div class="b-stat-label"><span>Lowest Balance</span><i class="bi bi-graph-down"></i></div>
+                    <div class="b-stat-value">{{ .Statistics.LowestBalance | fmtCurrency }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-4">
+                <div class="b-stat b-accent-slate">
+                    <div class="b-stat-label"><span>Average Balance</span><i class="bi bi-dash-lg"></i></div>
+                    <div class="b-stat-value">{{ .Statistics.AverageBalance | fmtCurrency }}</div>
+                </div>
+            </div>
+        </div>
+        {{ end }}
+    </div>
+
+    <script>
+        (function () {
+            // The year label doubles as a reset, so it says what it does on hover.
+            // Wired first, because the chart path below returns early when it only
+            // needs to update an existing chart.
+            const reset = document.querySelector('.date-reset-link');
+            if (reset) {
+                const label = reset.querySelector('span');
+                const year = label.textContent;
+                reset.addEventListener('mouseenter', () => label.textContent = 'Current');
+                reset.addEventListener('mouseleave', () => label.textContent = year);
+            }
+
+            const canvas = document.getElementById({{ .Account.Id }});
+            if (!canvas || typeof Chart === "undefined") {
+                return;
+            }
+            const labels = {{ .GraphData.Labels }};
+            const data = {{ .GraphData.Data }};
+
+            // hx-preserve keeps this canvas across the year navigation, so the
+            // chart on it is updated rather than torn down and redrawn, which
+            // blanks the card for a frame and reads as a flash.
+            const existing = Chart.getChart(canvas);
+            if (existing) {
+                existing.data.labels = labels;
+                existing.data.datasets[0].data = data;
+                existing.update("none");
+                return;
+            }
+
+            const ink = '#78858f';
+
+            new Chart(canvas, {
                 type: "bar",
                 data: {
-                    labels: {{.GraphData.Labels}},
+                    labels: labels,
                     datasets: [{
                         label: "Balance",
-                        data: {{.GraphData.Data}},
-                        backgroundColor: "#000"
+                        data: data,
+                        backgroundColor: "#3d6b8f",
+                        hoverBackgroundColor: "#315774",
+                        borderRadius: 6,
+                        maxBarThickness: 48
                     }]
                 },
                 options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
                     scales: {
                         y: {
-                            beginAtZero: false // Balance can be negative
+                            // A balance can legitimately be negative, so the axis
+                            // must not be pinned to zero.
+                            beginAtZero: false,
+                            border: {display: false},
+                            grid: {color: "#e6ecf0"},
+                            ticks: {color: ink, callback: v => "$" + v.toLocaleString()}
+                        },
+                        x: {
+                            border: {display: false},
+                            grid: {display: false},
+                            ticks: {color: ink, maxRotation: 0, autoSkipPadding: 8}
                         }
                     },
                     plugins: {
-                        legend: {display: false}
+                        legend: {display: false},
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => "$" + ctx.parsed.y.toLocaleString(undefined, {minimumFractionDigits: 2})
+                            }
+                        }
                     }
                 }
             });
 
-            const dateResetLink = document.querySelector('.date-reset-link');
-            const dateSpan = dateResetLink.querySelector('span');
-            const originalDate = dateSpan.textContent;
+        })();
+    </script>
 
-            dateResetLink.addEventListener('mouseenter', () => {
-                dateSpan.textContent = 'Current';
-            });
-
-            dateResetLink.addEventListener('mouseleave', () => {
-                dateSpan.textContent = originalDate;
-            });
-        </script>
-
-        <div class="row g-3">
-            <div class="col-md-4">
-                <div class="card border rounded-3 p-3 shadow-sm h-100">
-                    <div class="text-muted fw-semibold">Total Inflow</div>
-                    <div class="fs-4 fw-bold text-success">{{ .Statistics.TotalInflow | fmtCurrency }}</div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card border rounded-3 p-3 shadow-sm h-100">
-                    <div class="text-muted fw-semibold">Total Outflow</div>
-                    <div class="fs-4 fw-bold text-danger">{{ .Statistics.TotalOutflow | fmtCurrency }}</div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card border rounded-3 p-3 shadow-sm h-100">
-                    <div class="text-muted fw-semibold">Net Change</div>
-                    <div class="fs-4 fw-bold {{if gt .Statistics.NetChange 0.0}}text-success{{else}}text-danger{{end}}">{{ .Statistics.NetChange | fmtCurrency }}</div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card border rounded-3 p-3 shadow-sm h-100">
-                    <div class="text-muted fw-semibold">Highest Balance</div>
-                    <div class="fs-4 fw-bold">{{ .Statistics.HighestBalance | fmtCurrency }}</div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card border rounded-3 p-3 shadow-sm h-100">
-                    <div class="text-muted fw-semibold">Lowest Balance</div>
-                    <div class="fs-4 fw-bold">{{ .Statistics.LowestBalance | fmtCurrency }}</div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card border rounded-3 p-3 shadow-sm h-100">
-                    <div class="text-muted fw-semibold">Average Balance</div>
-                    <div class="fs-4 fw-bold">{{ .Statistics.AverageBalance | fmtCurrency }}</div>
-                </div>
-            </div>
-        </div>
-    </div>
 {{ end }}

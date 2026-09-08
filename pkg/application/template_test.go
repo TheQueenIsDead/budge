@@ -47,7 +47,7 @@ func TestRenderAccounts(t *testing.T) {
 	refreshed, hasRefreshed := OldestRefresh(accounts)
 	html := renderTemplate(t, "accounts", AccountsListProps{
 		Portfolio:     BuildPortfolio(accounts),
-		Groups:        BuildAccountGroups(accounts, transactions),
+		Groups:        BuildAccountGroups(accounts, transactions, hasTransactions(transactions)),
 		LastRefreshed: refreshed,
 		HasRefreshed:  hasRefreshed,
 	})
@@ -64,9 +64,12 @@ func TestRenderAccounts(t *testing.T) {
 		assert.Contains(t, html, "ANZ")
 	})
 
-	t.Run("links each account to its detail page", func(t *testing.T) {
+	t.Run("links only the accounts with something to show", func(t *testing.T) {
+		// Only the everyday account has transactions in this fixture, so it is
+		// the only row worth opening. The others would land on an empty chart.
 		assert.Contains(t, html, `href="/accounts/everyday"`)
-		assert.Contains(t, html, `href="/accounts/loan"`)
+		assert.NotContains(t, html, `href="/accounts/loan"`)
+		assert.Contains(t, html, "b-acct-static")
 	})
 
 	t.Run("surfaces loan repayment details", func(t *testing.T) {
@@ -89,9 +92,10 @@ func TestRenderAccounts(t *testing.T) {
 func TestRenderAccountsEmpty(t *testing.T) {
 	html := renderTemplate(t, "accounts", AccountsListProps{
 		Portfolio: BuildPortfolio(nil),
-		Groups:    BuildAccountGroups(nil, nil),
+		Groups:    BuildAccountGroups(nil, nil, nil),
 	})
 
 	assert.Contains(t, html, "No accounts yet")
-	assert.NotContains(t, html, "Net Worth")
+	// The portfolio tiles are only meaningful once something is connected.
+	assert.NotContains(t, html, "b-stat-value")
 }
