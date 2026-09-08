@@ -1,6 +1,7 @@
 package application
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -583,5 +584,98 @@ func TestRenderTransactionsChart(t *testing.T) {
 	t.Run("hides the card when there is no spend to show", func(t *testing.T) {
 		bare := render(TransactionSeries{})
 		assert.NotContains(t, bare, "Spend over time")
+	})
+}
+
+func TestTransactionSeriesCombined(t *testing.T) {
+	transactions := []models.Transaction{
+		spendTransaction("Supermarkets and grocery stores", "PAKnSAVE", -140, now),
+		spendTransaction("Fuel stations", "Z Energy", -90, now),
+		spendTransaction("Building supplies", "Bunnings", -240, now.AddDate(0, -1, 0)),
+	}
+
+	split := BuildTransactionSeries(transactions, 12, now)
+	combined := split.Combined()
+
+	t.Run("collapses every band into one", func(t *testing.T) {
+		require.Len(t, combined.Groups, 1)
+		assert.Equal(t, "Spend", combined.Groups[0].Label)
+		assert.False(t, combined.Split)
+	})
+
+	t.Run("keeps the monthly totals intact", func(t *testing.T) {
+		data := combined.Groups[0].Data
+		require.Len(t, data, 12)
+		assert.Equal(t, 230.0, data[11]) // 140 groceries + 90 petrol
+		assert.Equal(t, 240.0, data[10]) // the unclassified spend
+		assert.Equal(t, split.Total, combined.Total)
+	})
+
+	t.Run("leaves an empty series alone", func(t *testing.T) {
+		empty := BuildTransactionSeries(nil, 12, now).Combined()
+		assert.False(t, empty.HasData)
+		assert.Empty(t, empty.Groups)
+	})
+
+	t.Run("a split series says so", func(t *testing.T) {
+		assert.True(t, split.Split)
+		assert.Greater(t, len(split.Groups), 1)
+	})
+}
+
+func TestRenderTransactionsChartUnsplit(t *testing.T) {
+	transactions := []models.Transaction{
+		spendTransaction("Supermarkets and grocery stores", "PAKnSAVE", -140, now),
+		spendTransaction("Fuel stations", "Z Energy", -90, now),
+	}
+
+	render := func(series TransactionSeries) string {
+		return renderTemplate(t, "transactions", map[string]interface{}{
+			"accounts":  []models.Account{},
+			"days":      GroupTransactionsByDay(transactions, time.UTC),
+			"series":    series,
+			"search":    "",
+			"account":   "",
+			"took":      time.Millisecond,
+			"in":        0.0,
+			"out":       -230.0,
+			"total":     2,
+			"showing":   2,
+			"hasMore":   false,
+			"nextLimit": 200,
+		})
+	}
+
+	series := BuildTransactionSeries(transactions, 12, now)
+
+	// html/template pads values in a script context, so the rendered attribute
+	// is "display:  true". Match the legend block rather than a bare substring,
+	// which would otherwise collide with the grid and border options.
+	legendDisplay := func(page string) string {
+		match := regexp.MustCompile(`const split = \s*(true|false)`).FindStringSubmatch(page)
+		require.NotNil(t, match, "split flag not found")
+		return match[1]
+	}
+
+	t.Run("an unsplit chart drops the legend and the category wording", func(t *testing.T) {
+		page := render(series.Combined())
+		assert.Equal(t, "false", legendDisplay(page))
+		assert.NotContains(t, page, "by category")
+		// The total still stands, it is simply not broken up.
+		assert.Contains(t, page, "$230.00")
+	})
+
+	t.Run("a split chart keeps both", func(t *testing.T) {
+		page := render(series)
+		assert.Equal(t, "true", legendDisplay(page))
+		assert.Contains(t, page, "by category")
+	})
+
+	t.Run("an in-place update reapplies the legend setting", func(t *testing.T) {
+		// The canvas is preserved across a search, and update() replaces data
+		// but not options, so a chart first drawn unsplit would keep its legend
+		// hidden after a search turned the split on.
+		page := render(series)
+		assert.Contains(t, page, "existing.options.plugins.legend.display = split")
 	})
 }

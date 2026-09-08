@@ -152,11 +152,17 @@ func (app *Application) Transactions(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// Built from every match, not the page, so the chart describes the search
+	// rather than the hundred rows under it. The category split only earns its
+	// place once a search has narrowed the results to something coherent.
+	series := BuildTransactionSeries(transactions, transactionSeriesMonths, time.Now())
+	if search == "" {
+		series = series.Combined()
+	}
+
 	return c.Render(http.StatusOK, "transactions", map[string]interface{}{
-		"accounts": accounts,
-		// Built from every match, not the page, so the chart describes the
-		// search rather than the hundred rows under it.
-		"series":    BuildTransactionSeries(transactions, transactionSeriesMonths, time.Now()),
+		"accounts":  accounts,
+		"series":    series,
 		"days":      GroupTransactionsByDay(page, time.Now().Location()),
 		"search":    search,
 		"account":   account,
@@ -191,6 +197,11 @@ type TransactionSeries struct {
 	Labels  []string
 	Groups  []TransactionSeriesGroup
 	HasData bool
+
+	// Split is whether the bars are broken down by category. Without a search
+	// narrowing the results the breakdown is mostly the catch-all band, which
+	// reads as noise, so the whole set collapses to a single total instead.
+	Split bool
 
 	// Total is the spend the chart accounts for, which is less than the result
 	// set's outgoings whenever transfers were filtered out of it.
@@ -269,7 +280,37 @@ func BuildTransactionSeries(transactions []models.Transaction, months int, now t
 	}
 
 	series.HasData = len(series.Groups) > 0
+	series.Split = series.HasData
 	return series
+}
+
+// Combined folds every band into one total per month. It is what an unfiltered
+// list wants: across all spending the category split is dominated by whatever
+// carries no category, and a chart that is seven parts grey says less than a
+// plain bar does.
+func (s TransactionSeries) Combined() TransactionSeries {
+	if !s.HasData {
+		return s
+	}
+
+	totals := make([]float64, len(s.Labels))
+	for _, group := range s.Groups {
+		for i, value := range group.Data {
+			totals[i] += value
+		}
+	}
+
+	return TransactionSeries{
+		Labels:  s.Labels,
+		HasData: true,
+		Split:   false,
+		Total:   s.Total,
+		Groups: []TransactionSeriesGroup{{
+			Label:  "Spend",
+			Accent: "slate",
+			Data:   totals,
+		}},
+	}
 }
 
 // nonEmptyBand reports whether a band has any spend in it. A category that

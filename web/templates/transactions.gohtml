@@ -58,8 +58,8 @@
                 <div>
                     <h3 class="b-card-title">Spend over time</h3>
                     <p class="b-card-sub">
-                        Last 12 months of these results by category. Transfers and
-                        money in are left out.
+                        Last 12 months of these results{{ if .series.Split }} by category{{ end }}.
+                        Transfers and money in are left out.
                     </p>
                 </div>
                 <div class="text-end flex-shrink-0">
@@ -177,6 +177,7 @@
 
             const labels = {{ .series.Labels }};
             const bands = {{ .series.Groups }};
+            const split = {{ .series.Split }};
 
             const datasets = (bands || []).map(function (band) {
                 return {
@@ -195,6 +196,11 @@
             if (existing) {
                 existing.data.labels = labels;
                 existing.data.datasets = datasets;
+                // Options are not part of the data, so anything that varies with
+                // the search has to be reapplied. Searching turns the split on,
+                // and a preserved chart would otherwise keep the legend hidden
+                // from whichever state it was first drawn in.
+                existing.options.plugins.legend.display = split;
                 existing.update("none");
                 return;
             }
@@ -229,6 +235,8 @@
                     },
                     plugins: {
                         legend: {
+                            // One band needs no legend to explain itself.
+                            display: split,
                             position: "bottom",
                             labels: {
                                 color: window.budge.ink,
