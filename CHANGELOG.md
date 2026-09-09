@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.15.0](https://github.com/TheQueenIsDead/budge/compare/v1.14.1...v1.15.0) (2026-09-09)
+
+
+### Features
+
+* **assets:** add an asset through a typed wizard ([8c5ff34](https://github.com/TheQueenIsDead/budge/commit/8c5ff344a848a2c825d64c907960c40ec5c527c6))
+* **notifications:** record background failures behind a bell ([503f937](https://github.com/TheQueenIsDead/budge/commit/503f93766cb77f96ef96bdff7967c0534001ebd5))
+* **schedule:** sync accounts and property estimates on a timer ([110fbf9](https://github.com/TheQueenIsDead/budge/commit/110fbf9cbaa040cdb91105052b733e21d877e6be))
+* **settings:** show the next scheduled run, and restyle the page ([f3a73dc](https://github.com/TheQueenIsDead/budge/commit/f3a73dcfc83c9c2cf0e370c5a6c85a33506a1c41))
+* **transactions:** chart spend over time for the current results ([ed2c259](https://github.com/TheQueenIsDead/budge/commit/ed2c2598b96fe334669509a6832f97185111ca80))
+* **transactions:** only split the chart by category when searching ([98aae8f](https://github.com/TheQueenIsDead/budge/commit/98aae8f2c0c57f7eb88111155f683ba14aaa2353))
+
+
+### Bug Fixes
+
+* **assets:** collapse every same-day valuation, not just the first ([af2069f](https://github.com/TheQueenIsDead/budge/commit/af2069f66c10f1eb9bea75904e8268a39dbd32f8))
+* **assets:** keep one valuation per day ([7b091bd](https://github.com/TheQueenIsDead/budge/commit/7b091bd71c94a3ca9eb949d4fe743956dd98edb6))
+* **dashboard:** emphasise the sparkline bar the headline figure refers to ([a44d1e2](https://github.com/TheQueenIsDead/budge/commit/a44d1e23584c589c8bde466e53345a456d9efee6))
+
 ## [1.14.1](https://github.com/TheQueenIsDead/budge/compare/v1.14.0...v1.14.1) (2026-09-08)
 
 
