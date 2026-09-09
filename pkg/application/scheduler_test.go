@@ -1,6 +1,7 @@
 package application
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -139,4 +140,72 @@ func TestSchedulerStartStop(t *testing.T) {
 	// runs whether or not Start did.
 	s := &scheduler{}
 	require.NotPanics(t, func() { s.stop() })
+}
+
+func TestRenderSettingsPage(t *testing.T) {
+	var account models.Account
+	account.Name = "Main Account"
+	account.Type = "CHECKING"
+	account.FormattedAccount = "38-9022-0224639-00"
+	account.Connection.Name = "Kiwibank"
+	account.Balance.Current = 79.80
+
+	page := renderTemplate(t, "settings", map[string]interface{}{
+		"accounts":       []models.Account{account},
+		"akahuAppToken":  "app_token",
+		"akahuUserToken": "user_token",
+		"akahuLastSync":  time.Now().Add(-2 * time.Hour),
+		"schedule": buildScheduleView(models.ScheduleSettings{
+			AkahuEnabled: true, AkahuInterval: "6h", AkahuLastRun: time.Now().Add(-time.Hour),
+		}),
+	})
+
+	t.Run("uses the shared component language", func(t *testing.T) {
+		for _, class := range []string{"b-page-head", "b-card", "b-card-title", "b-conn", "b-acct", "b-field-label"} {
+			assert.Contains(t, page, class)
+		}
+	})
+
+	t.Run("nothing is left on the old bootstrap card shape", func(t *testing.T) {
+		assert.NotContains(t, page, "card border rounded-3")
+	})
+
+	t.Run("keeps every control the page depends on", func(t *testing.T) {
+		// These ids and names are wired to hyperscript toggles, htmx swap
+		// targets and form handlers; restyling must not disturb them.
+		for _, hook := range []string{
+			`id="akahuAppToken"`, `name="akahuAppToken"`,
+			`id="akahuUserToken"`, `name="akahuUserToken"`,
+			`id="toggleAppToken"`, `id="toggleUserToken"`,
+			`id="last-sync"`, `id="spinner"`, `id="schedule"`, `id="accounts"`, `id="danger"`,
+			`hx-post="/integrations/akahu/sync"`, `hx-post="/integrations/akahu/save"`,
+			`hx-post="/settings/danger/remove/synced"`, `hx-target="#last-sync"`,
+		} {
+			assert.Contains(t, page, hook, "settings lost a hook the page relies on")
+		}
+	})
+
+	t.Run("shows the accounts it has connected", func(t *testing.T) {
+		assert.Contains(t, page, "Main Account")
+		assert.Contains(t, page, "Kiwibank")
+		assert.Contains(t, page, "$79.80")
+	})
+
+	t.Run("shows when the next run is due", func(t *testing.T) {
+		assert.Contains(t, page, "Next in ")
+		// The old wording left an empty suffix and read as "6 days ." Scoped to
+		// the schedule note, since inline CSS legitimately contains " .".
+		note := page[strings.Index(page, "Next in "):]
+		note = note[:strings.Index(note, "</div>")]
+		assert.NotContains(t, note, " .")
+	})
+
+	t.Run("says nothing is connected when nothing is", func(t *testing.T) {
+		bare := renderTemplate(t, "settings", map[string]interface{}{
+			"accounts":      []models.Account{},
+			"akahuLastSync": time.Time{},
+			"schedule":      buildScheduleView(models.ScheduleSettings{}),
+		})
+		assert.Contains(t, bare, "Nothing connected")
+	})
 }

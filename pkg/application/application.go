@@ -54,6 +54,14 @@ func templateFuncs() template.FuncMap {
 		"fmtRelative": func(date time.Time) string {
 			return humanize.RelTime(date, time.Now(), "ago", "")
 		},
+		// fmtUntil words a time ahead of now. fmtRelative leaves an empty suffix
+		// for future dates, which reads as "6 days ." in the middle of a sentence.
+		"fmtUntil": func(date time.Time) string {
+			if !date.After(time.Now()) {
+				return "shortly"
+			}
+			return "in " + strings.TrimSpace(humanize.RelTime(time.Now(), date, "", ""))
+		},
 		"fmtLower": func(text string) string {
 			return strings.ToLower(text)
 		},

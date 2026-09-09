@@ -1143,6 +1143,18 @@ a.b-acct:focus-visible {
     border-color: var(--b-primary);
 }
 
+.btn-outline-danger {
+    border-color: var(--b-negative);
+    color: var(--b-negative);
+}
+
+.btn-outline-danger:hover,
+.btn-outline-danger:focus {
+    background-color: var(--b-negative);
+    border-color: var(--b-negative);
+    color: #fff;
+}
+
 /* ==========================================================================
    Badges
    ========================================================================== */
