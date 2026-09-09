@@ -16,20 +16,18 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
-// The sources an estimate can come from.
-const (
-	SourceHomes   = "homes.co.nz"
-	SourceOneRoof = "OneRoof"
-)
+// SourceHomes is where an estimate comes from. There is one source: OneRoof
+// gates its search behind a request signature, and reading the figure off their
+// public page meant a URL stored per property and a scrape that broke whenever
+// they restyled it. Not worth the upkeep for a second opinion.
+const SourceHomes = "homes.co.nz"
 
-// browserUserAgent is sent because both endpoints refuse an empty user agent.
+// browserUserAgent is sent because the endpoint refuses an empty user agent.
 const browserUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
 
 // Suggestion is one address match, enough to fill a form and identify a place.
@@ -229,58 +227,6 @@ func (c *Client) HomesEstimate(ctx context.Context, propertyID string) (Estimate
 	return Estimate{Source: SourceHomes, Value: value}, nil
 }
 
-// oneRoofEstimatePattern pulls the figure out of the server rendered page.
-// OneRoof publishes no usable API for this - their search endpoint demands a
-// request signature - but the property page itself is public, and the estimate
-// is rendered into its markup. Reading it will break whenever they restyle that
-// panel; the failure mode is "no estimate from this source", which the average
-// tolerates.
-var oneRoofEstimatePattern = regexp.MustCompile(`OneRoof Estimate.{0,600}?>\s*(\$[0-9][0-9.,]*[KkMm]?)\s*<`)
-
-// oneRoofHost is the only host an asset's stored URL is allowed to point at.
-// The URL comes from user input and is fetched server side, so without this a
-// saved asset could aim the application at anything reachable from the host.
-const oneRoofHost = "www.oneroof.co.nz"
-
-// ValidOneRoofURL reports whether a URL is a OneRoof property page.
-func ValidOneRoofURL(raw string) bool {
-	parsed, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil {
-		return false
-	}
-	return parsed.Scheme == "https" &&
-		parsed.Host == oneRoofHost &&
-		strings.HasPrefix(parsed.Path, "/property/")
-}
-
-// OneRoofEstimate scrapes the estimate off a OneRoof property page. The page URL
-// is stored against the asset rather than looked up, because their search API is
-// signature gated and the page is not.
-func (c *Client) OneRoofEstimate(ctx context.Context, pageURL string) (Estimate, error) {
-	if pageURL == "" {
-		return Estimate{}, errors.New("a OneRoof property URL is required")
-	}
-	if !ValidOneRoofURL(pageURL) {
-		return Estimate{}, errors.New("not a OneRoof property URL")
-	}
-
-	page, err := c.get(ctx, pageURL)
-	if err != nil {
-		return Estimate{}, err
-	}
-
-	match := oneRoofEstimatePattern.FindSubmatch(page)
-	if match == nil {
-		return Estimate{}, errors.New("oneroof published no estimate on that page")
-	}
-
-	value, ok := parseShortValue(string(match[1]))
-	if !ok {
-		return Estimate{}, errors.New("oneroof estimate could not be read")
-	}
-	return Estimate{Source: SourceOneRoof, Value: value}, nil
-}
-
 // EstimateResult is the averaged view across every source that answered.
 type EstimateResult struct {
 	Average   float64    `json:"average"`
@@ -292,56 +238,27 @@ type EstimateResult struct {
 	Failed []string `json:"failed"`
 }
 
-// Estimate asks every configured source at once and averages what comes back.
-// A source being unconfigured or unreachable is expected rather than
-// exceptional, so it narrows the average instead of failing the lookup.
-func (c *Client) Estimate(ctx context.Context, homesPropertyID, oneRoofURL string) EstimateResult {
-	type outcome struct {
-		estimate Estimate
-		err      error
-		source   string
-	}
-
-	results := make(chan outcome, 2)
-	var wg sync.WaitGroup
-
-	if homesPropertyID != "" {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			estimate, err := c.HomesEstimate(ctx, homesPropertyID)
-			results <- outcome{estimate, err, SourceHomes}
-		}()
-	}
-
-	if oneRoofURL != "" {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			estimate, err := c.OneRoofEstimate(ctx, oneRoofURL)
-			results <- outcome{estimate, err, SourceOneRoof}
-		}()
-	}
-
-	wg.Wait()
-	close(results)
-
+// Estimate asks every configured source and averages what comes back. A source
+// being unconfigured or unreachable is expected rather than exceptional, so it
+// narrows the average instead of failing the lookup.
+//
+// There is one source today. The shape is kept because averaging is the point:
+// a single opinion on what a house is worth is worth less than two, and adding
+// another should not mean reworking every caller.
+func (c *Client) Estimate(ctx context.Context, homesPropertyID string) EstimateResult {
 	var result EstimateResult
-	for got := range results {
-		if got.err != nil || got.estimate.Value <= 0 {
-			result.Failed = append(result.Failed, got.source)
-			continue
-		}
-		result.Estimates = append(result.Estimates, got.estimate)
+
+	if homesPropertyID == "" {
+		return result
 	}
 
-	// Sources answer in whatever order they finish, so order them by name to
-	// keep the rendered list stable between lookups.
-	sort.Slice(result.Estimates, func(i, j int) bool {
-		return result.Estimates[i].Source < result.Estimates[j].Source
-	})
-	sort.Strings(result.Failed)
+	estimate, err := c.HomesEstimate(ctx, homesPropertyID)
+	if err != nil || estimate.Value <= 0 {
+		result.Failed = append(result.Failed, SourceHomes)
+		return result
+	}
 
+	result.Estimates = append(result.Estimates, estimate)
 	result.Average = Average(result.Estimates)
 	return result
 }

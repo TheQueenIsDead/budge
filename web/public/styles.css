@@ -1207,9 +1207,29 @@ a.b-acct:focus-visible {
    Buttons
    ========================================================================== */
 
+/* Buttons lay out as a row, so an icon and its label sit on the same centre line
+   rather than on the text baseline, and the gap between them needs no margin
+   utility at each call site. */
 .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
     border-radius: var(--b-radius-sm);
     font-weight: 600;
+}
+
+/* A refresh icon doubles as its own loading indicator while the request it
+   started is in flight. A separate indicator element hides with opacity, which
+   means it holds its space and leaves a gap in the button when idle. */
+.btn.htmx-request .bi-arrow-repeat {
+    animation: b-spin 0.8s linear infinite;
+}
+
+@keyframes b-spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .btn-primary {

@@ -34,12 +34,10 @@ type AssetType struct {
 	DetailLabel       string
 	DetailPlaceholder string
 
-	// AddressLookup offers NZ address autocomplete on the name field and
-	// captures the homes.co.nz property id behind the chosen address.
+	// AddressLookup offers NZ address autocomplete on the name field and captures
+	// the homes.co.nz property id behind the chosen address, which is what makes
+	// the asset trackable. Only property has one.
 	AddressLookup bool
-
-	// ValuationSources asks for a OneRoof page. Only property has one.
-	ValuationSources bool
 }
 
 // assetTypes are the kinds of asset the wizard offers.
@@ -54,7 +52,6 @@ var assetTypes = []AssetType{
 		DetailLabel:       "Note",
 		DetailPlaceholder: "Optional, e.g. rental",
 		AddressLookup:     true,
-		ValuationSources:  true,
 	},
 	{
 		Key:               "vehicle",
@@ -221,17 +218,29 @@ func BuildAssetSeries(asset models.Asset) AssetSeries {
 	return series
 }
 
-// parseAssetDate reads a date from the form, falling back to today. The input is
-// a native date field, so anything unparseable means the field was left empty.
+// parseAssetDate reads a date from the form, falling back to today. A date is
+// read in local time because it is a calendar date the owner picked, not an
+// instant: parsed as UTC it lands on the wrong side of midnight.
 func parseAssetDate(raw string) time.Time {
-	if raw == "" {
-		return time.Now()
-	}
-	parsed, err := time.ParseInLocation("2006-01-02", raw, time.Local)
-	if err != nil {
+	parsed, ok := readAssetDate(raw)
+	if !ok {
 		return time.Now()
 	}
 	return parsed
+}
+
+// readAssetDate reports whether a date was supplied and could be read, for the
+// fields where absence is an error rather than a default.
+func readAssetDate(raw string) (time.Time, bool) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}, false
+	}
+	parsed, err := time.ParseInLocation("2006-01-02", raw, time.Local)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return parsed, true
 }
 
 func parseAssetAmount(raw string) float64 {
@@ -272,6 +281,22 @@ func (app *Application) AssetCreate(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "name is required")
 	}
 
+	// What was paid and when are both required. They are the first point on the
+	// value curve and the thing every gain is measured against: without them an
+	// asset shows a meaningless percentage against zero, and its chart starts
+	// wherever the first valuation happens to land.
+	price := parseAssetAmount(c.FormValue("purchase_price"))
+	if price <= 0 {
+		app.Toast(c, "Error", "Enter what you paid for it.")
+		return echo.NewHTTPError(http.StatusBadRequest, "a purchase price is required")
+	}
+
+	purchased, ok := readAssetDate(c.FormValue("purchase_date"))
+	if !ok {
+		app.Toast(c, "Error", "Enter when you bought it.")
+		return echo.NewHTTPError(http.StatusBadRequest, "a purchase date is required")
+	}
+
 	assetType := c.FormValue("type")
 	if _, ok := AssetTypeByKey(assetType); !ok {
 		assetType = "other"
@@ -282,17 +307,11 @@ func (app *Application) AssetCreate(c echo.Context) error {
 		Name:          name,
 		Type:          assetType,
 		Description:   strings.TrimSpace(c.FormValue("description")),
-		PurchasePrice: parseAssetAmount(c.FormValue("purchase_price")),
-		PurchaseDate:  parseAssetDate(c.FormValue("purchase_date")),
+		PurchasePrice: price,
+		PurchaseDate:  purchased,
 		CreatedAt:     time.Now(),
 
 		HomesPropertyID: strings.TrimSpace(c.FormValue("homes_property_id")),
-	}
-
-	// A URL that is not a OneRoof property page is dropped rather than stored:
-	// it is fetched server side later, so it must not point anywhere else.
-	if raw := strings.TrimSpace(c.FormValue("oneroof_url")); property.ValidOneRoofURL(raw) {
-		asset.OneRoofURL = raw
 	}
 
 	if err := app.store.CreateAsset(asset); err != nil {
@@ -398,11 +417,11 @@ func (app *Application) AssetRefreshEstimate(c echo.Context) error {
 	}
 
 	if !asset.Trackable() {
-		app.Toast(c, "Error", "Add an address or a OneRoof link to this asset first.")
+		app.Toast(c, "Error", "Pick this asset's address first so it can be looked up.")
 		return echo.NewHTTPError(http.StatusBadRequest, "no valuation source configured")
 	}
 
-	result := property.New().Estimate(c.Request().Context(), asset.HomesPropertyID, asset.OneRoofURL)
+	result := property.New().Estimate(c.Request().Context(), asset.HomesPropertyID)
 	if len(result.Estimates) == 0 {
 		app.Toast(c, "Error", "No source returned an estimate. Enter one by hand instead.")
 		return app.Asset(c)

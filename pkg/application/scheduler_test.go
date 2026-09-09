@@ -54,7 +54,7 @@ func TestScheduleIntervals(t *testing.T) {
 }
 
 func TestDescribeMove(t *testing.T) {
-	sources := []string{"OneRoof $575K", "homes.co.nz $550K"}
+	sources := []string{"homes.co.nz $550K"}
 
 	t.Run("a rise reads as a gain", func(t *testing.T) {
 		got := describeMove(550000, 562500, sources)
@@ -63,7 +63,7 @@ func TestDescribeMove(t *testing.T) {
 		assert.Contains(t, got, "up $12.5K")
 		assert.Contains(t, got, "from $550K")
 		assert.Contains(t, got, "to $562.5K")
-		assert.Contains(t, got, "OneRoof $575K · homes.co.nz $550K")
+		assert.Contains(t, got, "homes.co.nz $550K")
 	})
 
 	t.Run("a fall reads as a fall", func(t *testing.T) {
@@ -177,7 +177,7 @@ func TestRenderSettingsPage(t *testing.T) {
 			`id="akahuAppToken"`, `name="akahuAppToken"`,
 			`id="akahuUserToken"`, `name="akahuUserToken"`,
 			`id="toggleAppToken"`, `id="toggleUserToken"`,
-			`id="last-sync"`, `id="spinner"`, `id="schedule"`, `id="accounts"`, `id="danger"`,
+			`id="last-sync"`, `id="schedule"`, `id="accounts"`, `id="danger"`,
 			`hx-post="/integrations/akahu/sync"`, `hx-post="/integrations/akahu/save"`,
 			`hx-post="/settings/danger/remove/synced"`, `hx-target="#last-sync"`,
 		} {

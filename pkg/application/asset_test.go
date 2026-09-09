@@ -1,6 +1,7 @@
 package application
 
 import (
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -314,7 +315,7 @@ func TestRenderAssetWizard(t *testing.T) {
 		assert.NotContains(t, page, `hx-post="/portfolio/assets"`)
 	})
 
-	t.Run("a house is asked for an address and its valuation sources", func(t *testing.T) {
+	t.Run("a house is asked for an address", func(t *testing.T) {
 		house, ok := AssetTypeByKey("house")
 		require.True(t, ok)
 
@@ -327,7 +328,6 @@ func TestRenderAssetWizard(t *testing.T) {
 		assert.Contains(t, page, "Address")
 		assert.Contains(t, page, "asset-suggestions")
 		assert.Contains(t, page, "homes_property_id")
-		assert.Contains(t, page, "oneroof_url")
 	})
 
 	t.Run("a vehicle is not asked for things only property has", func(t *testing.T) {
@@ -340,9 +340,8 @@ func TestRenderAssetWizard(t *testing.T) {
 
 		assert.Contains(t, page, "2018 Toyota Hilux")
 		assert.Contains(t, page, "Registration")
-		// An address lookup and a OneRoof page are meaningless for a car.
+		// An address lookup is meaningless for a car.
 		assert.NotContains(t, page, "asset-suggestions")
-		assert.NotContains(t, page, "oneroof_url")
 		assert.NotContains(t, page, "homes_property_id")
 	})
 
@@ -356,7 +355,6 @@ func TestRenderAssetWizard(t *testing.T) {
 
 		assert.Contains(t, page, "Wedding ring")
 		assert.NotContains(t, page, "asset-suggestions")
-		assert.NotContains(t, page, "oneroof_url")
 	})
 
 	t.Run("every step offers a way back", func(t *testing.T) {
@@ -422,12 +420,12 @@ func TestUpsertValuation(t *testing.T) {
 		}
 
 		got := models.UpsertValuation(held, models.AssetValuation{
-			ID: "b", Date: evening, Value: 562500, Note: "OneRoof $575K · homes.co.nz $550K",
+			ID: "b", Date: evening, Value: 562500, Note: "homes.co.nz $562.5K",
 		})
 
 		require.Len(t, got, 1)
 		assert.Equal(t, 562500.0, got[0].Value, "the later reading wins")
-		assert.Equal(t, "OneRoof $575K · homes.co.nz $550K", got[0].Note)
+		assert.Equal(t, "homes.co.nz $562.5K", got[0].Note)
 	})
 
 	t.Run("a reading on a new day is appended", func(t *testing.T) {
@@ -525,4 +523,145 @@ func TestWizardPathAvoidsTheIdSlot(t *testing.T) {
 	assert.NotContains(t, form, "/portfolio/assets/address-suggest")
 	// Creating still posts to the collection.
 	assert.Contains(t, form, `hx-post="/portfolio/assets"`)
+}
+
+func TestReadAssetDate(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		ok   bool
+	}{
+		{"an ISO date", "2024-07-19", true},
+		{"padded", "  2024-07-19  ", true},
+		{"empty is absent, not today", "", false},
+		{"unparseable is absent", "19/07/2024", false},
+		{"nonsense is absent", "banana", false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, ok := readAssetDate(test.raw)
+			assert.Equal(t, test.ok, ok)
+			if test.ok {
+				assert.Equal(t, "2024-07-19", got.Format("2006-01-02"))
+				assert.Equal(t, time.Local, got.Location())
+			}
+		})
+	}
+
+	t.Run("the lenient reader still defaults for optional fields", func(t *testing.T) {
+		// Valuation dates may be left blank and mean today; a purchase date may not.
+		assert.Equal(t, time.Now().Format("2006-01-02"), parseAssetDate("").Format("2006-01-02"))
+	})
+}
+
+// TestAssetCreateRequiresPurchaseDetails covers the validation behind the form's
+// required attributes. A browser blocks the submit, but the handler is the guard
+// that actually holds.
+func TestAssetCreateRequiresPurchaseDetails(t *testing.T) {
+	tests := []struct {
+		name  string
+		form  url.Values
+		valid bool
+	}{
+		{
+			name: "complete",
+			form: url.Values{
+				"name": {"12 Bealey Ave"}, "type": {"house"},
+				"purchase_price": {"620000"}, "purchase_date": {"2020-03-01"},
+			},
+			valid: true,
+		},
+		{
+			name:  "no name",
+			form:  url.Values{"purchase_price": {"620000"}, "purchase_date": {"2020-03-01"}},
+			valid: false,
+		},
+		{
+			name:  "no price",
+			form:  url.Values{"name": {"House"}, "purchase_date": {"2020-03-01"}},
+			valid: false,
+		},
+		{
+			// A zero purchase makes every gain percentage meaningless: it was
+			// what produced a +1,783% on a real asset.
+			name: "a zero price",
+			form: url.Values{
+				"name": {"House"}, "purchase_price": {"0"}, "purchase_date": {"2020-03-01"},
+			},
+			valid: false,
+		},
+		{
+			name: "an unreadable price",
+			form: url.Values{
+				"name": {"House"}, "purchase_price": {"lots"}, "purchase_date": {"2020-03-01"},
+			},
+			valid: false,
+		},
+		{
+			name:  "no date",
+			form:  url.Values{"name": {"House"}, "purchase_price": {"620000"}},
+			valid: false,
+		},
+		{
+			name: "an unreadable date",
+			form: url.Values{
+				"name": {"House"}, "purchase_price": {"620000"}, "purchase_date": {"01/03/2020"},
+			},
+			valid: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Only the validation is exercised: everything past it needs a store.
+			name := strings.TrimSpace(test.form.Get("name"))
+			price := parseAssetAmount(test.form.Get("purchase_price"))
+			_, dateOK := readAssetDate(test.form.Get("purchase_date"))
+
+			accepted := name != "" && price > 0 && dateOK
+			assert.Equal(t, test.valid, accepted)
+		})
+	}
+}
+
+func TestAssetTrackability(t *testing.T) {
+	t.Run("only a house offers an address lookup", func(t *testing.T) {
+		for _, assetType := range assetTypes {
+			if assetType.Key == "house" {
+				assert.True(t, assetType.AddressLookup)
+				continue
+			}
+			assert.False(t, assetType.AddressLookup, assetType.Key+" cannot be looked up by address")
+		}
+	})
+
+	t.Run("an asset is trackable on its homes id alone", func(t *testing.T) {
+		var asset models.Asset
+		assert.False(t, asset.Trackable())
+		asset.HomesPropertyID = "836e7d89"
+		assert.True(t, asset.Trackable())
+	})
+}
+
+// TestFetchEstimateButton covers the button's own loading state. A separate
+// indicator element hides with opacity, so it held its space and left a gap in
+// the button whether or not anything was loading.
+func TestFetchEstimateButton(t *testing.T) {
+	bought := time.Date(2020, time.March, 1, 0, 0, 0, 0, time.UTC)
+	asset := house(620000, bought)
+	asset.HomesPropertyID = "836e7d89"
+
+	page := renderTemplate(t, "asset", AssetPageProps{
+		Summary: BuildAssetSummary(asset),
+		Series:  BuildAssetSeries(asset),
+		Types:   assetTypes,
+		Today:   "2026-09-09",
+	})
+
+	assert.Contains(t, page, "bi-arrow-repeat", "the icon is the indicator")
+	assert.NotContains(t, page, "estimate-spinner")
+	assert.NotContains(t, page, "spinner-border")
+	// Disabling while in flight is what stops a double press.
+	assert.Contains(t, page, `hx-disabled-elt="this"`)
 }

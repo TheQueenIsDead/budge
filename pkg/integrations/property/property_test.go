@@ -18,7 +18,8 @@ func TestAverage(t *testing.T) {
 	}{
 		{"no sources answered", nil, 0},
 		{"one source", []Estimate{{"homes", 900000}}, 900000},
-		{"two sources are averaged", []Estimate{{"homes", 900000}, {"oneroof", 940000}}, 920000},
+		// Averaging is still the shape, even with one source configured today.
+		{"two sources are averaged", []Estimate{{"homes", 900000}, {"other", 940000}}, 920000},
 	}
 
 	for _, test := range tests {
@@ -126,63 +127,12 @@ func TestParseShortValue(t *testing.T) {
 	}
 }
 
-// TestValidOneRoofURL guards a server side fetch of a user supplied URL. Without
-// the host check a saved asset could aim the application at anything reachable.
-func TestValidOneRoofURL(t *testing.T) {
-	tests := []struct {
-		name  string
-		url   string
-		valid bool
-	}{
-		{"a property page", "https://www.oneroof.co.nz/property/canterbury/burwood/2-42-bassett-street/bunUw", true},
-		{"another host", "https://evil.example.com/property/x", false},
-		{"host as a prefix only", "https://www.oneroof.co.nz.evil.com/property/x", false},
-		{"plain http", "http://www.oneroof.co.nz/property/x", false},
-		{"not a property path", "https://www.oneroof.co.nz/estimate/map/x", false},
-		{"internal address", "https://127.0.0.1/property/x", false},
-		{"empty", "", false},
-		{"nonsense", "://", false},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.valid, ValidOneRoofURL(test.url))
-		})
-	}
-}
-
 func TestEstimateAveraging(t *testing.T) {
-	t.Run("skips sources that are not configured", func(t *testing.T) {
-		client := New()
-		// Neither source identified, so nothing is attempted and nothing fails.
-		result := client.Estimate(context.Background(), "", "")
+	t.Run("an unidentified property is not attempted", func(t *testing.T) {
+		// Nothing to ask, so nothing is tried and nothing counts as failed.
+		result := New().Estimate(context.Background(), "")
 		assert.Empty(t, result.Estimates)
 		assert.Empty(t, result.Failed)
 		assert.Equal(t, 0.0, result.Average)
-	})
-
-	t.Run("a rejected URL counts as a failed source, not a fetch", func(t *testing.T) {
-		client := New()
-		result := client.Estimate(context.Background(), "", "https://evil.example.com/property/x")
-		assert.Empty(t, result.Estimates)
-		assert.Equal(t, []string{SourceOneRoof}, result.Failed)
-	})
-}
-
-func TestOneRoofEstimateScrape(t *testing.T) {
-	// The shape OneRoof actually renders, trimmed to the relevant span.
-	page := `<div>OneRoof Estimate</div><div class="text-sm">High Accuracy` +
-		`<div class="relative"><i class="icon"></i></div></div>` +
-		`<div class="text-3xl font-bold text-secondary">$575K</div>`
-
-	match := oneRoofEstimatePattern.FindStringSubmatch(page)
-	require.NotNil(t, match, "the estimate must be found in the rendered markup")
-
-	value, ok := parseShortValue(match[1])
-	assert.True(t, ok)
-	assert.Equal(t, 575000.0, value)
-
-	t.Run("a page without an estimate yields no match", func(t *testing.T) {
-		assert.Nil(t, oneRoofEstimatePattern.FindStringSubmatch("<div>No estimate here</div>"))
 	})
 }

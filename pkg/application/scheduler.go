@@ -185,7 +185,7 @@ func (s *scheduler) refreshAsset(ctx context.Context, client *property.Client, a
 	previous := asset.CurrentValue()
 	hadValuation := len(asset.Valuations) > 0
 
-	result := client.Estimate(ctx, asset.HomesPropertyID, asset.OneRoofURL)
+	result := client.Estimate(ctx, asset.HomesPropertyID)
 	if len(result.Estimates) == 0 {
 		s.app.Notify(models.NotificationWarning, SourceAssetEstimates,
 			"No estimate for "+asset.Name,

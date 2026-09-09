@@ -99,23 +99,22 @@
                 </p>
             </div>
             {{ if .Summary.Asset.Trackable }}
+                <!-- The refresh icon is the indicator. A separate spinner element
+                     hides with opacity, so it holds its space and leaves a gap in
+                     the button whether or not anything is loading. -->
                 <button class="btn btn-sm btn-primary flex-shrink-0"
                         hx-post="/portfolio/assets/{{ .Summary.Asset.Id }}/estimate"
                         hx-target="#main" hx-swap="innerHTML"
-                        hx-indicator="#estimate-spinner">
+                        hx-disabled-elt="this">
                     <i class="bi bi-arrow-repeat"></i> Fetch estimate
-                    <span id="estimate-spinner" class="htmx-indicator spinner-border spinner-border-sm ms-1"></span>
                 </button>
             {{ end }}
         </div>
 
         {{ if .Summary.Asset.Trackable }}
             <p class="b-card-sub mb-3">
-                Fetching averages
-                {{ if .Summary.Asset.HomesPropertyID }}homes.co.nz{{ end }}
-                {{ if and .Summary.Asset.HomesPropertyID .Summary.Asset.OneRoofURL }}and{{ end }}
-                {{ if .Summary.Asset.OneRoofURL }}OneRoof{{ end }}.
-                Both round to the nearest ten thousand, so the average does too.
+                Fetching reads the current homes.co.nz estimate, which is rounded to
+                the nearest ten thousand.
             </p>
         {{ end }}
 
