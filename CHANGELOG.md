@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.1](https://github.com/TheQueenIsDead/budge/compare/v1.15.0...v1.15.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* **deps:** update module golang.org/x/text to v0.42.0 ([#90](https://github.com/TheQueenIsDead/budge/issues/90)) ([2783750](https://github.com/TheQueenIsDead/budge/commit/27837502cb014969a7bae5cf00d894a24eab7075))
+
 ## [1.15.0](https://github.com/TheQueenIsDead/budge/compare/v1.14.1...v1.15.0) (2026-09-09)
 
 
