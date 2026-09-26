@@ -3,7 +3,7 @@ module github.com/TheQueenIsDead/budge
 go 1.27.0
 
 require (
-	github.com/dustin/go-humanize v1.0.1
+	github.com/dustin/go-humanize v1.1.0
 	github.com/labstack/echo/v4 v4.15.4
 	github.com/labstack/gommon v0.5.0
 	github.com/sirupsen/logrus v1.10.2
