@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.2](https://github.com/TheQueenIsDead/budge/compare/v1.15.1...v1.15.2) (2026-09-26)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/dustin/go-humanize to v1.1.0 ([#93](https://github.com/TheQueenIsDead/budge/issues/93)) ([6ffb3d8](https://github.com/TheQueenIsDead/budge/commit/6ffb3d8cc9594b6ee19f842cf96252d8324158b1))
+
 ## [1.15.1](https://github.com/TheQueenIsDead/budge/compare/v1.15.0...v1.15.1) (2026-09-10)
 
 
