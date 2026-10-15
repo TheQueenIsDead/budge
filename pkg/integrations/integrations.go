@@ -13,6 +13,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// syncOverlapDays is how far before the last sync each sync starts reading.
+const syncOverlapDays = 7
+
 type Integrations struct {
 	store *database.Store
 	akahu *akahu.AkahuClient
@@ -56,7 +59,9 @@ func (i *Integrations) Config() map[string]interface{} {
 
 // SyncAkahu pulls accounts and transactions. It takes a logger rather than a
 // request context so a scheduled run, which has no request behind it, can call it.
-func (i *Integrations) SyncAkahu(logger echo.Logger, lastSync time.Time) error {
+// progress, which may be nil, is told how many transactions have been fetched
+// as each page arrives.
+func (i *Integrations) SyncAkahu(logger echo.Logger, lastSync time.Time, progress func(fetched int)) error {
 
 	accounts, err := i.AkahuAccounts()
 	if err != nil {
@@ -64,7 +69,14 @@ func (i *Integrations) SyncAkahu(logger echo.Logger, lastSync time.Time) error {
 		return err
 	}
 
-	transactions, err := i.AkahuTransactions(lastSync.Add(-7))
+	// The window reaches back past the last sync so transactions that were
+	// still pending then are picked up once they settle, and so both halves of
+	// a transfer made either side of the last sync are seen together.
+	since := lastSync
+	if !since.IsZero() {
+		since = since.AddDate(0, 0, -syncOverlapDays)
+	}
+	transactions, err := i.akahu.GetTransactions(since, true, progress)
 	if err != nil {
 		logger.Error(err)
 		return err
@@ -73,14 +85,13 @@ func (i *Integrations) SyncAkahu(logger echo.Logger, lastSync time.Time) error {
 	transfers := identifyTransfers(transactions)
 
 	// Accounts hardly change, so just insert them and overwrite the key if need be.
-	for _, account := range accounts {
-		err := i.store.CreateAccount(models.Account(account))
-		if err != nil {
-			return err
-		}
+	saved := make([]models.Account, len(accounts))
+	for n, account := range accounts {
+		saved[n] = models.Account(account)
 	}
 
 	var merchants []models.Merchant
+	txs := make([]models.Transaction, 0, len(transactions))
 
 	for _, transaction := range transactions {
 
@@ -107,11 +118,7 @@ func (i *Integrations) SyncAkahu(logger echo.Logger, lastSync time.Time) error {
 		}
 
 		// We get given a transaction id from Akahu, which helps us to maintain unique records, overwrite if need be.
-		err := i.store.CreateTransaction(tx)
-		if err != nil {
-			logger.Error(err)
-			return err
-		}
+		txs = append(txs, tx)
 
 		if transaction.Merchant.Id != "" {
 			m := models.Merchant{
@@ -124,18 +131,25 @@ func (i *Integrations) SyncAkahu(logger echo.Logger, lastSync time.Time) error {
 
 	}
 
-	for _, merchant := range merchants {
-		err = i.store.CreateMerchant(merchant)
-		if err != nil {
-			logger.Error(err)
-			return err
-		}
+	if err := i.store.SaveSynced(saved, txs, merchants); err != nil {
+		logger.Error(err)
+		return err
 	}
 
 	return nil
 }
 
+// isMatchingTransfer reports whether two transactions look like the two legs
+// of money moved between the owner's own accounts: equal and opposite, a day
+// apart at most, and in different accounts. The last condition matters most.
+// Topping up an everyday account from savings and then paying a tradesperson
+// the same amount from it is an equal and opposite pair inside one account,
+// and without it the payment for a new roof was filed away as a transfer.
 func isMatchingTransfer(tx1, tx2 akahu.Transaction) bool {
+	if tx1.Account == tx2.Account {
+		return false
+	}
+
 	// Check if transactions are opposite (one positive, one negative)
 	if (tx1.Amount > 0 && tx2.Amount > 0) || (tx1.Amount < 0 && tx2.Amount < 0) {
 		return false
@@ -146,6 +160,9 @@ func isMatchingTransfer(tx1, tx2 akahu.Transaction) bool {
 	return math.Abs(timeDiff.Hours()) <= 24
 }
 
+// identifyTransfers pairs up transfers between the owner's accounts. Each
+// transaction belongs to one pair at most: matching every candidate of the
+// same amount let one real transfer sweep in a third, unrelated payment.
 func identifyTransfers(transactions []akahu.Transaction) map[string]bool {
 
 	// Create a map to track potential matching transfers by amount
@@ -161,19 +178,21 @@ func identifyTransfers(transactions []akahu.Transaction) map[string]bool {
 			continue
 		}
 
-		// Look for matching opposite transaction
-		if matchingTxs, exists := potentialMatches[amount]; exists {
-			for _, matchTx := range matchingTxs {
-				// Check if transactions are within 24 hours of each other
-				if isMatchingTransfer(tx, matchTx) {
-					matchIds[matchTx.Id] = true
-					matchIds[tx.Id] = true
-				}
+		// Look for an opposite transaction not already paired with another.
+		matched := false
+		for _, matchTx := range potentialMatches[amount] {
+			if !matchIds[matchTx.Id] && isMatchingTransfer(tx, matchTx) {
+				matchIds[matchTx.Id] = true
+				matchIds[tx.Id] = true
+				matched = true
+				break
 			}
 		}
 
 		// Add this transaction to potential matches
-		potentialMatches[amount] = append(potentialMatches[amount], tx)
+		if !matched {
+			potentialMatches[amount] = append(potentialMatches[amount], tx)
+		}
 	}
 
 	return matchIds
@@ -192,8 +211,4 @@ func (i *Integrations) PutAkahuSettings(settings models.IntegrationAkahuSettings
 
 func (i *Integrations) AkahuAccounts() ([]akahu.Account, error) {
 	return i.akahu.GetAccounts()
-}
-
-func (i *Integrations) AkahuTransactions(since time.Time) ([]akahu.Transaction, error) {
-	return i.akahu.GetTransactions(since, true)
 }

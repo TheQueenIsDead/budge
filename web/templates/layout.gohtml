@@ -55,6 +55,7 @@
                     <a class="b-nav-link" data-nav href="/">Dashboard</a>
                     <a class="b-nav-link" data-nav href="/insights">Insights</a>
                     <a class="b-nav-link" data-nav href="/transactions">Transactions</a>
+                    <a class="b-nav-link" data-nav href="/timeline">Timeline</a>
                     <a class="b-nav-link" data-nav href="/portfolio">Portfolio</a>
                     <a class="b-nav-link" data-nav href="/budget">Budget</a>
                     <a class="b-nav-link" data-nav href="/settings">Settings</a>
@@ -77,7 +78,13 @@
                               hx-swap="innerHTML"></span>
                     </a>
 
-                    <!-- Settings does not earn a tab slot, so on mobile it lives here. -->
+                    <!-- Neither the timeline nor settings earns a tab slot, so on
+                         mobile they live up here. -->
+                    <a class="b-nav-link d-md-none px-2" data-nav href="/timeline"
+                       aria-label="Timeline" hx-boost="true" hx-target="#main">
+                        <i class="bi bi-clock-history fs-5"></i>
+                    </a>
+
                     <a class="b-nav-link d-md-none px-2" data-nav href="/settings"
                        aria-label="Settings" hx-boost="true" hx-target="#main">
                         <i class="bi bi-gear fs-5"></i>

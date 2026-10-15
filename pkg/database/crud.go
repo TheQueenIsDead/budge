@@ -111,3 +111,20 @@ func Delete[T Storable](db *bolt.DB, id []byte) error {
 		return b.Delete(id)
 	})
 }
+
+// putAll writes every item into its bucket within an open transaction, so a
+// caller can store many objects behind a single commit.
+func putAll[T Storable](tx *bolt.Tx, items []T) error {
+	t := *(new(T))
+	b := tx.Bucket(t.Bucket())
+	for _, item := range items {
+		value, err := json.Marshal(&item)
+		if err != nil {
+			return err
+		}
+		if err := b.Put(item.Key(), value); err != nil {
+			return err
+		}
+	}
+	return nil
+}

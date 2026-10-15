@@ -11,6 +11,8 @@
               hx-trigger="input delay:400ms from:input[name='search'], change from:select"
               hx-target="#main"
               hx-push-url="true">
+            <input type="hidden" name="from" value="{{ .from }}">
+            <input type="hidden" name="to" value="{{ .to }}">
 
             <div class="row g-2">
                 <div class="col-12 col-sm-7">
@@ -36,6 +38,12 @@
         </form>
 
         <div class="b-summary-bar mt-2">
+            {{ if .dated }}
+                <a class="badge-category badge-link" href="/transactions?search={{ .search }}&account={{ .account }}"
+                   hx-boost="true" hx-target="#main" title="Show every date">
+                    <i class="bi bi-calendar-range"></i> {{ .dateRange }} <i class="bi bi-x"></i>
+                </a>
+            {{ end }}
             <span class="b-summary-item fw-semibold">
                 {{ .showing }}{{ if .hasMore }} of {{ .total }}{{ end }}
                 result{{ if ne .total 1 }}s{{ end }}
@@ -99,6 +107,7 @@
                             <div class="b-tx-amount {{ if gt .Amount 0.0 }}text-success{{ else }}text-danger{{ end }}">
                                 {{ .Amount | fmtCurrency }}
                             </div>
+                            {{ template "transactions.memory" (dict "ID" .Id "MemoryID" .MemoryID "MemoryTitle" .MemoryTitle "Layout" "m" "Options" $.memories "Kinds" $.kinds) }}
                         </div>
                     {{ end }}
                 </div>
@@ -114,6 +123,7 @@
                     <th>Category</th>
                     <th>Date</th>
                     <th class="text-end">Amount</th>
+                    <th><span class="visually-hidden">Memory</span></th>
                 </tr>
                 </thead>
                 <tbody>
@@ -136,6 +146,9 @@
                             <td class="text-end fw-semibold b-num {{ if gt .Amount 0.0 }}text-success{{ else }}text-danger{{ end }}">
                                 {{ .Amount | fmtCurrency }}
                             </td>
+                            <td class="b-txmem-cell">
+                                {{ template "transactions.memory" (dict "ID" .Id "MemoryID" .MemoryID "MemoryTitle" .MemoryTitle "Layout" "d" "Options" $.memories "Kinds" $.kinds) }}
+                            </td>
                         </tr>
                     {{ end }}
                 {{ end }}
@@ -146,7 +159,7 @@
         {{ if .hasMore }}
             <div class="text-center my-3">
                 <a class="btn btn-outline-secondary"
-                   href="/transactions?search={{ .search }}&account={{ .account }}&limit={{ .nextLimit }}"
+                   href="/transactions?search={{ .search }}&account={{ .account }}&from={{ .from }}&to={{ .to }}&limit={{ .nextLimit }}"
                    hx-boost="true" hx-target="#main">
                     Load more
                     <span class="text-muted">({{ .total }} in total)</span>
@@ -159,7 +172,7 @@
             <i class="bi bi-search"></i>
             <h4>No transactions found</h4>
             <p>
-                {{ if or .search .account }}
+                {{ if or .search .account .dated }}
                     Nothing matches those filters. Try a broader search.
                 {{ else }}
                     Sync an account from settings to see your transactions here.
@@ -260,3 +273,45 @@
     </script>
 
 {{ end }}
+
+{{/* Adding one transaction to a memory, in the same words the timeline uses.
+     A transaction already in a memory shows which, and can be moved to
+     another. Every transaction is drawn twice, as a phone card and a table
+     row, so the id carries the layout to keep the two copies apart. */}}
+{{ define "transactions.memory" }}
+<details class="b-txmem" id="txmem-{{ .Layout }}-{{ .ID }}"{{ if .OOB }} hx-swap-oob="true"{{ end }}>
+    <summary class="b-txmem-toggle{{ if .MemoryID }} b-txmem-in{{ end }}"
+             title="{{ if .MemoryID }}In “{{ .MemoryTitle }}”{{ else }}Add to memory{{ end }}"
+             aria-label="{{ if .MemoryID }}In memory “{{ .MemoryTitle }}”, move to another{{ else }}Add to memory{{ end }}">
+        <i class="bi {{ if .MemoryID }}bi-bookmark-check-fill{{ else }}bi-bookmark-plus{{ end }}"></i>
+    </summary>
+    <form class="b-tl-form b-txmem-form" hx-post="/transactions/{{ .ID }}/memory"
+          hx-target="#txmem-{{ .Layout }}-{{ .ID }}" hx-swap="outerHTML">
+        <input type="hidden" name="layout" value="{{ .Layout }}">
+        <div class="b-txmem-head">
+            {{ if .MemoryID }}In “{{ .MemoryTitle }}”. Move to:{{ else }}Add to memory{{ end }}
+        </div>
+        {{ $current := .MemoryID }}
+        {{ if .Options }}
+            <select class="form-select form-select-sm b-tl-target" name="memory" aria-label="Which memory">
+                <option value="">New memory&hellip;</option>
+                {{ range .Options }}
+                    {{ if ne .Id $current }}<option value="{{ .Id }}">{{ .Label }}</option>{{ end }}
+                {{ end }}
+            </select>
+        {{ end }}
+        <span class="b-tl-new">
+            <input class="form-control form-control-sm" name="title"
+                   placeholder="Name this memory" aria-label="Memory name">
+            <select class="form-select form-select-sm" name="kind" aria-label="What kind of memory">
+                {{ range .Kinds }}<option value="{{ .Key }}">{{ .Label }}</option>{{ end }}
+            </select>
+            <input class="form-control form-control-sm" name="note"
+                   placeholder="A note, if you like" aria-label="Note">
+        </span>
+        <button class="btn btn-sm btn-primary">Save</button>
+    </form>
+</details>
+{{ end }}
+
+{{ define "transactions.memory.swap" }}{{ range . }}{{ template "transactions.memory" . }}{{ end }}{{ end }}

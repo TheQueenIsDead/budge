@@ -81,6 +81,73 @@ func (s *Store) DeleteAssetValuation(id, valuationID string) error {
 	return Update[models.Asset](s.db, asset)
 }
 
+/* Memories */
+
+func (s *Store) ReadMemories() ([]models.Memory, error) {
+	return Read[models.Memory](s.db)
+}
+
+func (s *Store) GetMemory(id string) (models.Memory, error) {
+	return Get[models.Memory](s.db, []byte(id))
+}
+
+// SaveMemory creates or updates a memory, taking its transactions away from
+// any other memory that already held them. A purchase belongs to one memory: the same flight
+// counted towards two trips would inflate both totals. A memory left with
+// nothing in it is removed rather than kept as an empty card.
+func (s *Store) SaveMemory(memory models.Memory) error {
+	claimed := make(map[string]bool, len(memory.TransactionIDs))
+	for _, id := range memory.TransactionIDs {
+		claimed[id] = true
+	}
+
+	existing, err := Read[models.Memory](s.db)
+	if err != nil {
+		return err
+	}
+	for _, other := range existing {
+		if other.Id == memory.Id {
+			continue
+		}
+		kept := other.TransactionIDs[:0]
+		for _, id := range other.TransactionIDs {
+			if !claimed[id] {
+				kept = append(kept, id)
+			}
+		}
+		switch {
+		case len(kept) == 0:
+			err = Delete[models.Memory](s.db, other.Key())
+		case len(kept) != len(other.TransactionIDs):
+			other.TransactionIDs = kept
+			err = Update[models.Memory](s.db, other)
+		}
+		if err != nil {
+			return err
+		}
+	}
+
+	return Update[models.Memory](s.db, memory)
+}
+
+func (s *Store) DeleteMemory(id string) error {
+	return Delete[models.Memory](s.db, []byte(id))
+}
+
+// GetTimelinePreferences returns what the timeline has been told to hide. Unset
+// means nothing is hidden.
+func (s *Store) GetTimelinePreferences() (models.TimelinePreferences, error) {
+	prefs, err := Get[models.TimelinePreferences](s.db, models.TimelinePreferences{}.Key())
+	if err != nil {
+		return models.TimelinePreferences{}, nil
+	}
+	return prefs, nil
+}
+
+func (s *Store) SaveTimelinePreferences(prefs models.TimelinePreferences) error {
+	return Update[models.TimelinePreferences](s.db, prefs)
+}
+
 /* Notifications */
 
 // notificationRetention caps how many notifications are kept. They are a log of
@@ -153,6 +220,105 @@ func (s *Store) pruneNotifications() error {
 		}
 	}
 	return nil
+}
+
+/* Backup */
+
+// ExportBackup gathers everything set up by hand. Settings that were never
+// saved are left out rather than exported as defaults, so importing a backup
+// never pins a default the new instance might have chosen differently.
+func (s *Store) ExportBackup() (models.Backup, error) {
+	backup := models.Backup{Version: models.BackupVersion, ExportedAt: time.Now()}
+
+	var err error
+	if backup.Memories, err = Read[models.Memory](s.db); err != nil {
+		return backup, err
+	}
+	if backup.Assets, err = Read[models.Asset](s.db); err != nil {
+		return backup, err
+	}
+	if backup.BudgetItems, err = Read[models.BudgetItem](s.db); err != nil {
+		return backup, err
+	}
+	if backup.Timeline, err = s.GetTimelinePreferences(); err != nil {
+		return backup, err
+	}
+	if salary, err := Get[models.BudgetSalary](s.db, models.BudgetSalary{}.Key()); err == nil {
+		backup.BudgetSalary = &salary
+	}
+	if schedule, err := Get[models.ScheduleSettings](s.db, models.ScheduleSettings{}.Key()); err == nil {
+		// When the jobs last ran belongs to this instance, not the next one.
+		schedule.AkahuLastRun, schedule.AssetsLastRun = time.Time{}, time.Time{}
+		backup.Schedule = &schedule
+	}
+	return backup, nil
+}
+
+// ImportBackup writes a backup into this instance in one commit, so a bad
+// file changes nothing. It merges rather than replaces: anything here that the
+// backup does not mention is kept, and anything with the same ID is
+// overwritten. Hidden purchases and dismissed suggestions are combined.
+func (s *Store) ImportBackup(backup models.Backup) error {
+	prefs, err := s.GetTimelinePreferences()
+	if err != nil {
+		return err
+	}
+	prefs.HiddenTransactions = unionStrings(prefs.HiddenTransactions, backup.Timeline.HiddenTransactions)
+	prefs.DismissedSuggestions = unionStrings(prefs.DismissedSuggestions, backup.Timeline.DismissedSuggestions)
+	prefs.HiddenMerchants = unionStrings(prefs.HiddenMerchants, backup.Timeline.HiddenMerchants)
+
+	var salary []models.BudgetSalary
+	if backup.BudgetSalary != nil {
+		salary = append(salary, *backup.BudgetSalary)
+	}
+	var schedule []models.ScheduleSettings
+	if backup.Schedule != nil {
+		next := *backup.Schedule
+		next.AkahuLastRun, next.AssetsLastRun = time.Time{}, time.Time{}
+		schedule = append(schedule, next)
+	}
+
+	return s.db.Update(func(tx *bolt.Tx) error {
+		return errors.Join(
+			putAll(tx, backup.Memories),
+			putAll(tx, backup.Assets),
+			putAll(tx, backup.BudgetItems),
+			putAll(tx, []models.TimelinePreferences{prefs}),
+			putAll(tx, salary),
+			putAll(tx, schedule),
+		)
+	})
+}
+
+// unionStrings combines two lists, keeping the order of the first and adding
+// what only the second has.
+func unionStrings(a, b []string) []string {
+	seen := make(map[string]bool, len(a)+len(b))
+	var union []string
+	for _, value := range append(append([]string{}, a...), b...) {
+		if value != "" && !seen[value] {
+			seen[value] = true
+			union = append(union, value)
+		}
+	}
+	return union
+}
+
+/* Sync */
+
+// SaveSynced stores everything a bank sync brought back in one commit. Each
+// commit waits on the disk, so writing a full history of a few thousand
+// transactions one at a time took minutes and outlasted the request that
+// started it. One commit takes a moment, and a sync either lands whole or not
+// at all.
+func (s *Store) SaveSynced(accounts []models.Account, transactions []models.Transaction, merchants []models.Merchant) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		return errors.Join(
+			putAll(tx, accounts),
+			putAll(tx, transactions),
+			putAll(tx, merchants),
+		)
+	})
 }
 
 /* Merchants */

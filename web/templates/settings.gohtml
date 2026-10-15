@@ -48,17 +48,12 @@
                 </div>
 
                 <div class="col-12 d-flex align-items-center flex-wrap gap-2 mt-2">
-                    <button class="btn btn-primary" hx-post="/integrations/akahu/sync"
-                            hx-disabled-elt="this"
-                            hx-swap="outerHTML" hx-target="#last-sync">
-                        <i class="bi bi-arrow-repeat"></i> Sync now
-                    </button>
                     <button class="btn btn-outline-secondary" hx-post="/integrations/akahu/save"
                             hx-disabled-elt="this" hx-swap="none">
                         Save tokens
                     </button>
 
-                    <span class="b-delta-note ms-auto">{{ template "settings.integrations.last-sync" . }}</span>
+                    {{ template "settings.integrations.sync" .sync }}
                 </div>
             </div>
         </form>
@@ -118,6 +113,50 @@
         {{ end }}
     </div>
 
+    <!-- Backup. Moving to another instance takes what was set up by hand;
+         synced data comes back from Akahu on the first sync there. -->
+    <div class="b-card b-card-pad mb-3 b-accent-sage" id="backup">
+        <div class="b-card-head">
+            <div class="d-flex align-items-center gap-2">
+                <span class="b-chip"><i class="bi bi-box-arrow-down"></i></span>
+                <div>
+                    <h3 class="b-card-title">Backup</h3>
+                    <p class="b-card-sub">
+                        Memories, hidden purchases, assets, budget and schedule, for moving to
+                        another instance. Accounts and transactions come back from Akahu.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="b-sched">
+            <div class="fw-semibold">Export</div>
+            <!-- A plain form: the response is a file to save, not a page to swap. -->
+            <p class="b-card-sub mb-2">
+                Akahu tokens are not included, so the file is safe to keep. Enter them again on
+                the new instance, then sync.
+            </p>
+            <form action="/settings/backup" method="get">
+                <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i>Download</button>
+            </form>
+        </div>
+
+        <div class="b-sched">
+            <div class="fw-semibold">Import</div>
+            <p class="b-card-sub mb-2">
+                Adds a backup to what is here. Anything in both is replaced by the backup's
+                copy; nothing else is removed.
+            </p>
+            <form hx-post="/settings/backup" hx-encoding="multipart/form-data" hx-target="#main"
+                  hx-confirm="Import this backup into this instance?"
+                  class="d-flex flex-wrap align-items-center gap-2">
+                <input class="form-control form-control-sm w-auto" type="file" name="backup"
+                       accept="application/json,.json" required aria-label="Backup file">
+                <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-upload"></i>Import</button>
+            </form>
+        </div>
+    </div>
+
     <!-- Danger -->
     <div class="b-card b-card-pad mb-3 b-accent-brick" id="danger">
         <div class="b-card-head">
@@ -146,10 +185,40 @@
 
 {{ end }}
 
-{{ define "settings.integrations.last-sync" }}
-<span id="last-sync">
-    {{ if .akahuLastSync.IsZero }}Never synced{{ else }}Last sync {{ .akahuLastSync | fmtRelative }}{{ end }}
-</span>
+{{/* The sync button and what it is doing. While a sync runs in the background
+     this polls itself once a second; the finished view leaves the trigger out,
+     which is what stops the polling. display: contents keeps the button and
+     the status in the row around them. */}}
+{{ define "settings.integrations.sync" }}
+<div id="akahu-sync" class="b-contents"
+     {{ if .Running }}hx-get="/integrations/akahu/sync?started={{ .StartedKey }}"
+     hx-trigger="every 1s" hx-swap="outerHTML" hx-target="this"{{ end }}>
+    {{ if .Running }}
+        <button type="button" class="btn btn-primary htmx-request" disabled>
+            <i class="bi bi-arrow-repeat"></i> Syncing&hellip;
+        </button>
+        <span class="b-delta-note ms-auto">
+            {{ if .Fetched }}Fetched {{ .Fetched }} transactions&hellip;{{ else }}Contacting Akahu&hellip;{{ end }}
+        </span>
+    {{ else }}
+        <button type="button" class="btn btn-primary" hx-post="/integrations/akahu/sync"
+                hx-target="#akahu-sync" hx-swap="outerHTML" hx-disabled-elt="this">
+            <i class="bi bi-arrow-repeat"></i> Sync now
+        </button>
+        <span class="b-delta-note ms-auto">
+            {{ if .Error }}<span class="text-danger">Last sync failed.</span>{{ end }}
+            {{ if .LastSync.IsZero }}Never synced{{ else }}Last sync {{ .LastSync | fmtRelative }}{{ end }}
+            {{ if not .LastSync.IsZero }}
+                &middot;
+                <button type="button" class="btn btn-link btn-sm p-0 align-baseline b-delta-note"
+                        hx-post="/integrations/akahu/resync" hx-target="#akahu-sync" hx-swap="outerHTML"
+                        title="Download every transaction again, correcting how older ones were classified">
+                    Re-read full history
+                </button>
+            {{ end }}
+        </span>
+    {{ end }}
+</div>
 {{ end }}
 
 {{ define "settings.schedule" }}
