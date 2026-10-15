@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.16.0](https://github.com/TheQueenIsDead/budge/compare/v1.15.2...v1.16.0) (2026-10-15)
+
+
+### Features
+
+* timeline ([#97](https://github.com/TheQueenIsDead/budge/issues/97)) ([0a24164](https://github.com/TheQueenIsDead/budge/commit/0a24164ad9c0264dbbb170b2c0adaa394382a1f2))
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/labstack/echo/v4 to v4.16.0 ([#95](https://github.com/TheQueenIsDead/budge/issues/95)) ([857dc88](https://github.com/TheQueenIsDead/budge/commit/857dc8882b2dcc00039417281dc24cbdd3501716))
+* **deps:** update module golang.org/x/text to v0.43.0 ([#96](https://github.com/TheQueenIsDead/budge/issues/96)) ([43915f1](https://github.com/TheQueenIsDead/budge/commit/43915f1b7d49ec1ccb40bee472ed99d580137611))
+* **sync:** write a sync in one commit rather than one per transaction ([0a24164](https://github.com/TheQueenIsDead/budge/commit/0a24164ad9c0264dbbb170b2c0adaa394382a1f2))
+
 ## [1.15.2](https://github.com/TheQueenIsDead/budge/compare/v1.15.1...v1.15.2) (2026-09-26)
 
 
