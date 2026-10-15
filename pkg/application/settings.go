@@ -59,7 +59,7 @@ func (app *Application) Settings(c echo.Context) error {
 		"accounts":       accounts,
 		"akahuAppToken":  akahuConfig.AppToken,
 		"akahuUserToken": akahuConfig.UserToken,
-		"akahuLastSync":  akahuConfig.LastSync,
+		"sync":           app.syncStatus(),
 		"schedule":       buildScheduleView(schedule),
 	})
 }
@@ -74,40 +74,6 @@ func (app *Application) SettingsDeleteSynced(c echo.Context) error {
 
 	app.Toast(c, "Success", "All synced data removed.")
 	return nil
-}
-
-func (app *Application) SyncAkahu(c echo.Context) error {
-
-	akahuConfig, err := app.store.GetAkahuSettings()
-	if err != nil {
-		// Recorded as well as returned: once a timer drives this there is nobody
-		// watching the response, and the note is the only trace left.
-		app.Notify(models.NotificationError, SourceAkahuSync,
-			"Sync could not start", "Akahu settings could not be read.")
-		return err
-	}
-
-	err = app.integrations.SyncAkahu(c.Logger(), akahuConfig.LastSync)
-	if err != nil {
-		app.Notify(models.NotificationError, SourceAkahuSync,
-			"Sync failed", err.Error())
-		return err
-	}
-
-	// Re-retrieve the last sync time to use as a cache key
-	akahuConfig, _ = app.store.GetAkahuSettings()
-	c.SetCookie(&http.Cookie{
-		Name:  "X-Cache-Key",
-		Value: akahuConfig.LastSync.String(),
-		Path:  "/",
-	})
-
-	app.Toast(c, "Success", "Akahu synced successfully!")
-	_ = app.store.UpdateAkahuLastSync()
-
-	return c.Render(http.StatusOK, "settings.integrations.last-sync", map[string]interface{}{
-		"akahuLastSync": time.Now(),
-	})
 }
 
 func (app *Application) PutAkahuSettings(c echo.Context) error {

@@ -141,14 +141,14 @@ func (s *scheduler) runAkahu() {
 		return
 	}
 
-	if err := s.app.integrations.SyncAkahu(s.app.http.Logger, settings.LastSync); err != nil {
-		s.app.Notify(models.NotificationError, SourceAkahuSync,
-			"Scheduled sync failed", err.Error())
+	// A sync already running, most likely started from the settings page,
+	// covers this one.
+	if !s.app.akahuSync.begin() {
 		return
 	}
-
-	if err := s.app.store.UpdateAkahuLastSync(); err != nil {
-		s.app.http.Logger.Errorf("could not record the akahu sync time: %v", err)
+	if err := s.app.runAkahuSync(); err != nil {
+		s.app.Notify(models.NotificationError, SourceAkahuSync,
+			"Scheduled sync failed", err.Error())
 	}
 }
 

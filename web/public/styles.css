@@ -1350,3 +1350,376 @@ a.b-acct:focus-visible {
         transition-duration: 0.001ms !important;
     }
 }
+
+/* ==========================================================================
+   Timeline. Notable purchases by month, and the memories made of them.
+   ========================================================================== */
+
+.b-tl-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.b-tl-item {
+    padding: 0.75rem;
+    background: var(--b-surface);
+    border: 1px solid var(--b-border);
+    border-radius: var(--b-radius-sm);
+    box-shadow: var(--b-shadow);
+}
+
+.b-tl-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+/* A memory is the point of the page, so it carries its colour down the edge. */
+.b-tl-memory {
+    border-left: 4px solid var(--accent);
+}
+
+/* A suggestion is the app's guess, not yet the owner's word, so it is drawn
+   dashed until it is saved. */
+.b-tl-suggestion {
+    border-style: dashed;
+    border-color: var(--accent);
+    background: var(--b-surface-2);
+}
+
+.b-tl-outlier {
+    border-color: var(--b-negative);
+    box-shadow: 0 0 0 1px var(--b-negative-soft), var(--b-shadow);
+}
+
+.b-tl-kind {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--accent, var(--b-muted));
+    font-weight: 600;
+}
+
+.b-tl-note {
+    margin: 0.5rem 0 0;
+    color: var(--b-ink-2);
+    font-size: 0.825rem;
+}
+
+.b-tl-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-top: 0.625rem;
+}
+
+.b-tl-select {
+    flex: 0 0 auto;
+    width: 1.15rem;
+    height: 1.15rem;
+    margin: 0;
+}
+
+.b-tl-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.625rem;
+}
+
+.b-tl-form .form-control {
+    flex: 1 1 10rem;
+}
+
+.b-tl-form .form-select {
+    flex: 0 1 10rem;
+}
+
+/* Disclosure summaries look like the buttons beside them, without the marker. */
+.b-tl-actions summary {
+    list-style: none;
+}
+
+.b-tl-actions summary::-webkit-details-marker {
+    display: none;
+}
+
+.b-tl-tag[open] {
+    flex: 1 1 100%;
+}
+
+.b-tl-rows[open] {
+    flex: 1 1 100%;
+    order: 1;
+}
+
+.b-tl-rows ul {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    font-size: 0.825rem;
+}
+
+.b-tl-rows li {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.35rem 0;
+    border-top: 1px solid var(--b-surface-3);
+}
+
+.b-tl-rows-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The grouping bar floats over the list once anything is ticked. It counts the
+   ticked boxes with a CSS counter, so it needs no script to stay in step. */
+.b-tl-feed {
+    counter-reset: picked;
+}
+
+.b-tl-select:checked {
+    counter-increment: picked;
+}
+
+.b-tl-groupbar {
+    position: fixed;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: calc(var(--b-tabbar) + 0.75rem + env(safe-area-inset-bottom, 0px));
+    z-index: 1030;
+    display: none;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: 640px;
+    margin-inline: auto;
+    padding: 0.625rem 0.75rem;
+    background: var(--b-surface);
+    border: 1px solid var(--b-border-strong);
+    border-radius: var(--b-radius);
+    box-shadow: var(--b-shadow-lift);
+}
+
+.b-tl-feed:has(.b-tl-select:checked) .b-tl-groupbar {
+    display: flex;
+}
+
+.b-tl-groupbar .form-control {
+    flex: 1 1 9rem;
+}
+
+.b-tl-groupbar .form-select {
+    flex: 0 1 9rem;
+}
+
+.b-tl-count::before {
+    content: counter(picked) " selected";
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--b-ink-2);
+}
+
+@media (min-width: 768px) {
+    .b-tl-groupbar {
+        bottom: 1.25rem;
+    }
+}
+
+/* The fields for a new memory sit in the form's own flex row. Once there are
+   memories to pick from they only show while "New memory" is picked; without
+   :has they simply always show. */
+.b-tl-new {
+    display: contents;
+}
+
+.b-tl-form:has(.b-tl-target) .b-tl-new {
+    display: none;
+}
+
+.b-tl-form:has(.b-tl-target option[value=""]:checked) .b-tl-new {
+    display: contents;
+}
+
+.b-tl-form .b-tl-target {
+    flex: 1 1 12rem;
+}
+
+.b-tl-rows li .btn {
+    flex: 0 0 auto;
+    line-height: 1;
+}
+
+/* The purchase name opens everything from that merchant. */
+.b-tl-link {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+}
+
+.b-tl-link:hover,
+.b-tl-link:focus-visible {
+    color: var(--b-primary-ink);
+    text-decoration: underline;
+}
+
+/* The rest of the day sits under a purchase as quiet rows: a hint, not
+   another list competing with the timeline. The rows line up with the
+   purchase name above them. */
+.b-tl-sameday {
+    list-style: none;
+    margin: 0.375rem 0 0;
+    padding: 0 0 0 calc(1.15rem + 38px + 1.5rem);
+    color: var(--b-muted);
+    font-size: 0.75rem;
+}
+
+.b-tl-sameday-label {
+    font-weight: 600;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.b-tl-ctx {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.1rem 0;
+    cursor: pointer;
+}
+
+.b-tl-ctx:hover,
+.b-tl-ctx:has(.b-tl-select:checked),
+.b-tl-ctx:has(.b-tl-pick:checked) {
+    color: var(--b-ink);
+}
+
+.b-tl-ctx .b-tl-select,
+.b-tl-ctx .b-tl-pick,
+.b-tl-ctx-mark {
+    flex: 0 0 auto;
+    width: 0.85rem;
+    height: 0.85rem;
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 0.85rem;
+    text-align: center;
+}
+
+.b-tl-ctx-claimed {
+    cursor: default;
+    opacity: 0.7;
+}
+
+.b-tl-ctx-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* A wrapper that HTMX can swap as one piece without adding a box of its own,
+   so its children stay in the flex row around it. */
+.b-contents {
+    display: contents;
+}
+
+/* ==========================================================================
+   Transactions: adding a transaction to a memory
+   ========================================================================== */
+
+/* A small bookmark at the end of each row, opening a popover form. It stays
+   quiet until hovered so the list still reads as a list. */
+.b-txmem {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.b-txmem-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: var(--b-radius-pill);
+    color: var(--b-border-strong);
+    cursor: pointer;
+    list-style: none;
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.b-txmem-toggle::-webkit-details-marker {
+    display: none;
+}
+
+.b-txmem-toggle:hover,
+.b-txmem[open] > .b-txmem-toggle {
+    background: var(--b-surface-3);
+    color: var(--b-ink-2);
+}
+
+/* Already in a memory: still muted, but filled so it can be told apart. */
+.b-txmem-in {
+    color: var(--b-muted);
+}
+
+.b-txmem-form {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.25rem);
+    z-index: 20;
+    width: min(20rem, calc(100vw - 2rem));
+    margin-top: 0;
+    padding: 0.75rem;
+    background: var(--b-surface);
+    border: 1px solid var(--b-border-strong);
+    border-radius: var(--b-radius-sm);
+    box-shadow: var(--b-shadow-lift);
+}
+
+.b-txmem-form .form-control,
+.b-txmem-form .form-select {
+    flex: 1 1 100%;
+}
+
+.b-txmem-head {
+    flex: 1 1 100%;
+    color: var(--b-ink-2);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.b-txmem-cell {
+    width: 1%;
+    text-align: right;
+}
+
+/* The table clips its rounded corners, which would clip an open popover on
+   the last rows too. */
+.table-container:has(.b-txmem[open]) {
+    overflow: visible;
+}
+
+/* Purchases offered while editing a memory sit flush under the edit form,
+   rather than indented under a purchase name the way same-day rows are. Their
+   ticks belong to this form, not to the floating group bar. */
+.b-tl-nearby {
+    margin-top: 0.75rem;
+}
+
+.b-tl-nearby .b-tl-sameday {
+    padding-left: 0;
+}
+
+.b-tl-ctx-date {
+    flex: 0 0 3.25rem;
+    font-variant-numeric: tabular-nums;
+}

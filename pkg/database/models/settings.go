@@ -10,7 +10,18 @@ import (
 type IntegrationAkahuSettings struct {
 	AppToken  string
 	UserToken string
-	LastSync  time.Time
+
+	// LastSync is when a sync last succeeded, for showing the owner.
+	LastSync time.Time
+
+	// DataThrough is how fresh Akahu's data was at that sync: when it last
+	// refreshed transactions from the banks. The next sync starts from here
+	// rather than from LastSync. Banks post transactions days late and Akahu
+	// fetches them on its own schedule, so a purchase can reach Akahu long
+	// after a sync has run, dated before it. Reading from the time of the
+	// sync missed every one of those; reading from Akahu's own freshness
+	// does not. Zero means nothing is known, and the whole history is read.
+	DataThrough time.Time
 }
 
 func (ias IntegrationAkahuSettings) Key() []byte {

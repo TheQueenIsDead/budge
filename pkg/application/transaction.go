@@ -24,6 +24,11 @@ type TransactionRow struct {
 	Title  string
 	Accent string
 	Icon   string
+
+	// MemoryID and MemoryTitle name the memory the transaction belongs to,
+	// when it belongs to one.
+	MemoryID    string
+	MemoryTitle string
 }
 
 // TransactionDay groups a day's transactions under a single heading, which is
@@ -117,6 +122,15 @@ func (app *Application) Transactions(c echo.Context) error {
 	}
 	took := time.Since(start)
 
+	// A date range narrows whatever the search matched. It is how a memory on
+	// the timeline opens everything bought around it.
+	from, to, dated := transactionDateRange(c.QueryParam("from"), c.QueryParam("to"), time.Now().Location())
+	if dated {
+		transactions = slices.DeleteFunc(transactions, func(t models.Transaction) bool {
+			return t.Date.Before(from) || !t.Date.Before(to)
+		})
+	}
+
 	// Totals cover every match, not just the page on screen, so narrowing the
 	// search tells you what the whole result set is worth.
 	var in, out float64
@@ -152,6 +166,13 @@ func (app *Application) Transactions(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	held, memories, err := app.memoryIndex()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	days := GroupTransactionsByDay(page, time.Now().Location())
+	markMemories(days, held)
+
 	// Built from every match, not the page, so the chart describes the search
 	// rather than the hundred rows under it. The category split only earns its
 	// place once a search has narrowed the results to something coherent.
@@ -163,9 +184,15 @@ func (app *Application) Transactions(c echo.Context) error {
 	return c.Render(http.StatusOK, "transactions", map[string]interface{}{
 		"accounts":  accounts,
 		"series":    series,
-		"days":      GroupTransactionsByDay(page, time.Now().Location()),
+		"days":      days,
+		"memories":  memories,
+		"kinds":     models.MemoryKinds,
 		"search":    search,
 		"account":   account,
+		"from":      c.QueryParam("from"),
+		"to":        c.QueryParam("to"),
+		"dated":     dated,
+		"dateRange": transactionDateLabel(c.QueryParam("from"), c.QueryParam("to"), from, to),
 		"took":      took,
 		"in":        in,
 		"out":       out,
@@ -174,6 +201,41 @@ func (app *Application) Transactions(c echo.Context) error {
 		"hasMore":   total > len(page),
 		"nextLimit": limit + transactionPageSize,
 	})
+}
+
+// transactionDateRange reads an inclusive range of local dates into the times
+// that bound it: midnight at the start of the first day, and midnight after
+// the last. Either end may be left open. A date that does not parse is
+// ignored rather than emptying the list.
+func transactionDateRange(fromRaw, toRaw string, location *time.Location) (from, to time.Time, ok bool) {
+	from = time.Time{}
+	to = time.Date(9999, time.January, 1, 0, 0, 0, 0, location)
+	if parsed, err := time.ParseInLocation(time.DateOnly, fromRaw, location); err == nil {
+		from, ok = parsed, true
+	}
+	if parsed, err := time.ParseInLocation(time.DateOnly, toRaw, location); err == nil {
+		to, ok = parsed.AddDate(0, 0, 1), true
+	}
+	return from, to, ok
+}
+
+// transactionDateLabel words a date range for the chip that clears it.
+func transactionDateLabel(fromRaw, toRaw string, from, to time.Time) string {
+	last := to.AddDate(0, 0, -1)
+	_, fromErr := time.Parse(time.DateOnly, fromRaw)
+	_, toErr := time.Parse(time.DateOnly, toRaw)
+	switch {
+	case fromErr == nil && toErr == nil:
+		label := TimelineEntry{Start: from, End: last}.Span()
+		if from.Year() == last.Year() {
+			label += " " + last.Format("2006")
+		}
+		return label
+	case fromErr == nil:
+		return "From " + from.Format("2 Jan 2006")
+	default:
+		return "Until " + last.Format("2 Jan 2006")
+	}
 }
 
 // transactionSeriesMonths is how much history the chart above the results

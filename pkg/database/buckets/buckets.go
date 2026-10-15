@@ -4,6 +4,7 @@ var (
 	AccountBucket      = []byte("accounts")
 	AssetBucket        = []byte("assets")
 	InventoryBucket    = []byte("inventory")
+	MemoryBucket       = []byte("memories")
 	MerchantBucket     = []byte("merchants")
 	NotificationBucket = []byte("notifications")
 	TransactionBucket  = []byte("transactions")
@@ -17,6 +18,7 @@ func All() [][]byte {
 		AccountBucket,
 		AssetBucket,
 		InventoryBucket,
+		MemoryBucket,
 		MerchantBucket,
 		NotificationBucket,
 		TransactionBucket,

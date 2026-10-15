@@ -68,6 +68,24 @@ func templateFuncs() template.FuncMap {
 		"fmtTitle": func(text string) string {
 			return cases.Title(language.English).String(text)
 		},
+		// dict builds a map from alternating keys and values, so a partial
+		// template can be handed more than one thing.
+		"dict": func(pairs ...interface{}) map[string]interface{} {
+			values := make(map[string]interface{}, len(pairs)/2)
+			for i := 0; i+1 < len(pairs); i += 2 {
+				if key, ok := pairs[i].(string); ok {
+					values[key] = pairs[i+1]
+				}
+			}
+			return values
+		},
+		// toJSON encodes a value for an hx-vals attribute. Writing the JSON out
+		// by hand in the markup breaks on the first merchant with a quote in
+		// its name.
+		"toJSON": func(value interface{}) (string, error) {
+			encoded, err := json.Marshal(value)
+			return string(encoded), err
+		},
 	}
 }
 
@@ -76,6 +94,7 @@ type Application struct {
 	store        *database.Store
 	integrations *integrations.Integrations
 	scheduler    *scheduler
+	akahuSync    syncRunner
 }
 
 func NewApplication(store *database.Store, integrations *integrations.Integrations) (*Application, error) {
@@ -150,6 +169,8 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	//// Integrations
 	app.http.POST("/integrations/akahu/sync", app.SyncAkahu)
+	app.http.GET("/integrations/akahu/sync", app.SyncAkahuStatus)
+	app.http.POST("/integrations/akahu/resync", app.ResyncAkahu)
 	app.http.POST("/integrations/akahu/save", app.PutAkahuSettings)
 
 	// Notifications
@@ -163,12 +184,26 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.GET("/settings", app.Settings)
 	app.http.POST("/settings/schedule", app.SettingsSaveSchedule)
 	app.http.POST("/settings/danger/remove/synced", app.SettingsDeleteSynced)
+	app.http.GET("/settings/backup", app.SettingsExport)
+	app.http.POST("/settings/backup", app.SettingsImport)
 
 	// Insights
 	app.http.GET("/insights", app.Insights)
 
 	// Transactions
 	app.http.GET("/transactions", app.Transactions)
+
+	// Timeline: the purchases worth remembering, and the memories made of them.
+	app.http.GET("/timeline", app.Timeline)
+	app.http.POST("/timeline/memories", app.TimelineSaveMemory)
+	app.http.PUT("/timeline/memories/:id", app.TimelineUpdateMemory)
+	app.http.DELETE("/timeline/memories/:id", app.TimelineDeleteMemory)
+	app.http.DELETE("/timeline/memories/:id/transactions/:tx", app.TimelineRemoveFromMemory)
+	app.http.POST("/timeline/hide", app.TimelineHide)
+	app.http.POST("/timeline/restore", app.TimelineRestore)
+
+	// Adding a transaction to a memory from the transactions list.
+	app.http.POST("/transactions/:id/memory", app.TransactionAddToMemory)
 
 	// Portfolio: everything owned and owed. Assets tracked by hand sit under it
 	// alongside the synced accounts, so their URLs sit under it too.

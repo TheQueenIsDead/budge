@@ -154,7 +154,7 @@ func TestRenderSettingsPage(t *testing.T) {
 		"accounts":       []models.Account{account},
 		"akahuAppToken":  "app_token",
 		"akahuUserToken": "user_token",
-		"akahuLastSync":  time.Now().Add(-2 * time.Hour),
+		"sync":           SyncStatus{LastSync: time.Now().Add(-2 * time.Hour)},
 		"schedule": buildScheduleView(models.ScheduleSettings{
 			AkahuEnabled: true, AkahuInterval: "6h", AkahuLastRun: time.Now().Add(-time.Hour),
 		}),
@@ -177,9 +177,9 @@ func TestRenderSettingsPage(t *testing.T) {
 			`id="akahuAppToken"`, `name="akahuAppToken"`,
 			`id="akahuUserToken"`, `name="akahuUserToken"`,
 			`id="toggleAppToken"`, `id="toggleUserToken"`,
-			`id="last-sync"`, `id="schedule"`, `id="accounts"`, `id="danger"`,
+			`id="akahu-sync"`, `id="schedule"`, `id="accounts"`, `id="danger"`,
 			`hx-post="/integrations/akahu/sync"`, `hx-post="/integrations/akahu/save"`,
-			`hx-post="/settings/danger/remove/synced"`, `hx-target="#last-sync"`,
+			`hx-post="/settings/danger/remove/synced"`, `hx-target="#akahu-sync"`,
 		} {
 			assert.Contains(t, page, hook, "settings lost a hook the page relies on")
 		}
@@ -202,9 +202,9 @@ func TestRenderSettingsPage(t *testing.T) {
 
 	t.Run("says nothing is connected when nothing is", func(t *testing.T) {
 		bare := renderTemplate(t, "settings", map[string]interface{}{
-			"accounts":      []models.Account{},
-			"akahuLastSync": time.Time{},
-			"schedule":      buildScheduleView(models.ScheduleSettings{}),
+			"accounts": []models.Account{},
+			"sync":     SyncStatus{},
+			"schedule": buildScheduleView(models.ScheduleSettings{}),
 		})
 		assert.Contains(t, bare, "Nothing connected")
 	})

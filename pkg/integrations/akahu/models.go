@@ -78,4 +78,13 @@ type Transaction struct {
 	Amount      float64   `json:"amount"`
 	Balance     float64   `json:"balance"`
 	Type        string    `json:"type"`
+	Meta        struct {
+		// Conversion is only present on purchases made in a foreign currency,
+		// which makes it the most reliable sign of where money was spent.
+		Conversion struct {
+			Amount   float64 `json:"amount"`
+			Currency string  `json:"currency"`
+			Rate     float64 `json:"rate"`
+		} `json:"conversion"`
+	} `json:"meta"`
 }

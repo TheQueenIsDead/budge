@@ -1,0 +1,406 @@
+{{ define "timeline" }}
+
+    <div class="b-page-head">
+        <h2>Timeline</h2>
+        <p class="b-page-sub">The purchases that stood out, and the memories they made.</p>
+    </div>
+
+    <!-- Period and view are plain links, kept outside the actions below so they
+         do not inherit the state those actions carry. -->
+    <div hx-boost="true" hx-target="#main">
+        <div class="b-pills">
+            {{ range .Periods }}
+                <a class="b-pill{{ if eq .Key $.Period.Key }} b-pill-active{{ end }}"
+                   href="/timeline?period={{ .Key }}&view={{ $.View }}">{{ .Label }}</a>
+            {{ end }}
+        </div>
+    </div>
+
+    <div class="row g-2 mb-3">
+        <div class="col-4">
+            <div class="b-stat b-accent-sage">
+                <div class="b-stat-label"><span>Memories</span><i class="bi bi-bookmark-star"></i></div>
+                <div class="b-stat-value">{{ len .Memories }}</div>
+                <div class="b-delta-note">{{ fmtLower .Period.Label }}</div>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="b-stat b-accent-clay">
+                <div class="b-stat-label"><span>Spent on them</span><i class="bi bi-piggy-bank"></i></div>
+                <div class="b-stat-value">{{ .MemoryTotal | fmtCurrency }}</div>
+                <div class="b-delta-note">across every memory</div>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="b-stat b-accent-plum">
+                <div class="b-stat-label"><span>Biggest</span><i class="bi bi-stars"></i></div>
+                {{ with .Biggest }}
+                    <div class="b-stat-value">{{ .Total | fmtCurrency }}</div>
+                    <div class="b-delta-note text-truncate">{{ .Title }}</div>
+                {{ else }}
+                    <div class="b-stat-value">&mdash;</div>
+                    <div class="b-delta-note">nothing yet</div>
+                {{ end }}
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2" hx-boost="true" hx-target="#main">
+        <div class="b-segment">
+            <a href="/timeline?period={{ .Period.Key }}&view=all"
+               class="{{ if eq .View "all" }}active{{ end }}">Everything</a>
+            <a href="/timeline?period={{ .Period.Key }}&view=memories"
+               class="{{ if eq .View "memories" }}active{{ end }}">Memories</a>
+            <a href="/timeline?period={{ .Period.Key }}&view=hidden"
+               class="{{ if eq .View "hidden" }}active{{ end }}">Hidden</a>
+        </div>
+        {{ if eq .View "all" }}
+            <span class="b-delta-note">Notable means {{ .Threshold | fmtCurrency }} or more, excluding regular bills</span>
+        {{ end }}
+    </div>
+
+    <!-- Every action re-renders the page in place. hx-vals carries the current
+         view and period along, so the page comes back as it was left. -->
+    <div class="b-tl-feed" hx-target="#main" hx-swap="innerHTML show:none" hx-vals='{{ .State }}'>
+
+        {{ if eq .View "hidden" }}
+
+            {{ if .Dismissed }}
+                <div class="b-summary-bar mb-2">
+                    <span class="b-summary-item">
+                        <i class="bi bi-lightbulb"></i>
+                        {{ .Dismissed }} suggestion{{ if ne .Dismissed 1 }}s{{ end }} dismissed
+                    </span>
+                    <button class="btn btn-sm btn-link ms-auto p-0"
+                            hx-post="/timeline/restore" hx-vals='{"suggestion": "all"}'>Bring back</button>
+                </div>
+            {{ end }}
+
+            {{ if .HiddenMerchants }}
+                <div class="b-card mb-3">
+                    <div class="b-conn"><h3 class="b-conn-name">Hidden merchants</h3></div>
+                    <ul class="b-acct-list">
+                        {{ range .HiddenMerchants }}
+                            <li>
+                                <div class="b-acct b-acct-static">
+                                    <span class="b-chip b-chip-sm fw-bold">{{ slice . 0 1 }}</span>
+                                    <div class="b-acct-body"><div class="b-acct-name">{{ . }}</div></div>
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            hx-post="/timeline/restore" hx-vals='{{ dict "merchant" . | toJSON }}'>
+                                        <i class="bi bi-eye"></i>Restore
+                                    </button>
+                                </div>
+                            </li>
+                        {{ end }}
+                    </ul>
+                </div>
+            {{ end }}
+
+            {{ if .Hidden }}
+                <div class="b-card mb-3">
+                    <div class="b-conn"><h3 class="b-conn-name">Hidden purchases</h3></div>
+                    <ul class="b-acct-list">
+                        {{ range .Hidden }}
+                            <li>
+                                <div class="b-acct b-acct-static{{ if .Accent }} b-accent-{{ .Accent }}{{ end }}">
+                                    <span class="b-chip b-chip-sm"><i class="bi {{ .Icon }}"></i></span>
+                                    <div class="b-acct-body">
+                                        <div class="b-acct-name">{{ .Title }}</div>
+                                        <div class="b-acct-meta">{{ .Date.Format "2 Jan 2006" }}</div>
+                                    </div>
+                                    <span class="fw-semibold b-num">{{ .Amount | fmtCurrencyAbs }}</span>
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            hx-post="/timeline/restore" hx-vals='{{ dict "tx" .Id | toJSON }}'>
+                                        <i class="bi bi-eye"></i>Restore
+                                    </button>
+                                </div>
+                            </li>
+                        {{ end }}
+                    </ul>
+                </div>
+            {{ else if not (or .Dismissed .HiddenMerchants) }}
+                <div class="b-empty">
+                    <i class="bi bi-eye-slash"></i>
+                    <h4>Nothing hidden</h4>
+                    <p>Purchases you hide from the timeline will be listed here, so you can bring them back.</p>
+                </div>
+            {{ end }}
+
+        {{ else if .Months }}
+
+            {{ range .Months }}
+                <div class="b-tx-day">
+                    <span>{{ .Month.Format "January 2006" }}</span>
+                    <span class="b-num">{{ .Total | fmtCurrency }}</span>
+                </div>
+
+                <div class="b-tl-list">
+                    {{ range .Entries }}
+
+                        {{ if eq .Type "memory" }}
+                            <div class="b-tl-item b-tl-memory b-accent-{{ .Accent }}">
+                                <div class="b-tl-row">
+                                    <span class="b-chip"><i class="bi {{ .Icon }}"></i></span>
+                                    <div class="b-tx-body">
+                                        <div class="b-tx-name">{{ .Title }}</div>
+                                        <div class="b-tx-meta">
+                                            <span class="b-tl-kind">{{ .Kind.Label }}</span>
+                                            <span>{{ .Span }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="b-tx-amount">{{ .Total | fmtCurrency }}</div>
+                                </div>
+                                {{ if .Note }}<p class="b-tl-note">{{ .Note }}</p>{{ end }}
+                                <div class="b-tl-actions">
+                                    {{ template "timeline.rows" (dict "Entry" . "Removable" true "Open" (eq $.Open .Key)) }}
+                                    <details class="b-tl-tag"{{ if eq $.Editing .Key }} open{{ end }}>
+                                        <summary class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i>Edit</summary>
+                                        <form class="b-tl-form" hx-put="/timeline/memories/{{ .Key }}">
+                                            <input class="form-control form-control-sm" name="title" value="{{ .Title }}"
+                                                   aria-label="Memory name" required>
+                                            {{ template "timeline.kinds" (dict "Kinds" $.Kinds "Selected" .Kind.Key) }}
+                                            <input class="form-control form-control-sm" name="note" value="{{ .Note }}"
+                                                   placeholder="A note, if you like" aria-label="Note">
+                                            <button class="btn btn-sm btn-primary">Save</button>
+                                        </form>
+
+                                        <!-- What else was bought around it, to add whatever was
+                                             missed. A form of its own: the edit above saves the
+                                             name, this adds purchases. -->
+                                        {{ if .Nearby }}
+                                            <form class="b-tl-nearby" hx-post="/timeline/memories"
+                                                  hx-vals='{{ dict "editing" .Key "open" .Key | toJSON }}'>
+                                                <input type="hidden" name="memory" value="{{ .Key }}">
+                                                <ul class="b-tl-sameday">
+                                                    <li class="b-tl-sameday-label">Bought around then</li>
+                                                    {{ range .Nearby }}
+                                                        <li>
+                                                            <label class="b-tl-ctx{{ if .Claimed }} b-tl-ctx-claimed{{ end }}"
+                                                                   {{ if .Claimed }}title="Already in a memory"{{ end }}>
+                                                                {{ if .Claimed }}
+                                                                    <i class="bi bi-bookmark-check b-tl-ctx-mark"></i>
+                                                                {{ else }}
+                                                                    <input type="checkbox" class="form-check-input b-tl-pick" name="tx" value="{{ .Id }}"
+                                                                           aria-label="Add {{ .Title }}">
+                                                                {{ end }}
+                                                                <span class="b-tl-ctx-date">{{ .Date.Format "2 Jan" }}</span>
+                                                                <span class="b-tl-ctx-name">{{ .Title }}</span>
+                                                                <span class="b-num">{{ .Amount | fmtCurrencyAbs }}</span>
+                                                            </label>
+                                                        </li>
+                                                    {{ end }}
+                                                </ul>
+                                                <button class="btn btn-sm btn-outline-secondary mt-2"><i class="bi bi-plus-lg"></i>Add ticked</button>
+                                            </form>
+                                        {{ end }}
+                                    </details>
+                                    <a class="btn btn-sm btn-link text-muted" href="{{ .TransactionsLink }}"
+                                       hx-boost="true" hx-params="none" title="Everything bought over these days">
+                                        <i class="bi bi-list-ul"></i>View in transactions
+                                    </a>
+                                    <button class="btn btn-sm btn-link text-muted ms-auto"
+                                            hx-delete="/timeline/memories/{{ .Key }}"
+                                            hx-confirm="Delete “{{ .Title }}”? Its purchases go back on the timeline.">
+                                        <i class="bi bi-trash"></i>Delete
+                                    </button>
+                                </div>
+                            </div>
+
+                        {{ else if eq .Type "suggestion" }}
+                            <div class="b-tl-item b-tl-suggestion b-accent-{{ .Accent }}">
+                                <div class="b-tl-row">
+                                    <span class="b-chip"><i class="bi {{ .Icon }}"></i></span>
+                                    <div class="b-tx-body">
+                                        <div class="b-tx-name">{{ .Title }}</div>
+                                        <div class="b-tx-meta">
+                                            <span class="b-tl-kind"><i class="bi bi-lightbulb"></i>Suggested</span>
+                                            <span>{{ .Span }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="b-tx-amount">{{ .Total | fmtCurrency }}</div>
+                                </div>
+                                <p class="b-tl-note">Looks like one trip: {{ .Reason }}.</p>
+                                <form class="b-tl-form" hx-post="/timeline/memories">
+                                    {{ range .TransactionIDs }}<input type="hidden" name="tx" value="{{ . }}">{{ end }}
+                                    {{ template "timeline.memory" (dict "Data" $ "Title" .Title "Kind" .Kind.Key) }}
+                                </form>
+                                <div class="b-tl-actions">
+                                    {{ template "timeline.rows" (dict "Entry" .) }}
+                                    <button class="btn btn-sm btn-link text-muted ms-auto"
+                                            hx-post="/timeline/hide" hx-vals='{{ dict "suggestion" .Key | toJSON }}'>
+                                        Not a trip
+                                    </button>
+                                </div>
+                            </div>
+
+                        {{ else }}
+                            {{ $row := index .Rows 0 }}
+                            <div class="b-tl-item b-accent-{{ .Accent }}{{ if .Outlier }} b-tl-outlier{{ end }}">
+                                <div class="b-tl-row">
+                                    <input type="checkbox" class="form-check-input b-tl-select" name="tx" value="{{ .Key }}"
+                                           form="timeline-group" aria-label="Select {{ .Title }}">
+                                    <span class="b-chip"><i class="bi {{ .Icon }}"></i></span>
+                                    <div class="b-tx-body">
+                                        <!-- hx-params keeps the page state this sits inside
+                                             out of the transactions search. -->
+                                        <a class="b-tx-name b-tl-link" href="/transactions?search={{ .Title }}"
+                                           hx-boost="true" hx-params="none" title="Everything from {{ .Title }}">{{ .Title }}</a>
+                                        <div class="b-tx-meta">
+                                            {{ if .Outlier }}
+                                                <span class="b-delta b-delta-bad" title="{{ printf "%.1f" .Multiple }}× the usual notable purchase">
+                                                    <i class="bi bi-lightning-charge"></i>Outlier
+                                                </span>
+                                            {{ end }}
+                                            <span>{{ .Span }}</span>
+                                            {{ range $row.Categories }}<span class="badge-category">{{ . }}</span>{{ end }}
+                                        </div>
+                                    </div>
+                                    <div class="b-tx-amount">{{ .Total | fmtCurrency }}</div>
+                                </div>
+
+                                {{ if .SameDay }}
+                                    <!-- The rest of the day, as a hint at what this was. Each
+                                         can be ticked to go into a memory alongside it. -->
+                                    <ul class="b-tl-sameday" aria-label="Also bought that day">
+                                        <li class="b-tl-sameday-label">Same day</li>
+                                        {{ range .SameDay }}
+                                            <li>
+                                                <label class="b-tl-ctx{{ if .Claimed }} b-tl-ctx-claimed{{ end }}"
+                                                       {{ if .Claimed }}title="Already in a memory"{{ end }}>
+                                                    {{ if .Claimed }}
+                                                        <i class="bi bi-bookmark-check b-tl-ctx-mark"></i>
+                                                    {{ else }}
+                                                        <input type="checkbox" class="form-check-input b-tl-select" name="tx" value="{{ .Id }}"
+                                                               form="timeline-group" aria-label="Select {{ .Title }}">
+                                                    {{ end }}
+                                                    <span class="b-tl-ctx-name">{{ .Title }}</span>
+                                                    <span class="b-num">{{ .Amount | fmtCurrencyAbs }}</span>
+                                                </label>
+                                            </li>
+                                        {{ end }}
+                                        {{ if .SameDayMore }}<li class="b-tl-sameday-label">and {{ .SameDayMore }} more</li>{{ end }}
+                                    </ul>
+                                {{ end }}
+
+                                <div class="b-tl-actions">
+                                    <details class="b-tl-tag">
+                                        <summary class="btn btn-sm btn-outline-secondary"><i class="bi bi-bookmark-plus"></i>Add to memory</summary>
+                                        <form class="b-tl-form" hx-post="/timeline/memories">
+                                            <input type="hidden" name="tx" value="{{ .Key }}">
+                                            {{ template "timeline.memory" (dict "Data" $ "Title" .Title "Kind" .Kind.Key "Note" true) }}
+                                        </form>
+                                    </details>
+                                    <div class="btn-group ms-auto">
+                                        <button class="btn btn-sm btn-link text-muted"
+                                                hx-post="/timeline/hide" hx-vals='{{ dict "tx" .Key | toJSON }}'
+                                                title="Hide this from the timeline">
+                                            <i class="bi bi-eye-slash"></i>Hide
+                                        </button>
+                                        {{ if .Merchant }}
+                                            <button class="btn btn-sm btn-link text-muted dropdown-toggle dropdown-toggle-split"
+                                                    data-bs-toggle="dropdown" aria-expanded="false"
+                                                    aria-label="More ways to hide"></button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li>
+                                                    <button class="dropdown-item"
+                                                            hx-post="/timeline/hide" hx-vals='{{ dict "merchant" .Merchant | toJSON }}'>
+                                                        Hide everything from {{ .Merchant }}
+                                                    </button>
+                                                </li>
+                                            </ul>
+                                        {{ end }}
+                                    </div>
+                                </div>
+                            </div>
+                        {{ end }}
+
+                    {{ end }}
+                </div>
+            {{ end }}
+
+            <!-- Shown once any purchase is ticked. The ticked boxes belong to
+                 this form through their form attribute, so they can sit anywhere
+                 in the list. It is the same form as a single purchase's "Add to
+                 memory", for several at once. -->
+            <form id="timeline-group" class="b-tl-form b-tl-groupbar" hx-post="/timeline/memories">
+                <span class="b-tl-count"></span>
+                {{ template "timeline.memory" (dict "Data" $ "Kind" "trip") }}
+            </form>
+
+        {{ else if eq .View "memories" }}
+            <div class="b-empty">
+                <i class="bi bi-bookmark-star"></i>
+                <h4>No memories yet</h4>
+                <p>Add a purchase to a memory, or tick a few and add them together, to remember what they were for.</p>
+            </div>
+        {{ else }}
+            <div class="b-empty">
+                <i class="bi bi-clock-history"></i>
+                <h4>Nothing notable</h4>
+                <p>Purchases that stand out from your usual spending will appear here once an account is synced.</p>
+            </div>
+        {{ end }}
+    </div>
+
+{{ end }}
+
+{{/* The purchases behind a memory or a suggestion, folded away until asked
+     for. A memory's can each be taken back out. */}}
+{{ define "timeline.rows" }}
+    {{ $entry := .Entry }}
+    {{ $removable := .Removable }}
+    <details class="b-tl-rows"{{ if .Open }} open{{ end }}>
+        <summary class="btn btn-sm btn-outline-secondary">
+            {{ len $entry.Rows }} purchase{{ if ne (len $entry.Rows) 1 }}s{{ end }}
+        </summary>
+        <ul>
+            {{ range $entry.Rows }}
+                <li>
+                    <span class="b-tl-rows-name">{{ .Title }}</span>
+                    <span class="text-muted">{{ .Date.Format "2 Jan" }}</span>
+                    <span class="b-num {{ if gt .Amount 0.0 }}text-success{{ end }}">{{ .Amount | fmtCurrencyAbs }}</span>
+                    {{ if $removable }}
+                        <button class="btn btn-sm btn-link text-muted p-0"
+                                hx-delete="/timeline/memories/{{ $entry.Key }}/transactions/{{ .Id }}"
+                                hx-vals='{{ dict "open" $entry.Key | toJSON }}'
+                                title="Take this out of the memory" aria-label="Take {{ .Title }} out of this memory">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    {{ end }}
+                </li>
+            {{ end }}
+        </ul>
+    </details>
+{{ end }}
+
+{{/* Adding to a memory, wherever it happens: one purchase, a suggestion or
+     several ticked at once. With memories to choose from, the fields for a new
+     one only show while "New memory" is picked. */}}
+{{ define "timeline.memory" }}
+    {{ if .Data.MemoryOptions }}
+        <select class="form-select form-select-sm b-tl-target" name="memory" aria-label="Which memory">
+            <option value="">New memory&hellip;</option>
+            {{ range .Data.MemoryOptions }}
+                <option value="{{ .Id }}">{{ .Label }}</option>
+            {{ end }}
+        </select>
+    {{ end }}
+    <span class="b-tl-new">
+        <input class="form-control form-control-sm" name="title" value="{{ .Title }}"
+               placeholder="Name this memory" aria-label="Memory name">
+        {{ template "timeline.kinds" (dict "Kinds" .Data.Kinds "Selected" .Kind) }}
+        {{ if .Note }}
+            <input class="form-control form-control-sm" name="note"
+                   placeholder="A note, if you like" aria-label="Note">
+        {{ end }}
+    </span>
+    <button class="btn btn-sm btn-primary">Save</button>
+{{ end }}
+
+{{ define "timeline.kinds" }}
+    <select class="form-select form-select-sm" name="kind" aria-label="What kind of memory">
+        {{ range .Kinds }}
+            <option value="{{ .Key }}"{{ if eq .Key $.Selected }} selected{{ end }}>{{ .Label }}</option>
+        {{ end }}
+    </select>
+{{ end }}
