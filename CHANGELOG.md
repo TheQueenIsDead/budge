@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.1](https://github.com/TheQueenIsDead/budge/compare/v1.16.0...v1.16.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* **web:** embed static files and version them by content ([#99](https://github.com/TheQueenIsDead/budge/issues/99)) ([db31956](https://github.com/TheQueenIsDead/budge/commit/db31956d4eca96508286b9b325e500dab1c76b7a))
+
 ## [1.16.0](https://github.com/TheQueenIsDead/budge/compare/v1.15.2...v1.16.0) (2026-10-15)
 
 
