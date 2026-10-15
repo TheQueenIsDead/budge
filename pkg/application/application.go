@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/integrations"
+	"github.com/TheQueenIsDead/budge/web"
 	"github.com/dustin/go-humanize"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
@@ -68,6 +69,7 @@ func templateFuncs() template.FuncMap {
 		"fmtTitle": func(text string) string {
 			return cases.Title(language.English).String(text)
 		},
+		"asset": assetURL,
 		// dict builds a map from alternating keys and values, so a partial
 		// template can be handed more than one thing.
 		"dict": func(pairs ...interface{}) map[string]interface{} {
@@ -109,7 +111,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.Debug = true
 
 	tpl := template.New("").Funcs(templateFuncs())
-	tpl = template.Must(tpl.ParseGlob("web/templates/*.gohtml"))
+	tpl = template.Must(tpl.ParseFS(web.Templates, "templates/*.gohtml"))
 
 	t := &Template{
 		templates: tpl,
@@ -236,9 +238,10 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	app.scheduler = newScheduler(app)
 
-	// Static files. Mounted at /static rather than /assets so the assets feature
-	// can own /assets/:id without shadowing the stylesheet.
-	app.http.Static("/static", "./web/public")
+	// Static files, compiled into the binary. Mounted at /static rather than
+	// /assets so the assets feature can own /assets/:id without shadowing the
+	// stylesheet.
+	app.http.Group("/static", StaticCaching()).StaticFS("/", staticFiles)
 
 	return app, nil
 }

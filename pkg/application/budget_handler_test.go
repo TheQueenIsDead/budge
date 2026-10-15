@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/TheQueenIsDead/budge/pkg/database"
+	"github.com/TheQueenIsDead/budge/web"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +25,7 @@ func newTestApp(t *testing.T) *Application {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 
-	tpl, err := template.New("").Funcs(templateFuncs()).ParseGlob("../../web/templates/*.gohtml")
+	tpl, err := template.New("").Funcs(templateFuncs()).ParseFS(web.Templates, "templates/*.gohtml")
 	require.NoError(t, err)
 
 	e := echo.New()
