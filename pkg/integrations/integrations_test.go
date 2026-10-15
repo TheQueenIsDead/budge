@@ -22,7 +22,13 @@ func fakeAkahu(t *testing.T, transactions int, starts *[]string) *httptest.Serve
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/accounts":
-			_, _ = fmt.Fprint(w, `{"success": true, "items": [{"_id": "acc", "name": "Everyday"}]}`)
+			// Akahu last fetched from the banks at different times; the
+			// closed account's stale refresh must not hold the window back.
+			_, _ = fmt.Fprint(w, `{"success": true, "items": [
+				{"_id": "acc", "name": "Everyday", "status": "ACTIVE", "refreshed": {"transactions": "2026-10-14T06:00:00Z"}},
+				{"_id": "card", "name": "Credit card", "status": "ACTIVE", "refreshed": {"transactions": "2026-10-13T22:00:00Z"}},
+				{"_id": "old", "name": "Closed", "status": "INACTIVE", "refreshed": {"transactions": "2025-01-01T00:00:00Z"}}
+			]}`)
 		case "/transactions":
 			*starts = append(*starts, r.URL.Query().Get("start"))
 			from, to, next := 0, transactions/2, "page-2"
@@ -62,15 +68,18 @@ func TestSyncAkahuFullHistory(t *testing.T) {
 	integrations, store := testIntegrations(t, server.URL)
 
 	began := time.Now()
-	require.NoError(t, integrations.SyncAkahu(echo.New().Logger, time.Time{}, nil))
+	through, err := integrations.SyncAkahu(echo.New().Logger, time.Time{}, nil)
+	require.NoError(t, err)
 	took := time.Since(began)
+	assert.Equal(t, time.Date(2026, time.October, 13, 22, 0, 0, 0, time.UTC), through.UTC(),
+		"the account furthest behind sets how fresh the data is")
 
 	count, err := store.CountTransactions()
 	require.NoError(t, err)
 	assert.Equal(t, 4000, count)
 	accounts, err := store.ReadAccounts()
 	require.NoError(t, err)
-	assert.Len(t, accounts, 1)
+	assert.Len(t, accounts, 3)
 
 	// Written one commit at a time this took close to two minutes, which is
 	// what timed the request out. Behind one commit it is a moment.
@@ -80,17 +89,56 @@ func TestSyncAkahuFullHistory(t *testing.T) {
 	assert.Equal(t, []string{"", ""}, starts)
 }
 
-func TestSyncAkahuOverlapsTheLastSync(t *testing.T) {
+func TestSyncAkahuReadsFromAkahusFreshness(t *testing.T) {
 	var starts []string
 	server := fakeAkahu(t, 10, &starts)
 	defer server.Close()
 	integrations, _ := testIntegrations(t, server.URL)
 
-	last := time.Date(2026, time.October, 15, 9, 0, 0, 0, time.UTC)
-	require.NoError(t, integrations.SyncAkahu(echo.New().Logger, last, nil))
+	through := time.Date(2026, time.October, 15, 9, 0, 0, 0, time.UTC)
+	_, err := integrations.SyncAkahu(echo.New().Logger, through, nil)
+	require.NoError(t, err)
 
 	require.NotEmpty(t, starts)
-	assert.Equal(t, "2026-10-08T09:00:00Z", starts[0])
+	assert.Equal(t, "2026-10-01T09:00:00Z", starts[0], "a fortnight before Akahu's last refresh")
+}
+
+func TestFreshness(t *testing.T) {
+	account := func(status string, refreshed time.Time) akahu.Account {
+		var a akahu.Account
+		a.Status = status
+		a.Refreshed.Transactions = refreshed
+		return a
+	}
+	tx := func(date time.Time) akahu.Transaction {
+		var t akahu.Transaction
+		t.Date = date
+		return t
+	}
+	monday := time.Date(2026, time.October, 12, 0, 0, 0, 0, time.UTC)
+	previous := monday.AddDate(0, 0, -3)
+
+	t.Run("Akahu's oldest refresh, ignoring closed accounts", func(t *testing.T) {
+		got := freshness([]akahu.Account{
+			account("ACTIVE", monday.Add(5*time.Hour)),
+			account("ACTIVE", monday.Add(2*time.Hour)),
+			account("INACTIVE", monday.AddDate(-1, 0, 0)),
+		}, nil, previous)
+		assert.Equal(t, monday.Add(2*time.Hour), got)
+	})
+
+	t.Run("the newest transaction when Akahu reports no refresh", func(t *testing.T) {
+		got := freshness([]akahu.Account{account("ACTIVE", time.Time{})}, []akahu.Transaction{tx(monday), tx(previous)}, previous.AddDate(0, 0, -10))
+		assert.Equal(t, monday, got)
+	})
+
+	t.Run("never moves on when there is nothing new to go on", func(t *testing.T) {
+		// The bug this replaces: an hourly sync that found nothing still
+		// moved the start of the next window up to the time it ran, so a
+		// purchase posted late, dated before that, was never read.
+		got := freshness(nil, nil, previous)
+		assert.Equal(t, previous, got)
+	})
 }
 
 func TestSyncAkahuReportsAkahuErrors(t *testing.T) {
@@ -101,7 +149,7 @@ func TestSyncAkahuReportsAkahuErrors(t *testing.T) {
 	defer server.Close()
 	integrations, _ := testIntegrations(t, server.URL)
 
-	err := integrations.SyncAkahu(echo.New().Logger, time.Time{}, nil)
+	_, err := integrations.SyncAkahu(echo.New().Logger, time.Time{}, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "429")
 	assert.Contains(t, err.Error(), "Rate limit exceeded")

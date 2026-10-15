@@ -13,8 +13,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// syncOverlapDays is how far before the last sync each sync starts reading.
-const syncOverlapDays = 7
+// syncOverlapDays is how far before Akahu's last known refresh each sync starts
+// reading. A transaction can be dated some days before the bank posts it, so
+// the window reaches back well past the refresh to catch those, and so both
+// halves of a transfer made either side of it are seen together. Re-reading a
+// fortnight costs a few hundred transactions, rewritten in one commit.
+const syncOverlapDays = 14
 
 type Integrations struct {
 	store *database.Store
@@ -59,27 +63,26 @@ func (i *Integrations) Config() map[string]interface{} {
 
 // SyncAkahu pulls accounts and transactions. It takes a logger rather than a
 // request context so a scheduled run, which has no request behind it, can call it.
-// progress, which may be nil, is told how many transactions have been fetched
-// as each page arrives.
-func (i *Integrations) SyncAkahu(logger echo.Logger, lastSync time.Time, progress func(fetched int)) error {
+// dataThrough is how fresh Akahu's data was at the last sync, and zero reads the
+// whole history. progress, which may be nil, is told how many transactions have
+// been fetched as each page arrives. It returns how fresh Akahu's data is now,
+// for the next sync to start from.
+func (i *Integrations) SyncAkahu(logger echo.Logger, dataThrough time.Time, progress func(fetched int)) (time.Time, error) {
 
 	accounts, err := i.AkahuAccounts()
 	if err != nil {
 		logger.Error(err)
-		return err
+		return dataThrough, err
 	}
 
-	// The window reaches back past the last sync so transactions that were
-	// still pending then are picked up once they settle, and so both halves of
-	// a transfer made either side of the last sync are seen together.
-	since := lastSync
+	since := dataThrough
 	if !since.IsZero() {
 		since = since.AddDate(0, 0, -syncOverlapDays)
 	}
 	transactions, err := i.akahu.GetTransactions(since, true, progress)
 	if err != nil {
 		logger.Error(err)
-		return err
+		return dataThrough, err
 	}
 
 	transfers := identifyTransfers(transactions)
@@ -133,10 +136,10 @@ func (i *Integrations) SyncAkahu(logger echo.Logger, lastSync time.Time, progres
 
 	if err := i.store.SaveSynced(saved, txs, merchants); err != nil {
 		logger.Error(err)
-		return err
+		return dataThrough, err
 	}
 
-	return nil
+	return freshness(accounts, transactions, dataThrough), nil
 }
 
 // isMatchingTransfer reports whether two transactions look like the two legs
@@ -145,6 +148,36 @@ func (i *Integrations) SyncAkahu(logger echo.Logger, lastSync time.Time, progres
 // Topping up an everyday account from savings and then paying a tradesperson
 // the same amount from it is an equal and opposite pair inside one account,
 // and without it the payment for a new roof was filed away as a transfer.
+// freshness is how far Akahu's data can be trusted to reach: the oldest of the
+// times it last refreshed each open account's transactions from the bank. The
+// oldest, because the next sync must reach back far enough for the account
+// that is furthest behind. When Akahu reports no refresh times, the newest
+// transaction date seen stands in, and failing that the previous mark stays;
+// the wall clock is never used, since it says nothing about what Akahu has.
+func freshness(accounts []akahu.Account, transactions []akahu.Transaction, previous time.Time) time.Time {
+	var oldest time.Time
+	for _, account := range accounts {
+		refreshed := account.Refreshed.Transactions
+		if account.Status == "INACTIVE" || refreshed.IsZero() {
+			continue
+		}
+		if oldest.IsZero() || refreshed.Before(oldest) {
+			oldest = refreshed
+		}
+	}
+	if !oldest.IsZero() {
+		return oldest
+	}
+
+	newest := previous
+	for _, tx := range transactions {
+		if tx.Date.After(newest) {
+			newest = tx.Date
+		}
+	}
+	return newest
+}
+
 func isMatchingTransfer(tx1, tx2 akahu.Transaction) bool {
 	if tx1.Account == tx2.Account {
 		return false

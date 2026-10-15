@@ -467,20 +467,28 @@ func (s *Store) GetAkahuSettings() (models.IntegrationAkahuSettings, error) {
 func (s *Store) UpdateAkahuSettings(settings models.IntegrationAkahuSettings) error {
 	return Update[models.IntegrationAkahuSettings](s.db, settings)
 }
-func (s *Store) UpdateAkahuLastSync() error {
+
+// RecordAkahuSync notes a successful sync, and how fresh Akahu's data was at
+// the time, which is where the next sync starts reading.
+func (s *Store) RecordAkahuSync(dataThrough time.Time) error {
 	settings, err := Get[models.IntegrationAkahuSettings](s.db, models.IntegrationAkahuSettings{}.Key())
 	if err != nil {
 		return err
 	}
 	settings.LastSync = time.Now()
+	settings.DataThrough = dataThrough
 	return Update[models.IntegrationAkahuSettings](s.db, settings)
 }
+
+// ResetAkahuLastSync forgets how far the synced data reaches, so the next
+// sync reads the whole history again.
 func (s *Store) ResetAkahuLastSync() error {
 	settings, err := Get[models.IntegrationAkahuSettings](s.db, models.IntegrationAkahuSettings{}.Key())
 	if err != nil {
 		return err
 	}
 	settings.LastSync = time.Time{}
+	settings.DataThrough = time.Time{}
 	return Update[models.IntegrationAkahuSettings](s.db, settings)
 }
 func (s *Store) DeleteSynced() error {

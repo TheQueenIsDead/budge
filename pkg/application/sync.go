@@ -88,10 +88,11 @@ func (app *Application) runAkahuSync() error {
 		if err != nil {
 			return err
 		}
-		if err := app.integrations.SyncAkahu(app.http.Logger, settings.LastSync, app.akahuSync.progress); err != nil {
+		through, err := app.integrations.SyncAkahu(app.http.Logger, settings.DataThrough, app.akahuSync.progress)
+		if err != nil {
 			return err
 		}
-		return app.store.UpdateAkahuLastSync()
+		return app.store.RecordAkahuSync(through)
 	}()
 	app.akahuSync.end(err)
 	return err
