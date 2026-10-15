@@ -2,6 +2,7 @@ package application
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -39,11 +40,11 @@ func (app *Application) SettingsImport(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	backup, err := readBackup(io.LimitReader(src, backupMaxBytes))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		return echo.NewHTTPError(http.StatusBadRequest, "That file could not be imported: "+err.Error()+".")
 	}
 
 	if err := app.store.ImportBackup(backup); err != nil {
@@ -61,13 +62,13 @@ func (app *Application) SettingsImport(c echo.Context) error {
 func readBackup(r io.Reader) (models.Backup, error) {
 	var backup models.Backup
 	if err := json.NewDecoder(r).Decode(&backup); err != nil {
-		return backup, fmt.Errorf("That file is not a Budge backup: %w", err)
+		return backup, fmt.Errorf("it is not a Budge backup: %w", err)
 	}
 	if backup.Version == 0 {
-		return backup, fmt.Errorf("That file is not a Budge backup.")
+		return backup, errors.New("it is not a Budge backup")
 	}
 	if backup.Version > models.BackupVersion {
-		return backup, fmt.Errorf("That backup is from a newer version of Budge. Update this instance first.")
+		return backup, errors.New("it is from a newer version of Budge, so update this instance first")
 	}
 	return backup, nil
 }

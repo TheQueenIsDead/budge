@@ -96,7 +96,7 @@ func (a *AkahuClient) get(path string, query map[string]string) (*http.Response,
 	// comes back as JSON. Decoded as a page of results it reads as an empty
 	// one, and the sync reports success having fetched nothing.
 	if res.StatusCode != http.StatusOK {
-		defer res.Body.Close()
+		defer func() { _ = res.Body.Close() }()
 		body, _ := io.ReadAll(io.LimitReader(res.Body, 1024))
 		var failure struct {
 			Message string `json:"message"`
@@ -131,7 +131,7 @@ func (a *AkahuClient) GetTransactions(since time.Time, paginate bool, onPage fun
 		}
 
 		body, _ := io.ReadAll(res.Body)
-		res.Body.Close()
+		_ = res.Body.Close()
 		var tr *TransactionsResponse
 		err = json.Unmarshal(body, &tr)
 		if err != nil {
