@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
+	"github.com/TheQueenIsDead/budge/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,7 +18,7 @@ func renderTemplate(t *testing.T, name string, data interface{}) string {
 	t.Helper()
 
 	tpl := template.New("").Funcs(templateFuncs())
-	tpl, err := tpl.ParseGlob("../../web/templates/*.gohtml")
+	tpl, err := tpl.ParseFS(web.Templates, "templates/*.gohtml")
 	require.NoError(t, err)
 
 	var buf bytes.Buffer
