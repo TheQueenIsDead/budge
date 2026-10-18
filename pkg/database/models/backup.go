@@ -25,6 +25,10 @@ type Backup struct {
 	BudgetSalary *BudgetSalary `json:"budget_salary,omitempty"`
 
 	Schedule *ScheduleSettings `json:"schedule,omitempty"`
+
+	// RemovedAccounts are the accounts switched off, so the first sync on a
+	// new instance does not bring them back.
+	RemovedAccounts []RemovedAccount `json:"removed_accounts,omitempty"`
 }
 
 // BackupCounts says what a backup holds, for telling the owner what an import

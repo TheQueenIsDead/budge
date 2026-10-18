@@ -131,3 +131,31 @@ func Due(lastRun time.Time, every time.Duration, now time.Time) bool {
 	}
 	return !now.Before(lastRun.Add(every))
 }
+
+// RemovedAccount is an Akahu account the owner has taken out of Budge. Akahu
+// still shares it, so without this a sync would bring it straight back. The
+// name and connection are kept so the settings page can say what was removed
+// after the account itself is gone.
+type RemovedAccount struct {
+	Id               string `json:"_id"`
+	Name             string `json:"name"`
+	Connection       string `json:"connection"`
+	FormattedAccount string `json:"formatted_account"`
+}
+
+// RemovedAccounts is every account a sync should skip.
+type RemovedAccounts struct {
+	Accounts []RemovedAccount `json:"accounts"`
+}
+
+func (r RemovedAccounts) Key() []byte    { return []byte("removed_accounts") }
+func (r RemovedAccounts) Bucket() []byte { return buckets.SettingsBucket }
+
+// IDs is the set of removed account IDs, for filtering a sync.
+func (r RemovedAccounts) IDs() map[string]bool {
+	ids := make(map[string]bool, len(r.Accounts))
+	for _, account := range r.Accounts {
+		ids[account.Id] = true
+	}
+	return ids
+}

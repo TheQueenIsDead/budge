@@ -1,8 +1,10 @@
 package database
 
 import (
+	"encoding/json"
 	"errors"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -36,6 +38,83 @@ func (s *Store) CreateAccount(account models.Account) error {
 }
 func (s *Store) ReadAccounts() ([]models.Account, error) {
 	return Read[models.Account](s.db)
+}
+
+// GetRemovedAccounts returns the accounts taken out of Budge. Unset means
+// none have been.
+func (s *Store) GetRemovedAccounts() (models.RemovedAccounts, error) {
+	removed, err := Get[models.RemovedAccounts](s.db, models.RemovedAccounts{}.Key())
+	if err != nil {
+		return models.RemovedAccounts{}, nil
+	}
+	return removed, nil
+}
+
+// RemoveAccount takes an account and its transactions out of Budge, and
+// remembers it so later syncs leave it out. It all lands in one commit, so an
+// account is never half removed: gone from the list but still counted in
+// spending, or gone entirely but brought back by the next sync. Merchants are
+// left alone, since other accounts may share them.
+func (s *Store) RemoveAccount(id string) error {
+	account, err := Get[models.Account](s.db, []byte(id))
+	if err != nil {
+		return err
+	}
+	removed, err := s.GetRemovedAccounts()
+	if err != nil {
+		return err
+	}
+	if !removed.IDs()[account.Id] {
+		removed.Accounts = append(removed.Accounts, models.RemovedAccount{
+			Id:               account.Id,
+			Name:             account.Name,
+			Connection:       account.Connection.Name,
+			FormattedAccount: account.FormattedAccount,
+		})
+	}
+
+	return s.db.Update(func(tx *bolt.Tx) error {
+		transactions := tx.Bucket(buckets.TransactionBucket)
+		var doomed [][]byte
+		err := transactions.ForEach(func(k, v []byte) error {
+			var t models.Transaction
+			if err := json.Unmarshal(v, &t); err != nil {
+				return err
+			}
+			if t.Account == account.Id {
+				doomed = append(doomed, append([]byte{}, k...))
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		// Deleting while ForEach walks the bucket skips keys, so collect first.
+		for _, k := range doomed {
+			if err := transactions.Delete(k); err != nil {
+				return err
+			}
+		}
+		if err := tx.Bucket(buckets.AccountBucket).Delete(account.Key()); err != nil {
+			return err
+		}
+		return putAll(tx, []models.RemovedAccounts{removed})
+	})
+}
+
+// RestoreAccount stops skipping an account. Its history went when it was
+// removed, so the next sync has to read the whole history again to get it
+// back; the incremental window only reaches a fortnight behind.
+func (s *Store) RestoreAccount(id string) error {
+	removed, err := s.GetRemovedAccounts()
+	if err != nil {
+		return err
+	}
+	removed.Accounts = slices.DeleteFunc(removed.Accounts, func(a models.RemovedAccount) bool { return a.Id == id })
+	if err := Update[models.RemovedAccounts](s.db, removed); err != nil {
+		return err
+	}
+	return s.ResetAkahuLastSync()
 }
 
 /* Assets */
@@ -251,6 +330,11 @@ func (s *Store) ExportBackup() (models.Backup, error) {
 		schedule.AkahuLastRun, schedule.AssetsLastRun = time.Time{}, time.Time{}
 		backup.Schedule = &schedule
 	}
+	removed, err := s.GetRemovedAccounts()
+	if err != nil {
+		return backup, err
+	}
+	backup.RemovedAccounts = removed.Accounts
 	return backup, nil
 }
 
@@ -266,6 +350,18 @@ func (s *Store) ImportBackup(backup models.Backup) error {
 	prefs.HiddenTransactions = unionStrings(prefs.HiddenTransactions, backup.Timeline.HiddenTransactions)
 	prefs.DismissedSuggestions = unionStrings(prefs.DismissedSuggestions, backup.Timeline.DismissedSuggestions)
 	prefs.HiddenMerchants = unionStrings(prefs.HiddenMerchants, backup.Timeline.HiddenMerchants)
+
+	removed, err := s.GetRemovedAccounts()
+	if err != nil {
+		return err
+	}
+	known := removed.IDs()
+	for _, account := range backup.RemovedAccounts {
+		if account.Id != "" && !known[account.Id] {
+			known[account.Id] = true
+			removed.Accounts = append(removed.Accounts, account)
+		}
+	}
 
 	var salary []models.BudgetSalary
 	if backup.BudgetSalary != nil {
@@ -286,6 +382,7 @@ func (s *Store) ImportBackup(backup models.Backup) error {
 			putAll(tx, []models.TimelinePreferences{prefs}),
 			putAll(tx, salary),
 			putAll(tx, schedule),
+			putAll(tx, []models.RemovedAccounts{removed}),
 		)
 	})
 }
