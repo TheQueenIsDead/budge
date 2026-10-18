@@ -117,13 +117,13 @@ var spendGroups = []SpendGroup{
 		Keywords:    []string{"petrol", "fuel", "diesel", "gas"},
 	},
 	{
-		Key:        "power",
-		Label:      "Power",
-		Blurb:      "Electricity and gas retailers",
-		Icon:       "bi-lightning-charge",
-		Accent:     "plum",
-		Cadence:    CadenceMonthly,
-		Utility:    true,
+		Key:     "power",
+		Label:   "Power",
+		Blurb:   "Electricity and gas retailers",
+		Icon:    "bi-lightning-charge",
+		Accent:  "plum",
+		Cadence: CadenceMonthly,
+		Utility: true,
 		// Akahu files a retailer selling both, such as Genesis, under the
 		// combined category rather than either of the single ones.
 		Categories: []string{"Electricity services", "Gas services", "Electricity and gas services"},
