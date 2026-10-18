@@ -258,14 +258,18 @@ func (t Timeline) Months(view string, location *time.Location) []TimelineMonth {
 }
 
 // timelineSpend reports whether a transaction is money spent on something.
-// Transfers, card repayments and cash withdrawals move money without buying
-// anything, and interest is a cost of borrowing rather than a purchase.
+// Transfers and cash withdrawals move money without buying anything, and
+// interest is a cost of borrowing rather than a purchase. Akahu's "CREDIT
+// CARD" type is not a repayment: banks use it for purchases made by card,
+// debit cards on everyday accounts included, and leaving it out dropped
+// nearly every card purchase from the timeline. Paying off a card is moved
+// between the owner's accounts, which the sync already marks as a transfer.
 func timelineSpend(tx models.Transaction) bool {
 	if tx.Amount >= 0 {
 		return false
 	}
 	switch tx.Type {
-	case "TRANSFER", "CREDIT CARD", "ATM", "INTEREST", "LOAN":
+	case "TRANSFER", "ATM", "INTEREST", "LOAN":
 		return false
 	}
 	return true
@@ -423,7 +427,8 @@ func transactionPlace(tx models.Transaction) string {
 // trip: flights, accommodation, a rental car or a tour.
 func travelBooking(tx models.Transaction) bool {
 	haystack := strings.ToLower(tx.Category.Name + " " + tx.Category.Groups.PersonalFinance.Name)
-	for _, needle := range []string{"airline", "air travel", "travel agenc", "tour operator", "hotel", "motel", "accommodation", "lodging", "car rental", "vehicle hire"} {
+	// Akahu files flights under "Air transport services".
+	for _, needle := range []string{"airline", "air travel", "air transport", "travel agenc", "tour operator", "hotel", "motel", "accommodation", "lodging", "car rental", "vehicle hire"} {
 		if strings.Contains(haystack, needle) {
 			return true
 		}

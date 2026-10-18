@@ -711,3 +711,30 @@ func TestRenderTimelineMemoryEditShowsNearby(t *testing.T) {
 	// Nearby ticks must not summon the floating group bar.
 	assert.NotContains(t, page, `class="form-check-input b-tl-select" name="tx" value="dinner"`)
 }
+
+func TestTimelineCountsCardPurchases(t *testing.T) {
+	card := purchase("jetstar", "Jetstar", 687.24, time.June, 16)
+	card.Type = "CREDIT CARD"
+	card.Category.Name = "Air transport services"
+
+	assert.True(t, timelineSpend(card), "a purchase made by card is spending")
+	assert.True(t, travelBooking(card), "Akahu files flights as air transport")
+
+	timeline := BuildTimeline(append(ordinaryYear(), card), nil, models.TimelinePreferences{}, timelineStart, timelineEnd)
+	assert.Contains(t, entryKeys(timeline.Purchases), "jetstar")
+}
+
+func TestBuildTimelinePullsCardFlightsIntoTrips(t *testing.T) {
+	txs := ordinaryYear()
+	for _, tx := range singaporeTrip() {
+		if tx.Id == "flights" {
+			tx.Type = "CREDIT CARD"
+			tx.Category.Name = "Air transport services"
+		}
+		txs = append(txs, tx)
+	}
+
+	timeline := BuildTimeline(txs, nil, models.TimelinePreferences{}, timelineStart, timelineEnd)
+	require.Len(t, timeline.Suggestions, 1)
+	assert.Contains(t, timeline.Suggestions[0].TransactionIDs(), "flights")
+}
