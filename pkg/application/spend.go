@@ -245,12 +245,21 @@ func referenceGroup(tx models.Transaction) (string, bool) {
 	}
 	text := strings.ToLower(strings.Join([]string{tx.Meta.Particulars, tx.Meta.Code, tx.Meta.Reference}, " "))
 	words := strings.FieldsFunc(text, func(r rune) bool { return !unicode.IsLetter(r) })
+	squashed := lettersOnly(text)
 	for _, group := range spendGroups {
 		for _, keyword := range group.Keywords {
 			for _, word := range words {
 				if strings.HasPrefix(word, keyword) {
 					return group.Key, true
 				}
+			}
+		}
+		// A group's merchants count in a reference too, however they are
+		// written: paying a flatmate "Hello Fresh" is the same box as a card
+		// payment to HelloFresh.
+		for _, merchant := range group.Merchants {
+			if strings.Contains(squashed, lettersOnly(merchant)) {
+				return group.Key, true
 			}
 		}
 	}
