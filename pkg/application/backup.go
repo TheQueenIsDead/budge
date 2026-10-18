@@ -50,6 +50,12 @@ func (app *Application) SettingsImport(c echo.Context) error {
 	if err := app.store.ImportBackup(backup); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+	if rules, err := app.store.GetSpendRules(); err == nil {
+		SetSpendRules(rules)
+	}
+	if exclusions, err := app.store.GetInsightExclusions(); err == nil {
+		SetInsightExclusions(exclusions)
+	}
 
 	counts := backup.Counts()
 	message := fmt.Sprintf("Imported %d memories, %d assets and %d budget items.", counts.Memories, counts.Assets, counts.BudgetItems)

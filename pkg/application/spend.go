@@ -5,7 +5,9 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
+	"unicode"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 )
@@ -67,6 +69,19 @@ type SpendGroup struct {
 	RollingDays int
 
 	Categories []string
+
+	// Keywords are words in a bank transfer's reference that say a payment
+	// to or from a person was for this group: paying a flatmate "groceries",
+	// or a friend paying back "petrol". Akahu cannot categorise a payment to
+	// a person, so the reference is all there is. A word matches when it
+	// starts with a keyword, so "grocer" catches "groceries".
+	Keywords []string
+
+	// Merchants are businesses that belong in this group whatever Akahu
+	// files them under, such as a meal kit Akahu calls a restaurant. They
+	// match the merchant name, or the description when Akahu named no
+	// merchant, ignoring case, spaces and punctuation.
+	Merchants []string
 }
 
 // spendGroups is the ordered registry. Order is display order: the questions
@@ -87,6 +102,8 @@ var spendGroups = []SpendGroup{
 			"Bakeries",
 			"Meat supplies",
 		},
+		Keywords:  []string{"grocer", "food", "supermarket"},
+		Merchants: []string{"HelloFresh"},
 	},
 	{
 		Key:         "petrol",
@@ -97,16 +114,20 @@ var spendGroups = []SpendGroup{
 		Cadence:     CadenceMonthly,
 		RollingDays: 30,
 		Categories:  []string{"Fuel stations"},
+		Keywords:    []string{"petrol", "fuel", "diesel", "gas"},
 	},
 	{
-		Key:        "power",
-		Label:      "Power",
-		Blurb:      "Electricity and gas retailers",
-		Icon:       "bi-lightning-charge",
-		Accent:     "plum",
-		Cadence:    CadenceMonthly,
-		Utility:    true,
-		Categories: []string{"Electricity services", "Gas services"},
+		Key:     "power",
+		Label:   "Power",
+		Blurb:   "Electricity and gas retailers",
+		Icon:    "bi-lightning-charge",
+		Accent:  "plum",
+		Cadence: CadenceMonthly,
+		Utility: true,
+		// Akahu files a retailer selling both, such as Genesis, under the
+		// combined category rather than either of the single ones.
+		Categories: []string{"Electricity services", "Gas services", "Electricity and gas services"},
+		Keywords:   []string{"power", "electricity"},
 	},
 	{
 		Key:        "connectivity",
@@ -117,6 +138,7 @@ var spendGroups = []SpendGroup{
 		Cadence:    CadenceMonthly,
 		Utility:    true,
 		Categories: []string{"Internet services", "Telecommunication services"},
+		Keywords:   []string{"internet", "broadband", "wifi"},
 	},
 	{
 		Key:         "eating-out",
@@ -133,6 +155,10 @@ var spendGroups = []SpendGroup{
 			"Caterers",
 			"Ice cream, gelato, nut, and confectionary stores",
 		},
+		Keywords: []string{"takeaway", "dinner", "lunch", "brunch", "restaurant", "cafe"},
+		// Akahu files delivery orders under the courier: Uber Eats is merchant
+		// "Uber", billed in New Zealand by Portier Pacific.
+		Merchants: []string{"Uber Eats", "Portier", "DoorDash", "Delivereasy"},
 	},
 }
 
@@ -166,14 +192,168 @@ func SpendGroupByKey(key string) (SpendGroup, bool) {
 	return SpendGroup{}, false
 }
 
-// ClassifySpend returns the spend group a transaction belongs to. Transfers and
-// money coming in are never spend, so they match nothing.
+// ClassifySpend returns the spend group a transaction belongs to. A purchase
+// is classified by Akahu's category. A transfer or money coming in is not a
+// purchase, and only counts when its reference names a group: paying someone
+// "groceries" is grocery spend, and being paid back "groceries" takes from it.
+// Callers add -tx.Amount, so money coming in subtracts on its own.
 func ClassifySpend(tx models.Transaction) (string, bool) {
-	if tx.Type == "TRANSFER" || tx.Amount >= 0 {
+	if InsightExcluded(tx.Id) {
 		return "", false
 	}
-	key, ok := categoryToGroup[strings.ToLower(tx.Category.Name)]
-	return key, ok
+	return classifySpend(tx)
+}
+
+// classifySpend is ClassifySpend without the owner's exclusions, for saying
+// which insight an excluded transaction has been taken out of.
+func classifySpend(tx models.Transaction) (string, bool) {
+	if tx.Type != "TRANSFER" && tx.Amount < 0 {
+		if key, ok := merchantGroup(tx); ok {
+			return key, true
+		}
+		if key, ok := categoryToGroup[strings.ToLower(tx.Category.Name)]; ok {
+			return key, true
+		}
+	}
+	return referenceGroup(tx)
+}
+
+// spendRules holds the owner's own keywords and merchants, set from the store
+// when the application starts and whenever they are saved. Classifying is
+// called from deep inside page builders that have no store to hand, so the
+// rules sit here rather than being threaded through every one of them.
+var spendRules atomic.Pointer[models.SpendRules]
+
+// SetSpendRules replaces the owner's rules.
+func SetSpendRules(rules models.SpendRules) {
+	spendRules.Store(&rules)
+}
+
+// insightExclusions are the transactions the owner has taken out of the
+// insights, held alongside the rules for the same reason.
+var insightExclusions atomic.Pointer[map[string]bool]
+
+// SetInsightExclusions replaces the transactions left out of the insights.
+func SetInsightExclusions(exclusions models.InsightExclusions) {
+	ids := make(map[string]bool, len(exclusions.TransactionIDs))
+	for _, id := range exclusions.TransactionIDs {
+		ids[id] = true
+	}
+	insightExclusions.Store(&ids)
+}
+
+// InsightExcluded reports whether the owner has taken a transaction out of the
+// insights.
+func InsightExcluded(id string) bool {
+	ids := insightExclusions.Load()
+	return ids != nil && (*ids)[id]
+}
+
+// GroupRule is what a group matches on besides Akahu's category: the owner's
+// own rule when they have set one, the built in one otherwise.
+func GroupRule(group SpendGroup) (rule models.SpendRule, custom bool) {
+	if rules := spendRules.Load(); rules != nil {
+		if rule, ok := rules.Groups[group.Key]; ok {
+			return rule, true
+		}
+	}
+	return models.SpendRule{Keywords: group.Keywords, Merchants: group.Merchants}, false
+}
+
+// merchantGroup finds a group that names the transaction's merchant. The
+// description is read as well as Akahu's merchant name, since Akahu files
+// several businesses under one: an Uber Eats order is merchant "Uber", and
+// only its description, "Uber *Eats", tells it from a ride.
+func merchantGroup(tx models.Transaction) (string, bool) {
+	names := []string{lettersOnly(tx.Merchant.Name), lettersOnly(tx.Description)}
+	for _, group := range spendGroups {
+		rule, _ := GroupRule(group)
+		for _, merchant := range rule.Merchants {
+			m := lettersOnly(merchant)
+			if m == "" {
+				continue
+			}
+			for _, name := range names {
+				if strings.Contains(name, m) {
+					return group.Key, true
+				}
+			}
+		}
+	}
+	return "", false
+}
+
+// lettersOnly lower cases a name and drops everything but letters and
+// digits, so "HELLO FRESH NZ" and "HelloFresh" read the same.
+func lettersOnly(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return unicode.ToLower(r)
+		}
+		return -1
+	}, s)
+}
+
+// keywordMatches reports whether a reference holds a keyword. A single word
+// matches the start of any word in it, so "grocer" catches "groceries" but not
+// "seafood" catching "food". A keyword of more than one word, which an owner
+// typing their own is likely to write, matches the phrase anywhere, ignoring
+// spacing and punctuation.
+func keywordMatches(keyword string, words []string, squashed string) bool {
+	keyword = strings.ToLower(strings.TrimSpace(keyword))
+	if keyword == "" {
+		return false
+	}
+	if strings.ContainsFunc(keyword, func(r rune) bool { return !unicode.IsLetter(r) }) {
+		k := lettersOnly(keyword)
+		return k != "" && strings.Contains(squashed, k)
+	}
+	for _, word := range words {
+		if strings.HasPrefix(word, keyword) {
+			return true
+		}
+	}
+	return false
+}
+
+// referenceGroup reads a group from the words in a transaction's bank
+// reference. Money moved between the owner's own accounts is never spend,
+// whatever it is labelled: topping up a grocery account is not the shop
+// itself, which is counted when it happens. The sync marks those pairs with
+// the Transfer category.
+func referenceGroup(tx models.Transaction) (string, bool) {
+	if tx.Category.Name == "Transfer" {
+		return "", false
+	}
+	fields := []string{tx.Meta.Particulars, tx.Meta.Code, tx.Meta.Reference}
+	// Some banks give Akahu no reference fields at all and put the reference
+	// on the end of the description instead, after the payer's name:
+	// "Rowe,Amelie G Groceries". A payment to or from a person has no merchant,
+	// so its description is read too. A purchase's description is the shop's
+	// name, which is no clue to what was bought.
+	if tx.Merchant.Name == "" {
+		fields = append(fields, tx.Description)
+	}
+	text := strings.ToLower(strings.Join(fields, " "))
+	words := strings.FieldsFunc(text, func(r rune) bool { return !unicode.IsLetter(r) })
+	squashed := lettersOnly(text)
+	for _, group := range spendGroups {
+		rule, _ := GroupRule(group)
+		for _, keyword := range rule.Keywords {
+			if keywordMatches(keyword, words, squashed) {
+				return group.Key, true
+			}
+		}
+		// A group's merchants count in a reference too, however they are
+		// written: paying a flatmate "Hello Fresh" is the same box as a card
+		// payment to HelloFresh.
+		for _, merchant := range rule.Merchants {
+			if m := lettersOnly(merchant); m != "" && strings.Contains(squashed, m) {
+				return group.Key, true
+			}
+		}
+	}
+	return "", false
 }
 
 // SpendBucket is one period of a group's spend. Total is a positive magnitude:
@@ -360,7 +540,9 @@ func BuildSpendBuckets(transactions []models.Transaction, group SpendGroup, cade
 			continue
 		}
 		buckets[i].Total += -tx.Amount
-		buckets[i].Count++
+		if tx.Amount < 0 {
+			buckets[i].Count++
+		}
 	}
 
 	return buckets
@@ -475,7 +657,9 @@ func (s SpendSummary) Bars() []SpendBar {
 	bars := make([]SpendBar, len(s.Buckets))
 	for i, bucket := range s.Buckets {
 		bars[i] = SpendBar{SpendBucket: bucket}
-		if max > 0 {
+		// A period paid back more than was spent nets below zero, and draws
+		// as an empty bar rather than one hanging below the axis.
+		if max > 0 && bucket.Total > 0 {
 			bars[i].Pct = bucket.Total / max * 100
 		}
 	}
@@ -541,9 +725,12 @@ func BuildSpendMerchants(transactions []models.Transaction, group SpendGroup, st
 		totals[name] += -tx.Amount
 	}
 
+	// Someone who only paid the owner back is not where the money went.
 	results := make([]models.MerchantTotal, 0, len(totals))
 	for merchant, total := range totals {
-		results = append(results, models.MerchantTotal{Merchant: merchant, Total: total})
+		if total > 0 {
+			results = append(results, models.MerchantTotal{Merchant: merchant, Total: total})
+		}
 	}
 	sort.Slice(results, func(i, j int) bool {
 		if results[i].Total == results[j].Total {
@@ -599,7 +786,9 @@ func BuildRollingSummary(transactions []models.Transaction, group SpendGroup, da
 		for i := range buckets {
 			if !when.Before(buckets[i].Start) && when.Before(buckets[i].End) {
 				buckets[i].Total += -tx.Amount
-				buckets[i].Count++
+				if tx.Amount < 0 {
+					buckets[i].Count++
+				}
 				break
 			}
 		}

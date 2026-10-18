@@ -178,3 +178,31 @@ func (r RemovedAccounts) Restoring() bool {
 	}
 	return false
 }
+
+// SpendRule is what puts a transaction in a spend group besides Akahu's
+// category: words in a bank transfer's reference, and merchants named in a
+// card payment or a reference.
+type SpendRule struct {
+	Keywords  []string `json:"keywords"`
+	Merchants []string `json:"merchants"`
+}
+
+// SpendRules are the owner's own rules, by spend group key. A group missing
+// here uses its built in rule, so the defaults can improve under an owner who
+// never changed them.
+type SpendRules struct {
+	Groups map[string]SpendRule `json:"groups"`
+}
+
+func (r SpendRules) Key() []byte    { return []byte("spend_rules") }
+func (r SpendRules) Bucket() []byte { return buckets.SettingsBucket }
+
+// InsightExclusions are transactions the owner has taken out of the spend
+// insights, for the odd one a rule gets wrong: a large payment that happened
+// to carry the usual "groceries" reference.
+type InsightExclusions struct {
+	TransactionIDs []string `json:"transaction_ids"`
+}
+
+func (e InsightExclusions) Key() []byte    { return []byte("insight_exclusions") }
+func (e InsightExclusions) Bucket() []byte { return buckets.SettingsBucket }

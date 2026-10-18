@@ -65,6 +65,9 @@
     <!-- Connected accounts -->
     {{ template "settings.accounts" . }}
 
+    <!-- What puts a transfer or merchant in an insight -->
+    {{ template "settings.spend" .spendRules }}
+
     <!-- Backup. Moving to another instance takes what was set up by hand;
          synced data comes back from Akahu on the first sync there. -->
     <div class="b-card b-card-pad mb-3 b-accent-sage" id="backup">
@@ -378,4 +381,59 @@
             </div>
         {{ end }}
     </div>
+{{ end }}
+
+{{/* The words and merchants each insight matches on besides Akahu's own
+     categories. Each group saves on its own and answers with this card. */}}
+{{ define "settings.spend" }}
+<div class="b-card b-card-pad mb-3" id="spend-rules">
+    <div class="b-card-head">
+        <div>
+            <h3 class="b-card-title"><i class="bi bi-tags me-2"></i>Insight matching</h3>
+            <p class="b-card-sub">
+                Akahu cannot tell what a payment to a person was for, so the reference is read
+                instead. A payment whose reference holds one of a group's keywords counts towards
+                it, and being paid back with one takes from it. Merchants count whatever Akahu files
+                them under, on a card or named in a reference. Capitals and spacing do not matter.
+            </p>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        {{ range . }}
+        <div class="col-12 col-lg-6">
+            <form class="b-sched h-100" hx-post="/settings/spend-rules/{{ .Group.Key }}"
+                  hx-target="#spend-rules" hx-swap="outerHTML">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="b-chip b-chip-sm b-accent-{{ .Group.Accent }}"><i class="bi {{ .Group.Icon }}"></i></span>
+                    <span class="fw-semibold">{{ .Group.Label }}</span>
+                    {{ if .Custom }}<span class="badge-category ms-auto">Customised</span>{{ end }}
+                </div>
+
+                <label class="b-field-label" for="kw-{{ .Group.Key }}">Reference keywords</label>
+                <input class="form-control mb-1" id="kw-{{ .Group.Key }}" name="keywords"
+                       value="{{ .Keywords }}">
+                <p class="b-card-sub mb-2">Comma separated. A word matches the start of a word, so "grocer" catches "groceries".</p>
+
+                <label class="b-field-label" for="mc-{{ .Group.Key }}">Merchants</label>
+                <input class="form-control mb-1" id="mc-{{ .Group.Key }}" name="merchants"
+                       value="{{ .Merchants }}">
+                <p class="b-card-sub mb-2">Comma separated.</p>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                    {{ if .Custom }}
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                hx-post="/settings/spend-rules/{{ .Group.Key }}/reset"
+                                hx-target="#spend-rules" hx-swap="outerHTML"
+                                hx-confirm="Put {{ .Group.Label }} back on the built in keywords and merchants?">
+                            Reset to defaults
+                        </button>
+                    {{ end }}
+                </div>
+            </form>
+        </div>
+        {{ end }}
+    </div>
+</div>
 {{ end }}

@@ -239,6 +239,47 @@ func (s *Store) SaveTimelinePreferences(prefs models.TimelinePreferences) error 
 	return Update[models.TimelinePreferences](s.db, prefs)
 }
 
+/* Spend rules */
+
+// GetSpendRules returns the owner's own spend group rules. Unset means every
+// group uses its built in rule.
+func (s *Store) GetSpendRules() (models.SpendRules, error) {
+	rules, err := Get[models.SpendRules](s.db, models.SpendRules{}.Key())
+	if err != nil {
+		return models.SpendRules{}, nil
+	}
+	return rules, nil
+}
+
+func (s *Store) SaveSpendRules(rules models.SpendRules) error {
+	return Update[models.SpendRules](s.db, rules)
+}
+
+// GetInsightExclusions returns the transactions left out of the insights.
+func (s *Store) GetInsightExclusions() (models.InsightExclusions, error) {
+	exclusions, err := Get[models.InsightExclusions](s.db, models.InsightExclusions{}.Key())
+	if err != nil {
+		return models.InsightExclusions{}, nil
+	}
+	return exclusions, nil
+}
+
+// ToggleInsightExclusion leaves a transaction out of the insights, or puts it
+// back if it was already left out, and returns the exclusions as they now
+// stand.
+func (s *Store) ToggleInsightExclusion(id string) (models.InsightExclusions, error) {
+	exclusions, err := s.GetInsightExclusions()
+	if err != nil {
+		return exclusions, err
+	}
+	if slices.Contains(exclusions.TransactionIDs, id) {
+		exclusions.TransactionIDs = slices.DeleteFunc(exclusions.TransactionIDs, func(t string) bool { return t == id })
+	} else {
+		exclusions.TransactionIDs = append(exclusions.TransactionIDs, id)
+	}
+	return exclusions, Update[models.InsightExclusions](s.db, exclusions)
+}
+
 /* Notifications */
 
 // notificationRetention caps how many notifications are kept. They are a log of
@@ -347,6 +388,12 @@ func (s *Store) ExportBackup() (models.Backup, error) {
 		return backup, err
 	}
 	backup.RemovedAccounts = removed.Accounts
+	if rules, err := s.GetSpendRules(); err == nil && len(rules.Groups) > 0 {
+		backup.SpendRules = &rules
+	}
+	if exclusions, err := s.GetInsightExclusions(); err == nil {
+		backup.InsightExclusions = exclusions.TransactionIDs
+	}
 	return backup, nil
 }
 
@@ -375,6 +422,26 @@ func (s *Store) ImportBackup(backup models.Backup) error {
 		}
 	}
 
+	// A group the backup has a rule for takes the backup's; the rest are kept.
+	rules, err := s.GetSpendRules()
+	if err != nil {
+		return err
+	}
+	if backup.SpendRules != nil {
+		if rules.Groups == nil {
+			rules.Groups = make(map[string]models.SpendRule)
+		}
+		for key, rule := range backup.SpendRules.Groups {
+			rules.Groups[key] = rule
+		}
+	}
+
+	exclusions, err := s.GetInsightExclusions()
+	if err != nil {
+		return err
+	}
+	exclusions.TransactionIDs = unionStrings(exclusions.TransactionIDs, backup.InsightExclusions)
+
 	var salary []models.BudgetSalary
 	if backup.BudgetSalary != nil {
 		salary = append(salary, *backup.BudgetSalary)
@@ -395,6 +462,8 @@ func (s *Store) ImportBackup(backup models.Backup) error {
 			putAll(tx, salary),
 			putAll(tx, schedule),
 			putAll(tx, []models.RemovedAccounts{removed}),
+			putAll(tx, []models.SpendRules{rules}),
+			putAll(tx, []models.InsightExclusions{exclusions}),
 		)
 	})
 }
@@ -443,6 +512,9 @@ func (s *Store) CountTransactions() (int, error) {
 }
 func (s *Store) CreateTransaction(transaction models.Transaction) error {
 	return Create[models.Transaction](s.db, transaction)
+}
+func (s *Store) GetTransaction(id string) (models.Transaction, error) {
+	return Get[models.Transaction](s.db, []byte(id))
 }
 func (s *Store) ReadTransactions() ([]models.Transaction, error) {
 	return Read[models.Transaction](s.db)

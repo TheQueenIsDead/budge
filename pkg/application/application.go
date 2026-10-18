@@ -108,6 +108,17 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.store = store
 	app.http = echo.New()
 
+	rules, err := store.GetSpendRules()
+	if err != nil {
+		return nil, err
+	}
+	SetSpendRules(rules)
+	exclusions, err := store.GetInsightExclusions()
+	if err != nil {
+		return nil, err
+	}
+	SetInsightExclusions(exclusions)
+
 	app.http.Debug = true
 
 	tpl := template.New("").Funcs(templateFuncs())
@@ -187,6 +198,8 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.POST("/settings/schedule", app.SettingsSaveSchedule)
 	app.http.POST("/settings/danger/remove/synced", app.SettingsDeleteSynced)
 	app.http.GET("/settings/accounts", app.SettingsAccounts)
+	app.http.POST("/settings/spend-rules/:key", app.SettingsSaveSpendRule)
+	app.http.POST("/settings/spend-rules/:key/reset", app.SettingsResetSpendRule)
 	app.http.POST("/settings/accounts/:id/untrack", app.SettingsUntrackAccount)
 	app.http.POST("/settings/accounts/:id/track", app.SettingsTrackAccount)
 	app.http.GET("/settings/backup", app.SettingsExport)
@@ -209,6 +222,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	// Adding a transaction to a memory from the transactions list.
 	app.http.POST("/transactions/:id/memory", app.TransactionAddToMemory)
+	app.http.POST("/transactions/:id/insight", app.TransactionToggleInsight)
 
 	// Portfolio: everything owned and owed. Assets tracked by hand sit under it
 	// alongside the synced accounts, so their URLs sit under it too.

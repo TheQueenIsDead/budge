@@ -29,6 +29,12 @@ type TransactionRow struct {
 	// when it belongs to one.
 	MemoryID    string
 	MemoryTitle string
+
+	// Insight names the spend insight the transaction counts towards, and
+	// Excluded says the owner has taken it out of that insight. Both are empty
+	// for a transaction no insight would count.
+	Insight  string
+	Excluded bool
 }
 
 // TransactionDay groups a day's transactions under a single heading, which is
@@ -42,12 +48,25 @@ type TransactionDay struct {
 	Rows []TransactionRow
 }
 
+// insightOf names the insight a transaction would count towards, whether or
+// not the owner has excluded it.
+func insightOf(tx models.Transaction) string {
+	if key, ok := classifySpend(tx); ok {
+		if group, found := SpendGroupByKey(key); found {
+			return group.Label
+		}
+	}
+	return ""
+}
+
 // BuildTransactionRow decorates a transaction for display.
 func BuildTransactionRow(tx models.Transaction) TransactionRow {
 	row := TransactionRow{
 		Transaction: tx,
 		Title:       tx.Merchant.Name,
 		Icon:        "bi-receipt",
+		Insight:     insightOf(tx),
+		Excluded:    InsightExcluded(tx.Id),
 	}
 	if row.Title == "" {
 		row.Title = tx.Description
@@ -307,7 +326,10 @@ func BuildTransactionSeries(transactions []models.Transaction, months int, now t
 	series := TransactionSeries{Labels: labels}
 
 	for _, tx := range transactions {
-		if tx.Type == "TRANSFER" || tx.Amount >= 0 {
+		// A transfer or money coming in only counts when its reference names
+		// a group, as it does on the insights page.
+		matched, classified := ClassifySpend(tx)
+		if !classified && (tx.Type == "TRANSFER" || tx.Amount >= 0) {
 			continue
 		}
 		i, ok := index[periodStart(tx.Date.In(location), CadenceMonthly)]
@@ -316,7 +338,7 @@ func BuildTransactionSeries(transactions []models.Transaction, months int, now t
 		}
 
 		key := unclassifiedSpendLabel
-		if matched, ok := ClassifySpend(tx); ok {
+		if classified {
 			key = matched
 		}
 		totals[key][i] += -tx.Amount
@@ -384,4 +406,38 @@ func nonEmptyBand(data []float64) ([]float64, bool) {
 		}
 	}
 	return nil, false
+}
+
+// TransactionToggleInsight takes a transaction out of the insights, or puts it
+// back, and answers with its control in both layouts, like the memory control.
+func (app *Application) TransactionToggleInsight(c echo.Context) error {
+	tx, err := app.store.GetTransaction(c.Param("id"))
+	if err != nil || tx.Id == "" {
+		return echo.NewHTTPError(http.StatusNotFound, "No such transaction.")
+	}
+	exclusions, err := app.store.ToggleInsightExclusion(tx.Id)
+	if err != nil {
+		app.Toast(c, "Error", "Could not change the insights.")
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	SetInsightExclusions(exclusions)
+
+	row := BuildTransactionRow(tx)
+	if row.Excluded {
+		app.Toast(c, "Saved", "No longer counted in "+row.Insight+".")
+	} else {
+		app.Toast(c, "Saved", "Counted in "+row.Insight+" again.")
+	}
+
+	layout := c.FormValue("layout")
+	if !slices.Contains(transactionMemoryLayouts, layout) {
+		layout = transactionMemoryLayouts[0]
+	}
+	controls := make([]map[string]interface{}, 0, len(transactionMemoryLayouts))
+	for _, each := range transactionMemoryLayouts {
+		controls = append(controls, map[string]interface{}{
+			"ID": tx.Id, "Insight": row.Insight, "Excluded": row.Excluded, "Layout": each, "OOB": each != layout,
+		})
+	}
+	return c.Render(http.StatusOK, "transactions.insight.swap", controls)
 }
