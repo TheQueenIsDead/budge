@@ -154,6 +154,9 @@ var spendGroups = []SpendGroup{
 			"Ice cream, gelato, nut, and confectionary stores",
 		},
 		Keywords: []string{"takeaway", "dinner", "lunch", "brunch", "restaurant", "cafe"},
+		// Akahu files delivery orders under the courier: Uber Eats is merchant
+		// "Uber", billed in New Zealand by Portier Pacific.
+		Merchants: []string{"Uber Eats", "Portier", "DoorDash", "Delivereasy"},
 	},
 }
 
@@ -255,25 +258,38 @@ func GroupRule(group SpendGroup) (rule models.SpendRule, custom bool) {
 	return models.SpendRule{Keywords: group.Keywords, Merchants: group.Merchants}, false
 }
 
-// merchantGroup finds a group that names the transaction's merchant.
+// merchantGroup finds a group that names the transaction's merchant. The
+// description is read as well as Akahu's merchant name, since Akahu files
+// several businesses under one: an Uber Eats order is merchant "Uber", and
+// only its description, "Uber *Eats", tells it from a ride.
 func merchantGroup(tx models.Transaction) (string, bool) {
-	name := tx.Merchant.Name
-	if name == "" {
-		name = tx.Description
-	}
-	name = lettersOnly(name)
-	if name == "" {
-		return "", false
-	}
+	names := []string{lettersOnly(tx.Merchant.Name), lettersOnly(tx.Description)}
 	for _, group := range spendGroups {
 		rule, _ := GroupRule(group)
 		for _, merchant := range rule.Merchants {
-			if m := lettersOnly(merchant); m != "" && strings.Contains(name, m) {
-				return group.Key, true
+			m := lettersOnly(merchant)
+			if m == "" {
+				continue
+			}
+			for _, name := range names {
+				if strings.Contains(name, m) {
+					return group.Key, true
+				}
 			}
 		}
 	}
 	return "", false
+}
+
+// lettersOnly lower cases a name and drops everything but letters and
+// digits, so "HELLO FRESH NZ" and "HelloFresh" read the same.
+func lettersOnly(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return unicode.ToLower(r)
+		}
+		return -1
+	}, s)
 }
 
 // keywordMatches reports whether a reference holds a keyword. A single word
@@ -296,17 +312,6 @@ func keywordMatches(keyword string, words []string, squashed string) bool {
 		}
 	}
 	return false
-}
-
-// lettersOnly lower cases a name and drops everything but letters and
-// digits, so "HELLO FRESH NZ" and "HelloFresh" read the same.
-func lettersOnly(s string) string {
-	return strings.Map(func(r rune) rune {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) {
-			return unicode.ToLower(r)
-		}
-		return -1
-	}, s)
 }
 
 // referenceGroup reads a group from the words in a transaction's bank

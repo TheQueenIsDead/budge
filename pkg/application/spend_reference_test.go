@@ -182,3 +182,18 @@ func TestClassifySpendLeavesOutExclusions(t *testing.T) {
 	row := BuildTransactionRow(tx)
 	assert.True(t, row.Excluded)
 }
+
+func TestClassifySpendMerchantInDescription(t *testing.T) {
+	withRules(t, map[string]models.SpendRule{"eating-out": {Merchants: []string{"Uber Eats"}}})
+
+	order := spendTransaction("Taxi, rideshare, and on-demand transport services", "Uber", -32, now)
+	order.Description = "Uber *Eats H"
+	key, ok := ClassifySpend(order)
+	assert.True(t, ok, "Akahu files Uber Eats under Uber, and only the description tells")
+	assert.Equal(t, "eating-out", key)
+
+	ride := spendTransaction("Taxi, rideshare, and on-demand transport services", "Uber", -18, now)
+	ride.Description = "Uber *Trip H"
+	_, ok = ClassifySpend(ride)
+	assert.False(t, ok, "a ride is still a ride")
+}
