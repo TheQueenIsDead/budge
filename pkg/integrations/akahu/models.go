@@ -79,6 +79,13 @@ type Transaction struct {
 	Balance     float64   `json:"balance"`
 	Type        string    `json:"type"`
 	Meta        struct {
+		// Particulars, Code and Reference are what the payer typed against a
+		// bank transfer, which is the only clue to what a payment to a
+		// person was for.
+		Particulars string `json:"particulars,omitempty"`
+		Code        string `json:"code,omitempty"`
+		Reference   string `json:"reference,omitempty"`
+
 		// Conversion is only present on purchases made in a foreign currency,
 		// which makes it the most reliable sign of where money was spent.
 		Conversion struct {

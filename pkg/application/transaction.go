@@ -307,7 +307,10 @@ func BuildTransactionSeries(transactions []models.Transaction, months int, now t
 	series := TransactionSeries{Labels: labels}
 
 	for _, tx := range transactions {
-		if tx.Type == "TRANSFER" || tx.Amount >= 0 {
+		// A transfer or money coming in only counts when its reference names
+		// a group, as it does on the insights page.
+		matched, classified := ClassifySpend(tx)
+		if !classified && (tx.Type == "TRANSFER" || tx.Amount >= 0) {
 			continue
 		}
 		i, ok := index[periodStart(tx.Date.In(location), CadenceMonthly)]
@@ -316,7 +319,7 @@ func BuildTransactionSeries(transactions []models.Transaction, months int, now t
 		}
 
 		key := unclassifiedSpendLabel
-		if matched, ok := ClassifySpend(tx); ok {
+		if classified {
 			key = matched
 		}
 		totals[key][i] += -tx.Amount

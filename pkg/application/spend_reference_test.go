@@ -1,0 +1,87 @@
+package application
+
+import (
+	"testing"
+
+	"github.com/TheQueenIsDead/budge/pkg/database/models"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// referenced is a bank transfer to or from a person, with what the payer
+// typed against it.
+func referenced(txType, particulars, reference string, amount float64) models.Transaction {
+	tx := spendTransaction("", "", amount, day(-1))
+	tx.Type = txType
+	tx.Description = "J SMITH"
+	tx.Meta.Particulars = particulars
+	tx.Meta.Reference = reference
+	return tx
+}
+
+func TestClassifySpendReadsReferences(t *testing.T) {
+	ownTransfer := referenced("TRANSFER", "groceries", "", -200)
+	ownTransfer.Category.Name = "Transfer"
+	foodyPayee := referenced("PAYMENT", "", "rent", -50)
+	foodyPayee.Description = "FOODY'S LTD"
+
+	tests := []struct {
+		name     string
+		tx       models.Transaction
+		expected string
+		matched  bool
+	}{
+		{"paying a flatmate for groceries", referenced("PAYMENT", "Groceries", "", -80), "groceries", true},
+		{"a transfer to a person counts too", referenced("TRANSFER", "", "wk 3 food", -60), "groceries", true},
+		{"being paid back for petrol", referenced("DIRECT CREDIT", "petrol", "", 40), "petrol", true},
+		{"a power share", referenced("PAYMENT", "", "POWER-SEPT", -95), "power", true},
+		{"takeaways", referenced("PAYMENT", "", "takeaways fri", -25), "eating-out", true},
+		{"no keyword in the reference", referenced("PAYMENT", "rent", "", -400), "", false},
+		{"a keyword inside a longer word does not match", referenced("PAYMENT", "", "seafood", -30), "", false},
+		{"between the owner's own accounts", ownTransfer, "", false},
+		{"the payee's name is not a reference", foodyPayee, "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			key, ok := ClassifySpend(tt.tx)
+			assert.Equal(t, tt.matched, ok)
+			assert.Equal(t, tt.expected, key)
+		})
+	}
+}
+
+func TestBuildSpendBucketsNetsRepayments(t *testing.T) {
+	group, ok := SpendGroupByKey("groceries")
+	require.True(t, ok)
+	transactions := []models.Transaction{
+		spendTransaction("Supermarkets and grocery stores", "PAK'nSAVE", -150, day(-1)),
+		referenced("PAYMENT", "groceries", "", -50),
+		referenced("DIRECT CREDIT", "", "groceries", 75),
+	}
+
+	buckets := BuildSpendBuckets(transactions, group, CadenceWeekly, 1, now)
+	require.Len(t, buckets, 1)
+	assert.InDelta(t, 125, buckets[0].Total, 0.001, "150 at the shop and 50 to a flatmate, less 75 paid back")
+	assert.Equal(t, 2, buckets[0].Count, "being paid back is not a purchase")
+}
+
+func TestBuildSpendMerchantsLeavesOutRepayers(t *testing.T) {
+	group, _ := SpendGroupByKey("groceries")
+	repaid := referenced("DIRECT CREDIT", "groceries", "", 75)
+	repaid.Description = "A FLATMATE"
+	transactions := []models.Transaction{
+		spendTransaction("Supermarkets and grocery stores", "PAK'nSAVE", -150, day(-1)),
+		repaid,
+	}
+
+	merchants := BuildSpendMerchants(transactions, group, day(-7), day(1), 5)
+	require.Len(t, merchants, 1)
+	assert.Equal(t, "PAK'nSAVE", merchants[0].Merchant)
+}
+
+func TestSpendSummaryBarsBelowZero(t *testing.T) {
+	summary := SpendSummary{Buckets: []SpendBucket{{Total: 100}, {Total: -20}}}
+	bars := summary.Bars()
+	assert.Equal(t, 100.0, bars[0].Pct)
+	assert.Zero(t, bars[1].Pct, "a week paid back more than was spent draws empty")
+}

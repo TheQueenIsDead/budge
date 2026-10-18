@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 )
@@ -67,6 +68,13 @@ type SpendGroup struct {
 	RollingDays int
 
 	Categories []string
+
+	// Keywords are words in a bank transfer's reference that say a payment
+	// to or from a person was for this group: paying a flatmate "groceries",
+	// or a friend paying back "petrol". Akahu cannot categorise a payment to
+	// a person, so the reference is all there is. A word matches when it
+	// starts with a keyword, so "grocer" catches "groceries".
+	Keywords []string
 }
 
 // spendGroups is the ordered registry. Order is display order: the questions
@@ -87,6 +95,7 @@ var spendGroups = []SpendGroup{
 			"Bakeries",
 			"Meat supplies",
 		},
+		Keywords: []string{"grocer", "food", "supermarket"},
 	},
 	{
 		Key:         "petrol",
@@ -97,6 +106,7 @@ var spendGroups = []SpendGroup{
 		Cadence:     CadenceMonthly,
 		RollingDays: 30,
 		Categories:  []string{"Fuel stations"},
+		Keywords:    []string{"petrol", "fuel", "diesel"},
 	},
 	{
 		Key:        "power",
@@ -107,6 +117,7 @@ var spendGroups = []SpendGroup{
 		Cadence:    CadenceMonthly,
 		Utility:    true,
 		Categories: []string{"Electricity services", "Gas services"},
+		Keywords:   []string{"power", "electricity"},
 	},
 	{
 		Key:        "connectivity",
@@ -117,6 +128,7 @@ var spendGroups = []SpendGroup{
 		Cadence:    CadenceMonthly,
 		Utility:    true,
 		Categories: []string{"Internet services", "Telecommunication services"},
+		Keywords:   []string{"internet", "broadband", "wifi"},
 	},
 	{
 		Key:         "eating-out",
@@ -133,6 +145,7 @@ var spendGroups = []SpendGroup{
 			"Caterers",
 			"Ice cream, gelato, nut, and confectionary stores",
 		},
+		Keywords: []string{"takeaway", "dinner", "lunch", "brunch", "restaurant", "cafe"},
 	},
 }
 
@@ -166,14 +179,41 @@ func SpendGroupByKey(key string) (SpendGroup, bool) {
 	return SpendGroup{}, false
 }
 
-// ClassifySpend returns the spend group a transaction belongs to. Transfers and
-// money coming in are never spend, so they match nothing.
+// ClassifySpend returns the spend group a transaction belongs to. A purchase
+// is classified by Akahu's category. A transfer or money coming in is not a
+// purchase, and only counts when its reference names a group: paying someone
+// "groceries" is grocery spend, and being paid back "groceries" takes from it.
+// Callers add -tx.Amount, so money coming in subtracts on its own.
 func ClassifySpend(tx models.Transaction) (string, bool) {
-	if tx.Type == "TRANSFER" || tx.Amount >= 0 {
+	if tx.Type != "TRANSFER" && tx.Amount < 0 {
+		if key, ok := categoryToGroup[strings.ToLower(tx.Category.Name)]; ok {
+			return key, true
+		}
+	}
+	return referenceGroup(tx)
+}
+
+// referenceGroup reads a group from the words in a transaction's bank
+// reference. Money moved between the owner's own accounts is never spend,
+// whatever it is labelled: topping up a grocery account is not the shop
+// itself, which is counted when it happens. The sync marks those pairs with
+// the Transfer category.
+func referenceGroup(tx models.Transaction) (string, bool) {
+	if tx.Category.Name == "Transfer" {
 		return "", false
 	}
-	key, ok := categoryToGroup[strings.ToLower(tx.Category.Name)]
-	return key, ok
+	text := strings.ToLower(strings.Join([]string{tx.Meta.Particulars, tx.Meta.Code, tx.Meta.Reference}, " "))
+	words := strings.FieldsFunc(text, func(r rune) bool { return !unicode.IsLetter(r) })
+	for _, group := range spendGroups {
+		for _, keyword := range group.Keywords {
+			for _, word := range words {
+				if strings.HasPrefix(word, keyword) {
+					return group.Key, true
+				}
+			}
+		}
+	}
+	return "", false
 }
 
 // SpendBucket is one period of a group's spend. Total is a positive magnitude:
@@ -360,7 +400,9 @@ func BuildSpendBuckets(transactions []models.Transaction, group SpendGroup, cade
 			continue
 		}
 		buckets[i].Total += -tx.Amount
-		buckets[i].Count++
+		if tx.Amount < 0 {
+			buckets[i].Count++
+		}
 	}
 
 	return buckets
@@ -475,7 +517,9 @@ func (s SpendSummary) Bars() []SpendBar {
 	bars := make([]SpendBar, len(s.Buckets))
 	for i, bucket := range s.Buckets {
 		bars[i] = SpendBar{SpendBucket: bucket}
-		if max > 0 {
+		// A period paid back more than was spent nets below zero, and draws
+		// as an empty bar rather than one hanging below the axis.
+		if max > 0 && bucket.Total > 0 {
 			bars[i].Pct = bucket.Total / max * 100
 		}
 	}
@@ -541,9 +585,12 @@ func BuildSpendMerchants(transactions []models.Transaction, group SpendGroup, st
 		totals[name] += -tx.Amount
 	}
 
+	// Someone who only paid the owner back is not where the money went.
 	results := make([]models.MerchantTotal, 0, len(totals))
 	for merchant, total := range totals {
-		results = append(results, models.MerchantTotal{Merchant: merchant, Total: total})
+		if total > 0 {
+			results = append(results, models.MerchantTotal{Merchant: merchant, Total: total})
+		}
 	}
 	sort.Slice(results, func(i, j int) bool {
 		if results[i].Total == results[j].Total {
@@ -599,7 +646,9 @@ func BuildRollingSummary(transactions []models.Transaction, group SpendGroup, da
 		for i := range buckets {
 			if !when.Before(buckets[i].Start) && when.Before(buckets[i].End) {
 				buckets[i].Total += -tx.Amount
-				buckets[i].Count++
+				if tx.Amount < 0 {
+					buckets[i].Count++
+				}
 				break
 			}
 		}
