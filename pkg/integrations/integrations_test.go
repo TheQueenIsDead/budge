@@ -215,3 +215,28 @@ func TestSyncAkahuSkipsUntrackedAccounts(t *testing.T) {
 	assert.Equal(t, time.Date(2026, time.October, 13, 22, 0, 0, 0, time.UTC), through.UTC(),
 		"and it no longer has a say in how fresh the data is")
 }
+
+func TestSyncAkahuBringsBackARestoredAccount(t *testing.T) {
+	var starts []string
+	server := fakeAkahu(t, 10, &starts)
+	defer server.Close()
+	integrations, store := testIntegrations(t, server.URL)
+
+	through, err := integrations.SyncAkahu(echo.New().Logger, time.Time{}, nil)
+	require.NoError(t, err)
+	require.NoError(t, store.RemoveAccount("acc"))
+	require.NoError(t, store.RestoreAccount("acc"))
+
+	starts = nil
+	_, err = integrations.SyncAkahu(echo.New().Logger, through, nil)
+	require.NoError(t, err)
+
+	require.NotEmpty(t, starts)
+	assert.Empty(t, starts[0], "its history went when it was switched off, so the whole history is read")
+	count, err := store.CountTransactions()
+	require.NoError(t, err)
+	assert.Equal(t, 10, count)
+	removed, err := store.GetRemovedAccounts()
+	require.NoError(t, err)
+	assert.Empty(t, removed.Accounts, "it is no longer listed as on its way back")
+}

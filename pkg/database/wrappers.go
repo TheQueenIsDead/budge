@@ -64,14 +64,15 @@ func (s *Store) RemoveAccount(id string) error {
 	if err != nil {
 		return err
 	}
-	if !removed.IDs()[account.Id] {
-		removed.Accounts = append(removed.Accounts, models.RemovedAccount{
-			Id:               account.Id,
-			Name:             account.Name,
-			Connection:       account.Connection.Name,
-			FormattedAccount: account.FormattedAccount,
-		})
-	}
+	// Switching an account off again before it finished coming back replaces
+	// its entry rather than listing it twice.
+	removed.Accounts = slices.DeleteFunc(removed.Accounts, func(a models.RemovedAccount) bool { return a.Id == account.Id })
+	removed.Accounts = append(removed.Accounts, models.RemovedAccount{
+		Id:               account.Id,
+		Name:             account.Name,
+		Connection:       account.Connection.Name,
+		FormattedAccount: account.FormattedAccount,
+	})
 
 	return s.db.Update(func(tx *bolt.Tx) error {
 		transactions := tx.Bucket(buckets.TransactionBucket)
@@ -103,18 +104,29 @@ func (s *Store) RemoveAccount(id string) error {
 }
 
 // RestoreAccount stops skipping an account. Its history went when it was
-// removed, so the next sync has to read the whole history again to get it
-// back; the incremental window only reaches a fortnight behind.
+// removed, so the next sync reads the whole history again to get it back,
+// and until that sync lands the account stays listed as restoring.
 func (s *Store) RestoreAccount(id string) error {
 	removed, err := s.GetRemovedAccounts()
 	if err != nil {
 		return err
 	}
-	removed.Accounts = slices.DeleteFunc(removed.Accounts, func(a models.RemovedAccount) bool { return a.Id == id })
-	if err := Update[models.RemovedAccounts](s.db, removed); err != nil {
+	for n := range removed.Accounts {
+		if removed.Accounts[n].Id == id {
+			removed.Accounts[n].Restoring = true
+		}
+	}
+	return Update[models.RemovedAccounts](s.db, removed)
+}
+
+// FinishRestoring forgets the accounts a sync has just brought back.
+func (s *Store) FinishRestoring() error {
+	removed, err := s.GetRemovedAccounts()
+	if err != nil || !removed.Restoring() {
 		return err
 	}
-	return s.ResetAkahuLastSync()
+	removed.Accounts = slices.DeleteFunc(removed.Accounts, func(a models.RemovedAccount) bool { return a.Restoring })
+	return Update[models.RemovedAccounts](s.db, removed)
 }
 
 /* Assets */

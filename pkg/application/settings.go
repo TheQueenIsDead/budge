@@ -64,6 +64,7 @@ func (app *Application) Settings(c echo.Context) error {
 	return c.Render(http.StatusOK, "settings", map[string]interface{}{
 		"accounts":       accounts,
 		"removed":        removed.Accounts,
+		"restoring":      removed.Restoring(),
 		"akahuAppToken":  akahuConfig.AppToken,
 		"akahuUserToken": akahuConfig.UserToken,
 		"sync":           app.syncStatus(),
@@ -144,9 +145,16 @@ func (app *Application) renderSettingsAccounts(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 	return c.Render(http.StatusOK, "settings.accounts", map[string]interface{}{
-		"accounts": accounts,
-		"removed":  removed.Accounts,
+		"accounts":  accounts,
+		"removed":   removed.Accounts,
+		"restoring": removed.Restoring(),
 	})
+}
+
+// SettingsAccounts answers the accounts card's poll while an account is on
+// its way back.
+func (app *Application) SettingsAccounts(c echo.Context) error {
+	return app.renderSettingsAccounts(c)
 }
 
 // SettingsUntrackAccount stops tracking an account Akahu shares, such as one
@@ -160,13 +168,23 @@ func (app *Application) SettingsUntrackAccount(c echo.Context) error {
 	return app.renderSettingsAccounts(c)
 }
 
-// SettingsTrackAccount tracks an account again. Its history comes back with
-// the next sync, which reads everything again to fetch it.
+// SettingsTrackAccount tracks an account again and starts the sync that
+// brings back its history. If a sync is already running it is left to
+// finish, and the next one fetches the account.
 func (app *Application) SettingsTrackAccount(c echo.Context) error {
 	if err := app.store.RestoreAccount(c.Param("id")); err != nil {
 		app.Toast(c, "Error", "Could not track the account.")
 		return c.NoContent(http.StatusInternalServerError)
 	}
-	app.Toast(c, "Success", "Account tracked again. Sync to bring back its history.")
+	if app.akahuSync.begin() {
+		go func() {
+			if err := app.runAkahuSync(); err != nil {
+				app.Notify(models.NotificationError, SourceAkahuSync, "Sync failed", err.Error())
+			}
+		}()
+		app.Toast(c, "Success", "Account tracked again. Syncing its history back.")
+	} else {
+		app.Toast(c, "Success", "Account tracked again. It comes back with the next sync.")
+	}
 	return app.renderSettingsAccounts(c)
 }

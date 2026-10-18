@@ -76,7 +76,18 @@ func (i *Integrations) SyncAkahu(logger echo.Logger, dataThrough time.Time, prog
 		return dataThrough, err
 	}
 
+	// An account switched back on lost its history when it was switched off,
+	// so while one is on its way back the whole history is read again.
+	removed, err := i.store.GetRemovedAccounts()
+	if err != nil {
+		logger.Error(err)
+		return dataThrough, err
+	}
+
 	since := dataThrough
+	if removed.Restoring() {
+		since = time.Time{}
+	}
 	if !since.IsZero() {
 		since = since.AddDate(0, 0, -syncOverlapDays)
 	}
@@ -91,11 +102,6 @@ func (i *Integrations) SyncAkahu(logger echo.Logger, dataThrough time.Time, prog
 	// reads as a transfer rather than spending.
 	transfers := identifyTransfers(transactions)
 
-	removed, err := i.store.GetRemovedAccounts()
-	if err != nil {
-		logger.Error(err)
-		return dataThrough, err
-	}
 	untracked := removed.IDs()
 	accounts = slices.DeleteFunc(accounts, func(a akahu.Account) bool { return untracked[a.Id] })
 
@@ -151,6 +157,10 @@ func (i *Integrations) SyncAkahu(logger echo.Logger, dataThrough time.Time, prog
 	}
 
 	if err := i.store.SaveSynced(saved, txs, merchants); err != nil {
+		logger.Error(err)
+		return dataThrough, err
+	}
+	if err := i.store.FinishRestoring(); err != nil {
 		logger.Error(err)
 		return dataThrough, err
 	}

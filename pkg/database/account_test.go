@@ -56,18 +56,34 @@ func TestRemoveAccountTwiceIsRememberedOnce(t *testing.T) {
 	assert.Len(t, removed.Accounts, 1)
 }
 
-func TestRestoreAccountRereadsTheWholeHistory(t *testing.T) {
+func TestRestoreAccountStaysListedUntilSynced(t *testing.T) {
 	store := synced(t)
 	require.NoError(t, store.RemoveAccount("acc_joint"))
 	require.NoError(t, store.RestoreAccount("acc_joint"))
 
 	removed, err := store.GetRemovedAccounts()
 	require.NoError(t, err)
-	assert.Empty(t, removed.Accounts)
+	require.Len(t, removed.Accounts, 1, "it does not vanish before the sync bringing it back lands")
+	assert.True(t, removed.Restoring())
+	assert.Empty(t, removed.IDs(), "and the sync no longer skips it")
 
-	settings, err := store.GetAkahuSettings()
+	require.NoError(t, store.FinishRestoring())
+	removed, err = store.GetRemovedAccounts()
 	require.NoError(t, err)
-	assert.True(t, settings.DataThrough.IsZero(), "its history went with it, so the next sync must read everything")
+	assert.Empty(t, removed.Accounts)
+}
+
+func TestRemoveAccountWhileRestoringIsListedOnce(t *testing.T) {
+	store := synced(t)
+	require.NoError(t, store.RemoveAccount("acc_joint"))
+	require.NoError(t, store.RestoreAccount("acc_joint"))
+	require.NoError(t, store.SaveSynced([]models.Account{{Id: "acc_joint", Name: "Joint"}}, nil, nil))
+	require.NoError(t, store.RemoveAccount("acc_joint"))
+
+	removed, err := store.GetRemovedAccounts()
+	require.NoError(t, err)
+	require.Len(t, removed.Accounts, 1)
+	assert.False(t, removed.Restoring())
 }
 
 func TestBackupKeepsRemovedAccounts(t *testing.T) {
