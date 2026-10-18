@@ -12,6 +12,8 @@ env:
 
 jobs:
   release:
+    # Forks publish through fork.yml rather than cutting releases of their own.
+    if: ${{ github.repository == 'TheQueenIsDead/budge' }}
     permissions:
       contents: write
       pull-requests: write
