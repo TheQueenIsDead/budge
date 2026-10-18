@@ -124,7 +124,9 @@ var spendGroups = []SpendGroup{
 		Accent:     "plum",
 		Cadence:    CadenceMonthly,
 		Utility:    true,
-		Categories: []string{"Electricity services", "Gas services"},
+		// Akahu files a retailer selling both, such as Genesis, under the
+		// combined category rather than either of the single ones.
+		Categories: []string{"Electricity services", "Gas services", "Electricity and gas services"},
 		Keywords:   []string{"power", "electricity"},
 	},
 	{

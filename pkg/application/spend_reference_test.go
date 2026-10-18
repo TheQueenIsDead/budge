@@ -197,3 +197,9 @@ func TestClassifySpendMerchantInDescription(t *testing.T) {
 	_, ok = ClassifySpend(ride)
 	assert.False(t, ok, "a ride is still a ride")
 }
+
+func TestClassifySpendDualFuelRetailer(t *testing.T) {
+	key, ok := ClassifySpend(spendTransaction("Electricity and gas services", "Genesis", -240, now))
+	assert.True(t, ok, "a retailer selling both is still power")
+	assert.Equal(t, "power", key)
+}
