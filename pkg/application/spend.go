@@ -289,7 +289,16 @@ func referenceGroup(tx models.Transaction) (string, bool) {
 	if tx.Category.Name == "Transfer" {
 		return "", false
 	}
-	text := strings.ToLower(strings.Join([]string{tx.Meta.Particulars, tx.Meta.Code, tx.Meta.Reference}, " "))
+	fields := []string{tx.Meta.Particulars, tx.Meta.Code, tx.Meta.Reference}
+	// Some banks give Akahu no reference fields at all and put the reference
+	// on the end of the description instead, after the payer's name:
+	// "Rowe,Amelie G Groceries". A payment to or from a person has no merchant,
+	// so its description is read too. A purchase's description is the shop's
+	// name, which is no clue to what was bought.
+	if tx.Merchant.Name == "" {
+		fields = append(fields, tx.Description)
+	}
+	text := strings.ToLower(strings.Join(fields, " "))
 	words := strings.FieldsFunc(text, func(r rune) bool { return !unicode.IsLetter(r) })
 	squashed := lettersOnly(text)
 	for _, group := range spendGroups {

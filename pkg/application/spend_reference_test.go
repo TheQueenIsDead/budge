@@ -24,6 +24,9 @@ func TestClassifySpendReadsReferences(t *testing.T) {
 	ownTransfer.Category.Name = "Transfer"
 	foodyPayee := referenced("PAYMENT", "", "rent", -50)
 	foodyPayee.Description = "FOODY'S LTD"
+	foodyPayee.Merchant.Name = "Foody's"
+	inDescription := referenced("PAYMENT", "", "", 20)
+	inDescription.Description = "Rowe,Amelie G Groceries"
 
 	tests := []struct {
 		name     string
@@ -43,7 +46,8 @@ func TestClassifySpendReadsReferences(t *testing.T) {
 		{"no keyword in the reference", referenced("PAYMENT", "rent", "", -400), "", false},
 		{"a keyword inside a longer word does not match", referenced("PAYMENT", "", "seafood", -30), "", false},
 		{"between the owner's own accounts", ownTransfer, "", false},
-		{"the payee's name is not a reference", foodyPayee, "", false},
+		{"a merchant's name is not a reference", foodyPayee, "", false},
+		{"a reference the bank put in the description", inDescription, "groceries", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
