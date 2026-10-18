@@ -3,6 +3,7 @@ package integrations
 import (
 	"math"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -85,7 +86,18 @@ func (i *Integrations) SyncAkahu(logger echo.Logger, dataThrough time.Time, prog
 		return dataThrough, err
 	}
 
+	// Transfers are paired across every account before the untracked ones are
+	// dropped, so moving money into an account the owner switched off still
+	// reads as a transfer rather than spending.
 	transfers := identifyTransfers(transactions)
+
+	removed, err := i.store.GetRemovedAccounts()
+	if err != nil {
+		logger.Error(err)
+		return dataThrough, err
+	}
+	untracked := removed.IDs()
+	accounts = slices.DeleteFunc(accounts, func(a akahu.Account) bool { return untracked[a.Id] })
 
 	// Accounts hardly change, so just insert them and overwrite the key if need be.
 	saved := make([]models.Account, len(accounts))
@@ -97,6 +109,10 @@ func (i *Integrations) SyncAkahu(logger echo.Logger, dataThrough time.Time, prog
 	txs := make([]models.Transaction, 0, len(transactions))
 
 	for _, transaction := range transactions {
+
+		if untracked[transaction.Account] {
+			continue
+		}
 
 		tx := models.Transaction(transaction)
 

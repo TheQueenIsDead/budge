@@ -63,55 +63,7 @@
     <div id="schedule">{{ template "settings.schedule" .schedule }}</div>
 
     <!-- Connected accounts -->
-    <div class="b-card mb-3" id="accounts">
-        <div class="b-conn">
-            <span class="b-chip b-chip-sm b-accent-slate"><i class="bi bi-bank2"></i></span>
-            <h3 class="b-conn-name">Connected accounts</h3>
-            <div class="b-conn-total">{{ len .accounts }}</div>
-        </div>
-
-        {{ if .accounts }}
-            <ul class="b-acct-list">
-                {{ range .accounts }}
-                    <li>
-                        <div class="b-acct b-acct-static">
-                            <img class="b-conn-logo" width="30" height="30"
-                                 src="{{ .Connection.Logo }}" alt="{{ .Connection.Name }}"/>
-                            <div class="b-acct-body">
-                                <div class="b-acct-name">{{ .Name }}</div>
-                                <div class="b-acct-meta">
-                                    <span class="badge-category">{{ .Connection.Name }}</span>
-                                    {{ if .FormattedAccount }}
-                                        <span class="font-monospace">{{ .FormattedAccount }}</span>
-                                    {{ end }}
-                                    {{ with .Meta.LoanDetails.Interest }}
-                                        {{ if gt .Rate 0.0 }}
-                                            <span><i class="bi bi-percent"></i>{{ printf "%.2f%%" .Rate }}
-                                                {{ if .Type }}{{ .Type | fmtTitle }}{{ end }}</span>
-                                        {{ end }}
-                                    {{ end }}
-                                </div>
-                            </div>
-                            <div class="b-acct-figures">
-                                <div class="b-acct-balance {{ if lt .Balance.Current 0.0 }}text-danger{{ end }}">
-                                    {{ .Balance.Current | fmtCurrency }}
-                                </div>
-                                <span class="b-delta b-delta-flat">{{ .Type | fmtTitle }}</span>
-                            </div>
-                        </div>
-                    </li>
-                {{ end }}
-            </ul>
-        {{ else }}
-            <div class="b-card-pad">
-                <div class="b-empty">
-                    <i class="bi bi-bank2"></i>
-                    <h4>Nothing connected</h4>
-                    <p>Save your Akahu tokens above, then sync.</p>
-                </div>
-            </div>
-        {{ end }}
-    </div>
+    {{ template "settings.accounts" . }}
 
     <!-- Backup. Moving to another instance takes what was set up by hand;
          synced data comes back from Akahu on the first sync there. -->
@@ -310,4 +262,94 @@
         </div>
     </form>
 </div>
+{{ end }}
+
+{{/* Connected accounts, each with a switch for whether Budge tracks it.
+     Switching one off drops it and its transactions and has syncs skip it;
+     it stays listed here, greyed out, so it can be switched back on. The
+     handlers answer with this card alone. */}}
+{{ define "settings.accounts" }}
+    <div class="b-card mb-3" id="accounts">
+        <div class="b-conn">
+            <span class="b-chip b-chip-sm b-accent-slate"><i class="bi bi-bank2"></i></span>
+            <h3 class="b-conn-name">Connected accounts</h3>
+            <div class="b-conn-total">{{ len .accounts }}</div>
+        </div>
+
+        {{ if or .accounts .removed }}
+            <ul class="b-acct-list">
+                {{ range .accounts }}
+                    <li>
+                        <div class="b-acct b-acct-static">
+                            <img class="b-conn-logo" width="30" height="30"
+                                 src="{{ .Connection.Logo }}" alt="{{ .Connection.Name }}"/>
+                            <div class="b-acct-body">
+                                <div class="b-acct-name">{{ .Name }}</div>
+                                <div class="b-acct-meta">
+                                    <span class="badge-category">{{ .Connection.Name }}</span>
+                                    {{ if .FormattedAccount }}
+                                        <span class="font-monospace">{{ .FormattedAccount }}</span>
+                                    {{ end }}
+                                    {{ with .Meta.LoanDetails.Interest }}
+                                        {{ if gt .Rate 0.0 }}
+                                            <span><i class="bi bi-percent"></i>{{ printf "%.2f%%" .Rate }}
+                                                {{ if .Type }}{{ .Type | fmtTitle }}{{ end }}</span>
+                                        {{ end }}
+                                    {{ end }}
+                                </div>
+                            </div>
+                            <div class="b-acct-figures">
+                                <div class="b-acct-balance {{ if lt .Balance.Current 0.0 }}text-danger{{ end }}">
+                                    {{ .Balance.Current | fmtCurrency }}
+                                </div>
+                                <span class="b-delta b-delta-flat">{{ .Type | fmtTitle }}</span>
+                            </div>
+                            <!-- Confirmed on click rather than with hx-confirm, which
+                                 would leave the switch flipped off after a cancel. -->
+                            <div class="form-check form-switch m-0 ms-2">
+                                <input class="form-check-input" type="checkbox" role="switch" checked
+                                       aria-label="Track {{ .Name }}" title="Tracked"
+                                       onclick="if (!confirm('Stop tracking {{ .Name }}? Its transactions are removed from Budge and later syncs skip it.')) event.preventDefault()"
+                                       hx-post="/settings/accounts/{{ .Id }}/untrack"
+                                       hx-target="#accounts" hx-swap="outerHTML">
+                            </div>
+                        </div>
+                    </li>
+                {{ end }}
+                {{ range .removed }}
+                    <li>
+                        <div class="b-acct b-acct-static opacity-50">
+                            <span class="b-chip b-chip-sm"><i class="bi bi-eye-slash"></i></span>
+                            <div class="b-acct-body">
+                                <div class="b-acct-name">{{ .Name }}</div>
+                                <div class="b-acct-meta">
+                                    {{ if .Connection }}<span class="badge-category">{{ .Connection }}</span>{{ end }}
+                                    {{ if .FormattedAccount }}
+                                        <span class="font-monospace">{{ .FormattedAccount }}</span>
+                                    {{ end }}
+                                </div>
+                            </div>
+                            <div class="b-acct-figures">
+                                <span class="b-delta b-delta-flat">Not tracked</span>
+                            </div>
+                            <div class="form-check form-switch m-0 ms-2">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       aria-label="Track {{ .Name }}" title="Not tracked"
+                                       hx-post="/settings/accounts/{{ .Id }}/track"
+                                       hx-target="#accounts" hx-swap="outerHTML">
+                            </div>
+                        </div>
+                    </li>
+                {{ end }}
+            </ul>
+        {{ else }}
+            <div class="b-card-pad">
+                <div class="b-empty">
+                    <i class="bi bi-bank2"></i>
+                    <h4>Nothing connected</h4>
+                    <p>Save your Akahu tokens above, then sync.</p>
+                </div>
+            </div>
+        {{ end }}
+    </div>
 {{ end }}

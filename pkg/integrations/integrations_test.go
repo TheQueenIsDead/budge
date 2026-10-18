@@ -190,3 +190,28 @@ func TestIdentifyTransfers(t *testing.T) {
 		assert.Empty(t, transfers)
 	})
 }
+
+func TestSyncAkahuSkipsUntrackedAccounts(t *testing.T) {
+	var starts []string
+	server := fakeAkahu(t, 10, &starts)
+	defer server.Close()
+	integrations, store := testIntegrations(t, server.URL)
+
+	_, err := integrations.SyncAkahu(echo.New().Logger, time.Time{}, nil)
+	require.NoError(t, err)
+	require.NoError(t, store.RemoveAccount("acc"))
+
+	through, err := integrations.SyncAkahu(echo.New().Logger, time.Time{}, nil)
+	require.NoError(t, err)
+
+	accounts, err := store.ReadAccounts()
+	require.NoError(t, err)
+	for _, account := range accounts {
+		assert.NotEqual(t, "acc", account.Id, "a sync does not bring back an account that was switched off")
+	}
+	count, err := store.CountTransactions()
+	require.NoError(t, err)
+	assert.Zero(t, count, "nor its transactions")
+	assert.Equal(t, time.Date(2026, time.October, 13, 22, 0, 0, 0, time.UTC), through.UTC(),
+		"and it no longer has a say in how fresh the data is")
+}

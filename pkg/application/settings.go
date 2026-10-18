@@ -55,8 +55,15 @@ func (app *Application) Settings(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	removed, err := app.store.GetRemovedAccounts()
+	if err != nil {
+		app.Toast(c, "Error", "Could not read untracked accounts.")
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
 	return c.Render(http.StatusOK, "settings", map[string]interface{}{
 		"accounts":       accounts,
+		"removed":        removed.Accounts,
 		"akahuAppToken":  akahuConfig.AppToken,
 		"akahuUserToken": akahuConfig.UserToken,
 		"sync":           app.syncStatus(),
@@ -122,4 +129,44 @@ func (app *Application) SettingsSaveSchedule(c echo.Context) error {
 
 	app.Toast(c, "Success", "Schedule saved.")
 	return c.Render(http.StatusOK, "settings.schedule", buildScheduleView(schedule))
+}
+
+// renderSettingsAccounts answers a tracking switch with the accounts card.
+func (app *Application) renderSettingsAccounts(c echo.Context) error {
+	accounts, err := app.store.ReadAccounts()
+	if err != nil {
+		app.Toast(c, "Error", "Could not read accounts.")
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	removed, err := app.store.GetRemovedAccounts()
+	if err != nil {
+		app.Toast(c, "Error", "Could not read untracked accounts.")
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	return c.Render(http.StatusOK, "settings.accounts", map[string]interface{}{
+		"accounts": accounts,
+		"removed":  removed.Accounts,
+	})
+}
+
+// SettingsUntrackAccount stops tracking an account Akahu shares, such as one
+// held jointly or for someone else, dropping what has been synced from it.
+func (app *Application) SettingsUntrackAccount(c echo.Context) error {
+	if err := app.store.RemoveAccount(c.Param("id")); err != nil {
+		app.Toast(c, "Error", "Could not stop tracking the account.")
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	app.Toast(c, "Success", "Account no longer tracked.")
+	return app.renderSettingsAccounts(c)
+}
+
+// SettingsTrackAccount tracks an account again. Its history comes back with
+// the next sync, which reads everything again to fetch it.
+func (app *Application) SettingsTrackAccount(c echo.Context) error {
+	if err := app.store.RestoreAccount(c.Param("id")); err != nil {
+		app.Toast(c, "Error", "Could not track the account.")
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	app.Toast(c, "Success", "Account tracked again. Sync to bring back its history.")
+	return app.renderSettingsAccounts(c)
 }
