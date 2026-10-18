@@ -141,9 +141,15 @@ type RemovedAccount struct {
 	Name             string `json:"name"`
 	Connection       string `json:"connection"`
 	FormattedAccount string `json:"formatted_account"`
+
+	// Restoring is set when the account has been switched back on but the
+	// sync bringing it back has not landed yet. It stays listed until then,
+	// rather than vanishing from the page in between.
+	Restoring bool `json:"restoring,omitempty"`
 }
 
-// RemovedAccounts is every account a sync should skip.
+// RemovedAccounts is every account a sync should skip, and those on their
+// way back.
 type RemovedAccounts struct {
 	Accounts []RemovedAccount `json:"accounts"`
 }
@@ -151,11 +157,24 @@ type RemovedAccounts struct {
 func (r RemovedAccounts) Key() []byte    { return []byte("removed_accounts") }
 func (r RemovedAccounts) Bucket() []byte { return buckets.SettingsBucket }
 
-// IDs is the set of removed account IDs, for filtering a sync.
+// IDs is the set of accounts a sync should skip. Those being restored are
+// left out, since the sync is what brings them back.
 func (r RemovedAccounts) IDs() map[string]bool {
 	ids := make(map[string]bool, len(r.Accounts))
 	for _, account := range r.Accounts {
-		ids[account.Id] = true
+		if !account.Restoring {
+			ids[account.Id] = true
+		}
 	}
 	return ids
+}
+
+// Restoring reports whether any account is waiting on a sync to come back.
+func (r RemovedAccounts) Restoring() bool {
+	for _, account := range r.Accounts {
+		if account.Restoring {
+			return true
+		}
+	}
+	return false
 }

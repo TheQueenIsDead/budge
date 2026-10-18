@@ -266,10 +266,12 @@
 
 {{/* Connected accounts, each with a switch for whether Budge tracks it.
      Switching one off drops it and its transactions and has syncs skip it;
-     it stays listed here, greyed out, so it can be switched back on. The
-     handlers answer with this card alone. */}}
+     it stays listed here, greyed out, so it can be switched back on. One
+     switched back on stays listed until the sync bringing it back lands, and
+     the card polls itself until then. The handlers answer with this card alone. */}}
 {{ define "settings.accounts" }}
-    <div class="b-card mb-3" id="accounts">
+    <div class="b-card mb-3" id="accounts"
+         {{ if .restoring }}hx-get="/settings/accounts" hx-trigger="every 2s" hx-swap="outerHTML"{{ end }}>
         <div class="b-conn">
             <span class="b-chip b-chip-sm b-accent-slate"><i class="bi bi-bank2"></i></span>
             <h3 class="b-conn-name">Connected accounts</h3>
@@ -317,6 +319,30 @@
                     </li>
                 {{ end }}
                 {{ range .removed }}
+                    {{ if .Restoring }}
+                    <li>
+                        <div class="b-acct b-acct-static opacity-75">
+                            <span class="b-chip b-chip-sm"><i class="bi bi-arrow-repeat"></i></span>
+                            <div class="b-acct-body">
+                                <div class="b-acct-name">{{ .Name }}</div>
+                                <div class="b-acct-meta">
+                                    {{ if .Connection }}<span class="badge-category">{{ .Connection }}</span>{{ end }}
+                                    {{ if .FormattedAccount }}
+                                        <span class="font-monospace">{{ .FormattedAccount }}</span>
+                                    {{ end }}
+                                </div>
+                            </div>
+                            <div class="b-acct-figures">
+                                <span class="b-delta b-delta-flat">Syncing back</span>
+                            </div>
+                            <div class="form-check form-switch m-0 ms-2">
+                                <input class="form-check-input" type="checkbox" role="switch" checked disabled
+                                       aria-label="{{ .Name }} is syncing back" title="Syncing back">
+                            </div>
+                        </div>
+                    </li>
+                    {{ continue }}
+                    {{ end }}
                     <li>
                         <div class="b-acct b-acct-static opacity-50">
                             <span class="b-chip b-chip-sm"><i class="bi bi-eye-slash"></i></span>

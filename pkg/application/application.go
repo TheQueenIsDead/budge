@@ -186,6 +186,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.GET("/settings", app.Settings)
 	app.http.POST("/settings/schedule", app.SettingsSaveSchedule)
 	app.http.POST("/settings/danger/remove/synced", app.SettingsDeleteSynced)
+	app.http.GET("/settings/accounts", app.SettingsAccounts)
 	app.http.POST("/settings/accounts/:id/untrack", app.SettingsUntrackAccount)
 	app.http.POST("/settings/accounts/:id/track", app.SettingsTrackAccount)
 	app.http.GET("/settings/backup", app.SettingsExport)
