@@ -107,6 +107,7 @@
                             <div class="b-tx-amount {{ if gt .Amount 0.0 }}text-success{{ else }}text-danger{{ end }}">
                                 {{ .Amount | fmtCurrency }}
                             </div>
+                            {{ template "transactions.insight" (dict "ID" .Id "Insight" .Insight "Excluded" .Excluded "Layout" "m") }}
                             {{ template "transactions.memory" (dict "ID" .Id "MemoryID" .MemoryID "MemoryTitle" .MemoryTitle "Layout" "m" "Options" $.memories "Kinds" $.kinds) }}
                         </div>
                     {{ end }}
@@ -147,7 +148,10 @@
                                 {{ .Amount | fmtCurrency }}
                             </td>
                             <td class="b-txmem-cell">
+                                <div class="d-flex align-items-center justify-content-end gap-1">
+                                {{ template "transactions.insight" (dict "ID" .Id "Insight" .Insight "Excluded" .Excluded "Layout" "d") }}
                                 {{ template "transactions.memory" (dict "ID" .Id "MemoryID" .MemoryID "MemoryTitle" .MemoryTitle "Layout" "d" "Options" $.memories "Kinds" $.kinds) }}
+                                </div>
                             </td>
                         </tr>
                     {{ end }}
@@ -315,3 +319,22 @@
 {{ end }}
 
 {{ define "transactions.memory.swap" }}{{ range . }}{{ template "transactions.memory" . }}{{ end }}{{ end }}
+
+{{/* Whether a transaction counts towards its spend insight, for taking out
+     the odd one a rule gets wrong. Only drawn for a transaction an insight
+     would count. Drawn twice like the memory control, for the same reason. */}}
+{{ define "transactions.insight" }}
+<span id="txins-{{ .Layout }}-{{ .ID }}"{{ if .OOB }} hx-swap-oob="true"{{ end }}>
+    {{ if .Insight }}
+        <button type="button" class="btn btn-sm btn-link p-0 {{ if .Excluded }}text-muted{{ else }}text-body{{ end }}"
+                hx-post="/transactions/{{ .ID }}/insight" hx-vals='{"layout": "{{ .Layout }}"}'
+                hx-target="#txins-{{ .Layout }}-{{ .ID }}" hx-swap="outerHTML"
+                title="{{ if .Excluded }}Not counted in {{ .Insight }}. Count it again{{ else }}Counted in {{ .Insight }}. Stop counting it{{ end }}"
+                aria-label="{{ if .Excluded }}Count in {{ .Insight }} again{{ else }}Stop counting in {{ .Insight }}{{ end }}">
+            <i class="bi {{ if .Excluded }}bi-pie-chart opacity-50{{ else }}bi-pie-chart-fill{{ end }}"></i>
+        </button>
+    {{ end }}
+</span>
+{{ end }}
+
+{{ define "transactions.insight.swap" }}{{ range . }}{{ template "transactions.insight" . }}{{ end }}{{ end }}

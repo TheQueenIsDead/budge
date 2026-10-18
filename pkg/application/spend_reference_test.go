@@ -169,3 +169,16 @@ func TestParseRuleList(t *testing.T) {
 		parseRuleList(" groceries ,Hello   Fresh,, GROCERIES\nfood "))
 	assert.Empty(t, parseRuleList(" , \n "))
 }
+
+func TestClassifySpendLeavesOutExclusions(t *testing.T) {
+	tx := referenced("PAYMENT", "", "groceries", 2200)
+	tx.Id = "trans_bond"
+	SetInsightExclusions(models.InsightExclusions{TransactionIDs: []string{"trans_bond"}})
+	t.Cleanup(func() { insightExclusions.Store(nil) })
+
+	_, ok := ClassifySpend(tx)
+	assert.False(t, ok, "an excluded transaction counts towards nothing")
+	assert.Equal(t, "Groceries", insightOf(tx), "but still says which insight it was taken out of")
+	row := BuildTransactionRow(tx)
+	assert.True(t, row.Excluded)
+}

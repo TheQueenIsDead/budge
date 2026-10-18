@@ -193,6 +193,15 @@ func SpendGroupByKey(key string) (SpendGroup, bool) {
 // "groceries" is grocery spend, and being paid back "groceries" takes from it.
 // Callers add -tx.Amount, so money coming in subtracts on its own.
 func ClassifySpend(tx models.Transaction) (string, bool) {
+	if InsightExcluded(tx.Id) {
+		return "", false
+	}
+	return classifySpend(tx)
+}
+
+// classifySpend is ClassifySpend without the owner's exclusions, for saying
+// which insight an excluded transaction has been taken out of.
+func classifySpend(tx models.Transaction) (string, bool) {
 	if tx.Type != "TRANSFER" && tx.Amount < 0 {
 		if key, ok := merchantGroup(tx); ok {
 			return key, true
@@ -213,6 +222,26 @@ var spendRules atomic.Pointer[models.SpendRules]
 // SetSpendRules replaces the owner's rules.
 func SetSpendRules(rules models.SpendRules) {
 	spendRules.Store(&rules)
+}
+
+// insightExclusions are the transactions the owner has taken out of the
+// insights, held alongside the rules for the same reason.
+var insightExclusions atomic.Pointer[map[string]bool]
+
+// SetInsightExclusions replaces the transactions left out of the insights.
+func SetInsightExclusions(exclusions models.InsightExclusions) {
+	ids := make(map[string]bool, len(exclusions.TransactionIDs))
+	for _, id := range exclusions.TransactionIDs {
+		ids[id] = true
+	}
+	insightExclusions.Store(&ids)
+}
+
+// InsightExcluded reports whether the owner has taken a transaction out of the
+// insights.
+func InsightExcluded(id string) bool {
+	ids := insightExclusions.Load()
+	return ids != nil && (*ids)[id]
 }
 
 // GroupRule is what a group matches on besides Akahu's category: the owner's

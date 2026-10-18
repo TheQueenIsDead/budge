@@ -196,3 +196,13 @@ type SpendRules struct {
 
 func (r SpendRules) Key() []byte    { return []byte("spend_rules") }
 func (r SpendRules) Bucket() []byte { return buckets.SettingsBucket }
+
+// InsightExclusions are transactions the owner has taken out of the spend
+// insights, for the odd one a rule gets wrong: a large payment that happened
+// to carry the usual "groceries" reference.
+type InsightExclusions struct {
+	TransactionIDs []string `json:"transaction_ids"`
+}
+
+func (e InsightExclusions) Key() []byte    { return []byte("insight_exclusions") }
+func (e InsightExclusions) Bucket() []byte { return buckets.SettingsBucket }

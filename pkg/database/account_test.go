@@ -118,3 +118,22 @@ func TestBackupKeepsSpendRules(t *testing.T) {
 	assert.Equal(t, rules.Groups["groceries"], got.Groups["groceries"])
 	assert.Equal(t, []string{"gas"}, got.Groups["petrol"].Keywords, "a group the backup does not mention is kept")
 }
+
+func TestToggleInsightExclusion(t *testing.T) {
+	store := tempStore(t)
+	got, err := store.ToggleInsightExclusion("trans_a")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"trans_a"}, got.TransactionIDs)
+
+	backup, err := store.ExportBackup()
+	require.NoError(t, err)
+	fresh := tempStore(t)
+	require.NoError(t, fresh.ImportBackup(backup))
+	restored, err := fresh.GetInsightExclusions()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"trans_a"}, restored.TransactionIDs, "exclusions travel in a backup")
+
+	got, err = store.ToggleInsightExclusion("trans_a")
+	require.NoError(t, err)
+	assert.Empty(t, got.TransactionIDs, "toggling again puts it back")
+}
