@@ -29,6 +29,9 @@ type Backup struct {
 	// RemovedAccounts are the accounts switched off, so the first sync on a
 	// new instance does not bring them back.
 	RemovedAccounts []RemovedAccount `json:"removed_accounts,omitempty"`
+
+	// SpendRules are the keywords and merchants the owner gave the insights.
+	SpendRules *SpendRules `json:"spend_rules,omitempty"`
 }
 
 // BackupCounts says what a backup holds, for telling the owner what an import

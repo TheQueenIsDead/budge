@@ -2,6 +2,7 @@ package application
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
@@ -65,6 +66,7 @@ func (app *Application) Settings(c echo.Context) error {
 		"accounts":       accounts,
 		"removed":        removed.Accounts,
 		"restoring":      removed.Restoring(),
+		"spendRules":     spendRuleViews(),
 		"akahuAppToken":  akahuConfig.AppToken,
 		"akahuUserToken": akahuConfig.UserToken,
 		"sync":           app.syncStatus(),
@@ -187,4 +189,93 @@ func (app *Application) SettingsTrackAccount(c echo.Context) error {
 		app.Toast(c, "Success", "Account tracked again. It comes back with the next sync.")
 	}
 	return app.renderSettingsAccounts(c)
+}
+
+// SpendRuleView is one spend group's rule as the settings page edits it.
+type SpendRuleView struct {
+	Group     SpendGroup
+	Keywords  string
+	Merchants string
+	Custom    bool
+}
+
+func spendRuleViews() []SpendRuleView {
+	groups := SpendGroups()
+	views := make([]SpendRuleView, len(groups))
+	for i, group := range groups {
+		rule, custom := GroupRule(group)
+		views[i] = SpendRuleView{
+			Group:     group,
+			Keywords:  strings.Join(rule.Keywords, ", "),
+			Merchants: strings.Join(rule.Merchants, ", "),
+			Custom:    custom,
+		}
+	}
+	return views
+}
+
+// parseRuleList reads a comma or line separated list as typed into a field,
+// dropping blanks and repeats however they are cased.
+func parseRuleList(text string) []string {
+	seen := make(map[string]bool)
+	list := []string{}
+	for _, item := range strings.FieldsFunc(text, func(r rune) bool { return r == ',' || r == '\n' }) {
+		item = strings.Join(strings.Fields(item), " ")
+		if item == "" || seen[strings.ToLower(item)] {
+			continue
+		}
+		seen[strings.ToLower(item)] = true
+		list = append(list, item)
+	}
+	return list
+}
+
+// saveSpendRule stores a group's rule, or forgets it when rule is nil so the
+// group falls back to its built in one, and puts it into effect at once.
+func (app *Application) saveSpendRule(c echo.Context, rule *models.SpendRule) error {
+	group, ok := SpendGroupByKey(c.Param("key"))
+	if !ok {
+		return echo.NewHTTPError(http.StatusNotFound, "no such spend group")
+	}
+	rules, err := app.store.GetSpendRules()
+	if err != nil {
+		return err
+	}
+	if rules.Groups == nil {
+		rules.Groups = make(map[string]models.SpendRule)
+	}
+	if rule == nil {
+		delete(rules.Groups, group.Key)
+	} else {
+		rules.Groups[group.Key] = *rule
+	}
+	if err := app.store.SaveSpendRules(rules); err != nil {
+		app.Toast(c, "Error", "Could not save the insight rules.")
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	SetSpendRules(rules)
+	return nil
+}
+
+// SettingsSaveSpendRule stores the keywords and merchants a spend group
+// matches on.
+func (app *Application) SettingsSaveSpendRule(c echo.Context) error {
+	rule := models.SpendRule{
+		Keywords:  parseRuleList(c.FormValue("keywords")),
+		Merchants: parseRuleList(c.FormValue("merchants")),
+	}
+	if err := app.saveSpendRule(c, &rule); err != nil {
+		return err
+	}
+	app.Toast(c, "Success", "Insight rules saved.")
+	return c.Render(http.StatusOK, "settings.spend", spendRuleViews())
+}
+
+// SettingsResetSpendRule puts a spend group back on its built in rule.
+func (app *Application) SettingsResetSpendRule(c echo.Context) error {
+	if err := app.saveSpendRule(c, nil); err != nil {
+		return err
+	}
+	app.Toast(c, "Success", "Insight rules reset.")
+	return c.Render(http.StatusOK, "settings.spend", spendRuleViews())
 }

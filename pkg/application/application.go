@@ -108,6 +108,12 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.store = store
 	app.http = echo.New()
 
+	rules, err := store.GetSpendRules()
+	if err != nil {
+		return nil, err
+	}
+	SetSpendRules(rules)
+
 	app.http.Debug = true
 
 	tpl := template.New("").Funcs(templateFuncs())
@@ -187,6 +193,8 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.POST("/settings/schedule", app.SettingsSaveSchedule)
 	app.http.POST("/settings/danger/remove/synced", app.SettingsDeleteSynced)
 	app.http.GET("/settings/accounts", app.SettingsAccounts)
+	app.http.POST("/settings/spend-rules/:key", app.SettingsSaveSpendRule)
+	app.http.POST("/settings/spend-rules/:key/reset", app.SettingsResetSpendRule)
 	app.http.POST("/settings/accounts/:id/untrack", app.SettingsUntrackAccount)
 	app.http.POST("/settings/accounts/:id/track", app.SettingsTrackAccount)
 	app.http.GET("/settings/backup", app.SettingsExport)

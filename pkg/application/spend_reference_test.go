@@ -114,3 +114,54 @@ func TestClassifySpendNamedMerchants(t *testing.T) {
 	_, ok := ClassifySpend(refund)
 	assert.False(t, ok, "a refund is not read by merchant, only by reference")
 }
+
+// withRules puts the owner's own rules in place for one test.
+func withRules(t *testing.T, groups map[string]models.SpendRule) {
+	t.Helper()
+	SetSpendRules(models.SpendRules{Groups: groups})
+	t.Cleanup(func() { spendRules.Store(nil) })
+}
+
+func TestClassifySpendOwnersRules(t *testing.T) {
+	withRules(t, map[string]models.SpendRule{
+		"groceries": {Keywords: []string{"veges", "Farmers Market"}, Merchants: []string{"Ooooby"}},
+	})
+
+	tests := []struct {
+		name     string
+		tx       models.Transaction
+		expected string
+		matched  bool
+	}{
+		{"an added keyword", referenced("PAYMENT", "", "VEGES box", -40), "groceries", true},
+		{"a keyword of two words is a phrase", referenced("PAYMENT", "", "farmers-market sat", -40), "groceries", true},
+		{"an added merchant", spendTransaction("Online shopping", "OOOOBY LTD", -55, now), "groceries", true},
+		{"a built in keyword the owner removed", referenced("PAYMENT", "groceries", "", -80), "", false},
+		{"a group the owner left alone keeps its own", referenced("PAYMENT", "petrol", "", -50), "petrol", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			key, ok := ClassifySpend(tt.tx)
+			assert.Equal(t, tt.matched, ok)
+			assert.Equal(t, tt.expected, key)
+		})
+	}
+}
+
+func TestGroupRuleFallsBackToBuiltIn(t *testing.T) {
+	group, _ := SpendGroupByKey("groceries")
+	rule, custom := GroupRule(group)
+	assert.False(t, custom)
+	assert.Equal(t, group.Keywords, rule.Keywords)
+
+	withRules(t, map[string]models.SpendRule{"groceries": {Keywords: []string{"veges"}}})
+	rule, custom = GroupRule(group)
+	assert.True(t, custom)
+	assert.Equal(t, []string{"veges"}, rule.Keywords)
+}
+
+func TestParseRuleList(t *testing.T) {
+	assert.Equal(t, []string{"groceries", "Hello Fresh", "food"},
+		parseRuleList(" groceries ,Hello   Fresh,, GROCERIES\nfood "))
+	assert.Empty(t, parseRuleList(" , \n "))
+}

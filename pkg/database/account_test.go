@@ -101,3 +101,20 @@ func TestBackupKeepsRemovedAccounts(t *testing.T) {
 	require.Len(t, removed.Accounts, 1, "importing twice does not list it twice")
 	assert.Equal(t, "acc_joint", removed.Accounts[0].Id)
 }
+
+func TestBackupKeepsSpendRules(t *testing.T) {
+	store := tempStore(t)
+	rules := models.SpendRules{Groups: map[string]models.SpendRule{"groceries": {Keywords: []string{"veges"}, Merchants: []string{"Ooooby"}}}}
+	require.NoError(t, store.SaveSpendRules(rules))
+	backup, err := store.ExportBackup()
+	require.NoError(t, err)
+
+	fresh := tempStore(t)
+	require.NoError(t, fresh.SaveSpendRules(models.SpendRules{Groups: map[string]models.SpendRule{"petrol": {Keywords: []string{"gas"}}}}))
+	require.NoError(t, fresh.ImportBackup(backup))
+
+	got, err := fresh.GetSpendRules()
+	require.NoError(t, err)
+	assert.Equal(t, rules.Groups["groceries"], got.Groups["groceries"])
+	assert.Equal(t, []string{"gas"}, got.Groups["petrol"].Keywords, "a group the backup does not mention is kept")
+}

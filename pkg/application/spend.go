@@ -5,6 +5,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode"
 
@@ -203,6 +204,28 @@ func ClassifySpend(tx models.Transaction) (string, bool) {
 	return referenceGroup(tx)
 }
 
+// spendRules holds the owner's own keywords and merchants, set from the store
+// when the application starts and whenever they are saved. Classifying is
+// called from deep inside page builders that have no store to hand, so the
+// rules sit here rather than being threaded through every one of them.
+var spendRules atomic.Pointer[models.SpendRules]
+
+// SetSpendRules replaces the owner's rules.
+func SetSpendRules(rules models.SpendRules) {
+	spendRules.Store(&rules)
+}
+
+// GroupRule is what a group matches on besides Akahu's category: the owner's
+// own rule when they have set one, the built in one otherwise.
+func GroupRule(group SpendGroup) (rule models.SpendRule, custom bool) {
+	if rules := spendRules.Load(); rules != nil {
+		if rule, ok := rules.Groups[group.Key]; ok {
+			return rule, true
+		}
+	}
+	return models.SpendRule{Keywords: group.Keywords, Merchants: group.Merchants}, false
+}
+
 // merchantGroup finds a group that names the transaction's merchant.
 func merchantGroup(tx models.Transaction) (string, bool) {
 	name := tx.Merchant.Name
@@ -214,13 +237,36 @@ func merchantGroup(tx models.Transaction) (string, bool) {
 		return "", false
 	}
 	for _, group := range spendGroups {
-		for _, merchant := range group.Merchants {
-			if strings.Contains(name, lettersOnly(merchant)) {
+		rule, _ := GroupRule(group)
+		for _, merchant := range rule.Merchants {
+			if m := lettersOnly(merchant); m != "" && strings.Contains(name, m) {
 				return group.Key, true
 			}
 		}
 	}
 	return "", false
+}
+
+// keywordMatches reports whether a reference holds a keyword. A single word
+// matches the start of any word in it, so "grocer" catches "groceries" but not
+// "seafood" catching "food". A keyword of more than one word, which an owner
+// typing their own is likely to write, matches the phrase anywhere, ignoring
+// spacing and punctuation.
+func keywordMatches(keyword string, words []string, squashed string) bool {
+	keyword = strings.ToLower(strings.TrimSpace(keyword))
+	if keyword == "" {
+		return false
+	}
+	if strings.ContainsFunc(keyword, func(r rune) bool { return !unicode.IsLetter(r) }) {
+		k := lettersOnly(keyword)
+		return k != "" && strings.Contains(squashed, k)
+	}
+	for _, word := range words {
+		if strings.HasPrefix(word, keyword) {
+			return true
+		}
+	}
+	return false
 }
 
 // lettersOnly lower cases a name and drops everything but letters and
@@ -247,18 +293,17 @@ func referenceGroup(tx models.Transaction) (string, bool) {
 	words := strings.FieldsFunc(text, func(r rune) bool { return !unicode.IsLetter(r) })
 	squashed := lettersOnly(text)
 	for _, group := range spendGroups {
-		for _, keyword := range group.Keywords {
-			for _, word := range words {
-				if strings.HasPrefix(word, keyword) {
-					return group.Key, true
-				}
+		rule, _ := GroupRule(group)
+		for _, keyword := range rule.Keywords {
+			if keywordMatches(keyword, words, squashed) {
+				return group.Key, true
 			}
 		}
 		// A group's merchants count in a reference too, however they are
 		// written: paying a flatmate "Hello Fresh" is the same box as a card
 		// payment to HelloFresh.
-		for _, merchant := range group.Merchants {
-			if strings.Contains(squashed, lettersOnly(merchant)) {
+		for _, merchant := range rule.Merchants {
+			if m := lettersOnly(merchant); m != "" && strings.Contains(squashed, m) {
 				return group.Key, true
 			}
 		}
