@@ -36,6 +36,7 @@ func TestClassifySpendReadsReferences(t *testing.T) {
 		{"being paid back for petrol", referenced("DIRECT CREDIT", "petrol", "", 40), "petrol", true},
 		{"a power share", referenced("PAYMENT", "", "POWER-SEPT", -95), "power", true},
 		{"takeaways", referenced("PAYMENT", "", "takeaways fri", -25), "eating-out", true},
+		{"gas is petrol", referenced("PAYMENT", "", "gas money", -30), "petrol", true},
 		{"no keyword in the reference", referenced("PAYMENT", "rent", "", -400), "", false},
 		{"a keyword inside a longer word does not match", referenced("PAYMENT", "", "seafood", -30), "", false},
 		{"between the owner's own accounts", ownTransfer, "", false},
@@ -84,4 +85,29 @@ func TestSpendSummaryBarsBelowZero(t *testing.T) {
 	bars := summary.Bars()
 	assert.Equal(t, 100.0, bars[0].Pct)
 	assert.Zero(t, bars[1].Pct, "a week paid back more than was spent draws empty")
+}
+
+func TestClassifySpendNamedMerchants(t *testing.T) {
+	tests := []struct {
+		name string
+		tx   models.Transaction
+	}{
+		{"named by Akahu, under another category", spendTransaction("Cafes and restaurants", "HelloFresh", -120, now)},
+		{"only in the description", func() models.Transaction {
+			tx := spendTransaction("", "", -120, now)
+			tx.Description = "HELLO FRESH NZ AUCKLAND"
+			return tx
+		}()},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			key, ok := ClassifySpend(tt.tx)
+			assert.True(t, ok)
+			assert.Equal(t, "groceries", key)
+		})
+	}
+
+	refund := spendTransaction("", "HelloFresh", 120, now)
+	_, ok := ClassifySpend(refund)
+	assert.False(t, ok, "a refund is not read by merchant, only by reference")
 }

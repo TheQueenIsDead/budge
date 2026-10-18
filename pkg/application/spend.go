@@ -75,6 +75,12 @@ type SpendGroup struct {
 	// a person, so the reference is all there is. A word matches when it
 	// starts with a keyword, so "grocer" catches "groceries".
 	Keywords []string
+
+	// Merchants are businesses that belong in this group whatever Akahu
+	// files them under, such as a meal kit Akahu calls a restaurant. They
+	// match the merchant name, or the description when Akahu named no
+	// merchant, ignoring case, spaces and punctuation.
+	Merchants []string
 }
 
 // spendGroups is the ordered registry. Order is display order: the questions
@@ -95,7 +101,8 @@ var spendGroups = []SpendGroup{
 			"Bakeries",
 			"Meat supplies",
 		},
-		Keywords: []string{"grocer", "food", "supermarket"},
+		Keywords:  []string{"grocer", "food", "supermarket"},
+		Merchants: []string{"HelloFresh"},
 	},
 	{
 		Key:         "petrol",
@@ -106,7 +113,7 @@ var spendGroups = []SpendGroup{
 		Cadence:     CadenceMonthly,
 		RollingDays: 30,
 		Categories:  []string{"Fuel stations"},
-		Keywords:    []string{"petrol", "fuel", "diesel"},
+		Keywords:    []string{"petrol", "fuel", "diesel", "gas"},
 	},
 	{
 		Key:        "power",
@@ -186,11 +193,45 @@ func SpendGroupByKey(key string) (SpendGroup, bool) {
 // Callers add -tx.Amount, so money coming in subtracts on its own.
 func ClassifySpend(tx models.Transaction) (string, bool) {
 	if tx.Type != "TRANSFER" && tx.Amount < 0 {
+		if key, ok := merchantGroup(tx); ok {
+			return key, true
+		}
 		if key, ok := categoryToGroup[strings.ToLower(tx.Category.Name)]; ok {
 			return key, true
 		}
 	}
 	return referenceGroup(tx)
+}
+
+// merchantGroup finds a group that names the transaction's merchant.
+func merchantGroup(tx models.Transaction) (string, bool) {
+	name := tx.Merchant.Name
+	if name == "" {
+		name = tx.Description
+	}
+	name = lettersOnly(name)
+	if name == "" {
+		return "", false
+	}
+	for _, group := range spendGroups {
+		for _, merchant := range group.Merchants {
+			if strings.Contains(name, lettersOnly(merchant)) {
+				return group.Key, true
+			}
+		}
+	}
+	return "", false
+}
+
+// lettersOnly lower cases a name and drops everything but letters and
+// digits, so "HELLO FRESH NZ" and "HelloFresh" read the same.
+func lettersOnly(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return unicode.ToLower(r)
+		}
+		return -1
+	}, s)
 }
 
 // referenceGroup reads a group from the words in a transaction's bank
