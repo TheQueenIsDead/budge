@@ -38,10 +38,28 @@ function initBudgetPerfChart() {
             bar('Unallocated', unallocated, 'rgba(108,117,125,0.35)'),
         );
     }
+    // Take-home is the line spending has to stay under, so it is drawn solid
+    // where the budget target is dashed.
+    if (net > 0) {
+        datasets.push({
+            type: 'line',
+            label: 'Take-home Pay',
+            // Lines get a stack each: the y axis stacks the bars, and a line
+            // left in the default stack is drawn on top of the one before it.
+            stack: 'take-home',
+            data: Array(actuals.length).fill(net),
+            borderColor: 'rgba(25,135,84,0.9)',
+            borderWidth: 2,
+            pointRadius: 0,
+            fill: false,
+            order: 0,
+        });
+    }
     if (target > 0) {
         datasets.push({
             type: 'line',
             label: 'Budget Target',
+            stack: 'target',
             data: Array(actuals.length).fill(target),
             borderColor: 'rgba(0,0,0,0.35)',
             borderDash: [6, 4],
