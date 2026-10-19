@@ -4,7 +4,7 @@
 
         <div class="b-page-head d-flex align-items-start justify-content-between gap-3">
             <div>
-                <h2>Add an asset</h2>
+                <h2>Add an asset or debt</h2>
                 <p class="b-page-sub">What are you tracking?</p>
             </div>
             <a href="/portfolio" class="btn btn-sm btn-outline-secondary flex-shrink-0"
@@ -74,7 +74,7 @@
                         </div>
 
                         <div class="col-12 col-md-6">
-                            <label class="b-field-label" for="asset-price">Purchase price</label>
+                            <label class="b-field-label" for="asset-price">{{ .PriceLabel }}</label>
                             <div class="input-group">
                                 <span class="input-group-text">$</span>
                                 <input id="asset-price" name="purchase_price" type="number"
@@ -84,7 +84,7 @@
                         </div>
 
                         <div class="col-12 col-md-6">
-                            <label class="b-field-label" for="asset-date">Purchase date</label>
+                            <label class="b-field-label" for="asset-date">{{ .DateLabel }}</label>
                             <input id="asset-date" name="purchase_date" type="date" class="form-control"
                                    value="{{ $.Today }}" required>
                         </div>

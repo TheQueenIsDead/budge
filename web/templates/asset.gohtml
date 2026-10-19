@@ -21,13 +21,15 @@
     <div class="row g-2 g-md-3 mb-3">
         <div class="col-12 col-md-4">
             <div class="b-stat b-accent-slate">
-                <div class="b-stat-label"><span>Current Value</span><i class="bi bi-cash-stack"></i></div>
-                <div class="b-stat-value">{{ .Summary.Current | fmtCurrency }}</div>
+                <div class="b-stat-label"><span>{{ .Summary.Type.ValueLabel }}</span><i class="bi bi-cash-stack"></i></div>
+                <div class="b-stat-value {{ if .Summary.Type.Liability }}text-danger{{ end }}">
+                    {{ if .Summary.Type.Liability }}{{ .Summary.Owed | fmtCurrency }}{{ else }}{{ .Summary.Current | fmtCurrency }}{{ end }}
+                </div>
                 <div class="b-delta-note">
                     {{ if .Summary.Valued }}
-                        Valued {{ .Summary.LastDate.Format "2 Jan 2006" }}
+                        Updated {{ .Summary.LastDate.Format "2 Jan 2006" }}
                     {{ else }}
-                        Still at the purchase price
+                        No {{ .Summary.Type.ValueNoun }} recorded since it was added
                     {{ end }}
                 </div>
             </div>
@@ -35,7 +37,7 @@
 
         <div class="col-6 col-md-4">
             <div class="b-stat b-accent-clay">
-                <div class="b-stat-label"><span>Paid</span><i class="bi bi-receipt"></i></div>
+                <div class="b-stat-label"><span>{{ .Summary.Type.PriceLabel }}</span><i class="bi bi-receipt"></i></div>
                 <div class="b-stat-value">{{ .Summary.Asset.PurchasePrice | fmtCurrency }}</div>
                 <div class="b-delta-note">
                     {{ if not .Summary.Asset.PurchaseDate.IsZero }}
@@ -48,7 +50,7 @@
         <div class="col-6 col-md-4">
             <div class="b-stat {{ if lt .Summary.Change 0.0 }}b-accent-brick{{ else }}b-accent-sage{{ end }}">
                 <div class="b-stat-label">
-                    <span>{{ if lt .Summary.Change 0.0 }}Loss{{ else }}Gain{{ end }}</span>
+                    <span>{{ if .Summary.Type.Liability }}{{ if lt .Summary.Change 0.0 }}Grown by{{ else }}Paid off{{ end }}{{ else if lt .Summary.Change 0.0 }}Loss{{ else }}Gain{{ end }}</span>
                     <i class="bi bi-graph-up-arrow"></i>
                 </div>
                 <div class="b-stat-value {{ if lt .Summary.Change 0.0 }}text-danger{{ else if gt .Summary.Change 0.0 }}text-success{{ end }}">
@@ -60,7 +62,7 @@
                             <i class="bi {{ if gt .Summary.Change 0.0 }}bi-arrow-up-short{{ else if lt .Summary.Change 0.0 }}bi-arrow-down-short{{ else }}bi-dash{{ end }}"></i>{{ .Summary.Delta | fmtPercent }}
                         </span>
                     {{ else }}
-                        <span class="b-delta b-delta-flat">No valuation yet</span>
+                        <span class="b-delta b-delta-flat">No {{ .Summary.Type.ValueNoun }} yet</span>
                     {{ end }}
                 </div>
             </div>
@@ -71,8 +73,8 @@
     <div class="b-card b-card-pad mb-3 b-accent-slate">
         <div class="b-card-head">
             <div>
-                <h3 class="b-card-title">Value over time</h3>
-                <p class="b-card-sub">Purchase price, then every valuation you have recorded</p>
+                <h3 class="b-card-title">{{ if eq .Summary.Type.ValueNoun "balance" }}Balance{{ else }}Value{{ end }} over time</h3>
+                <p class="b-card-sub">{{ .Summary.Type.PriceLabel }}, then every {{ .Summary.Type.ValueNoun }} you have recorded</p>
             </div>
         </div>
 
@@ -93,9 +95,15 @@
     <div class="b-card b-card-pad mb-3">
         <div class="b-card-head">
             <div>
-                <h3 class="b-card-title">Record a valuation</h3>
+                <h3 class="b-card-title">Record a {{ .Summary.Type.ValueNoun }}</h3>
                 <p class="b-card-sub">
-                    A rateable value, an agent's appraisal or your own estimate.
+                    {{ if .Summary.Type.Liability }}
+                        What is still owed, as of the date.
+                    {{ else if eq .Summary.Asset.Type "investment" }}
+                        The balance from your provider's app or statement.
+                    {{ else }}
+                        A rateable value, an agent's appraisal or your own estimate.
+                    {{ end }}
                 </p>
             </div>
             {{ if .Summary.Asset.Trackable }}
@@ -122,7 +130,7 @@
               hx-target="#main" hx-swap="innerHTML">
             <div class="row g-2">
                 <div class="col-6 col-md-3">
-                    <label class="b-field-label" for="valuation-value">Value</label>
+                    <label class="b-field-label" for="valuation-value">{{ .Summary.Type.ValueLabel }}</label>
                     <div class="input-group">
                         <span class="input-group-text">$</span>
                         <input id="valuation-value" name="value" type="number" class="form-control"
@@ -137,7 +145,7 @@
                 <div class="col-12 col-md-4">
                     <label class="b-field-label" for="valuation-note">Source</label>
                     <input id="valuation-note" name="note" type="text" class="form-control"
-                           placeholder="e.g. Council RV, agent appraisal">
+                           placeholder="{{ if eq .Summary.Type.ValueNoun "balance" }}e.g. Statement, app{{ else }}e.g. Council RV, agent appraisal{{ end }}">
                 </div>
                 <div class="col-12 col-md-2 d-flex align-items-end">
                     <button type="submit" class="btn btn-primary w-100">
@@ -152,7 +160,7 @@
     {{ if .History }}
         <div class="b-card mb-3">
             <div class="b-conn">
-                <h3 class="b-conn-name">Valuation history</h3>
+                <h3 class="b-conn-name">{{ if eq .Summary.Type.ValueNoun "balance" }}Balance{{ else }}Valuation{{ end }} history</h3>
                 <div class="b-conn-total">{{ len .History }}</div>
             </div>
             <ul class="b-acct-list">

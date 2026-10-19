@@ -1,14 +1,22 @@
 {{ define "portfolio" }}
 
-    <div class="b-page-head">
-        <h2>Portfolio</h2>
-        {{ if .HasRefreshed }}
-            <p class="b-page-sub"  data-bs-toggle="tooltip" data-bs-placement="bottom"
-               title="{{ .LastRefreshed.Format "2 Jan 2006, 3:04pm" }}">
-                <i class="bi bi-arrow-repeat"></i>
-                Balances current as of {{ .LastRefreshed | fmtRelative }}
-            </p>
-        {{ end }}
+    <!-- Adding is always on offer here: the assets card carries its own add
+         button, but it only appears once there is an asset to show. -->
+    <div class="b-page-head d-flex align-items-start justify-content-between gap-3">
+        <div class="min-width-0">
+            <h2>Portfolio</h2>
+            {{ if .HasRefreshed }}
+                <p class="b-page-sub"  data-bs-toggle="tooltip" data-bs-placement="bottom"
+                   title="{{ .LastRefreshed.Format "2 Jan 2006, 3:04pm" }}">
+                    <i class="bi bi-arrow-repeat"></i>
+                    Balances current as of {{ .LastRefreshed | fmtRelative }}
+                </p>
+            {{ end }}
+        </div>
+        <a href="/portfolio/new" class="btn btn-sm btn-primary flex-shrink-0"
+           hx-boost="true" hx-target="#main">
+            <i class="bi bi-plus-lg"></i> Add asset or debt
+        </a>
     </div>
 
     {{ if or .Groups .AssetTotals.HasAsset }}
@@ -61,11 +69,11 @@
             <div class="b-card mb-3">
                 <div class="b-conn">
                     <span class="b-chip b-chip-sm b-accent-sage"><i class="bi bi-houses"></i></span>
-                    <h3 class="b-conn-name">Assets</h3>
+                    <h3 class="b-conn-name">Assets &amp; debts</h3>
                     <div class="b-conn-total">{{ .AssetTotals.Total | fmtCurrency }}</div>
                     <a class="btn btn-sm btn-outline-secondary flex-shrink-0"
                        href="/portfolio/new" hx-boost="true" hx-target="#main"
-                       aria-label="Add an asset">
+                       aria-label="Add an asset or debt">
                         <i class="bi bi-plus-lg"></i>
                     </a>
                 </div>
@@ -85,23 +93,23 @@
                                         <span class="badge-category">{{ .TypeLabel }}</span>
                                         {{ if .Asset.Description }}<span>{{ .Asset.Description }}</span>{{ end }}
                                         {{ if .Valued }}
-                                            <span><i class="bi bi-clock-history"></i> Valued {{ .LastDate | fmtRelative }}</span>
+                                            <span><i class="bi bi-clock-history"></i> Updated {{ .LastDate | fmtRelative }}</span>
                                         {{ else }}
-                                            <span><i class="bi bi-exclamation-circle"></i> Not valued since purchase</span>
+                                            <span><i class="bi bi-exclamation-circle"></i> Not updated since added</span>
                                         {{ end }}
                                     </div>
                                 </div>
 
                                 <div class="b-acct-figures">
-                                    <div class="b-acct-balance">{{ .Current | fmtCurrency }}</div>
+                                    <div class="b-acct-balance {{ if lt .Current 0.0 }}text-danger{{ end }}">{{ .Current | fmtCurrency }}</div>
                                     {{ if .Valued }}
                                         <span class="b-delta {{ if gt .Change 0.0 }}b-delta-good{{ else if lt .Change 0.0 }}b-delta-bad{{ else }}b-delta-flat{{ end }}"
                                               data-bs-toggle="tooltip" data-bs-placement="left"
-                                              title="{{ .Change | fmtCurrency }} against the {{ .Asset.PurchasePrice | fmtCurrency }} paid">
+                                              title="{{ if .Type.Liability }}{{ .Change | fmtCurrency }} paid off of {{ .Asset.PurchasePrice | fmtCurrency }} borrowed{{ else }}{{ .Change | fmtCurrency }} against the {{ .Asset.PurchasePrice | fmtCurrency }} {{ fmtLower .Type.PriceLabel }}{{ end }}">
                                             <i class="bi {{ if gt .Change 0.0 }}bi-arrow-up-short{{ else if lt .Change 0.0 }}bi-arrow-down-short{{ else }}bi-dash{{ end }}"></i>{{ .Delta | fmtPercent }}
                                         </span>
                                     {{ else }}
-                                        <span class="b-delta b-delta-flat">At cost</span>
+                                        <span class="b-delta b-delta-flat">{{ if .Type.Liability }}Not paid down{{ else }}Unchanged{{ end }}</span>
                                     {{ end }}
                                 </div>
 
@@ -223,7 +231,7 @@
                     Go to settings
                 </a>
                 <a href="/portfolio/new" class="btn btn-primary" hx-boost="true" hx-target="#main">
-                    <i class="bi bi-plus-lg"></i> Add an asset
+                    <i class="bi bi-plus-lg"></i> Add an asset or debt
                 </a>
             </div>
         </div>

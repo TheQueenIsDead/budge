@@ -38,11 +38,30 @@ type AssetType struct {
 	// the homes.co.nz property id behind the chosen address, which is what makes
 	// the asset trackable. Only property has one.
 	AddressLookup bool
+
+	// PriceLabel, DateLabel, ValueLabel and ValueNoun word the starting figure,
+	// its date, the current figure and what each update is called: a house is
+	// bought and valued, a KiwiSaver has a balance, a debt is borrowed and owed.
+	PriceLabel string
+	DateLabel  string
+	ValueLabel string
+	ValueNoun  string
+
+	// Liability marks what is owed rather than owned. Its figures are entered
+	// as the amount owed, and count against the totals; paying it down is the
+	// gain.
+	Liability bool
+}
+
+// owned is the wording every type that is bought and valued shares.
+func owned(t AssetType) AssetType {
+	t.PriceLabel, t.DateLabel, t.ValueLabel, t.ValueNoun = "Purchase price", "Purchase date", "Current value", "valuation"
+	return t
 }
 
 // assetTypes are the kinds of asset the wizard offers.
 var assetTypes = []AssetType{
-	{
+	owned(AssetType{
 		Key:               "house",
 		Label:             "House",
 		Icon:              "bi-house",
@@ -52,8 +71,8 @@ var assetTypes = []AssetType{
 		DetailLabel:       "Note",
 		DetailPlaceholder: "Optional, e.g. rental",
 		AddressLookup:     true,
-	},
-	{
+	}),
+	owned(AssetType{
 		Key:               "vehicle",
 		Label:             "Vehicle",
 		Icon:              "bi-car-front",
@@ -62,8 +81,8 @@ var assetTypes = []AssetType{
 		NamePlaceholder:   "e.g. 2018 Toyota Hilux",
 		DetailLabel:       "Registration",
 		DetailPlaceholder: "Optional",
-	},
-	{
+	}),
+	owned(AssetType{
 		Key:               "other",
 		Label:             "Other",
 		Icon:              "bi-box-seam",
@@ -72,6 +91,35 @@ var assetTypes = []AssetType{
 		NamePlaceholder:   "e.g. Wedding ring",
 		DetailLabel:       "Note",
 		DetailPlaceholder: "Optional",
+	}),
+	{
+		Key:               "investment",
+		Label:             "Investment",
+		Icon:              "bi-graph-up-arrow",
+		Blurb:             "KiwiSaver, a managed fund or shares that Akahu cannot see. Update the balance now and then.",
+		NameLabel:         "Name",
+		NamePlaceholder:   "e.g. KiwiSaver",
+		DetailLabel:       "Provider or fund",
+		DetailPlaceholder: "Optional, e.g. Simplicity Growth",
+		PriceLabel:        "Balance",
+		DateLabel:         "As at",
+		ValueLabel:        "Balance",
+		ValueNoun:         "balance",
+	},
+	{
+		Key:               "debt",
+		Label:             "Debt",
+		Icon:              "bi-journal-minus",
+		Blurb:             "Money owed that Akahu cannot see: a loan from family, a buy now pay later plan, a student loan.",
+		NameLabel:         "Owed to",
+		NamePlaceholder:   "e.g. Loan from Mum",
+		DetailLabel:       "Note",
+		DetailPlaceholder: "Optional",
+		PriceLabel:        "Amount borrowed",
+		DateLabel:         "Borrowed on",
+		ValueLabel:        "Owed",
+		ValueNoun:         "balance",
+		Liability:         true,
 	},
 }
 
@@ -113,6 +161,12 @@ type AssetSummary struct {
 
 	TypeLabel string
 	Icon      string
+	Type      AssetType
+
+	// Current is signed: a debt is what is owed, as a negative, so totals add
+	// up to what the owner is worth. Owed is the debt as a positive figure, for
+	// showing. Change on a debt is how much has been paid off.
+	Owed float64
 
 	Current float64
 	Change  float64
@@ -127,10 +181,12 @@ type AssetSummary struct {
 
 // BuildAssetSummary annotates one asset for the list.
 func BuildAssetSummary(asset models.Asset) AssetSummary {
+	assetType, _ := AssetTypeByKey(asset.Type)
 	summary := AssetSummary{
 		Asset:     asset,
 		TypeLabel: AssetTypeLabel(asset.Type),
 		Icon:      AssetTypeIcon(asset.Type),
+		Type:      assetType,
 		Current:   asset.CurrentValue(),
 	}
 
@@ -141,6 +197,11 @@ func BuildAssetSummary(asset models.Asset) AssetSummary {
 	}
 
 	summary.Change = summary.Current - asset.PurchasePrice
+	if assetType.Liability {
+		summary.Owed = summary.Current
+		summary.Current = -summary.Current
+		summary.Change = asset.PurchasePrice - summary.Owed
+	}
 	if asset.PurchasePrice != 0 {
 		summary.Delta = summary.Change / math.Abs(asset.PurchasePrice)
 	}
@@ -163,7 +224,11 @@ func BuildAssetPortfolio(summaries []AssetSummary) AssetPortfolio {
 	portfolio := AssetPortfolio{Count: len(summaries), HasAsset: len(summaries) > 0}
 	for _, summary := range summaries {
 		portfolio.Total += summary.Current
-		portfolio.Cost += summary.Asset.PurchasePrice
+		if summary.Type.Liability {
+			portfolio.Cost -= summary.Asset.PurchasePrice
+		} else {
+			portfolio.Cost += summary.Asset.PurchasePrice
+		}
 	}
 	portfolio.Change = portfolio.Total - portfolio.Cost
 	if portfolio.Cost != 0 {
