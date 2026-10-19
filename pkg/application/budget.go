@@ -821,10 +821,28 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 		target += weeklyTarget(item)
 	}
 
+	// A loan account's own entries are not spending: the drawdown is the
+	// lender paying out, and its interest is part of the repayments, which
+	// are already counted leaving the everyday account. Counting both put
+	// a whole loan into the month it was taken out.
+	accounts, err := app.store.ReadAccounts()
+	if err != nil {
+		return err
+	}
+	loans := map[string]bool{}
+	for _, account := range accounts {
+		if account.Type == "LOAN" {
+			loans[account.Id] = true
+		}
+	}
+
 	// Every period's spending, net of what spend groups were paid back, so
 	// the chart agrees with the rows above it.
 	totals := make(map[time.Time]float64)
 	for _, tx := range txs {
+		if loans[tx.Account] {
+			continue
+		}
 		if _, _, _, amt, ok := budgetLine(tx); ok {
 			totals[bucket(tx.Date)] += amt
 		} else if tx.Amount < 0 && tx.Type != "TRANSFER" {
