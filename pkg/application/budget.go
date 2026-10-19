@@ -968,13 +968,15 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 	})
 }
 
-// isoWeekStart returns the Monday of the ISO week containing t, normalised to
-// UTC midnight so that map keys from transaction dates (UTC) and time.Now()
-// (local) always compare equal for the same calendar week.
+// isoWeekStart returns midnight on the Monday that starts t's week, in
+// local time. Weeks are local because that is where Monday is: in UTC a New
+// Zealand week started at 1pm on Monday, so a Monday morning purchase landed
+// in the week before. Transaction dates are read in local time before they
+// are bucketed, so keys from either side compare equal.
 func isoWeekStart(t time.Time) time.Time {
-	t = t.UTC()
+	t = t.In(time.Local)
 	y, m, d := t.Date()
-	t0 := time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+	t0 := time.Date(y, m, d, 0, 0, 0, 0, time.Local)
 	wd := int(t0.Weekday())
 	if wd == 0 {
 		wd = 7
