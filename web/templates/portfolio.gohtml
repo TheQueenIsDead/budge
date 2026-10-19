@@ -83,7 +83,7 @@
                         <li>
                             <a class="b-acct" href="/portfolio/assets/{{ .Asset.Id }}"
                                hx-boost="true" hx-target="#main">
-                                <span class="b-chip {{ if lt .Change 0.0 }}b-accent-brick{{ else }}b-accent-sage{{ end }}">
+                                <span class="b-chip {{ if or .Type.Liability (lt .Change 0.0) }}b-accent-brick{{ else }}b-accent-sage{{ end }}">
                                     <i class="bi {{ .Icon }}"></i>
                                 </span>
 

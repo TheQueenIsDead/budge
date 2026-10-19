@@ -62,6 +62,7 @@ func TestRenderDebt(t *testing.T) {
 		Today:   "2026-10-19",
 	})
 	assert.Contains(t, page, "Paid off in <strong>31 repayments</strong>")
+	assert.Contains(t, page, `b-chip b-accent-brick`, "a debt is marked red even while it is being paid off")
 	assert.Contains(t, page, "May 2029")
 	assert.Contains(t, page, `hx-post="/portfolio/assets/avanti/terms"`)
 	assert.Contains(t, page, `value="234.11"`, "the form shows the saved terms")

@@ -2,7 +2,7 @@
 
     <div class="b-page-head d-flex align-items-start justify-content-between gap-3">
         <div class="min-width-0 d-flex align-items-center gap-2">
-            <span class="b-chip {{ if lt .Summary.Change 0.0 }}b-accent-brick{{ else }}b-accent-sage{{ end }}">
+            <span class="b-chip {{ if or .Summary.Type.Liability (lt .Summary.Change 0.0) }}b-accent-brick{{ else }}b-accent-sage{{ end }}">
                 <i class="bi {{ .Summary.Icon }}"></i>
             </span>
             <div class="min-width-0">
