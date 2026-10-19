@@ -163,6 +163,9 @@ type AssetSummary struct {
 	Icon      string
 	Type      AssetType
 
+	// Outlook is where a debt is heading on its terms, when it has some.
+	Outlook DebtOutlook
+
 	// Current is signed: a debt is what is owed, as a negative, so totals add
 	// up to what the owner is worth. Owed is the debt as a positive figure, for
 	// showing. Change on a debt is how much has been paid off.
@@ -201,6 +204,7 @@ func BuildAssetSummary(asset models.Asset) AssetSummary {
 		summary.Owed = summary.Current
 		summary.Current = -summary.Current
 		summary.Change = asset.PurchasePrice - summary.Owed
+		summary.Outlook = debtOutlook(asset, summary.Owed, summary.LastDate)
 	}
 	if asset.PurchasePrice != 0 {
 		summary.Delta = summary.Change / math.Abs(asset.PurchasePrice)
@@ -377,6 +381,9 @@ func (app *Application) AssetCreate(c echo.Context) error {
 		CreatedAt:     time.Now(),
 
 		HomesPropertyID: strings.TrimSpace(c.FormValue("homes_property_id")),
+	}
+	if t, _ := AssetTypeByKey(assetType); t.Liability {
+		readDebtTerms(c, &asset)
 	}
 
 	if err := app.store.CreateAsset(asset); err != nil {
