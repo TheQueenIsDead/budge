@@ -3,6 +3,7 @@ package application
 import (
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -82,6 +83,11 @@ type SpendGroup struct {
 	// match the merchant name, or the description when Akahu named no
 	// merchant, ignoring case, spaces and punctuation.
 	Merchants []string
+
+	// Types are Akahu transaction types that belong in this group whatever
+	// their description, for cash: one ATM's description names a bank and a
+	// machine number, the next another bank's.
+	Types []string
 }
 
 // spendGroups is the ordered registry. Order is display order: the questions
@@ -159,6 +165,15 @@ var spendGroups = []SpendGroup{
 		// Akahu files delivery orders under the courier: Uber Eats is merchant
 		// "Uber", billed in New Zealand by Portier Pacific.
 		Merchants: []string{"Uber Eats", "Portier", "DoorDash", "Delivereasy"},
+	}, {
+		Key:        "cash",
+		Label:      "Cash",
+		Blurb:      "ATM withdrawals",
+		Icon:       "bi-cash-stack",
+		Accent:     "slate",
+		Cadence:    CadenceMonthly,
+		Types:      []string{"ATM"},
+		Categories: []string{},
 	},
 }
 
@@ -238,6 +253,13 @@ func ClassifySpend(tx models.Transaction) (string, bool) {
 // classifySpend is ClassifySpend without the owner's exclusions, for saying
 // which insight an excluded transaction has been taken out of.
 func classifySpend(tx models.Transaction) (string, bool) {
+	if tx.Amount < 0 {
+		for _, group := range spendGroups {
+			if slices.Contains(group.Types, tx.Type) {
+				return group.Key, true
+			}
+		}
+	}
 	if tx.Type != "TRANSFER" && tx.Amount < 0 {
 		if key, ok := merchantGroup(tx); ok {
 			return key, true

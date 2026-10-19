@@ -87,3 +87,12 @@ func TestBudgetLine(t *testing.T) {
 	_, _, _, _, ok = budgetLine(spendTransaction("", "", -30, now))
 	assert.False(t, ok, "uncategorised spending no group matches has nowhere to go")
 }
+
+func TestCashGroup(t *testing.T) {
+	atm := spendTransaction("", "", -1003.50, now)
+	atm.Type = "ATM"
+	atm.Description = "Acu Aap9480 Eastgate Sho"
+	key, ok := ClassifySpend(atm)
+	assert.True(t, ok)
+	assert.Equal(t, "cash", key, "any ATM withdrawal, whatever the machine")
+}
