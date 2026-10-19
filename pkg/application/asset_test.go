@@ -665,3 +665,31 @@ func TestFetchEstimateButton(t *testing.T) {
 	// Disabling while in flight is what stops a double press.
 	assert.Contains(t, page, `hx-disabled-elt="this"`)
 }
+
+func TestDebtsAndInvestments(t *testing.T) {
+	mum := models.Asset{Id: "mum", Name: "Loan from Mum", Type: "debt", PurchasePrice: 3000,
+		Valuations: []models.AssetValuation{{ID: "v", Value: 2200, Date: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)}}}
+	kiwisaver := models.Asset{Id: "ks", Name: "KiwiSaver", Type: "investment", PurchasePrice: 33000,
+		Valuations: []models.AssetValuation{{ID: "v", Value: 34500, Date: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}}}
+
+	debt := BuildAssetSummary(mum)
+	assert.True(t, debt.Type.Liability)
+	assert.Equal(t, -2200.0, debt.Current, "a debt counts against what is owned")
+	assert.Equal(t, 2200.0, debt.Owed)
+	assert.Equal(t, 800.0, debt.Change, "paying it down is the gain")
+
+	fund := BuildAssetSummary(kiwisaver)
+	assert.Equal(t, 34500.0, fund.Current)
+	assert.Equal(t, 1500.0, fund.Change)
+
+	totals := BuildAssetPortfolio([]AssetSummary{debt, fund})
+	assert.Equal(t, 32300.0, totals.Total)
+	assert.Equal(t, 2300.0, totals.Change, "the fund's growth plus what was paid off")
+
+	everyday := models.Account{Name: "Weekly"}
+	everyday.Balance.Current = 500
+	portfolio := BuildPortfolio([]models.Account{everyday}, []AssetSummary{debt, fund})
+	assert.Equal(t, 35000.0, portfolio.Assets)
+	assert.Equal(t, -2200.0, portfolio.Liabilities)
+	assert.Equal(t, 32800.0, portfolio.NetWorth)
+}

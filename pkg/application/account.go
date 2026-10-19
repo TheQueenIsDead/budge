@@ -161,11 +161,17 @@ func BuildPortfolio(accounts []models.Account, assets []AssetSummary) Portfolio 
 		portfolio.NetWorth += balance
 	}
 
+	// Debts tracked by hand are liabilities like an overdrawn account; what
+	// is owned counts as assets.
 	for _, asset := range assets {
-		portfolio.Property += asset.Current
+		if asset.Current < 0 {
+			portfolio.Liabilities += asset.Current
+		} else {
+			portfolio.Property += asset.Current
+		}
+		portfolio.NetWorth += asset.Current
 	}
 	portfolio.Assets += portfolio.Property
-	portfolio.NetWorth += portfolio.Property
 
 	return portfolio
 }
