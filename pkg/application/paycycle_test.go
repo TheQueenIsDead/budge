@@ -15,7 +15,7 @@ func pays(t *testing.T, days ...string) {
 	for _, d := range days {
 		date, err := time.Parse(time.DateOnly, d)
 		require.NoError(t, err)
-		dates = append(dates, date.Add(11*time.Hour))
+		dates = append(dates, date.Add(1*time.Hour)) // the same day in UTC and in New Zealand
 	}
 	SetPayDates(dates)
 	t.Cleanup(func() { payCycle.Store(nil) })
@@ -89,4 +89,36 @@ func TestSpendBucketsFollowPay(t *testing.T) {
 func TestSpendPeriodsWithoutPay(t *testing.T) {
 	payCycle.Store(nil)
 	assert.Equal(t, 1, spendPeriodStart(payday("2026-09-10"), CadenceMonthly).Day(), "calendar months without pay to go by")
+}
+
+func TestFortnightlyPayMakesMonths(t *testing.T) {
+	// Paid every second Wednesday: 1 Jul has three pays (1, 15, 29), the
+	// others two.
+	pays(t, "2026-07-01", "2026-07-15", "2026-07-29", "2026-08-12", "2026-08-26", "2026-09-09", "2026-09-23", "2026-10-07")
+
+	starts := []string{}
+	at := spendPeriodStart(payday("2026-10-19"), CadenceMonthly)
+	for i := 0; i < 4; i++ {
+		starts = append([]string{at.Format(time.DateOnly)}, starts...)
+		at = spendPeriodAdd(at, CadenceMonthly, -1)
+	}
+	assert.Equal(t, []string{"2026-07-01", "2026-08-12", "2026-09-09", "2026-10-07"}, starts,
+		"each month starts at its first pay, not every pay")
+	assert.Equal(t, "2026-08-12", spendPeriodStart(payday("2026-09-08"), CadenceMonthly).Format(time.DateOnly),
+		"a day before September's first pay belongs to August's month")
+}
+
+func TestWeeklyPayMakesMonths(t *testing.T) {
+	var days []string
+	for d := time.Date(2026, 8, 6, 0, 0, 0, 0, time.UTC); d.Before(time.Date(2026, 10, 20, 0, 0, 0, 0, time.UTC)); d = d.AddDate(0, 0, 7) {
+		days = append(days, d.Format(time.DateOnly))
+	}
+	pays(t, days...)
+	assert.Equal(t, "2026-10-01", spendPeriodStart(payday("2026-10-19"), CadenceMonthly).Format(time.DateOnly))
+	assert.Equal(t, "2026-09-03", spendPeriodStart(payday("2026-09-30"), CadenceMonthly).Format(time.DateOnly))
+}
+
+func TestMonthlyPayUnchanged(t *testing.T) {
+	pays(t, "2026-07-28", "2026-08-28", "2026-09-25")
+	assert.Equal(t, "2026-09-25", spendPeriodStart(payday("2026-10-19"), CadenceMonthly).Format(time.DateOnly))
 }
