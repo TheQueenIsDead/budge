@@ -104,7 +104,10 @@ func TestBackupKeepsRemovedAccounts(t *testing.T) {
 
 func TestBackupKeepsSpendRules(t *testing.T) {
 	store := tempStore(t)
-	rules := models.SpendRules{Groups: map[string]models.SpendRule{"groceries": {Keywords: []string{"veges"}, Merchants: []string{"Ooooby"}}}}
+	rules := models.SpendRules{
+		Groups: map[string]models.SpendRule{"groceries": {Keywords: []string{"veges"}, Merchants: []string{"Ooooby"}}},
+		Custom: []models.CustomSpendGroup{{Key: "custom-rent", Label: "Rent", SpendRule: models.SpendRule{Keywords: []string{"rent"}}}},
+	}
 	require.NoError(t, store.SaveSpendRules(rules))
 	backup, err := store.ExportBackup()
 	require.NoError(t, err)
@@ -117,6 +120,12 @@ func TestBackupKeepsSpendRules(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, rules.Groups["groceries"], got.Groups["groceries"])
 	assert.Equal(t, []string{"gas"}, got.Groups["petrol"].Keywords, "a group the backup does not mention is kept")
+	assert.Equal(t, rules.Custom, got.Custom, "the owner's own groups come across too")
+
+	require.NoError(t, fresh.ImportBackup(backup))
+	again, err := fresh.GetSpendRules()
+	require.NoError(t, err)
+	assert.Len(t, again.Custom, 1, "importing twice does not list a group twice")
 }
 
 func TestToggleInsightExclusion(t *testing.T) {
