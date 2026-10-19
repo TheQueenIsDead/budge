@@ -1,14 +1,22 @@
 {{ define "portfolio" }}
 
-    <div class="b-page-head">
-        <h2>Portfolio</h2>
-        {{ if .HasRefreshed }}
-            <p class="b-page-sub"  data-bs-toggle="tooltip" data-bs-placement="bottom"
-               title="{{ .LastRefreshed.Format "2 Jan 2006, 3:04pm" }}">
-                <i class="bi bi-arrow-repeat"></i>
-                Balances current as of {{ .LastRefreshed | fmtRelative }}
-            </p>
-        {{ end }}
+    <!-- Adding is always on offer here: the assets card carries its own add
+         button, but it only appears once there is an asset to show. -->
+    <div class="b-page-head d-flex align-items-start justify-content-between gap-3">
+        <div class="min-width-0">
+            <h2>Portfolio</h2>
+            {{ if .HasRefreshed }}
+                <p class="b-page-sub"  data-bs-toggle="tooltip" data-bs-placement="bottom"
+                   title="{{ .LastRefreshed.Format "2 Jan 2006, 3:04pm" }}">
+                    <i class="bi bi-arrow-repeat"></i>
+                    Balances current as of {{ .LastRefreshed | fmtRelative }}
+                </p>
+            {{ end }}
+        </div>
+        <a href="/portfolio/new" class="btn btn-sm btn-primary flex-shrink-0"
+           hx-boost="true" hx-target="#main">
+            <i class="bi bi-plus-lg"></i> Add asset or debt
+        </a>
     </div>
 
     {{ if or .Groups .AssetTotals.HasAsset }}
