@@ -1,6 +1,11 @@
 // ---- Weekly performance chart ----
 
 function initBudgetPerfChart() {
+    // A chart whose canvas has been swapped out is still registered, and
+    // still listening for resizes, until it is destroyed.
+    Object.values(Chart.instances).forEach(chart => {
+        if (!chart.canvas.isConnected) chart.destroy();
+    });
     const canvas = document.getElementById('budget-perf-chart');
     if (!canvas) return;
     const existing = Chart.getChart(canvas);
@@ -102,7 +107,12 @@ function initBudgetPerfChart() {
     });
 }
 
-document.body.addEventListener('htmx:afterSwap', initBudgetPerfChart);
+// After settle, not swap. The canvas has an id, so htmx settles it: the new
+// canvas briefly carries the old one's attributes, and gets its own back
+// once settled. A chart drawn on swap was sized before that and then had
+// its width and height taken from under it, leaving it squashed into the
+// corner after a range change.
+document.body.addEventListener('htmx:afterSettle', initBudgetPerfChart);
 initBudgetPerfChart();
 
 // ---- Broad category collapse ----
