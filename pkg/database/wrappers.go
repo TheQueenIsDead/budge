@@ -434,6 +434,15 @@ func (s *Store) ImportBackup(backup models.Backup) error {
 		for key, rule := range backup.SpendRules.Groups {
 			rules.Groups[key] = rule
 		}
+		// The owner's own groups too, by key, the backup's copy winning.
+		for _, group := range backup.SpendRules.Custom {
+			i := slices.IndexFunc(rules.Custom, func(g models.CustomSpendGroup) bool { return g.Key == group.Key })
+			if i >= 0 {
+				rules.Custom[i] = group
+			} else {
+				rules.Custom = append(rules.Custom, group)
+			}
+		}
 	}
 
 	exclusions, err := s.GetInsightExclusions()
