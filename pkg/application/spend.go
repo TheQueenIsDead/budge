@@ -94,13 +94,12 @@ type SpendGroup struct {
 // asked most often come first.
 var spendGroups = []SpendGroup{
 	{
-		Key:         "groceries",
-		Label:       "Groceries",
-		Blurb:       "Supermarkets, dairies and food shops",
-		Icon:        "bi-basket",
-		Accent:      "sage",
-		Cadence:     CadenceWeekly,
-		RollingDays: 7,
+		Key:     "groceries",
+		Label:   "Groceries",
+		Blurb:   "Supermarkets, dairies and food shops",
+		Icon:    "bi-basket",
+		Accent:  "sage",
+		Cadence: CadenceWeekly,
 		Categories: []string{
 			"Supermarkets and grocery stores",
 			"Convenience stores",
@@ -147,13 +146,12 @@ var spendGroups = []SpendGroup{
 		Keywords:   []string{"internet", "broadband", "wifi"},
 	},
 	{
-		Key:         "eating-out",
-		Label:       "Eating out",
-		Blurb:       "Cafes, takeaways and bars",
-		Icon:        "bi-cup-hot",
-		Accent:      "brick",
-		Cadence:     CadenceWeekly,
-		RollingDays: 7,
+		Key:     "eating-out",
+		Label:   "Eating out",
+		Blurb:   "Cafes, takeaways and bars",
+		Icon:    "bi-cup-hot",
+		Accent:  "brick",
+		Cadence: CadenceWeekly,
 		Categories: []string{
 			"Cafes and restaurants",
 			"Fast food stores",

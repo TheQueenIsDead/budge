@@ -286,40 +286,35 @@ func TestComputeNetWeekly(t *testing.T) {
 	}
 }
 
+// inNZ runs a test with local time in New Zealand, where Budge's owner
+// lives, so week boundaries do not depend on the machine running the tests.
+func inNZ(t *testing.T) *time.Location {
+	t.Helper()
+	nz, err := time.LoadLocation("Pacific/Auckland")
+	if err != nil {
+		t.Skip("no zone database")
+	}
+	saved := time.Local
+	time.Local = nz
+	t.Cleanup(func() { time.Local = saved })
+	return nz
+}
+
 func TestIsoWeekStart(t *testing.T) {
+	nz := inNZ(t)
 	// 2026-08-17 is a Monday.
-	monday := time.Date(2026, 8, 17, 0, 0, 0, 0, time.UTC)
+	monday := time.Date(2026, 8, 17, 0, 0, 0, 0, nz)
 
 	tests := []struct {
 		name     string
 		input    time.Time
 		expected time.Time
 	}{
-		{
-			"a Monday is its own week start",
-			monday,
-			monday,
-		},
-		{
-			"midweek snaps back to Monday",
-			time.Date(2026, 8, 19, 13, 45, 0, 0, time.UTC), // Wednesday
-			monday,
-		},
-		{
-			"Sunday belongs to the week that started on Monday",
-			time.Date(2026, 8, 23, 23, 59, 59, 0, time.UTC),
-			monday,
-		},
-		{
-			"time of day is discarded",
-			time.Date(2026, 8, 17, 23, 59, 59, 0, time.UTC),
-			monday,
-		},
-		{
-			"week spanning a year boundary",
-			time.Date(2027, 1, 1, 9, 0, 0, 0, time.UTC), // Friday
-			time.Date(2026, 12, 28, 0, 0, 0, 0, time.UTC),
-		},
+		{"a Monday is its own week start", monday, monday},
+		{"midweek snaps back to Monday", time.Date(2026, 8, 19, 13, 45, 0, 0, nz), monday},
+		{"Sunday belongs to the week that started on Monday", time.Date(2026, 8, 23, 23, 59, 59, 0, nz), monday},
+		{"time of day is discarded", time.Date(2026, 8, 17, 23, 59, 59, 0, nz), monday},
+		{"week spanning a year boundary", time.Date(2027, 1, 1, 9, 0, 0, 0, nz), time.Date(2026, 12, 28, 0, 0, 0, 0, nz)},
 	}
 
 	for _, test := range tests {
@@ -327,12 +322,12 @@ func TestIsoWeekStart(t *testing.T) {
 			got := isoWeekStart(test.input)
 			assert.True(t, test.expected.Equal(got), "expected %s, got %s", test.expected, got)
 			assert.Equal(t, time.Monday, got.Weekday())
-			assert.Equal(t, time.UTC, got.Location())
 		})
 	}
 }
 
 func TestIsoWeekStartIsIdempotent(t *testing.T) {
+	inNZ(t)
 	for day := 1; day <= 28; day++ {
 		at := time.Date(2026, 8, day, 15, 0, 0, 0, time.UTC)
 		once := isoWeekStart(at)
@@ -340,23 +335,16 @@ func TestIsoWeekStartIsIdempotent(t *testing.T) {
 	}
 }
 
-// TestIsoWeekStartConvertsToUTC documents a real consequence of the UTC
-// normalisation for a NZ-facing app: NZST is UTC+12, so Monday morning in
-// Auckland is still Sunday in UTC and therefore lands in the *previous* ISO
-// week. See the note in the review; this pins current behaviour so a
-// deliberate fix has to update the test.
-func TestIsoWeekStartConvertsToUTC(t *testing.T) {
-	nz := time.FixedZone("NZST", 12*60*60)
+func TestIsoWeekStartIsLocal(t *testing.T) {
+	nz := inNZ(t)
+	monday := time.Date(2026, 8, 17, 0, 0, 0, 0, nz)
 
-	mondayMorningNZ := time.Date(2026, 8, 17, 9, 0, 0, 0, nz) // Sunday 21:00 UTC
-	assert.True(t,
-		time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC).Equal(isoWeekStart(mondayMorningNZ)),
-		"Monday morning NZ maps to the previous UTC ISO week")
+	mondayMorning := time.Date(2026, 8, 16, 21, 0, 0, 0, time.UTC) // 9am Monday in New Zealand
+	assert.True(t, monday.Equal(isoWeekStart(mondayMorning)),
+		"Monday morning belongs to the week starting that Monday, not the week before as it did in UTC")
 
-	mondayAfternoonNZ := time.Date(2026, 8, 17, 13, 0, 0, 0, nz) // Monday 01:00 UTC
-	assert.True(t,
-		time.Date(2026, 8, 17, 0, 0, 0, 0, time.UTC).Equal(isoWeekStart(mondayAfternoonNZ)),
-		"Monday afternoon NZ maps to the current UTC ISO week")
+	sundayNight := time.Date(2026, 8, 16, 10, 0, 0, 0, time.UTC) // 10pm Sunday in New Zealand
+	assert.True(t, monday.AddDate(0, 0, -7).Equal(isoWeekStart(sundayNight)))
 }
 
 func TestSanitizeIDs(t *testing.T) {
