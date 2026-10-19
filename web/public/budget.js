@@ -53,43 +53,9 @@ function initBudgetPerfChart() {
             bar('Unallocated', unallocated, 'rgba(108,117,125,0.35)'),
         );
     }
-    // What came in is the line spending has to stay under: dotted green, to
-    // tell it from the budget target's grey dashes. Months step with what
-    // each one brought in; weeks are level at the average week, since pay
-    // lands once a month. The month in progress is left off, its pay may
-    // not have landed yet.
-    if (hasIncome) {
-        datasets.push({
-            type: 'line',
-            label: monthly ? 'Money in' : 'Money in (weekly average)',
-            // Lines get a stack each: the y axis stacks the bars, and a line
-            // left in the default stack is drawn on top of the one before it.
-            stack: 'money-in',
-            data: income.map((v, i) => monthly && i === current ? null : v),
-            stepped: monthly ? 'middle' : false,
-            borderColor: 'rgba(25,135,84,0.9)',
-            borderDash: [2, 4],
-            borderCapStyle: 'round',
-            borderWidth: 2.5,
-            pointRadius: 0,
-            fill: false,
-            order: 0,
-        });
-    }
-    if (target > 0) {
-        datasets.push({
-            type: 'line',
-            label: 'Budget Target',
-            stack: 'target',
-            data: Array(actuals.length).fill(target),
-            borderColor: 'rgba(0,0,0,0.35)',
-            borderDash: [6, 4],
-            borderWidth: 2,
-            pointRadius: 0,
-            fill: false,
-            order: 1,
-        });
-    }
+    // No lines for money in or the budget target: where blue turns amber is
+    // the target, and where red starts is what came in, so lines only
+    // repeated the bars.
 
     new Chart(canvas, {
         data: {labels, datasets},
