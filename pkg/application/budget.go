@@ -744,8 +744,71 @@ type BudgetPerformanceData struct {
 	Net     float64
 	Savings float64
 
+	// MoneyIn is what arrived in each period, as JSON. Weeks all carry the
+	// average week, since pay lands monthly.
+	MoneyIn string
+
 	Range  PerformanceRange
 	Ranges []PerformanceRange
+}
+
+// moneyIn is what a transaction brought in from outside the owner's tracked
+// accounts: pay, people paying them, refunds, and money moved in from an
+// account they have switched off. Moving money between tracked accounts
+// brings nothing in, and money a spend group already nets off its spending,
+// such as being paid back for groceries, is not counted a second time.
+// external reports whether a paired transfer's other leg is in an account
+// Budge no longer tracks; such a transfer counts both ways, so money sent
+// back to that account takes from what came in.
+func moneyIn(tx models.Transaction, external bool) float64 {
+	if _, ok := ClassifySpend(tx); ok {
+		return 0
+	}
+	if tx.Category.Name == "Transfer" {
+		if external {
+			return tx.Amount
+		}
+		return 0
+	}
+	if tx.Amount > 0 {
+		return tx.Amount
+	}
+	return 0
+}
+
+// externalTransfers finds the paired transfers whose other leg is missing:
+// the sync paired them when both accounts were tracked, and the other has
+// since been switched off, its transactions with it. From here on they are
+// money arriving from, or leaving to, outside.
+func externalTransfers(txs []models.Transaction) map[string]bool {
+	type leg struct {
+		account string
+		date    time.Time
+	}
+	legs := map[int64][]leg{}
+	for _, tx := range txs {
+		if tx.Category.Name == "Transfer" {
+			cents := int64(math.Round(tx.Amount * 100))
+			legs[cents] = append(legs[cents], leg{tx.Account, tx.Date})
+		}
+	}
+	external := map[string]bool{}
+	for _, tx := range txs {
+		if tx.Category.Name != "Transfer" {
+			continue
+		}
+		matched := false
+		for _, other := range legs[-int64(math.Round(tx.Amount*100))] {
+			if other.account != tx.Account && math.Abs(other.date.Sub(tx.Date).Hours()) <= 24 {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			external[tx.Id] = true
+		}
+	}
+	return external
 }
 
 // PerformanceRange is a span the budget chart offers: so many weeks, or so
@@ -837,12 +900,15 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 	}
 
 	// Every period's spending, net of what spend groups were paid back, so
-	// the chart agrees with the rows above it.
+	// the chart agrees with the rows above it, and what came in.
 	totals := make(map[time.Time]float64)
+	incoming := make(map[time.Time]float64)
+	external := externalTransfers(txs)
 	for _, tx := range txs {
 		if loans[tx.Account] {
 			continue
 		}
+		incoming[bucket(tx.Date)] += moneyIn(tx, external[tx.Id])
 		if _, _, _, amt, ok := budgetLine(tx); ok {
 			totals[bucket(tx.Date)] += amt
 		} else if tx.Amount < 0 && tx.Type != "TRANSFER" {
@@ -852,6 +918,7 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 
 	labels := make([]string, span.Periods)
 	actuals := make([]float64, span.Periods)
+	ins := make([]float64, span.Periods)
 	for i, start := range starts {
 		if span.Monthly {
 			labels[i] = start.Format("Jan 2006")
@@ -859,10 +926,26 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 			labels[i] = start.Format("2 Jan")
 		}
 		actuals[i] = math.Round(totals[start]*100) / 100
+		ins[i] = math.Round(incoming[start]*100) / 100
+	}
+
+	// Pay lands once a month, so a week's money in is one huge week and three
+	// empty ones. Weeks are measured against the average week instead, taken
+	// over the completed weeks shown.
+	if !span.Monthly && span.Periods > 1 {
+		var sum float64
+		for _, in := range ins[:span.Periods-1] {
+			sum += in
+		}
+		average := math.Round(sum/float64(span.Periods-1)*100) / 100
+		for i := range ins {
+			ins[i] = average
+		}
 	}
 
 	labelsJSON, _ := json.Marshal(labels)
 	actualsJSON, _ := json.Marshal(actuals)
+	insJSON, _ := json.Marshal(ins)
 	round := func(v float64) float64 { return math.Round(v*scale*100) / 100 }
 
 	return c.Render(http.StatusOK, "budget.performance", BudgetPerformanceData{
@@ -870,6 +953,7 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 		Actuals: string(actualsJSON),
 		Target:  round(target),
 		HasData: len(txs) > 0 || target > 0,
+		MoneyIn: string(insJSON),
 		Range:   span,
 		Ranges:  performanceRanges,
 		Net:     round(computeNetWeekly(salary)),

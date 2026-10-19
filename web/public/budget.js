@@ -13,21 +13,28 @@ function initBudgetPerfChart() {
     const actuals = JSON.parse(canvas.dataset.actuals);
     const target  = parseFloat(canvas.dataset.target);
     const labels  = JSON.parse(canvas.dataset.labels);
-    const net     = parseFloat(canvas.dataset.net) || 0;
     const goal    = parseFloat(canvas.dataset.savings) || 0;
+    const monthly = canvas.dataset.monthly === 'true';
+    const moneyIn = JSON.parse(canvas.dataset.moneyIn || '[]');
+    const income  = actuals.map((_, i) => moneyIn[i] || 0);
+    const hasIncome = income.some(v => v > 0);
 
-    // Each period's take-home split into what was spent, what was left for the
-    // savings goal, and anything beyond it. A week that spent more than came
-    // in shows the overspend on top in red, and the spending bar stops at the
-    // take-home so the two add up to what went out. Without a salary there is
-    // nothing to split, so the bars are spending alone.
-    const spent       = actuals.map(v => net > 0 ? Math.min(v, net) : v);
-    const overspent   = actuals.map(v => net > 0 ? Math.max(v - net, 0) : 0);
-    // The last bar is the week or month in progress. What it has not spent yet is not
-    // saved yet either, so it shows its spending alone.
-    const current     = actuals.length - 1;
-    const saved       = actuals.map((v, i) => i === current ? 0 : Math.min(Math.max(net - v, 0), goal));
-    const unallocated = actuals.map((v, i) => i === current ? 0 : Math.max(net - v - saved[i], 0));
+    // Each period split against the budget and against what actually came
+    // in: pay, people paying you back, money from accounts Budge no longer
+    // tracks. Spending up to the budget target is blue, past the target but
+    // still within what came in is amber, and past what came in is red on
+    // top. What was left over is green up to the savings goal, grey beyond.
+    // The last bar is the week or month in progress: what it has not spent
+    // yet is not saved yet either, and its pay may not have landed, so it is
+    // only measured against the budget.
+    const current = actuals.length - 1;
+    const cap = actuals.map((_, i) => hasIncome && i !== current ? income[i] : Infinity);
+    const budget = target > 0 ? target : Infinity;
+    const within     = actuals.map((v, i) => Math.min(v, budget, cap[i]));
+    const overBudget = actuals.map((v, i) => Math.max(Math.min(v, cap[i]) - within[i], 0));
+    const overspent  = actuals.map((v, i) => Math.max(v - cap[i], 0));
+    const saved       = actuals.map((v, i) => i === current ? 0 : Math.min(Math.max(income[i] - v, 0), goal));
+    const unallocated = actuals.map((v, i) => i === current ? 0 : Math.max(income[i] - v - saved[i], 0));
     if (current >= 0) labels[current] += ' (so far)';
 
     const money = v => '$' + v.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -35,24 +42,31 @@ function initBudgetPerfChart() {
         type: 'bar', label, data, stack: 'week',
         backgroundColor: colour, borderWidth: 0, order: 2,
     });
-    const datasets = [bar('Spending', spent, 'rgba(13,110,253,0.7)')];
-    if (net > 0) {
+    const datasets = [
+        bar(target > 0 ? 'Within budget' : 'Spending', within, 'rgba(13,110,253,0.7)'),
+        bar('Over budget', overBudget, 'rgba(253,153,47,0.85)'),
+    ];
+    if (hasIncome) {
         datasets.push(
             bar('Overspent', overspent, 'rgba(220,53,69,0.8)'),
             bar('Savings', saved, 'rgba(25,135,84,0.75)'),
             bar('Unallocated', unallocated, 'rgba(108,117,125,0.35)'),
         );
     }
-    // Take-home is the line spending has to stay under: dotted green, to
-    // tell it from the budget target's grey dashes.
-    if (net > 0) {
+    // What came in is the line spending has to stay under: dotted green, to
+    // tell it from the budget target's grey dashes. Months step with what
+    // each one brought in; weeks are level at the average week, since pay
+    // lands once a month. The month in progress is left off, its pay may
+    // not have landed yet.
+    if (hasIncome) {
         datasets.push({
             type: 'line',
-            label: 'Take-home Pay',
+            label: monthly ? 'Money in' : 'Money in (weekly average)',
             // Lines get a stack each: the y axis stacks the bars, and a line
             // left in the default stack is drawn on top of the one before it.
-            stack: 'take-home',
-            data: Array(actuals.length).fill(net),
+            stack: 'money-in',
+            data: income.map((v, i) => monthly && i === current ? null : v),
+            stepped: monthly ? 'middle' : false,
             borderColor: 'rgba(25,135,84,0.9)',
             borderDash: [2, 4],
             borderCapStyle: 'round',

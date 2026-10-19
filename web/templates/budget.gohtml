@@ -253,7 +253,8 @@
                 data-labels="{{.Labels}}"
                 data-actuals="{{.Actuals}}"
                 data-target="{{printf "%.2f" .Target}}"
-                data-net="{{printf "%.2f" .Net}}"
+                data-money-in="{{.MoneyIn}}"
+                data-monthly="{{.Range.Monthly}}"
                 data-savings="{{printf "%.2f" .Savings}}"></canvas>
     </div>
     {{else}}
