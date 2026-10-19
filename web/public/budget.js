@@ -8,37 +8,60 @@ function initBudgetPerfChart() {
     const actuals = JSON.parse(canvas.dataset.actuals);
     const target  = parseFloat(canvas.dataset.target);
     const labels  = JSON.parse(canvas.dataset.labels);
+    const net     = parseFloat(canvas.dataset.net) || 0;
+    const goal    = parseFloat(canvas.dataset.savings) || 0;
+
+    // Each week's take-home split into what was spent, what was left for the
+    // savings goal, and anything beyond it. A week that spent more than came
+    // in shows the overspend on top in red, and the spending bar stops at the
+    // take-home so the two add up to what went out. Without a salary there is
+    // nothing to split, so the bars are spending alone.
+    const spent       = actuals.map(v => net > 0 ? Math.min(v, net) : v);
+    const overspent   = actuals.map(v => net > 0 ? Math.max(v - net, 0) : 0);
+    // The last bar is the week in progress. What it has not spent yet is not
+    // saved yet either, so it shows its spending alone.
+    const current     = actuals.length - 1;
+    const saved       = actuals.map((v, i) => i === current ? 0 : Math.min(Math.max(net - v, 0), goal));
+    const unallocated = actuals.map((v, i) => i === current ? 0 : Math.max(net - v - saved[i], 0));
+    if (current >= 0) labels[current] += ' (so far)';
+
+    const money = v => '$' + v.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const bar = (label, data, colour) => ({
+        type: 'bar', label, data, stack: 'week',
+        backgroundColor: colour, borderWidth: 0, order: 2,
+    });
+    const datasets = [bar('Spending', spent, 'rgba(13,110,253,0.7)')];
+    if (net > 0) {
+        datasets.push(
+            bar('Overspent', overspent, 'rgba(220,53,69,0.8)'),
+            bar('Savings', saved, 'rgba(25,135,84,0.75)'),
+            bar('Unallocated', unallocated, 'rgba(108,117,125,0.35)'),
+        );
+    }
+    if (target > 0) {
+        datasets.push({
+            type: 'line',
+            label: 'Budget Target',
+            data: Array(actuals.length).fill(target),
+            borderColor: 'rgba(0,0,0,0.35)',
+            borderDash: [6, 4],
+            borderWidth: 2,
+            pointRadius: 0,
+            fill: false,
+            order: 1,
+        });
+    }
+
     new Chart(canvas, {
-        data: {
-            labels,
-            datasets: [{
-                type: 'bar',
-                label: 'Weekly Spend',
-                data: actuals,
-                backgroundColor: actuals.map(v =>
-                    target > 0 && v > target ? 'rgba(220,53,69,0.75)' : 'rgba(25,135,84,0.75)'),
-                borderColor: actuals.map(v =>
-                    target > 0 && v > target ? 'rgb(220,53,69)' : 'rgb(25,135,84)'),
-                borderWidth: 1,
-                order: 2,
-            }, {
-                type: 'line',
-                label: 'Budget Target',
-                data: Array(actuals.length).fill(target),
-                borderColor: 'rgba(0,0,0,0.3)',
-                borderDash: [6, 4],
-                borderWidth: 2,
-                pointRadius: 0,
-                fill: false,
-                order: 1,
-            }]
-        },
+        data: {labels, datasets},
         options: {
             responsive: true,
             maintainAspectRatio: false,
             interaction: { mode: 'index' },
             scales: {
+                x: { stacked: true },
                 y: {
+                    stacked: true,
                     beginAtZero: true,
                     ticks: { callback: v => '$' + v.toLocaleString() }
                 }
@@ -46,8 +69,12 @@ function initBudgetPerfChart() {
             plugins: {
                 legend: { position: 'top' },
                 tooltip: {
+                    // Empty segments are left out, so a good week does not
+                    // list "Overspent: $0.00".
+                    filter: item => item.parsed.y > 0,
                     callbacks: {
-                        label: ctx => ' ' + ctx.dataset.label + ': $' + ctx.parsed.y.toFixed(2)
+                        label: ctx => ' ' + ctx.dataset.label + ': ' + money(ctx.parsed.y),
+                        footer: items => 'Total spent: ' + money(actuals[items[0].dataIndex]),
                     }
                 }
             }

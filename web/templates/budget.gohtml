@@ -238,7 +238,9 @@
         <canvas id="budget-perf-chart"
                 data-labels="{{.Labels}}"
                 data-actuals="{{.Actuals}}"
-                data-target="{{printf "%.2f" .Target}}"></canvas>
+                data-target="{{printf "%.2f" .Target}}"
+                data-net="{{printf "%.2f" .NetWeekly}}"
+                data-savings="{{printf "%.2f" .SavingsWeekly}}"></canvas>
     </div>
     {{else}}
     <div class="b-empty">

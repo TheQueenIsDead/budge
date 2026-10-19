@@ -735,6 +735,13 @@ type BudgetPerformanceData struct {
 	Actuals string
 	Target  float64
 	HasData bool
+
+	// NetWeekly and SavingsWeekly let the chart split each week's take-home
+	// into what was spent, what was left for the savings goal, and the rest.
+	// Take-home is the budgeted weekly figure rather than when pay landed:
+	// paid monthly, three weeks in four would show no income at all.
+	NetWeekly     float64
+	SavingsWeekly float64
 }
 
 func (app *Application) BudgetPerformance(c echo.Context) error {
@@ -780,11 +787,18 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 	labelsJSON, _ := json.Marshal(labels)
 	actualsJSON, _ := json.Marshal(actuals)
 
+	salary, err := app.store.GetBudgetSalary()
+	if err != nil {
+		return err
+	}
+
 	return c.Render(http.StatusOK, "budget.performance", BudgetPerformanceData{
-		Labels:  string(labelsJSON),
-		Actuals: string(actualsJSON),
-		Target:  math.Round(target*100) / 100,
-		HasData: len(txs) > 0 || target > 0,
+		Labels:        string(labelsJSON),
+		Actuals:       string(actualsJSON),
+		Target:        math.Round(target*100) / 100,
+		HasData:       len(txs) > 0 || target > 0,
+		NetWeekly:     math.Round(computeNetWeekly(salary)*100) / 100,
+		SavingsWeekly: math.Round(toWeeklyAmount(salary.SavingsGoal, salary.SavingsGoalFrequency)*100) / 100,
 	})
 }
 
