@@ -92,7 +92,9 @@
                                     <div class="b-acct-meta">
                                         <span class="badge-category">{{ .TypeLabel }}</span>
                                         {{ if .Asset.Description }}<span>{{ .Asset.Description }}</span>{{ end }}
-                                        {{ if .Valued }}
+                                        {{ if .Estimated }}
+                                            <span><i class="bi bi-calculator"></i> Estimated from repayments</span>
+                                        {{ else if .Valued }}
                                             <span><i class="bi bi-clock-history"></i> Updated {{ .LastDate | fmtRelative }}</span>
                                         {{ else }}
                                             <span><i class="bi bi-exclamation-circle"></i> Not updated since added</span>

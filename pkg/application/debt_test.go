@@ -32,7 +32,15 @@ func TestBuildDebtOutlook(t *testing.T) {
 	assert.False(t, BuildDebtOutlook(0, 9, 100, "monthly", from).Known, "nothing owed, nothing to project")
 }
 
+// on fixes the date debts are estimated to.
+func on(t *testing.T, date time.Time) {
+	t.Helper()
+	today = func() time.Time { return date }
+	t.Cleanup(func() { today = time.Now })
+}
+
 func TestDebtSummaryProjectsFromLatestBalance(t *testing.T) {
+	on(t, time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC))
 	debt := models.Asset{
 		Id: "avanti", Name: "Avanti", Type: "debt", PurchasePrice: 8000,
 		PurchaseDate: time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
@@ -48,6 +56,7 @@ func TestDebtSummaryProjectsFromLatestBalance(t *testing.T) {
 }
 
 func TestRenderDebt(t *testing.T) {
+	on(t, time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC))
 	debt := models.Asset{
 		Id: "avanti", Name: "Avanti", Type: "debt", PurchasePrice: 8000,
 		PurchaseDate: time.Date(2024, 5, 30, 0, 0, 0, 0, time.UTC),
@@ -83,4 +92,47 @@ func TestRenderDebt(t *testing.T) {
 	vehicle, _ := AssetTypeByKey("vehicle")
 	car := renderTemplate(t, "asset_new", AssetNewProps{Types: assetTypes, Selected: vehicle, Chosen: true, Today: "2026-10-19"})
 	assert.NotContains(t, car, `name="interest_rate"`)
+}
+
+func TestEstimateDebt(t *testing.T) {
+	balance := time.Date(2026, 10, 19, 0, 0, 0, 0, time.UTC)
+
+	none := EstimateDebt(6452.57, 9, 234.11, "monthly", balance, balance.AddDate(0, 0, 20))
+	assert.Equal(t, 6452.57, none.Owed, "no repayment due yet")
+	assert.Zero(t, none.Repayments)
+
+	two := EstimateDebt(6452.57, 9, 234.11, "monthly", balance, balance.AddDate(0, 2, 3))
+	assert.Equal(t, 2, two.Repayments)
+	assert.InDelta(t, 6452.57*1.0075*1.0075-234.11*1.0075-234.11, two.Owed, 0.01, "interest on the balance, then the repayment off it")
+	assert.Equal(t, balance.AddDate(0, 2, 0), two.Through)
+
+	cleared := EstimateDebt(300, 0, 100, "weekly", balance, balance.AddDate(1, 0, 0))
+	assert.Zero(t, cleared.Owed, "it stops at nothing owed")
+	assert.Equal(t, 3, cleared.Repayments)
+
+	assert.Equal(t, 500.0, EstimateDebt(500, 9, 0, "monthly", balance, balance.AddDate(1, 0, 0)).Owed, "no repayment, nothing applied")
+}
+
+func TestDebtSummaryEstimatesWhatIsOwed(t *testing.T) {
+	avanti := models.Asset{
+		Id: "avanti", Name: "Avanti", Type: "debt", PurchasePrice: 10941.30,
+		PurchaseDate: time.Date(2024, 5, 30, 0, 0, 0, 0, time.UTC),
+		InterestRate: 9, Repayment: 234.11, RepaymentFrequency: "monthly",
+		Valuations: []models.AssetValuation{{ID: "v", Value: 6452.57, Date: time.Date(2026, 10, 19, 0, 0, 0, 0, time.UTC)}},
+	}
+
+	on(t, time.Date(2026, 12, 25, 0, 0, 0, 0, time.UTC))
+	summary := BuildAssetSummary(avanti)
+	assert.True(t, summary.Estimated)
+	assert.Equal(t, 2, summary.Estimate.Repayments, "19 Nov and 19 Dec have been paid since the balance was entered")
+	assert.Less(t, summary.Owed, 6452.57)
+	assert.Equal(t, -summary.Owed, summary.Current)
+	assert.Equal(t, 29, summary.Outlook.Repayments, "two fewer left")
+	assert.Equal(t, time.Date(2029, 5, 19, 0, 0, 0, 0, time.UTC), summary.Outlook.PaidOffBy, "the payoff date does not move")
+
+	never := avanti
+	never.Valuations = nil
+	from := BuildAssetSummary(never)
+	assert.Equal(t, avanti.PurchaseDate, from.Estimate.From, "with no balance entered, it works forward from the loan itself")
+	assert.Equal(t, 30, from.Estimate.Repayments)
 }
