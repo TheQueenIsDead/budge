@@ -738,3 +738,47 @@ func TestBuildTimelinePullsCardFlightsIntoTrips(t *testing.T) {
 	require.Len(t, timeline.Suggestions, 1)
 	assert.Contains(t, timeline.Suggestions[0].TransactionIDs(), "flights")
 }
+
+func TestWithAccountCurrencies(t *testing.T) {
+	wise := models.Account{Id: "acc_wise"}
+	wise.Balance.Currency = "AUD"
+	everyday := models.Account{Id: "acc_everyday"}
+	everyday.Balance.Currency = "NZD"
+
+	away := purchase("bakery", "", 11.50, time.September, 30)
+	away.Account = "acc_wise"
+	away.Description = "Sq *Halls Gap Bake House"
+	home := purchase("dairy", "Around About Dairy", 4.72, time.October, 6)
+	home.Account = "acc_wise"
+	home.Meta.Conversion.Currency = "NZD"
+	local := purchase("shop", "PAK'nSAVE", 80, time.September, 30)
+	local.Account = "acc_everyday"
+
+	marked := withAccountCurrencies([]models.Transaction{away, home, local}, []models.Account{wise, everyday})
+	assert.Equal(t, "Australia", transactionPlace(marked[0]), "a purchase from an AUD balance was made in Australia")
+	assert.Equal(t, "", transactionPlace(marked[1]), "one Wise converted from NZD was made at home")
+	assert.Equal(t, "", transactionPlace(marked[2]))
+	assert.Empty(t, away.Meta.Conversion.Currency, "the caller's transactions are left alone")
+}
+
+func TestBuildTimelineFindsTripOnForeignAccount(t *testing.T) {
+	wise := models.Account{Id: "acc_wise"}
+	wise.Balance.Currency = "AUD"
+
+	flights := purchase("jetstar", "Jetstar", 687.24, time.June, 16)
+	flights.Type = "CREDIT CARD"
+	flights.Category.Name = "Air transport services"
+	txs := append(ordinaryYear(), flights)
+	for i, day := range []int{28, 29, 30} {
+		tx := purchase(fmt.Sprintf("aus-%d", i), "", 25, time.September, day)
+		tx.Account = "acc_wise"
+		tx.Description = "Halls Gap General St"
+		txs = append(txs, tx)
+	}
+
+	timeline := BuildTimeline(withAccountCurrencies(txs, []models.Account{wise}), nil, models.TimelinePreferences{}, timelineStart, timelineEnd)
+	require.Len(t, timeline.Suggestions, 1)
+	assert.Equal(t, "Trip to Australia", timeline.Suggestions[0].Title)
+	assert.ElementsMatch(t, []string{"jetstar", "aus-0", "aus-1", "aus-2"}, timeline.Suggestions[0].TransactionIDs(),
+		"the flights booked months ahead join the trip")
+}

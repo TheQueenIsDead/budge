@@ -423,6 +423,32 @@ func transactionPlace(tx models.Transaction) string {
 	return ""
 }
 
+// withAccountCurrencies marks each purchase on a foreign currency account,
+// such as a Wise AUD balance, as made in that currency. Akahu only records a
+// conversion when a purchase was in a currency other than the account's, so a
+// purchase in Melbourne paid from an AUD balance carries no sign of being
+// overseas at all. One paid from that balance back home does carry a
+// conversion, from NZD, and is left alone, so it stays at home. The copy is
+// for reading only and never stored.
+func withAccountCurrencies(transactions []models.Transaction, accounts []models.Account) []models.Transaction {
+	foreign := map[string]string{}
+	for _, account := range accounts {
+		if currency := strings.ToUpper(account.Balance.Currency); currency != "" && currency != "NZD" {
+			foreign[account.Id] = currency
+		}
+	}
+	if len(foreign) == 0 {
+		return transactions
+	}
+	marked := slices.Clone(transactions)
+	for i, tx := range marked {
+		if currency, ok := foreign[tx.Account]; ok && tx.Meta.Conversion.Currency == "" {
+			marked[i].Meta.Conversion.Currency = currency
+		}
+	}
+	return marked
+}
+
 // travelBooking reports whether a purchase is the kind of thing booked for a
 // trip: flights, accommodation, a rental car or a tour.
 func travelBooking(tx models.Transaction) bool {
@@ -954,6 +980,12 @@ func (app *Application) renderTimeline(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
+	accounts, err := app.store.ReadAccounts()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	transactions = withAccountCurrencies(transactions, accounts)
 
 	periods := timelinePeriods(transactions, now)
 	period := periods[0]
