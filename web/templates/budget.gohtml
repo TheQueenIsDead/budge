@@ -93,7 +93,7 @@
     <div id="budget-performance"
          hx-get="/budget/performance"
          hx-trigger="load, refreshSummary from:body"
-         hx-include="#budget-perf-weeks"
+         hx-include="#budget-perf-range"
          hx-swap="innerHTML"></div>
 {{end}}
 
@@ -236,14 +236,14 @@
 {{define "budget.performance"}}
 <div class="b-card b-card-pad mb-3">
     <div class="d-flex align-items-center justify-content-between gap-2 mb-3 flex-wrap">
-        <h3 class="b-card-title mb-0"><i class="bi bi-graph-up me-2"></i>Weekly Performance</h3>
-        <select class="form-select form-select-sm w-auto" id="budget-perf-weeks" name="weeks"
-                aria-label="How many weeks to show"
+        <h3 class="b-card-title mb-0"><i class="bi bi-graph-up me-2"></i>Performance</h3>
+        <select class="form-select form-select-sm w-auto" id="budget-perf-range" name="range"
+                aria-label="Which weeks or months to show"
                 hx-get="/budget/performance" hx-trigger="change"
                 hx-target="#budget-performance" hx-swap="innerHTML">
-            {{ $weeks := .Weeks }}
+            {{ $current := .Range.Key }}
             {{ range .Ranges }}
-                <option value="{{ . }}" {{ if eq . $weeks }}selected{{ end }}>Last {{ . }} weeks</option>
+                <option value="{{ .Key }}" {{ if eq .Key $current }}selected{{ end }}>{{ .Label }}</option>
             {{ end }}
         </select>
     </div>
@@ -253,8 +253,8 @@
                 data-labels="{{.Labels}}"
                 data-actuals="{{.Actuals}}"
                 data-target="{{printf "%.2f" .Target}}"
-                data-net="{{printf "%.2f" .NetWeekly}}"
-                data-savings="{{printf "%.2f" .SavingsWeekly}}"></canvas>
+                data-net="{{printf "%.2f" .Net}}"
+                data-savings="{{printf "%.2f" .Savings}}"></canvas>
     </div>
     {{else}}
     <div class="b-empty">

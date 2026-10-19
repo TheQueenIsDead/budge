@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -737,29 +736,68 @@ type BudgetPerformanceData struct {
 	Target  float64
 	HasData bool
 
-	// NetWeekly and SavingsWeekly let the chart split each week's take-home
-	// into what was spent, what was left for the savings goal, and the rest.
-	// Take-home is the budgeted weekly figure rather than when pay landed:
-	// paid monthly, three weeks in four would show no income at all.
-	NetWeekly     float64
-	SavingsWeekly float64
+	// Net and Savings let the chart split each period's take-home into what
+	// was spent, what was left for the savings goal, and the rest. Take-home
+	// is the budgeted figure rather than when pay landed: paid monthly, three
+	// weeks in four would show no income at all. Target, Net and Savings are
+	// all per period of the chart, a week or a month.
+	Net     float64
+	Savings float64
 
-	// Weeks is how many the chart covers, one of Ranges.
-	Weeks  int
-	Ranges []int
+	Range  PerformanceRange
+	Ranges []PerformanceRange
 }
 
-// performanceRanges are the spans the weekly chart offers, in weeks.
-var performanceRanges = []int{8, 13, 26, 52}
+// PerformanceRange is a span the budget chart offers: so many weeks, or so
+// many calendar months.
+type PerformanceRange struct {
+	Key     string
+	Label   string
+	Periods int
+	Monthly bool
+}
+
+var performanceRanges = []PerformanceRange{
+	{"w8", "Last 8 weeks", 8, false},
+	{"w13", "Last 13 weeks", 13, false},
+	{"w26", "Last 26 weeks", 26, false},
+	{"w52", "Last 52 weeks", 52, false},
+	{"m6", "Last 6 months", 6, true},
+	{"m12", "Last 12 months", 12, true},
+}
+
+// weeksPerMonth turns weekly figures into monthly ones.
+const weeksPerMonth = 52.0 / 12.0
+
+func monthStart(t time.Time) time.Time {
+	t = t.UTC()
+	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
+}
 
 func (app *Application) BudgetPerformance(c echo.Context) error {
 	span := performanceRanges[1]
-	if weeks, err := strconv.Atoi(c.QueryParam("weeks")); err == nil && slices.Contains(performanceRanges, weeks) {
-		span = weeks
+	for _, r := range performanceRanges {
+		if r.Key == c.QueryParam("range") {
+			span = r
+		}
 	}
 
-	ws := isoWeekStart(time.Now())
-	txs, err := app.store.ReadTransactionsByDate(ws.AddDate(0, 0, -7*span), time.Now())
+	// Buckets oldest first, the period in progress last. Weeks and months
+	// both start in UTC, as the transaction dates are stored.
+	bucket := isoWeekStart
+	starts := make([]time.Time, span.Periods)
+	for i := range starts {
+		if span.Monthly {
+			starts[span.Periods-1-i] = monthStart(time.Now()).AddDate(0, -i, 0)
+		} else {
+			starts[span.Periods-1-i] = isoWeekStart(time.Now()).AddDate(0, 0, -7*i)
+		}
+	}
+	if span.Monthly {
+		bucket = monthStart
+	}
+
+	txs, err := app.store.ReadTransactionsByDate(starts[0].Add(-time.Second), time.Now())
 	if err != nil {
 		return err
 	}
@@ -767,53 +805,57 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-
-	var target float64
-	for _, item := range items {
-		target += weeklyTarget(item)
-	}
-
-	// One bucket a week, most recent on the right.
-	weeks := make([]time.Time, span)
-	for i := range weeks {
-		weeks[span-1-i] = ws.AddDate(0, 0, -7*i)
-	}
-
-	// Every week's spending, net of what spend groups were paid back, so the
-	// chart agrees with the rows above it.
-	weekTotals := make(map[time.Time]float64)
-	for _, tx := range txs {
-		if _, _, _, amt, ok := budgetLine(tx); ok {
-			weekTotals[isoWeekStart(tx.Date)] += amt
-		} else if tx.Amount < 0 && tx.Type != "TRANSFER" {
-			weekTotals[isoWeekStart(tx.Date)] += -tx.Amount
-		}
-	}
-
-	labels := make([]string, span)
-	actuals := make([]float64, span)
-	for i, w := range weeks {
-		labels[i] = w.Format("2 Jan")
-		actuals[i] = math.Round(weekTotals[w]*100) / 100
-	}
-
-	labelsJSON, _ := json.Marshal(labels)
-	actualsJSON, _ := json.Marshal(actuals)
-
 	salary, err := app.store.GetBudgetSalary()
 	if err != nil {
 		return err
 	}
 
+	// Targets, take-home and the savings goal are kept weekly, and scaled to
+	// the period the chart is drawn in.
+	scale := 1.0
+	if span.Monthly {
+		scale = weeksPerMonth
+	}
+	var target float64
+	for _, item := range items {
+		target += weeklyTarget(item)
+	}
+
+	// Every period's spending, net of what spend groups were paid back, so
+	// the chart agrees with the rows above it.
+	totals := make(map[time.Time]float64)
+	for _, tx := range txs {
+		if _, _, _, amt, ok := budgetLine(tx); ok {
+			totals[bucket(tx.Date)] += amt
+		} else if tx.Amount < 0 && tx.Type != "TRANSFER" {
+			totals[bucket(tx.Date)] += -tx.Amount
+		}
+	}
+
+	labels := make([]string, span.Periods)
+	actuals := make([]float64, span.Periods)
+	for i, start := range starts {
+		if span.Monthly {
+			labels[i] = start.Format("Jan 2006")
+		} else {
+			labels[i] = start.Format("2 Jan")
+		}
+		actuals[i] = math.Round(totals[start]*100) / 100
+	}
+
+	labelsJSON, _ := json.Marshal(labels)
+	actualsJSON, _ := json.Marshal(actuals)
+	round := func(v float64) float64 { return math.Round(v*scale*100) / 100 }
+
 	return c.Render(http.StatusOK, "budget.performance", BudgetPerformanceData{
-		Labels:        string(labelsJSON),
-		Actuals:       string(actualsJSON),
-		Target:        math.Round(target*100) / 100,
-		HasData:       len(txs) > 0 || target > 0,
-		Weeks:         span,
-		Ranges:        performanceRanges,
-		NetWeekly:     math.Round(computeNetWeekly(salary)*100) / 100,
-		SavingsWeekly: math.Round(toWeeklyAmount(salary.SavingsGoal, salary.SavingsGoalFrequency)*100) / 100,
+		Labels:  string(labelsJSON),
+		Actuals: string(actualsJSON),
+		Target:  round(target),
+		HasData: len(txs) > 0 || target > 0,
+		Range:   span,
+		Ranges:  performanceRanges,
+		Net:     round(computeNetWeekly(salary)),
+		Savings: round(toWeeklyAmount(salary.SavingsGoal, salary.SavingsGoalFrequency)),
 	})
 }
 

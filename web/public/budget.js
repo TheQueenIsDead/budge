@@ -11,14 +11,14 @@ function initBudgetPerfChart() {
     const net     = parseFloat(canvas.dataset.net) || 0;
     const goal    = parseFloat(canvas.dataset.savings) || 0;
 
-    // Each week's take-home split into what was spent, what was left for the
+    // Each period's take-home split into what was spent, what was left for the
     // savings goal, and anything beyond it. A week that spent more than came
     // in shows the overspend on top in red, and the spending bar stops at the
     // take-home so the two add up to what went out. Without a salary there is
     // nothing to split, so the bars are spending alone.
     const spent       = actuals.map(v => net > 0 ? Math.min(v, net) : v);
     const overspent   = actuals.map(v => net > 0 ? Math.max(v - net, 0) : 0);
-    // The last bar is the week in progress. What it has not spent yet is not
+    // The last bar is the week or month in progress. What it has not spent yet is not
     // saved yet either, so it shows its spending alone.
     const current     = actuals.length - 1;
     const saved       = actuals.map((v, i) => i === current ? 0 : Math.min(Math.max(net - v, 0), goal));
