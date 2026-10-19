@@ -40,6 +40,13 @@ type Asset struct {
 	PurchaseDate  time.Time `json:"purchase_date"`
 
 	Valuations []AssetValuation `json:"valuations"`
+
+	// InterestRate, Repayment and RepaymentFrequency are a debt's terms,
+	// entered by hand: the yearly rate as a percentage, and what is repaid how
+	// often (weekly, fortnightly or monthly). Zero means not given.
+	InterestRate       float64 `json:"interest_rate,omitempty"`
+	Repayment          float64 `json:"repayment,omitempty"`
+	RepaymentFrequency string  `json:"repayment_frequency,omitempty"`
 }
 
 func (a Asset) Key() []byte    { return []byte(a.Id) }

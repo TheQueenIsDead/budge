@@ -89,6 +89,33 @@
                                    value="{{ $.Today }}" required>
                         </div>
 
+                        {{ if .Liability }}
+                            <div class="col-12 col-md-4">
+                                <label class="b-field-label" for="asset-rate">Interest rate <span class="fw-normal text-lowercase">(optional)</span></label>
+                                <div class="input-group">
+                                    <input id="asset-rate" name="interest_rate" type="number" class="form-control"
+                                           min="0" step="0.01" placeholder="0.00">
+                                    <span class="input-group-text">% p.a.</span>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label class="b-field-label" for="asset-repayment">Repayment <span class="fw-normal text-lowercase">(optional)</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input id="asset-repayment" name="repayment" type="number" class="form-control"
+                                           min="0" step="0.01" placeholder="0.00">
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label class="b-field-label" for="asset-frequency">How often</label>
+                                <select id="asset-frequency" name="repayment_frequency" class="form-select">
+                                    <option value="weekly">Weekly</option>
+                                    <option value="fortnightly">Fortnightly</option>
+                                    <option value="monthly" selected>Monthly</option>
+                                </select>
+                            </div>
+                        {{ end }}
+
                         <div class="col-12">
                             <label class="b-field-label" for="asset-description">{{ .DetailLabel }} <span class="fw-normal text-lowercase">(optional)</span></label>
                             <input id="asset-description" name="description" type="text" class="form-control"
