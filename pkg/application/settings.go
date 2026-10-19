@@ -2,6 +2,7 @@ package application
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -197,6 +198,9 @@ type SpendRuleView struct {
 	Keywords  string
 	Merchants string
 	Custom    bool
+
+	// Own marks a group the owner made, which is deleted rather than reset.
+	Own bool
 }
 
 func spendRuleViews() []SpendRuleView {
@@ -209,6 +213,7 @@ func spendRuleViews() []SpendRuleView {
 			Keywords:  strings.Join(rule.Keywords, ", "),
 			Merchants: strings.Join(rule.Merchants, ", "),
 			Custom:    custom,
+			Own:       strings.HasPrefix(group.Key, customGroupPrefix),
 		}
 	}
 	return views
@@ -244,9 +249,18 @@ func (app *Application) saveSpendRule(c echo.Context, rule *models.SpendRule) er
 	if rules.Groups == nil {
 		rules.Groups = make(map[string]models.SpendRule)
 	}
-	if rule == nil {
+	switch {
+	case strings.HasPrefix(group.Key, customGroupPrefix):
+		// The owner's own group holds its rule itself, and has no built in
+		// one to fall back to.
+		for i := range rules.Custom {
+			if rules.Custom[i].Key == group.Key && rule != nil {
+				rules.Custom[i].SpendRule = *rule
+			}
+		}
+	case rule == nil:
 		delete(rules.Groups, group.Key)
-	} else {
+	default:
 		rules.Groups[group.Key] = *rule
 	}
 	if err := app.store.SaveSpendRules(rules); err != nil {
@@ -277,5 +291,57 @@ func (app *Application) SettingsResetSpendRule(c echo.Context) error {
 		return err
 	}
 	app.Toast(c, "Success", "Insight rules reset.")
+	return c.Render(http.StatusOK, "settings.spend", spendRuleViews())
+}
+
+// customGroupPrefix starts the key of every group the owner makes.
+const customGroupPrefix = "custom-"
+
+// SettingsAddSpendGroup makes a new group of the owner's own, empty until its
+// keywords and merchants are filled in.
+func (app *Application) SettingsAddSpendGroup(c echo.Context) error {
+	label := strings.Join(strings.Fields(c.FormValue("label")), " ")
+	if label == "" {
+		app.Toast(c, "Error", "Give the group a name.")
+		return c.Render(http.StatusOK, "settings.spend", spendRuleViews())
+	}
+	key := customGroupPrefix + lettersOnly(label)
+	if key == customGroupPrefix {
+		key = customGroupPrefix + newID()
+	}
+	if _, taken := SpendGroupByKey(key); taken {
+		app.Toast(c, "Error", "There is already a group called "+label+".")
+		return c.Render(http.StatusOK, "settings.spend", spendRuleViews())
+	}
+
+	rules, err := app.store.GetSpendRules()
+	if err != nil {
+		return err
+	}
+	rules.Custom = append(rules.Custom, models.CustomSpendGroup{Key: key, Label: label})
+	if err := app.store.SaveSpendRules(rules); err != nil {
+		app.Toast(c, "Error", "Could not add the group.")
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	SetSpendRules(rules)
+	app.Toast(c, "Success", label+" added. Give it keywords or merchants to fill it.")
+	return c.Render(http.StatusOK, "settings.spend", spendRuleViews())
+}
+
+// SettingsDeleteSpendGroup removes one of the owner's own groups. What it
+// matched falls back to the built in groups, or to nothing.
+func (app *Application) SettingsDeleteSpendGroup(c echo.Context) error {
+	key := c.Param("key")
+	rules, err := app.store.GetSpendRules()
+	if err != nil {
+		return err
+	}
+	rules.Custom = slices.DeleteFunc(rules.Custom, func(g models.CustomSpendGroup) bool { return g.Key == key })
+	if err := app.store.SaveSpendRules(rules); err != nil {
+		app.Toast(c, "Error", "Could not delete the group.")
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	SetSpendRules(rules)
+	app.Toast(c, "Success", "Group deleted.")
 	return c.Render(http.StatusOK, "settings.spend", spendRuleViews())
 }

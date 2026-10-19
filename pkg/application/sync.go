@@ -92,7 +92,11 @@ func (app *Application) runAkahuSync() error {
 		if err != nil {
 			return err
 		}
-		return app.store.RecordAkahuSync(through)
+		if err := app.store.RecordAkahuSync(through); err != nil {
+			return err
+		}
+		// A new pay may have landed, starting a new month.
+		return app.refreshPayCycle()
 	}()
 	app.akahuSync.end(err)
 	return err

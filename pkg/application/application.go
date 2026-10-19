@@ -118,6 +118,9 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 		return nil, err
 	}
 	SetInsightExclusions(exclusions)
+	if err := app.refreshPayCycle(); err != nil {
+		return nil, err
+	}
 
 	app.http.Debug = true
 
@@ -198,6 +201,8 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.POST("/settings/schedule", app.SettingsSaveSchedule)
 	app.http.POST("/settings/danger/remove/synced", app.SettingsDeleteSynced)
 	app.http.GET("/settings/accounts", app.SettingsAccounts)
+	app.http.POST("/settings/spend-groups", app.SettingsAddSpendGroup)
+	app.http.DELETE("/settings/spend-groups/:key", app.SettingsDeleteSpendGroup)
 	app.http.POST("/settings/spend-rules/:key", app.SettingsSaveSpendRule)
 	app.http.POST("/settings/spend-rules/:key/reset", app.SettingsResetSpendRule)
 	app.http.POST("/settings/accounts/:id/untrack", app.SettingsUntrackAccount)

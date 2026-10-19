@@ -1,6 +1,10 @@
 package main
 
 import (
+	// Pay cycles and spending days are read in local time, set by TZ. The
+	// image may have no zone database of its own, so carry one.
+	_ "time/tzdata"
+
 	"github.com/TheQueenIsDead/budge/pkg"
 )
 

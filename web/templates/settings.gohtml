@@ -407,7 +407,7 @@
                 <div class="d-flex align-items-center gap-2 mb-2">
                     <span class="b-chip b-chip-sm b-accent-{{ .Group.Accent }}"><i class="bi {{ .Group.Icon }}"></i></span>
                     <span class="fw-semibold">{{ .Group.Label }}</span>
-                    {{ if .Custom }}<span class="badge-category ms-auto">Customised</span>{{ end }}
+                    {{ if .Own }}<span class="badge-category ms-auto">Your group</span>{{ else if .Custom }}<span class="badge-category ms-auto">Customised</span>{{ end }}
                 </div>
 
                 <label class="b-field-label" for="kw-{{ .Group.Key }}">Reference keywords</label>
@@ -422,7 +422,14 @@
 
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-primary btn-sm">Save</button>
-                    {{ if .Custom }}
+                    {{ if .Own }}
+                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                hx-delete="/settings/spend-groups/{{ .Group.Key }}"
+                                hx-target="#spend-rules" hx-swap="outerHTML"
+                                hx-confirm="Delete {{ .Group.Label }}? What it matched goes back to the other groups.">
+                            Delete group
+                        </button>
+                    {{ else if .Custom }}
                         <button type="button" class="btn btn-outline-secondary btn-sm"
                                 hx-post="/settings/spend-rules/{{ .Group.Key }}/reset"
                                 hx-target="#spend-rules" hx-swap="outerHTML"
@@ -435,5 +442,20 @@
         </div>
         {{ end }}
     </div>
+
+    <!-- A group of the owner's own: rent, lunches, the dog. -->
+    <form class="d-flex flex-wrap align-items-end gap-2 mt-3" hx-post="/settings/spend-groups"
+          hx-target="#spend-rules" hx-swap="outerHTML">
+        <div>
+            <label class="b-field-label" for="new-group">Add your own group</label>
+            <input class="form-control form-control-sm" id="new-group" name="label" required
+                   aria-describedby="new-group-help">
+        </div>
+        <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg"></i>Add group</button>
+        <p class="b-card-sub w-100 mb-0" id="new-group-help">
+            Such as rent or lunches. It shows on the insights and budget pages, and takes what
+            it matches from the groups above.
+        </p>
+    </form>
 </div>
 {{ end }}

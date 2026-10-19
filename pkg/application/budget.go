@@ -341,6 +341,41 @@ func (app *Application) BudgetSaveSavingsGoal(c echo.Context) error {
 	return app.store.SaveBudgetSalary(existing)
 }
 
+// budgetGroupsBroad heads the budget section holding Budge's own spend
+// groups, built in and the owner's, alongside Akahu's broad categories.
+const budgetGroupsBroad = "Your groups"
+
+// budgetLine places a transaction in the budget. One a spend group matches is
+// budgeted under that group, net of being paid back, so the budget sees the
+// food, rent and lunches Akahu never categorised, and each transaction is
+// counted once rather than under both a group and its category. Anything else
+// falls under its Akahu category. ok is false for what is not spending, and
+// for spending Akahu did not categorise that no group matched. name is who
+// was paid, for the merchant tags.
+func budgetLine(tx models.Transaction) (broad, specific, name string, amount float64, ok bool) {
+	name = tx.Merchant.Name
+	if key, matched := ClassifySpend(tx); matched {
+		if group, found := SpendGroupByKey(key); found {
+			if name == "" {
+				name = tx.Description
+			}
+			return budgetGroupsBroad, group.Label, name, -tx.Amount, true
+		}
+	}
+	if tx.Amount >= 0 || tx.Type == "TRANSFER" {
+		return "", "", "", 0, false
+	}
+	broad = tx.Category.Groups.PersonalFinance.Name
+	if broad == "" {
+		return "", "", "", 0, false
+	}
+	specific = tx.Category.Name
+	if specific == "" {
+		specific = broad
+	}
+	return broad, specific, name, -tx.Amount, true
+}
+
 // subcatSpend computes the weekly-normalised actual spend for one subcategory
 // using a window matched to the item's target frequency, plus the merchants
 // seen in that category ordered by spend. Merchants are gathered over the full
@@ -369,19 +404,11 @@ func (app *Application) subcatSpend(subCat, freq string) (float64, []string, err
 	merchantSpend := make(map[string]float64)
 	subCatLower := strings.ToLower(subCat)
 	for _, tx := range txs {
-		if tx.Amount >= 0 || tx.Type == "TRANSFER" {
+		broad, specific, name, amt, ok := budgetLine(tx)
+		if !ok || (!strings.EqualFold(specific, subCatLower) && !strings.EqualFold(broad, subCatLower)) {
 			continue
 		}
-		specific := strings.ToLower(tx.Category.Name)
-		broad := strings.ToLower(tx.Category.Groups.PersonalFinance.Name)
-		if specific == "" {
-			specific = broad
-		}
-		if specific != subCatLower && broad != subCatLower {
-			continue
-		}
-		amt := math.Abs(tx.Amount)
-		if name := tx.Merchant.Name; name != "" {
+		if name != "" {
 			merchantSpend[name] += amt
 		}
 		if cutoff.IsZero() || tx.Date.After(cutoff) {
@@ -495,20 +522,12 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 	merchantSpend := make(map[pairKey]map[string]float64)
 
 	for _, tx := range txs {
-		if tx.Amount >= 0 || tx.Type == "TRANSFER" {
+		broad, specific, name, amt, ok := budgetLine(tx)
+		if !ok {
 			continue
-		}
-		broad := tx.Category.Groups.PersonalFinance.Name
-		if broad == "" {
-			continue
-		}
-		specific := tx.Category.Name
-		if specific == "" {
-			specific = broad
 		}
 		key := pairKey{broad, specific}
-		amt := math.Abs(tx.Amount)
-		if name := tx.Merchant.Name; name != "" {
+		if name != "" {
 			if merchantSpend[key] == nil {
 				merchantSpend[key] = make(map[string]float64)
 			}
@@ -716,10 +735,136 @@ type BudgetPerformanceData struct {
 	Actuals string
 	Target  float64
 	HasData bool
+
+	// Net and Savings let the chart split each period's take-home into what
+	// was spent, what was left for the savings goal, and the rest. Take-home
+	// is the budgeted figure rather than when pay landed: paid monthly, three
+	// weeks in four would show no income at all. Target, Net and Savings are
+	// all per period of the chart, a week or a month.
+	Net     float64
+	Savings float64
+
+	// MoneyIn is what arrived in each period, as JSON. Weeks all carry the
+	// average week, since pay lands monthly.
+	MoneyIn string
+
+	Range  PerformanceRange
+	Ranges []PerformanceRange
+}
+
+// moneyIn is what a transaction brought in from outside the owner's tracked
+// accounts: pay, people paying them, refunds, and money moved in from an
+// account they have switched off. Moving money between tracked accounts
+// brings nothing in, and money a spend group already nets off its spending,
+// such as being paid back for groceries, is not counted a second time.
+// external reports whether a paired transfer's other leg is in an account
+// Budge no longer tracks; such a transfer counts both ways, so money sent
+// back to that account takes from what came in.
+func moneyIn(tx models.Transaction, external bool) float64 {
+	if _, ok := ClassifySpend(tx); ok {
+		return 0
+	}
+	if tx.Category.Name == "Transfer" {
+		if external {
+			return tx.Amount
+		}
+		return 0
+	}
+	if tx.Amount > 0 {
+		return tx.Amount
+	}
+	return 0
+}
+
+// externalTransfers finds the paired transfers whose other leg is missing:
+// the sync paired them when both accounts were tracked, and the other has
+// since been switched off, its transactions with it. From here on they are
+// money arriving from, or leaving to, outside.
+func externalTransfers(txs []models.Transaction) map[string]bool {
+	type leg struct {
+		account string
+		date    time.Time
+	}
+	legs := map[int64][]leg{}
+	for _, tx := range txs {
+		if tx.Category.Name == "Transfer" {
+			cents := int64(math.Round(tx.Amount * 100))
+			legs[cents] = append(legs[cents], leg{tx.Account, tx.Date})
+		}
+	}
+	external := map[string]bool{}
+	for _, tx := range txs {
+		if tx.Category.Name != "Transfer" {
+			continue
+		}
+		matched := false
+		for _, other := range legs[-int64(math.Round(tx.Amount*100))] {
+			if other.account != tx.Account && math.Abs(other.date.Sub(tx.Date).Hours()) <= 24 {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			external[tx.Id] = true
+		}
+	}
+	return external
+}
+
+// PerformanceRange is a span the budget chart offers: so many weeks, or so
+// many calendar months.
+type PerformanceRange struct {
+	Key     string
+	Label   string
+	Periods int
+	Monthly bool
+}
+
+var performanceRanges = []PerformanceRange{
+	{"w8", "Last 8 weeks", 8, false},
+	{"w13", "Last 13 weeks", 13, false},
+	{"w26", "Last 26 weeks", 26, false},
+	{"w52", "Last 52 weeks", 52, false},
+	{"m6", "Last 6 months", 6, true},
+	{"m12", "Last 12 months", 12, true},
+}
+
+// weeksPerMonth turns weekly figures into monthly ones.
+const weeksPerMonth = 52.0 / 12.0
+
+func monthStart(t time.Time) time.Time {
+	t = t.UTC()
+	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
 }
 
 func (app *Application) BudgetPerformance(c echo.Context) error {
-	txs, err := app.store.ReadTransactionsByDate(time.Now().AddDate(0, -3, 0), time.Now())
+	span := performanceRanges[1]
+	for _, r := range performanceRanges {
+		if r.Key == c.QueryParam("range") {
+			span = r
+		}
+	}
+
+	// Buckets oldest first, the period in progress last. Weeks start in UTC,
+	// as the transaction dates are stored; months run payday to payday when
+	// pay can be found, as everywhere spending is counted by month.
+	now := time.Now()
+	cadence := CadenceWeekly
+	bucket := isoWeekStart
+	if span.Monthly {
+		cadence = CadenceMonthly
+		bucket = func(t time.Time) time.Time { return spendPeriodStart(t.In(now.Location()), CadenceMonthly) }
+	}
+	starts := make([]time.Time, span.Periods)
+	for i := range starts {
+		if span.Monthly {
+			starts[i] = spendPeriodAdd(bucket(now), cadence, -(span.Periods - 1 - i))
+		} else {
+			starts[span.Periods-1-i] = isoWeekStart(now).AddDate(0, 0, -7*i)
+		}
+	}
+
+	txs, err := app.store.ReadTransactionsByDate(starts[0].Add(-time.Second), time.Now())
 	if err != nil {
 		return err
 	}
@@ -727,42 +872,99 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	salary, err := app.store.GetBudgetSalary()
+	if err != nil {
+		return err
+	}
 
+	// Targets, take-home and the savings goal are kept weekly, and scaled to
+	// the period the chart is drawn in.
+	scale := 1.0
+	if span.Monthly {
+		scale = weeksPerMonth
+	}
 	var target float64
 	for _, item := range items {
 		target += weeklyTarget(item)
 	}
 
-	// Build 13 weekly buckets, most recent on the right.
-	ws := isoWeekStart(time.Now())
-	weeks := make([]time.Time, 13)
-	for i := range weeks {
-		weeks[12-i] = ws.AddDate(0, 0, -7*i)
+	// A loan account's own entries are not spending: the drawdown is the
+	// lender paying out, and its interest is part of the repayments, which
+	// are already counted leaving the everyday account. Counting both put
+	// a whole loan into the month it was taken out.
+	accounts, err := app.store.ReadAccounts()
+	if err != nil {
+		return err
+	}
+	loans := map[string]bool{}
+	for _, account := range accounts {
+		if account.Type == "LOAN" {
+			loans[account.Id] = true
+		}
 	}
 
-	weekTotals := make(map[time.Time]float64)
+	// Every period's spending, net of what spend groups were paid back, so
+	// the chart agrees with the rows above it, and what came in.
+	totals := make(map[time.Time]float64)
+	incoming := make(map[time.Time]float64)
+	external := externalTransfers(txs)
 	for _, tx := range txs {
-		if tx.Amount >= 0 || tx.Type == "TRANSFER" {
+		if loans[tx.Account] {
 			continue
 		}
-		weekTotals[isoWeekStart(tx.Date)] += math.Abs(tx.Amount)
+		incoming[bucket(tx.Date)] += moneyIn(tx, external[tx.Id])
+		if _, _, _, amt, ok := budgetLine(tx); ok {
+			totals[bucket(tx.Date)] += amt
+		} else if tx.Amount < 0 && tx.Type != "TRANSFER" {
+			totals[bucket(tx.Date)] += -tx.Amount
+		}
 	}
 
-	labels := make([]string, 13)
-	actuals := make([]float64, 13)
-	for i, w := range weeks {
-		labels[i] = w.Format("2 Jan")
-		actuals[i] = math.Round(weekTotals[w]*100) / 100
+	labels := make([]string, span.Periods)
+	actuals := make([]float64, span.Periods)
+	ins := make([]float64, span.Periods)
+	for i, start := range starts {
+		switch {
+		case span.Monthly && payCycleKnown():
+			labels[i] = start.Format("2 Jan") + " – " + spendPeriodAdd(start, cadence, 1).AddDate(0, 0, -1).Format("2 Jan")
+		case span.Monthly:
+			labels[i] = start.Format("Jan 2006")
+		default:
+			labels[i] = start.Format("2 Jan")
+		}
+		actuals[i] = math.Round(totals[start]*100) / 100
+		ins[i] = math.Round(incoming[start]*100) / 100
+	}
+
+	// Pay lands once a month, so a week's money in is one huge week and three
+	// empty ones. Weeks are measured against the average week instead, taken
+	// over the completed weeks shown.
+	if !span.Monthly && span.Periods > 1 {
+		var sum float64
+		for _, in := range ins[:span.Periods-1] {
+			sum += in
+		}
+		average := math.Round(sum/float64(span.Periods-1)*100) / 100
+		for i := range ins {
+			ins[i] = average
+		}
 	}
 
 	labelsJSON, _ := json.Marshal(labels)
 	actualsJSON, _ := json.Marshal(actuals)
+	insJSON, _ := json.Marshal(ins)
+	round := func(v float64) float64 { return math.Round(v*scale*100) / 100 }
 
 	return c.Render(http.StatusOK, "budget.performance", BudgetPerformanceData{
 		Labels:  string(labelsJSON),
 		Actuals: string(actualsJSON),
-		Target:  math.Round(target*100) / 100,
+		Target:  round(target),
 		HasData: len(txs) > 0 || target > 0,
+		MoneyIn: string(insJSON),
+		Range:   span,
+		Ranges:  performanceRanges,
+		Net:     round(computeNetWeekly(salary)),
+		Savings: round(toWeeklyAmount(salary.SavingsGoal, salary.SavingsGoalFrequency)),
 	})
 }
 

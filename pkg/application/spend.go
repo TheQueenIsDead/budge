@@ -3,6 +3,7 @@ package application
 import (
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -82,6 +83,11 @@ type SpendGroup struct {
 	// match the merchant name, or the description when Akahu named no
 	// merchant, ignoring case, spaces and punctuation.
 	Merchants []string
+
+	// Types are Akahu transaction types that belong in this group whatever
+	// their description, for cash: one ATM's description names a bank and a
+	// machine number, the next another bank's.
+	Types []string
 }
 
 // spendGroups is the ordered registry. Order is display order: the questions
@@ -159,6 +165,15 @@ var spendGroups = []SpendGroup{
 		// Akahu files delivery orders under the courier: Uber Eats is merchant
 		// "Uber", billed in New Zealand by Portier Pacific.
 		Merchants: []string{"Uber Eats", "Portier", "DoorDash", "Delivereasy"},
+	}, {
+		Key:        "cash",
+		Label:      "Cash",
+		Blurb:      "ATM withdrawals",
+		Icon:       "bi-cash-stack",
+		Accent:     "slate",
+		Cadence:    CadenceMonthly,
+		Types:      []string{"ATM"},
+		Categories: []string{},
 	},
 }
 
@@ -175,16 +190,47 @@ var categoryToGroup = func() map[string]string {
 	return index
 }()
 
-// SpendGroups returns the tracked groups in display order.
+// SpendGroups returns the tracked groups in display order: the built in ones,
+// then the owner's own.
 func SpendGroups() []SpendGroup {
 	out := make([]SpendGroup, len(spendGroups))
 	copy(out, spendGroups)
-	return out
+	return append(out, customGroups()...)
+}
+
+// customGroups are the owner's own groups, dressed as spend groups. They
+// carry their rule as their keywords and merchants, so GroupRule finds it.
+func customGroups() []SpendGroup {
+	rules := spendRules.Load()
+	if rules == nil {
+		return nil
+	}
+	groups := make([]SpendGroup, 0, len(rules.Custom))
+	for _, custom := range rules.Custom {
+		groups = append(groups, SpendGroup{
+			Key:       custom.Key,
+			Label:     custom.Label,
+			Blurb:     "Your own group",
+			Icon:      "bi-tag",
+			Accent:    "slate",
+			Cadence:   CadenceMonthly,
+			Keywords:  custom.Keywords,
+			Merchants: custom.Merchants,
+		})
+	}
+	return groups
+}
+
+// matchingGroups is the order rules are tried in. The owner's own groups go
+// first: one made for lunches should take a lunch spot from groceries, not
+// lose it to the broader group.
+func matchingGroups() []SpendGroup {
+	return append(customGroups(), spendGroups...)
 }
 
 // SpendGroupByKey looks up a single group, reporting whether it exists.
 func SpendGroupByKey(key string) (SpendGroup, bool) {
-	for _, group := range spendGroups {
+	for _, group := range SpendGroups() {
 		if group.Key == key {
 			return group, true
 		}
@@ -207,6 +253,13 @@ func ClassifySpend(tx models.Transaction) (string, bool) {
 // classifySpend is ClassifySpend without the owner's exclusions, for saying
 // which insight an excluded transaction has been taken out of.
 func classifySpend(tx models.Transaction) (string, bool) {
+	if tx.Amount < 0 {
+		for _, group := range spendGroups {
+			if slices.Contains(group.Types, tx.Type) {
+				return group.Key, true
+			}
+		}
+	}
 	if tx.Type != "TRANSFER" && tx.Amount < 0 {
 		if key, ok := merchantGroup(tx); ok {
 			return key, true
@@ -266,7 +319,7 @@ func GroupRule(group SpendGroup) (rule models.SpendRule, custom bool) {
 // only its description, "Uber *Eats", tells it from a ride.
 func merchantGroup(tx models.Transaction) (string, bool) {
 	names := []string{lettersOnly(tx.Merchant.Name), lettersOnly(tx.Description)}
-	for _, group := range spendGroups {
+	for _, group := range matchingGroups() {
 		rule, _ := GroupRule(group)
 		for _, merchant := range rule.Merchants {
 			m := lettersOnly(merchant)
@@ -337,7 +390,7 @@ func referenceGroup(tx models.Transaction) (string, bool) {
 	text := strings.ToLower(strings.Join(fields, " "))
 	words := strings.FieldsFunc(text, func(r rune) bool { return !unicode.IsLetter(r) })
 	squashed := lettersOnly(text)
-	for _, group := range spendGroups {
+	for _, group := range matchingGroups() {
 		rule, _ := GroupRule(group)
 		for _, keyword := range rule.Keywords {
 			if keywordMatches(keyword, words, squashed) {
@@ -513,17 +566,17 @@ func BuildSpendBuckets(transactions []models.Transaction, group SpendGroup, cade
 	// are also the correct ones: a shop at 11pm belongs to the day it felt like.
 	location := now.Location()
 
-	current := periodStart(now, cadence)
-	first := periodAdd(current, cadence, -(periods - 1))
+	current := spendPeriodStart(now, cadence)
+	first := spendPeriodAdd(current, cadence, -(periods - 1))
 
 	buckets := make([]SpendBucket, periods)
 	index := make(map[time.Time]int, periods)
 	for i := range buckets {
-		start := periodAdd(first, cadence, i)
+		start := spendPeriodAdd(first, cadence, i)
 		buckets[i] = SpendBucket{
-			Label:   periodLabel(start, cadence),
+			Label:   spendPeriodLabel(start, cadence),
 			Start:   start,
-			End:     periodAdd(start, cadence, 1),
+			End:     spendPeriodAdd(start, cadence, 1),
 			Partial: start.Equal(current),
 		}
 		index[start] = i
@@ -534,7 +587,7 @@ func BuildSpendBuckets(transactions []models.Transaction, group SpendGroup, cade
 		if !ok || key != group.Key {
 			continue
 		}
-		start := periodStart(tx.Date.In(location), cadence)
+		start := spendPeriodStart(tx.Date.In(location), cadence)
 		i, ok := index[start]
 		if !ok {
 			continue
