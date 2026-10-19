@@ -341,6 +341,41 @@ func (app *Application) BudgetSaveSavingsGoal(c echo.Context) error {
 	return app.store.SaveBudgetSalary(existing)
 }
 
+// budgetGroupsBroad heads the budget section holding Budge's own spend
+// groups, built in and the owner's, alongside Akahu's broad categories.
+const budgetGroupsBroad = "Your groups"
+
+// budgetLine places a transaction in the budget. One a spend group matches is
+// budgeted under that group, net of being paid back, so the budget sees the
+// food, rent and lunches Akahu never categorised, and each transaction is
+// counted once rather than under both a group and its category. Anything else
+// falls under its Akahu category. ok is false for what is not spending, and
+// for spending Akahu did not categorise that no group matched. name is who
+// was paid, for the merchant tags.
+func budgetLine(tx models.Transaction) (broad, specific, name string, amount float64, ok bool) {
+	name = tx.Merchant.Name
+	if key, matched := ClassifySpend(tx); matched {
+		if group, found := SpendGroupByKey(key); found {
+			if name == "" {
+				name = tx.Description
+			}
+			return budgetGroupsBroad, group.Label, name, -tx.Amount, true
+		}
+	}
+	if tx.Amount >= 0 || tx.Type == "TRANSFER" {
+		return "", "", "", 0, false
+	}
+	broad = tx.Category.Groups.PersonalFinance.Name
+	if broad == "" {
+		return "", "", "", 0, false
+	}
+	specific = tx.Category.Name
+	if specific == "" {
+		specific = broad
+	}
+	return broad, specific, name, -tx.Amount, true
+}
+
 // subcatSpend computes the weekly-normalised actual spend for one subcategory
 // using a window matched to the item's target frequency, plus the merchants
 // seen in that category ordered by spend. Merchants are gathered over the full
@@ -369,19 +404,11 @@ func (app *Application) subcatSpend(subCat, freq string) (float64, []string, err
 	merchantSpend := make(map[string]float64)
 	subCatLower := strings.ToLower(subCat)
 	for _, tx := range txs {
-		if tx.Amount >= 0 || tx.Type == "TRANSFER" {
+		broad, specific, name, amt, ok := budgetLine(tx)
+		if !ok || (!strings.EqualFold(specific, subCatLower) && !strings.EqualFold(broad, subCatLower)) {
 			continue
 		}
-		specific := strings.ToLower(tx.Category.Name)
-		broad := strings.ToLower(tx.Category.Groups.PersonalFinance.Name)
-		if specific == "" {
-			specific = broad
-		}
-		if specific != subCatLower && broad != subCatLower {
-			continue
-		}
-		amt := math.Abs(tx.Amount)
-		if name := tx.Merchant.Name; name != "" {
+		if name != "" {
 			merchantSpend[name] += amt
 		}
 		if cutoff.IsZero() || tx.Date.After(cutoff) {
@@ -495,20 +522,12 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 	merchantSpend := make(map[pairKey]map[string]float64)
 
 	for _, tx := range txs {
-		if tx.Amount >= 0 || tx.Type == "TRANSFER" {
+		broad, specific, name, amt, ok := budgetLine(tx)
+		if !ok {
 			continue
-		}
-		broad := tx.Category.Groups.PersonalFinance.Name
-		if broad == "" {
-			continue
-		}
-		specific := tx.Category.Name
-		if specific == "" {
-			specific = broad
 		}
 		key := pairKey{broad, specific}
-		amt := math.Abs(tx.Amount)
-		if name := tx.Merchant.Name; name != "" {
+		if name != "" {
 			if merchantSpend[key] == nil {
 				merchantSpend[key] = make(map[string]float64)
 			}
@@ -740,12 +759,15 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 		weeks[12-i] = ws.AddDate(0, 0, -7*i)
 	}
 
+	// Every week's spending, net of what spend groups were paid back, so the
+	// chart agrees with the rows above it.
 	weekTotals := make(map[time.Time]float64)
 	for _, tx := range txs {
-		if tx.Amount >= 0 || tx.Type == "TRANSFER" {
-			continue
+		if _, _, _, amt, ok := budgetLine(tx); ok {
+			weekTotals[isoWeekStart(tx.Date)] += amt
+		} else if tx.Amount < 0 && tx.Type != "TRANSFER" {
+			weekTotals[isoWeekStart(tx.Date)] += -tx.Amount
 		}
-		weekTotals[isoWeekStart(tx.Date)] += math.Abs(tx.Amount)
 	}
 
 	labels := make([]string, 13)

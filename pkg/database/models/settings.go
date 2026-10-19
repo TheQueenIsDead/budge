@@ -192,6 +192,18 @@ type SpendRule struct {
 // never changed them.
 type SpendRules struct {
 	Groups map[string]SpendRule `json:"groups"`
+
+	// Custom are groups the owner made up, such as rent or lunches, which
+	// match on keywords and merchants alone.
+	Custom []CustomSpendGroup `json:"custom,omitempty"`
+}
+
+// CustomSpendGroup is a spend group the owner named. Its key starts "custom-"
+// so it can never collide with a built in one.
+type CustomSpendGroup struct {
+	Key   string `json:"key"`
+	Label string `json:"label"`
+	SpendRule
 }
 
 func (r SpendRules) Key() []byte    { return []byte("spend_rules") }

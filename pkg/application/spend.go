@@ -175,16 +175,47 @@ var categoryToGroup = func() map[string]string {
 	return index
 }()
 
-// SpendGroups returns the tracked groups in display order.
+// SpendGroups returns the tracked groups in display order: the built in ones,
+// then the owner's own.
 func SpendGroups() []SpendGroup {
 	out := make([]SpendGroup, len(spendGroups))
 	copy(out, spendGroups)
-	return out
+	return append(out, customGroups()...)
+}
+
+// customGroups are the owner's own groups, dressed as spend groups. They
+// carry their rule as their keywords and merchants, so GroupRule finds it.
+func customGroups() []SpendGroup {
+	rules := spendRules.Load()
+	if rules == nil {
+		return nil
+	}
+	groups := make([]SpendGroup, 0, len(rules.Custom))
+	for _, custom := range rules.Custom {
+		groups = append(groups, SpendGroup{
+			Key:       custom.Key,
+			Label:     custom.Label,
+			Blurb:     "Your own group",
+			Icon:      "bi-tag",
+			Accent:    "slate",
+			Cadence:   CadenceMonthly,
+			Keywords:  custom.Keywords,
+			Merchants: custom.Merchants,
+		})
+	}
+	return groups
+}
+
+// matchingGroups is the order rules are tried in. The owner's own groups go
+// first: one made for lunches should take a lunch spot from groceries, not
+// lose it to the broader group.
+func matchingGroups() []SpendGroup {
+	return append(customGroups(), spendGroups...)
 }
 
 // SpendGroupByKey looks up a single group, reporting whether it exists.
 func SpendGroupByKey(key string) (SpendGroup, bool) {
-	for _, group := range spendGroups {
+	for _, group := range SpendGroups() {
 		if group.Key == key {
 			return group, true
 		}
@@ -266,7 +297,7 @@ func GroupRule(group SpendGroup) (rule models.SpendRule, custom bool) {
 // only its description, "Uber *Eats", tells it from a ride.
 func merchantGroup(tx models.Transaction) (string, bool) {
 	names := []string{lettersOnly(tx.Merchant.Name), lettersOnly(tx.Description)}
-	for _, group := range spendGroups {
+	for _, group := range matchingGroups() {
 		rule, _ := GroupRule(group)
 		for _, merchant := range rule.Merchants {
 			m := lettersOnly(merchant)
@@ -337,7 +368,7 @@ func referenceGroup(tx models.Transaction) (string, bool) {
 	text := strings.ToLower(strings.Join(fields, " "))
 	words := strings.FieldsFunc(text, func(r rune) bool { return !unicode.IsLetter(r) })
 	squashed := lettersOnly(text)
-	for _, group := range spendGroups {
+	for _, group := range matchingGroups() {
 		rule, _ := GroupRule(group)
 		for _, keyword := range rule.Keywords {
 			if keywordMatches(keyword, words, squashed) {
