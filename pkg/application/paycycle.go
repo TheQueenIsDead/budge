@@ -10,7 +10,8 @@ import (
 
 // Spending is counted by pay cycle rather than calendar month: the pay that
 // lands on the 28th is next month's money, so a calendar month shows a pay
-// with the wrong month's spending against it. The pay dates are found from
+// with the wrong month's spending against it. Paid fortnightly, a month runs
+// from the first pay in one calendar month to the first in the next. The pay dates are found from
 // the transactions at startup and after each sync. Without them, months are
 // calendar months. The timeline keeps calendar months: memories are dated,
 // not budgeted.
@@ -76,11 +77,43 @@ func SetPayDates(dates []time.Time) {
 			days = append(days, day)
 		}
 	}
+	days = monthStarts(days)
 	if len(days) < 2 {
 		payCycle.Store(nil)
 		return
 	}
 	payCycle.Store(&days)
+}
+
+// monthStarts keeps the paydays that start a month. Paid monthly, that is
+// every one. Paid fortnightly or weekly, every pay would start a "month" a
+// fortnight or a week long, so the month starts at the first pay to land in
+// each calendar month instead, and runs to the first pay of the next: two
+// pays most months, three now and then.
+func monthStarts(days []time.Time) []time.Time {
+	if len(days) < 3 {
+		return days
+	}
+	gaps := make([]float64, 0, len(days)-1)
+	for i := 1; i < len(days); i++ {
+		gaps = append(gaps, days[i].Sub(days[i-1]).Hours()/24)
+	}
+	slices.Sort(gaps)
+	if gaps[len(gaps)/2] >= 21 {
+		return days
+	}
+	starts := make([]time.Time, 0, len(days)/2+1)
+	for _, day := range days {
+		if len(starts) == 0 {
+			starts = append(starts, day)
+			continue
+		}
+		last := starts[len(starts)-1]
+		if day.Year() != last.Year() || day.Month() != last.Month() {
+			starts = append(starts, day)
+		}
+	}
+	return starts
 }
 
 func payCycleKnown() bool {
