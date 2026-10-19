@@ -2,7 +2,7 @@
 
     <div class="b-page-head d-flex align-items-start justify-content-between gap-3">
         <div class="min-width-0 d-flex align-items-center gap-2">
-            <span class="b-chip {{ if lt .Summary.Change 0.0 }}b-accent-brick{{ else }}b-accent-sage{{ end }}">
+            <span class="b-chip {{ if or .Summary.Type.Liability (lt .Summary.Change 0.0) }}b-accent-brick{{ else }}b-accent-sage{{ end }}">
                 <i class="bi {{ .Summary.Icon }}"></i>
             </span>
             <div class="min-width-0">
@@ -26,7 +26,10 @@
                     {{ if .Summary.Type.Liability }}{{ .Summary.Owed | fmtCurrency }}{{ else }}{{ .Summary.Current | fmtCurrency }}{{ end }}
                 </div>
                 <div class="b-delta-note">
-                    {{ if .Summary.Valued }}
+                    {{ if .Summary.Estimated }}
+                        Estimated: {{ .Summary.Estimate.Repayments }} repayment{{ if ne .Summary.Estimate.Repayments 1 }}s{{ end }}
+                        since {{ .Summary.Estimate.From.Format "2 Jan 2006" }}
+                    {{ else if .Summary.Valued }}
                         Updated {{ .Summary.LastDate.Format "2 Jan 2006" }}
                     {{ else }}
                         No {{ .Summary.Type.ValueNoun }} recorded since it was added
@@ -157,7 +160,8 @@
                 <h3 class="b-card-title">Record a {{ .Summary.Type.ValueNoun }}</h3>
                 <p class="b-card-sub">
                     {{ if .Summary.Type.Liability }}
-                        What is still owed, as of the date.
+                        What is still owed, as of the date, from a statement or the lender's app.
+                        {{ if gt .Summary.Asset.Repayment 0.0 }}The balance is worked forward from here by the repayments, so this is only needed to correct it.{{ end }}
                     {{ else if eq .Summary.Asset.Type "investment" }}
                         The balance from your provider's app or statement.
                     {{ else }}

@@ -41,6 +41,10 @@ func repaymentStep(t time.Time, frequency string, n int) time.Time {
 	return t.AddDate(0, n, 0)
 }
 
+// today is when a debt's balance is estimated to. Tests set it, so what a
+// debt is owed does not change under them as real repayments fall due.
+var today = time.Now
+
 // payoffLimit caps the projection. Fifty years of monthly repayments is
 // longer than any debt worth tracking here, and a projection that long says
 // the repayments are only just ahead of the interest.
@@ -95,6 +99,42 @@ func BuildDebtOutlook(owed, ratePercent, repayment float64, frequency string, fr
 	outlook.InterestLeft = math.Round(outlook.InterestLeft*100) / 100
 	outlook.PaidOffBy = repaymentStep(from, frequency, outlook.Repayments)
 	return outlook
+}
+
+// DebtEstimate is what a debt is owed now, worked out from its terms rather
+// than entered: the last known balance with each repayment due since applied.
+type DebtEstimate struct {
+	Owed float64
+
+	// From is the date of the balance it was worked out from, and Repayments
+	// how many repayments have fallen due since. Through is the date of the
+	// last of them, which is when the estimate is as of.
+	From       time.Time
+	Repayments int
+	Through    time.Time
+}
+
+// EstimateDebt applies every repayment due between a known balance and at:
+// interest on the balance for the period, then the repayment off it, a
+// period after the balance was known and every period after. It stops at
+// nothing owed. Without a repayment there is nothing to apply.
+func EstimateDebt(owed, ratePercent, repayment float64, frequency string, from, at time.Time) DebtEstimate {
+	estimate := DebtEstimate{Owed: owed, From: from, Through: from}
+	if repayment <= 0 || from.IsZero() {
+		return estimate
+	}
+	rate := ratePercent / 100 / repaymentsPerYear(frequency)
+	for estimate.Owed > 0 {
+		due := repaymentStep(from, frequency, estimate.Repayments+1)
+		if due.After(at) || estimate.Repayments >= payoffLimit {
+			break
+		}
+		estimate.Owed = math.Max(estimate.Owed*(1+rate)-repayment, 0)
+		estimate.Repayments++
+		estimate.Through = due
+	}
+	estimate.Owed = math.Round(estimate.Owed*100) / 100
+	return estimate
 }
 
 // debtOutlook projects one tracked debt from its latest balance.

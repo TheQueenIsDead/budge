@@ -166,6 +166,11 @@ type AssetSummary struct {
 	// Outlook is where a debt is heading on its terms, when it has some.
 	Outlook DebtOutlook
 
+	// Estimate is what a debt with repayments is owed now, worked out from
+	// the last balance entered; Estimated says it moved anything.
+	Estimate  DebtEstimate
+	Estimated bool
+
 	// Current is signed: a debt is what is owed, as a negative, so totals add
 	// up to what the owner is worth. Owed is the debt as a positive figure, for
 	// showing. Change on a debt is how much has been paid off.
@@ -203,8 +208,21 @@ func BuildAssetSummary(asset models.Asset) AssetSummary {
 	if assetType.Liability {
 		summary.Owed = summary.Current
 		summary.Current = -summary.Current
+		// The balance is worked forward from the last one entered, so a debt
+		// being repaid keeps its figure current without a monthly update.
+		// Entering a balance from a statement starts it again from there.
+		from := summary.LastDate
+		if from.IsZero() {
+			from = asset.PurchaseDate
+		}
+		summary.Estimate = EstimateDebt(summary.Owed, asset.InterestRate, asset.Repayment, asset.RepaymentFrequency, from, today())
+		if summary.Estimate.Repayments > 0 {
+			summary.Estimated = true
+			summary.Owed = summary.Estimate.Owed
+			summary.Current = -summary.Owed
+		}
 		summary.Change = asset.PurchasePrice - summary.Owed
-		summary.Outlook = debtOutlook(asset, summary.Owed, summary.LastDate)
+		summary.Outlook = debtOutlook(asset, summary.Owed, summary.Estimate.Through)
 	}
 	if asset.PurchasePrice != 0 {
 		summary.Delta = summary.Change / math.Abs(asset.PurchasePrice)
