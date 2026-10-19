@@ -275,6 +275,11 @@ func timelineSpend(tx models.Transaction) bool {
 	return true
 }
 
+// cashWithdrawal reports whether a transaction took cash out of an account.
+func cashWithdrawal(tx models.Transaction) bool {
+	return tx.Type == "ATM" && tx.Amount < 0
+}
+
 // billCategories are the obligations of running a household. They are never
 // memories, however large, and are left off even when they are paid too
 // irregularly to look routine: council rates land three or four times a year
@@ -740,12 +745,19 @@ func BuildTimeline(transactions []models.Transaction, memories []models.Memory, 
 		timeline.Memories[i].Nearby = nearbyPurchases(timeline.Memories[i], byDay, claimed, location)
 	}
 
+	// A large cash withdrawal is offered like a large purchase, since the cash
+	// was usually taken out to buy something worth remembering. It is left out
+	// of spend, which sets the threshold and finds routine merchants: cash is
+	// not spent until it is used, and the same ATM visited every month is not
+	// a routine merchant whose big withdrawals should be skipped.
 	var spend, pool []models.Transaction
 	for _, tx := range transactions {
-		if !timelineSpend(tx) || tx.Date.Before(start) || !tx.Date.Before(end) {
+		if !(timelineSpend(tx) || cashWithdrawal(tx)) || tx.Date.Before(start) || !tx.Date.Before(end) {
 			continue
 		}
-		spend = append(spend, tx)
+		if !cashWithdrawal(tx) {
+			spend = append(spend, tx)
+		}
 		if hidden[tx.Id] {
 			timeline.Hidden = append(timeline.Hidden, BuildTransactionRow(tx))
 			continue
@@ -833,6 +845,9 @@ func BuildTimeline(transactions []models.Transaction, memories []models.Memory, 
 			entry.SameDay = append(entry.SameDay, TimelineContextRow{TransactionRow: row, Claimed: claimed[other.Id]})
 		}
 
+		if cashWithdrawal(tx) {
+			entry.Title, entry.Icon = "Cash withdrawal", "bi-cash-stack"
+		}
 		if entry.Accent == "" {
 			entry.Accent = "muted"
 		}

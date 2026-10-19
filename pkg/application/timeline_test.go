@@ -782,3 +782,28 @@ func TestBuildTimelineFindsTripOnForeignAccount(t *testing.T) {
 	assert.ElementsMatch(t, []string{"jetstar", "aus-0", "aus-1", "aus-2"}, timeline.Suggestions[0].TransactionIDs(),
 		"the flights booked months ahead join the trip")
 }
+
+func TestBuildTimelineLargeCashWithdrawals(t *testing.T) {
+	large := purchase("atm-large", "", 1003.50, time.October, 16)
+	large.Type = "ATM"
+	large.Description = "Acu Aap9480 Eastgate Sho"
+	small := purchase("atm-small", "", 60, time.October, 16)
+	small.Type = "ATM"
+	txs := append(ordinaryYear(), large, small)
+
+	timeline := BuildTimeline(txs, nil, models.TimelinePreferences{}, timelineStart, timelineEnd)
+	keys := entryKeys(timeline.Purchases)
+	assert.Contains(t, keys, "atm-large", "a large withdrawal is offered like a large purchase")
+	assert.NotContains(t, keys, "atm-small")
+	for _, entry := range timeline.Purchases {
+		if entry.Key == "atm-large" {
+			assert.Equal(t, "Cash withdrawal", entry.Title)
+		}
+	}
+
+	withoutCash := BuildTimeline(ordinaryYear(), nil, models.TimelinePreferences{}, timelineStart, timelineEnd)
+	assert.Equal(t, withoutCash.Threshold, timeline.Threshold, "cash does not move the bar for what is notable")
+
+	hidden := BuildTimeline(txs, nil, models.TimelinePreferences{HiddenTransactions: []string{"atm-large"}}, timelineStart, timelineEnd)
+	assert.NotContains(t, entryKeys(hidden.Purchases), "atm-large", "and can be hidden like one")
+}
