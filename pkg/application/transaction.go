@@ -304,13 +304,13 @@ func BuildTransactionSeries(transactions []models.Transaction, months int, now t
 	}
 
 	location := now.Location()
-	current := periodStart(now.In(location), CadenceMonthly)
+	current := spendPeriodStart(now.In(location), CadenceMonthly)
 
 	labels := make([]string, months)
 	index := make(map[time.Time]int, months)
 	for i := 0; i < months; i++ {
-		start := current.AddDate(0, -(months - 1 - i), 0)
-		labels[i] = start.Format("Jan 06")
+		start := spendPeriodAdd(current, CadenceMonthly, -(months - 1 - i))
+		labels[i] = spendPeriodLabel(start, CadenceMonthly)
 		index[start] = i
 	}
 
@@ -332,7 +332,7 @@ func BuildTransactionSeries(transactions []models.Transaction, months int, now t
 		if !classified && (tx.Type == "TRANSFER" || tx.Amount >= 0) {
 			continue
 		}
-		i, ok := index[periodStart(tx.Date.In(location), CadenceMonthly)]
+		i, ok := index[spendPeriodStart(tx.Date.In(location), CadenceMonthly)]
 		if !ok {
 			continue
 		}

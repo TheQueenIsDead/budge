@@ -566,17 +566,17 @@ func BuildSpendBuckets(transactions []models.Transaction, group SpendGroup, cade
 	// are also the correct ones: a shop at 11pm belongs to the day it felt like.
 	location := now.Location()
 
-	current := periodStart(now, cadence)
-	first := periodAdd(current, cadence, -(periods - 1))
+	current := spendPeriodStart(now, cadence)
+	first := spendPeriodAdd(current, cadence, -(periods - 1))
 
 	buckets := make([]SpendBucket, periods)
 	index := make(map[time.Time]int, periods)
 	for i := range buckets {
-		start := periodAdd(first, cadence, i)
+		start := spendPeriodAdd(first, cadence, i)
 		buckets[i] = SpendBucket{
-			Label:   periodLabel(start, cadence),
+			Label:   spendPeriodLabel(start, cadence),
 			Start:   start,
-			End:     periodAdd(start, cadence, 1),
+			End:     spendPeriodAdd(start, cadence, 1),
 			Partial: start.Equal(current),
 		}
 		index[start] = i
@@ -587,7 +587,7 @@ func BuildSpendBuckets(transactions []models.Transaction, group SpendGroup, cade
 		if !ok || key != group.Key {
 			continue
 		}
-		start := periodStart(tx.Date.In(location), cadence)
+		start := spendPeriodStart(tx.Date.In(location), cadence)
 		i, ok := index[start]
 		if !ok {
 			continue

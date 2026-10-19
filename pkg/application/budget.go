@@ -845,19 +845,23 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 		}
 	}
 
-	// Buckets oldest first, the period in progress last. Weeks and months
-	// both start in UTC, as the transaction dates are stored.
+	// Buckets oldest first, the period in progress last. Weeks start in UTC,
+	// as the transaction dates are stored; months run payday to payday when
+	// pay can be found, as everywhere spending is counted by month.
+	now := time.Now()
+	cadence := CadenceWeekly
 	bucket := isoWeekStart
+	if span.Monthly {
+		cadence = CadenceMonthly
+		bucket = func(t time.Time) time.Time { return spendPeriodStart(t.In(now.Location()), CadenceMonthly) }
+	}
 	starts := make([]time.Time, span.Periods)
 	for i := range starts {
 		if span.Monthly {
-			starts[span.Periods-1-i] = monthStart(time.Now()).AddDate(0, -i, 0)
+			starts[i] = spendPeriodAdd(bucket(now), cadence, -(span.Periods - 1 - i))
 		} else {
-			starts[span.Periods-1-i] = isoWeekStart(time.Now()).AddDate(0, 0, -7*i)
+			starts[span.Periods-1-i] = isoWeekStart(now).AddDate(0, 0, -7*i)
 		}
-	}
-	if span.Monthly {
-		bucket = monthStart
 	}
 
 	txs, err := app.store.ReadTransactionsByDate(starts[0].Add(-time.Second), time.Now())
@@ -920,9 +924,12 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 	actuals := make([]float64, span.Periods)
 	ins := make([]float64, span.Periods)
 	for i, start := range starts {
-		if span.Monthly {
+		switch {
+		case span.Monthly && payCycleKnown():
+			labels[i] = start.Format("2 Jan") + " – " + spendPeriodAdd(start, cadence, 1).AddDate(0, 0, -1).Format("2 Jan")
+		case span.Monthly:
 			labels[i] = start.Format("Jan 2006")
-		} else {
+		default:
 			labels[i] = start.Format("2 Jan")
 		}
 		actuals[i] = math.Round(totals[start]*100) / 100

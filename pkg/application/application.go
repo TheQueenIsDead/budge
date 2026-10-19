@@ -118,6 +118,9 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 		return nil, err
 	}
 	SetInsightExclusions(exclusions)
+	if err := app.refreshPayCycle(); err != nil {
+		return nil, err
+	}
 
 	app.http.Debug = true
 
