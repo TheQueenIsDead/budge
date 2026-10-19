@@ -752,23 +752,63 @@ type BudgetPerformanceData struct {
 	Ranges []PerformanceRange
 }
 
-// moneyIn is what a transaction brought in: pay, people paying the owner,
-// refunds. Money moved between accounts brings nothing in, including from an
-// account the owner has switched off: switching it off says to leave it out,
-// not to start counting what it sends as income. Money a spend group already
-// nets off its spending, such as being paid back for groceries, is not
-// counted a second time.
-func moneyIn(tx models.Transaction) float64 {
+// moneyIn is what a transaction brought in from outside the owner's tracked
+// accounts: pay, people paying them, refunds, and money moved in from an
+// account they have switched off. Moving money between tracked accounts
+// brings nothing in, and money a spend group already nets off its spending,
+// such as being paid back for groceries, is not counted a second time.
+// external reports whether a paired transfer's other leg is in an account
+// Budge no longer tracks; such a transfer counts both ways, so money sent
+// back to that account takes from what came in.
+func moneyIn(tx models.Transaction, external bool) float64 {
 	if _, ok := ClassifySpend(tx); ok {
 		return 0
 	}
-	if tx.Type == "TRANSFER" || tx.Category.Name == "Transfer" {
+	if tx.Category.Name == "Transfer" {
+		if external {
+			return tx.Amount
+		}
 		return 0
 	}
 	if tx.Amount > 0 {
 		return tx.Amount
 	}
 	return 0
+}
+
+// externalTransfers finds the paired transfers whose other leg is missing:
+// the sync paired them when both accounts were tracked, and the other has
+// since been switched off, its transactions with it. From here on they are
+// money arriving from, or leaving to, outside.
+func externalTransfers(txs []models.Transaction) map[string]bool {
+	type leg struct {
+		account string
+		date    time.Time
+	}
+	legs := map[int64][]leg{}
+	for _, tx := range txs {
+		if tx.Category.Name == "Transfer" {
+			cents := int64(math.Round(tx.Amount * 100))
+			legs[cents] = append(legs[cents], leg{tx.Account, tx.Date})
+		}
+	}
+	external := map[string]bool{}
+	for _, tx := range txs {
+		if tx.Category.Name != "Transfer" {
+			continue
+		}
+		matched := false
+		for _, other := range legs[-int64(math.Round(tx.Amount*100))] {
+			if other.account != tx.Account && math.Abs(other.date.Sub(tx.Date).Hours()) <= 24 {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			external[tx.Id] = true
+		}
+	}
+	return external
 }
 
 // PerformanceRange is a span the budget chart offers: so many weeks, or so
@@ -867,11 +907,12 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 	// the chart agrees with the rows above it, and what came in.
 	totals := make(map[time.Time]float64)
 	incoming := make(map[time.Time]float64)
+	external := externalTransfers(txs)
 	for _, tx := range txs {
 		if loans[tx.Account] {
 			continue
 		}
-		incoming[bucket(tx.Date)] += moneyIn(tx)
+		incoming[bucket(tx.Date)] += moneyIn(tx, external[tx.Id])
 		if _, _, _, amt, ok := budgetLine(tx); ok {
 			totals[bucket(tx.Date)] += amt
 		} else if tx.Amount < 0 && tx.Type != "TRANSFER" {
