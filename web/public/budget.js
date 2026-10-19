@@ -38,8 +38,8 @@ function initBudgetPerfChart() {
             bar('Unallocated', unallocated, 'rgba(108,117,125,0.35)'),
         );
     }
-    // Take-home is the line spending has to stay under, so it is drawn solid
-    // where the budget target is dashed.
+    // Take-home is the line spending has to stay under: dotted green, to
+    // tell it from the budget target's grey dashes.
     if (net > 0) {
         datasets.push({
             type: 'line',
@@ -49,7 +49,9 @@ function initBudgetPerfChart() {
             stack: 'take-home',
             data: Array(actuals.length).fill(net),
             borderColor: 'rgba(25,135,84,0.9)',
-            borderWidth: 2,
+            borderDash: [2, 4],
+            borderCapStyle: 'round',
+            borderWidth: 2.5,
             pointRadius: 0,
             fill: false,
             order: 0,

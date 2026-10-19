@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -742,10 +743,23 @@ type BudgetPerformanceData struct {
 	// paid monthly, three weeks in four would show no income at all.
 	NetWeekly     float64
 	SavingsWeekly float64
+
+	// Weeks is how many the chart covers, one of Ranges.
+	Weeks  int
+	Ranges []int
 }
 
+// performanceRanges are the spans the weekly chart offers, in weeks.
+var performanceRanges = []int{8, 13, 26, 52}
+
 func (app *Application) BudgetPerformance(c echo.Context) error {
-	txs, err := app.store.ReadTransactionsByDate(time.Now().AddDate(0, -3, 0), time.Now())
+	span := performanceRanges[1]
+	if weeks, err := strconv.Atoi(c.QueryParam("weeks")); err == nil && slices.Contains(performanceRanges, weeks) {
+		span = weeks
+	}
+
+	ws := isoWeekStart(time.Now())
+	txs, err := app.store.ReadTransactionsByDate(ws.AddDate(0, 0, -7*span), time.Now())
 	if err != nil {
 		return err
 	}
@@ -759,11 +773,10 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 		target += weeklyTarget(item)
 	}
 
-	// Build 13 weekly buckets, most recent on the right.
-	ws := isoWeekStart(time.Now())
-	weeks := make([]time.Time, 13)
+	// One bucket a week, most recent on the right.
+	weeks := make([]time.Time, span)
 	for i := range weeks {
-		weeks[12-i] = ws.AddDate(0, 0, -7*i)
+		weeks[span-1-i] = ws.AddDate(0, 0, -7*i)
 	}
 
 	// Every week's spending, net of what spend groups were paid back, so the
@@ -777,8 +790,8 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 		}
 	}
 
-	labels := make([]string, 13)
-	actuals := make([]float64, 13)
+	labels := make([]string, span)
+	actuals := make([]float64, span)
 	for i, w := range weeks {
 		labels[i] = w.Format("2 Jan")
 		actuals[i] = math.Round(weekTotals[w]*100) / 100
@@ -797,6 +810,8 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 		Actuals:       string(actualsJSON),
 		Target:        math.Round(target*100) / 100,
 		HasData:       len(txs) > 0 || target > 0,
+		Weeks:         span,
+		Ranges:        performanceRanges,
 		NetWeekly:     math.Round(computeNetWeekly(salary)*100) / 100,
 		SavingsWeekly: math.Round(toWeeklyAmount(salary.SavingsGoal, salary.SavingsGoalFrequency)*100) / 100,
 	})
