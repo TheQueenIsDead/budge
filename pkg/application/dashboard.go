@@ -137,19 +137,24 @@ func BuildCards(accounts []models.Account, last, current []models.Transaction) (
 		return
 	}
 
-	// Calculate the current balance across our current accounts
-	balance.Total = func() float64 {
-		total := 0.0
-		for _, account := range accounts {
-			total += account.Balance.Current
+	// The balance is the money held across the accounts. A loan is owed, not
+	// held: counting it took the whole loan off the money in the bank. What is
+	// owed shows on the portfolio, against net worth.
+	loans := map[string]bool{}
+	for _, account := range accounts {
+		if account.Type == "LOAN" {
+			loans[account.Id] = true
+			continue
 		}
-		return total
-	}()
+		balance.Total += account.Balance.Current
+	}
 
 	// Figure out the balance for last month by winding back transactions
 	lastBalance := balance.Total
 	for _, tx := range current {
-		lastBalance -= tx.Amount
+		if !loans[tx.Account] {
+			lastBalance -= tx.Amount
+		}
 	}
 
 	if lastBalance != 0 {
