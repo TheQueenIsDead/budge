@@ -122,3 +122,52 @@ func TestMonthlyPayUnchanged(t *testing.T) {
 	pays(t, "2026-07-28", "2026-08-28", "2026-09-25")
 	assert.Equal(t, "2026-09-25", spendPeriodStart(payday("2026-10-19"), CadenceMonthly).Format(time.DateOnly))
 }
+
+// ameliePays is a real fortnightly pattern: the payroll renamed itself in
+// March, and several pays fall under a thousand dollars.
+func ameliePays() []models.Transaction {
+	raw := []struct {
+		day, payer string
+		amount     float64
+	}{
+		{"2026-10-07", "R J Hill Laborat", 1526}, {"2026-09-23", "R J Hill Laborat", 1621.54}, {"2026-09-09", "R J Hill Laborat", 1526},
+		{"2026-08-26", "R J Hill Laborat", 1526}, {"2026-08-12", "R J Hill Laborat", 1303.09}, {"2026-07-29", "R J Hill Laborat", 978.17},
+		{"2026-07-15", "R J Hill Laborat", 1006.07}, {"2026-07-01", "R J Hill Laborat", 1011.03}, {"2026-06-17", "R J Hill Laborat", 1005.88},
+		{"2026-06-03", "R J Hill Laborat", 1094.01}, {"2026-05-20", "R J Hill Laborat", 959.55}, {"2026-05-06", "R J Hill Laborat", 1116.53},
+		{"2026-04-22", "R J Hill Laborat", 1254.21}, {"2026-04-08", "R J Hill Laborat", 1189.72}, {"2026-03-25", "R J Hill Laborat", 1110.46},
+		{"2026-03-11", "Rj Hill Lab Ltd", 1081.27}, {"2026-02-25", "Rj Hill Lab Ltd", 948.32}, {"2026-02-11", "Rj Hill Lab Ltd", 1138.89},
+		{"2026-01-28", "Rj Hill Lab Ltd", 1340.64}, {"2026-01-14", "Rj Hill Lab Ltd", 1008.58}, {"2025-12-31", "Rj Hill Lab Ltd", 1053.81},
+		{"2025-12-17", "Rj Hill Lab Ltd", 1155.70}, {"2025-12-03", "Rj Hill Lab Ltd", 919.82}, {"2025-11-19", "Rj Hill Lab Ltd", 914.40},
+		{"2025-11-05", "Rj Hill Lab Ltd", 1049.43}, {"2025-10-22", "Rj Hill Lab Ltd", 914.38},
+	}
+	var txs []models.Transaction
+	for _, r := range raw {
+		pay := spendTransaction("", "", r.amount, payday(r.day).Add(-14*time.Hour)) // 1am UTC: the same day here and in New Zealand
+		pay.Type, pay.Description = "CREDIT", r.payer
+		txs = append(txs, pay)
+	}
+	return txs
+}
+
+func TestPayDatesThroughARenameAndSmallPays(t *testing.T) {
+	dates := payDates(ameliePays())
+	assert.Len(t, dates, 26, "every pay, under a thousand or under the old name")
+}
+
+func TestSpendBucketsStepOntoKnownPaydays(t *testing.T) {
+	inNZ(t)
+	SetPayDates(payDates(ameliePays()[:15])) // known only from 25 Mar
+	t.Cleanup(func() { payCycle.Store(nil) })
+
+	group, _ := SpendGroupByKey("groceries")
+	shop := spendTransaction("Supermarkets and grocery stores", "PAK'nSAVE", -214.06, payday("2026-10-12"))
+	buckets := BuildSpendBuckets([]models.Transaction{shop}, group, CadenceMonthly, 12, payday("2026-10-20"))
+
+	labels := make([]string, len(buckets))
+	for i, b := range buckets {
+		labels[i] = b.Label
+	}
+	assert.Equal(t, []string{"25 Nov", "25 Dec", "25 Jan", "25 Feb", "25 Mar", "8 Apr", "6 May", "3 Jun", "1 Jul", "12 Aug", "9 Sep", "7 Oct"}, labels,
+		"estimated months before the first known pay, then the real first pay of each month")
+	assert.Equal(t, 214.06, buckets[11].Total, "spending lands in the month it was paid from")
+}
