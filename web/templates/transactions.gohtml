@@ -7,8 +7,11 @@
 
     <!-- Filters. Sticky, so search stays reachable well down a long list. -->
     <div class="b-filters">
+        <!-- Triggers name the filter's own fields. A bare "from:select" also
+             fired on the memory picker in each row, reloading the list and
+             taking the open picker with it before Save could be pressed. -->
         <form hx-get="/transactions"
-              hx-trigger="input delay:400ms from:input[name='search'], change from:select"
+              hx-trigger="input delay:400ms from:#search, change from:#account"
               hx-target="#main"
               hx-push-url="true">
             <input type="hidden" name="from" value="{{ .from }}">
