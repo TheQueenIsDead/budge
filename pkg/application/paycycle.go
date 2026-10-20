@@ -30,12 +30,14 @@ func payDates(txs []models.Transaction) []time.Time {
 	}
 	payers := map[string]*payer{}
 	for _, tx := range txs {
-		if tx.Amount < 1000 || tx.Type == "TRANSFER" || tx.Category.Name == "Transfer" {
+		if tx.Amount < 500 || tx.Type == "TRANSFER" || tx.Category.Name == "Transfer" {
 			continue
 		}
 		key := lettersOnly(tx.Description)
-		if len(key) > 16 {
-			key = key[:16]
+		// The payer's name is cut short, so a payroll that renames itself
+		// ("Rj Hill Lab Ltd" to "R J Hill Laborat") is still the same payer.
+		if len(key) > 8 {
+			key = key[:8]
 		}
 		p := payers[key]
 		if p == nil {
@@ -169,20 +171,41 @@ func spendPeriodAdd(start time.Time, cadence Cadence, n int) time.Time {
 	}
 	days := *dates
 	loc := start.Location()
-	i := slices.IndexFunc(days, func(d time.Time) bool { return localDay(d, loc).Equal(start) })
-	if i < 0 {
-		// An estimated payday before the first or after the last known one.
-		next := start.AddDate(0, n, 0)
-		if n > 0 || next.Before(localDay(days[0], loc)) {
-			return next
-		}
-		return spendPeriodStart(next, cadence)
+	first, last := localDay(days[0], loc), localDay(days[len(days)-1], loc)
+
+	// Place start on one sequence of month starts: the known paydays, with a
+	// month at a time either side of them. Stepping by position on it lands
+	// back on the real paydays when a step crosses from an estimated month
+	// into known ones, rather than carrying the estimate's day of the month
+	// on forever.
+	position := slices.IndexFunc(days, func(d time.Time) bool { return localDay(d, loc).Equal(start) })
+	if position < 0 && !start.Before(first) && !start.After(last) {
+		// Inside the known paydays but not on one: the month it falls in.
+		within := spendPeriodStart(start, cadence)
+		position = slices.IndexFunc(days, func(d time.Time) bool { return localDay(d, loc).Equal(within) })
 	}
-	switch j := i + n; {
+	if position < 0 {
+		months := 1
+		if start.Before(first) {
+			// The month before the first payday that start falls in.
+			for months < payoffLimit && first.AddDate(0, -months, 0).After(start) {
+				months++
+			}
+			position = -months
+		} else {
+			// The month after the last payday that start falls in.
+			for months < payoffLimit && !last.AddDate(0, months+1, 0).After(start) {
+				months++
+			}
+			position = len(days) - 1 + months
+		}
+	}
+
+	switch j := position + n; {
 	case j < 0:
-		return localDay(days[0], loc).AddDate(0, j, 0)
+		return first.AddDate(0, j, 0)
 	case j >= len(days):
-		return localDay(days[len(days)-1], loc).AddDate(0, j-len(days)+1, 0)
+		return last.AddDate(0, j-len(days)+1, 0)
 	default:
 		return localDay(days[j], loc)
 	}
