@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.2](https://github.com/TheQueenIsDead/budge/compare/v1.16.1...v1.16.2) (2026-10-22)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/labstack/echo/v4 to v4.16.1 ([#101](https://github.com/TheQueenIsDead/budge/issues/101)) ([3f9e385](https://github.com/TheQueenIsDead/budge/commit/3f9e38551d33490826723aa4a934c946ebbc593e))
+
 ## [1.16.1](https://github.com/TheQueenIsDead/budge/compare/v1.16.0...v1.16.1) (2026-10-15)
 
 
