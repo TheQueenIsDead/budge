@@ -368,6 +368,35 @@ func (app *Application) AssetAddValuation(c echo.Context) error {
 	return app.Asset(c)
 }
 
+// AssetUpdatePurchase corrects what was paid for an asset and when. Both are
+// held to the same rules as when it was added, since every gain is measured
+// against them.
+func (app *Application) AssetUpdatePurchase(c echo.Context) error {
+	asset, err := app.store.GetAsset(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "asset not found")
+	}
+
+	price := parseAssetAmount(c.FormValue("purchase_price"))
+	if price <= 0 {
+		app.Toast(c, "Error", "Enter what you paid for it.")
+		return echo.NewHTTPError(http.StatusBadRequest, "a purchase price is required")
+	}
+	purchased, ok := readAssetDate(c.FormValue("purchase_date"))
+	if !ok {
+		app.Toast(c, "Error", "Enter when you bought it.")
+		return echo.NewHTTPError(http.StatusBadRequest, "a purchase date is required")
+	}
+
+	asset.PurchasePrice = price
+	asset.PurchaseDate = purchased
+	if err := app.store.UpdateAsset(asset); err != nil {
+		app.Toast(c, "Error", "Could not save the purchase.")
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return app.Asset(c)
+}
+
 func (app *Application) AssetDeleteValuation(c echo.Context) error {
 	if err := app.store.DeleteAssetValuation(c.Param("id"), c.Param("valuationId")); err != nil {
 		app.Toast(c, "Error", "Could not remove the valuation.")

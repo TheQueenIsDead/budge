@@ -238,6 +238,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.GET("/portfolio/assets/:id", app.Asset)
 	app.http.DELETE("/portfolio/assets/:id", app.AssetDelete)
 	app.http.POST("/portfolio/assets/:id/valuations", app.AssetAddValuation)
+	app.http.POST("/portfolio/assets/:id/purchase", app.AssetUpdatePurchase)
 	app.http.POST("/portfolio/assets/:id/estimate", app.AssetRefreshEstimate)
 	app.http.DELETE("/portfolio/assets/:id/valuations/:valuationId", app.AssetDeleteValuation)
 

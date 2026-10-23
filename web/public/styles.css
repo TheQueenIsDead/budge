@@ -1651,6 +1651,17 @@ a.b-acct:focus-visible {
     flex: 1 1 100%;
 }
 
+/* A prefixed amount takes the full row as one piece, rather than the prefix
+   and its input each taking a row of their own. */
+.b-txmem-form .input-group {
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
+}
+
+.b-txmem-form .input-group > .form-control {
+    flex: 1 1 auto;
+}
+
 .b-txmem-head {
     flex: 1 1 100%;
     color: var(--b-ink-2);
