@@ -41,12 +41,12 @@ func TestCategoryRulesEndToEnd(t *testing.T) {
 
 	setup, err := app.buildSetupData()
 	require.NoError(t, err)
-	general := groupNamed(t, setup, "General")
-	require.Len(t, general.Rows, 1)
-	assert.Equal(t, "Housing", general.Rows[0].SubCategory)
-	assert.InDelta(t, 100, general.Rows[0].ActualWeekly, 0.001)
-	for _, group := range setup.Groups {
-		assert.NotEqual(t, uncategorisedGroup, group.Name, "the rule empties the uncategorised group")
+	general := rowsIn(t, setup, "General")
+	require.Len(t, general, 1)
+	assert.Equal(t, "Housing", general[0].SubCategory)
+	assert.InDelta(t, 400.0/untargetedWindowWeeks, general[0].ActualWeekly, 0.001)
+	for _, row := range setup.Rows {
+		assert.NotEqual(t, uncategorisedGroup, row.BroadCategory, "the rule empties the uncategorised group")
 	}
 
 	t.Run("deleting the rule sends the spend back to uncategorised", func(t *testing.T) {
@@ -59,7 +59,7 @@ func TestCategoryRulesEndToEnd(t *testing.T) {
 
 		setup, err := app.buildSetupData()
 		require.NoError(t, err)
-		groupNamed(t, setup, uncategorisedGroup)
+		rowsIn(t, setup, uncategorisedGroup)
 	})
 }
 
@@ -215,9 +215,9 @@ func TestTransferRuleBudgetsMortgageRepayments(t *testing.T) {
 
 	setup, err := app.buildSetupData()
 	require.NoError(t, err)
-	general := groupNamed(t, setup, "General")
-	require.Len(t, general.Rows, 1)
-	assert.Equal(t, "Mortgage", general.Rows[0].SubCategory)
-	assert.InDelta(t, 641.0/4, general.Rows[0].ActualWeekly, 0.001, "the repayment is counted once")
+	general := rowsIn(t, setup, "General")
+	require.Len(t, general, 1)
+	assert.Equal(t, "Mortgage", general[0].SubCategory)
+	assert.InDelta(t, 641.0/untargetedWindowWeeks, general[0].ActualWeekly, 0.001, "the repayment is counted once")
 	assert.InDelta(t, 641, chartTotal(t, app), 0.001, "the ignored interest is gone and the repayment counted once")
 }

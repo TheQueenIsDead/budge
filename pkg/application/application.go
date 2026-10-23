@@ -36,6 +36,15 @@ func templateFuncs() template.FuncMap {
 		},
 		// fmtCurrencyAbs drops the sign, for places where an adjacent label
 		// ("deficit", "over-allocated") already carries the direction.
+		// fmtWhole rounds to whole dollars, for figures read at a glance where
+		// cents are noise, such as targets and their averages.
+		"fmtWhole": func(number float64) string {
+			p := message.NewPrinter(language.English)
+			if number < 0 {
+				return p.Sprintf("-$%.0f", math.Abs(number))
+			}
+			return p.Sprintf("$%.0f", number)
+		},
 		"fmtCurrencyAbs": func(number float64) string {
 			p := message.NewPrinter(language.English)
 			return p.Sprintf("$%.2f", math.Abs(number))

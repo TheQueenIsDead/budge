@@ -50,14 +50,11 @@
          hx-trigger="load, refreshSummary from:body"
          hx-swap="innerHTML"></div>
 
-    <div class="b-card b-card-pad mb-3">
-        <p class="b-card-sub mb-3">
-            Actual spend window matches your target frequency — weekly targets use the last 4 weeks, monthly 3 months, yearly 13 months.
-            Set a target next to any category and it saves automatically; switching a target's frequency converts the amount for you.
-            Use <i class="bi bi-three-dots-vertical" aria-hidden="true"></i><span class="visually-hidden">the row menu</span> to count a category as savings, or ignore it, so it stops counting against the budget.
-        </p>
-        {{/* Swap target for "Counts as" changes, which move totals across groups. */}}
-        <div id="budget-setup">{{template "budget.setup" .SetupData}}</div>
+    {{/* Every edit on the page swaps this whole list, and then refreshes the
+         allocation bar above it. */}}
+    <div id="budget-setup"
+         hx-on::after-request="if (event.detail.successful) { htmx.trigger(document.body, 'refreshSummary') }">
+        {{template "budget.setup" .SetupData}}
     </div>
 {{end}}
 
@@ -448,302 +445,223 @@
 {{end}}
 
 {{define "budget.setup"}}
-{{/* The table is always rendered so the savings goal in <tfoot> stays reachable
-     before any transactions have been synced. */}}
-<div class="table-responsive">
-    <table class="table table-sm mb-0">
-        <thead>
-            <tr class="text-muted">
-                <th>Subcategory</th>
-                <th style="min-width:180px;">Merchants</th>
-                <th class="text-end">Actual</th>
-                <th class="text-end" style="width:160px;">Target</th>
-                <th style="width:130px;">Per</th>
-                <th style="width:52px;"><span class="visually-hidden">Actions</span></th>
-            </tr>
-        </thead>
-        {{if .HasData}}
-        {{range .Groups}}
-        {{/* Broad category header — click folder to collapse/expand subcategories */}}
-        <tbody>
-            <tr class="table-light">
-                <td class="fw-semibold py-2" colspan="3">
-                    <button class="btn btn-link btn-sm p-0 me-1 text-primary"
-                            type="button"
-                            onclick="toggleBroadGroup(this, '{{.RowID}}')"
-                            aria-expanded="true"
-                            aria-label="Collapse or expand {{.Name}}">
-                        <i class="bi bi-folder2-open" aria-hidden="true"></i>
-                    </button>
-                    {{.Name}}
-                    {{if gt .PctOfIncome 0.0}}<small class="text-muted fw-normal ms-1">({{.PctOfIncome | fmtPercent}} of income)</small>{{end}}
-                </td>
-                <td class="text-end py-2 fw-semibold" colspan="3">
-                    {{if .HasTarget}}
-                    <span class="{{if .IsOver}}text-danger{{else}}text-success{{end}}">
-                        {{.TotalActualWeekly | fmtCurrency}}/{{.TotalTargetWeekly | printf "%.2f"}} per Week ({{.Percentage | fmtPercent}})
-                    </span>
-                    {{else}}
-                    <span class="text-muted fw-normal">{{.TotalActualWeekly | fmtCurrency}} per Week</span>
-                    {{end}}
-                </td>
-            </tr>
-        </tbody>
-        {{range .Rows}}
-        {{template "budget.setup.row" .}}
-        {{end}}
-        {{end}}
-        {{else}}
-        <tbody>
-            <tr>
-                <td colspan="6" class="text-center text-muted py-5">
-                    <i class="bi bi-bank2 fs-1 d-block mb-2" aria-hidden="true"></i>
-                    No transaction data yet.<br>
-                    Sync your accounts from <a href="/settings">Settings</a> to start setting targets.
-                </td>
-            </tr>
-        </tbody>
-        {{end}}
-        {{/* Savings goal row — pinned at bottom */}}
-        <tfoot>
-            <tr class="{{if .HasSavingsGoal}}{{if .MeetsSavingsGoal}}table-success{{else}}table-danger{{end}}{{else}}table-light{{end}}"
-                hx-post="/budget/savings-goal"
-                hx-trigger="change"
-                hx-include="this"
-                hx-swap="none"
-                hx-on::after-request="if (event.detail.successful) { htmx.trigger(document.body, 'refreshSummary') }">
-                <td colspan="3" class="fw-semibold py-2">
-                    <i class="bi bi-piggy-bank me-1" aria-hidden="true"></i>Savings
-                    {{if gt .NetWeekly 0.0}}
-                    <small class="fw-normal text-muted ms-1">
-                        {{if and .HasSavingsGoal .MeetsSavingsGoal}}Goal met · {{end}}
-                        {{if lt .Remaining 0.0}}
-                            {{.Remaining | fmtCurrencyAbs}}/wk over budget
-                        {{else}}
-                            {{.Remaining | fmtCurrency}}/wk remaining after targets
-                        {{end}}
-                    </small>
-                    {{end}}
-                    {{if gt .TrackedSavingsWeekly 0.0}}
-                    <small class="fw-normal text-muted ms-1">· {{.TrackedSavingsWeekly | fmtCurrency}}/wk going to savings categories</small>
-                    {{end}}
-                </td>
-                <td>
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text">$</span>
-                        <input type="number" name="savings_goal" class="form-control text-end"
-                               placeholder="Goal…" min="0" step="0.01"
-                               aria-label="Savings goal amount"
-                               {{if .HasSavingsGoal}}value="{{.SavingsGoal | printf "%.2f"}}"{{end}}>
-                    </div>
-                </td>
-                <td>
-                    <select name="savings_goal_frequency" class="form-select form-select-sm"
-                            aria-label="Savings goal frequency">
-                        <option value="weekly"      {{if or (eq .SavingsGoalFrequency "weekly") (eq .SavingsGoalFrequency "")}}selected{{end}}>Weekly</option>
-                        <option value="fortnightly" {{if eq .SavingsGoalFrequency "fortnightly"}}selected{{end}}>Fortnightly</option>
-                        <option value="monthly"     {{if eq .SavingsGoalFrequency "monthly"}}selected{{end}}>Monthly</option>
-                        <option value="yearly"      {{if eq .SavingsGoalFrequency "yearly"}}selected{{end}}>Yearly</option>
-                    </select>
-                </td>
-                <td></td>
-            </tr>
-        </tfoot>
-    </table>
-</div>
+{{if .HasData}}
+    {{range .Sections}}
+    <details class="b-card mb-3 b-tsec" data-section="{{.Key}}" {{if .Open}}open{{end}}>
+        <summary class="b-tsec-head">
+            <span class="b-card-title">
+                {{.Title}} <span class="b-tsec-count">{{len .Rows}}</span>
+                {{if eq .Key "on-track"}}
+                <i class="bi bi-info-circle text-muted ms-1" tabindex="0" data-bs-toggle="tooltip"
+                   aria-label="How actual spend is measured"
+                   title="Actual spend is averaged over a window matched to each target: the last 4 weeks for weekly targets, 8 for fortnightly, 3 months for monthly and 13 months for yearly."></i>
+                {{end}}
+            </span>
+            <span class="b-card-sub">
+                {{if eq .Key "attention"}}{{.Actual | fmtWhole}} a week{{if .Target}} against {{.Target | fmtWhole}} of targets{{end}}
+                {{else if eq .Key "on-track"}}{{.Actual | fmtWhole}} of {{.Target | fmtWhole}} a week
+                {{else if eq .Key "small"}}{{.Actual | fmtWhole}} a week between them, too little to need a target
+                {{else}}{{.Actual | fmtWhole}} a week, left out of the budget{{end}}
+            </span>
+            <i class="bi bi-chevron-down b-tsec-chev" aria-hidden="true"></i>
+        </summary>
+        <div class="b-tsec-body">
+            {{range .Rows}}{{template "budget.setup.row" .}}{{end}}
+        </div>
+    </details>
+    {{end}}
+{{else}}
+    <div class="b-card b-card-pad mb-3">
+        <div class="b-empty">
+            <i class="bi bi-bank2"></i>
+            <h4>No transactions yet</h4>
+            <p>Sync your accounts from <a href="/settings">Settings</a> to start setting targets.</p>
+        </div>
+    </div>
+{{end}}
+
+    <!-- Savings goal -->
+    <form class="b-card b-card-pad mb-3"
+          hx-post="/budget/savings-goal" hx-trigger="change" hx-swap="none">
+        <div class="d-flex align-items-end justify-content-between gap-3 flex-wrap">
+            <div class="min-width-0">
+                <div class="b-card-title"><i class="bi bi-piggy-bank me-2" aria-hidden="true"></i>Savings goal</div>
+                {{/* Income may not be set yet; tracked savings still mean something. */}}
+                {{if gt .NetWeekly 0.0}}
+                <div class="b-card-sub {{if and .HasSavingsGoal (not .MeetsSavingsGoal)}}text-danger{{end}}">
+                    {{if lt .Remaining 0.0}}Targets exceed take-home pay by {{.Remaining | fmtWhole}} a week{{else}}{{.Remaining | fmtWhole}} a week left after targets{{end}}{{if and .HasSavingsGoal .MeetsSavingsGoal}}, which meets the goal{{end}}
+                </div>
+                {{end}}
+                {{if gt .TrackedSavingsWeekly 0.0}}
+                <div class="b-card-sub">{{.TrackedSavingsWeekly | fmtWhole}} a week already going to savings categories</div>
+                {{end}}
+            </div>
+            <div class="d-flex gap-2">
+                <div class="input-group input-group-sm" style="width:9rem;">
+                    <span class="input-group-text">$</span>
+                    <input type="number" name="savings_goal" class="form-control text-end"
+                           placeholder="Goal" min="0" step="0.01" aria-label="Savings goal amount"
+                           {{if .HasSavingsGoal}}value="{{.SavingsGoal | printf "%.2f"}}"{{end}}>
+                </div>
+                <select name="savings_goal_frequency" class="form-select form-select-sm w-auto" aria-label="Savings goal frequency">
+                    <option value="weekly"      {{if or (eq .SavingsGoalFrequency "weekly") (eq .SavingsGoalFrequency "")}}selected{{end}}>Weekly</option>
+                    <option value="fortnightly" {{if eq .SavingsGoalFrequency "fortnightly"}}selected{{end}}>Fortnightly</option>
+                    <option value="monthly"     {{if eq .SavingsGoalFrequency "monthly"}}selected{{end}}>Monthly</option>
+                    <option value="yearly"      {{if eq .SavingsGoalFrequency "yearly"}}selected{{end}}>Yearly</option>
+                </select>
+            </div>
+        </div>
+    </form>
 {{end}}
 
 {{define "budget.setup.row"}}
-{{/* data-group lets the collapse state survive an htmx row swap. */}}
-<tbody id="{{.RowID}}" data-group="{{.BroadRowID}}"{{if .NeedsTarget}} class="border-start border-3 border-warning"{{end}}>
-    <tr {{if and .IsSpending (not .HasSubItems)}}
-        hx-post="/budget/targets"
-        hx-trigger="change"
-        hx-include="this"
-        hx-target="#{{.RowID}}"
-        hx-swap="outerHTML"
-        hx-on::after-request="if (event.detail.successful) { htmx.trigger(document.body, 'refreshSummary') }"
-        {{end}}>
-        <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
-        <input type="hidden" name="sub_category"   value="{{.SubCategory}}">
-        {{/* Read-only metrics live here rather than under the target input:
-             a caption below a form control makes that cell taller than the
-             "Per" cell beside it, and the controls stop lining up. */}}
-        <td class="ps-4">
-            <div>
-                {{if .NeedsTarget}}<i class="bi bi-exclamation-circle text-warning me-1" title="No target set" aria-label="No target set"></i>{{end}}
-                {{.SubCategory}}
-                {{if eq .Kind "savings"}}<span class="badge bg-success-subtle text-success-emphasis fw-normal ms-1">Savings</span>{{end}}
-                {{if eq .Kind "ignore"}}<span class="badge bg-secondary-subtle text-secondary-emphasis fw-normal ms-1">Ignored</span>{{end}}
-            </div>
-            {{if gt .PctOfIncome 0.0}}
-            <div class="text-muted small">{{.PctOfIncome | fmtPercent}} of income</div>
-            {{end}}
-        </td>
-        {{/* Informational only — merchants are derived from transactions and
-             ordered by spend, so the truncated list shows the biggest ones. */}}
-        <td>
-            {{if .MerchantsShown}}
-            <div class="d-flex flex-wrap gap-1 align-items-center">
-                {{range .MerchantsShown}}
-                <span class="badge bg-light text-muted border fw-normal text-truncate"
-                      style="max-width:9rem;" title="{{.}}">{{.}}</span>
-                {{end}}
-                {{if .MerchantsExtra}}
-                <span class="d-none" data-merchant-list>
-                    <span class="d-flex flex-wrap gap-1">
-                        {{range .Merchants}}<span class="badge bg-light text-muted border fw-normal">{{.}}</span>{{end}}
-                    </span>
-                </span>
-                <button type="button"
-                        class="btn btn-link btn-sm p-0 text-decoration-none budge-merchants-more"
-                        aria-label="Show all {{len .Merchants}} merchants in {{.SubCategory}}">
-                    +{{.MerchantsExtra}} more
-                </button>
-                {{end}}
-            </div>
-            {{else}}
-            <span class="text-muted">—</span>
-            {{end}}
-        </td>
-        <td class="text-end text-nowrap">
+{{/* Read-only by default: a name, a bar and one figure. Opening the row
+     reveals everything that can be changed, so a settled category costs one
+     line. Every form here swaps the whole list and names this row to keep
+     open, since an edit can move it to another section. */}}
+<div class="b-target{{if .IsOver}} b-target-over{{end}}" id="{{.RowID}}">
+    <details {{if .Open}}open{{end}}>
+        <summary class="b-target-line">
+            <span class="b-target-name">
+                <span class="fw-semibold">{{.SubCategory}}</span>
+                <span class="b-card-sub">{{.BroadCategory}}</span>
+            </span>
             {{if .HasTarget}}
-            <span class="fw-semibold {{if .IsOver}}text-danger{{else}}text-success{{end}}">
-                {{if .TrendUp}}<i class="bi bi-arrow-up-short text-danger" title="Spending up" aria-label="Spending up"></i>{{else if .TrendDown}}<i class="bi bi-arrow-down-short text-success" title="Spending down" aria-label="Spending down"></i>{{end}}
-                {{.ActualDisplay | fmtCurrency}}/{{.TargetDisplay | printf "%.2f"}} {{.ActualLabel}} ({{.Percentage | fmtPercent}})
+            <span class="b-target-bar" aria-hidden="true"><span style="width:{{printf "%.0f" .BarWidth}}%"></span></span>
+            <span class="b-target-amount">
+                <span class="fw-semibold">{{.ActualDisplay | fmtWhole}}</span> of {{.TargetDisplay | fmtWhole}} {{.Per}}
             </span>
+            {{else if .IsSpending}}
+            <span class="b-target-amount text-muted">No target · {{.ActualWeekly | fmtWhole}} a week</span>
             {{else}}
-            <span class="text-muted">
-                {{if .TrendUp}}<i class="bi bi-arrow-up-short text-danger" title="Spending up" aria-label="Spending up"></i>{{else if .TrendDown}}<i class="bi bi-arrow-down-short text-success" title="Spending down" aria-label="Spending down"></i>{{end}}
-                {{.ActualDisplay | fmtCurrency}} {{.ActualLabel}}
-            </span>
+            <span class="b-target-amount text-muted">{{.ActualWeekly | fmtWhole}} a week · {{if eq .Kind "savings"}}to savings{{else}}ignored{{end}}</span>
             {{end}}
-        </td>
-        {{if not .IsSpending}}
-        <td class="text-end text-muted small" colspan="2">
-            {{if eq .Kind "savings"}}Counted towards savings{{else}}Not counted in the budget{{end}}
-        </td>
-        {{else if .HasSubItems}}
-        <td class="text-end text-muted" colspan="2">
-            <span class="fw-semibold text-body">{{.DerivedWeekly | fmtCurrency}}</span>
-            <small class="ms-1">from {{len .SubItems}} items</small>
-        </td>
-        {{else}}
-        <td class="text-end">
-            <div class="input-group input-group-sm">
-                <span class="input-group-text">$</span>
-                <input type="number" name="target_amount" class="form-control text-end"
-                       placeholder="—" min="0" step="0.01"
-                       aria-label="Target amount for {{.SubCategory}}"
-                       {{if gt .Target 0.0}}value="{{.Target | printf "%.2f"}}"{{end}}>
-            </div>
-        </td>
-        <td>
-            <select name="target_frequency" class="form-select form-select-sm"
-                    data-prev="{{if .Frequency}}{{.Frequency}}{{else}}weekly{{end}}"
-                    title="Changing the frequency converts the amount above"
-                    aria-label="Target frequency for {{.SubCategory}}"
-                    onchange="convertTargetFrequency(this)">
-                <option value="weekly"      {{if or (eq .Frequency "weekly") (eq .Frequency "")}}selected{{end}}>Weekly</option>
-                <option value="fortnightly" {{if eq .Frequency "fortnightly"}}selected{{end}}>Fortnightly</option>
-                <option value="monthly"     {{if eq .Frequency "monthly"}}selected{{end}}>Monthly</option>
-                <option value="yearly"      {{if eq .Frequency "yearly"}}selected{{end}}>Yearly</option>
-            </select>
-        </td>
-        {{end}}
-        <td class="text-center">
-            <div class="d-flex gap-1 justify-content-center">
-                {{/* Fixed positioning keeps the menu from being clipped by
-                     the scrolling .table-responsive wrapper. */}}
-                <div class="dropdown">
-                    <button type="button" class="btn btn-link btn-sm p-0 text-muted"
-                            data-bs-toggle="dropdown" aria-expanded="false"
-                            data-bs-popper-config='{"strategy":"fixed"}'
-                            title="Counts as…" aria-label="Choose how {{.SubCategory}} counts">
-                        <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><h6 class="dropdown-header">Counts as</h6></li>
-                        {{$row := .}}
-                        {{range $kind := budgetKinds}}
-                        <li>
-                            <button type="button"
-                                    class="dropdown-item{{if eq $kind.Value $row.Kind}} active{{end}}"
-                                    hx-post="/budget/kind"
-                                    hx-include="closest tr"
-                                    hx-vals='{"kind": "{{$kind.Value}}"}'
-                                    hx-target="#budget-setup"
-                                    hx-swap="innerHTML"
-                                    hx-on::after-request="if (event.detail.successful) { htmx.trigger(document.body, 'refreshSummary') }">
-                                {{$kind.Label}}
-                            </button>
-                        </li>
-                        {{end}}
-                    </ul>
-                </div>
-                {{if .IsSpending}}
-                <form hx-post="/budget/subitems"
-                      hx-target="#{{.RowID}}"
-                      hx-swap="outerHTML"
-                      hx-on::after-request="if (event.detail.successful) { htmx.trigger(document.body, 'refreshSummary') }">
-                    <input type="hidden" name="sub_category"   value="{{.SubCategory}}">
-                    <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
-                    <button type="submit" class="btn btn-link btn-sm p-0 text-muted"
-                            title="Add item" aria-label="Add an item under {{.SubCategory}}">
-                        <i class="bi bi-plus-circle" aria-hidden="true"></i>
-                    </button>
+            <i class="bi bi-chevron-down b-target-chev" aria-hidden="true"></i>
+        </summary>
+
+        <div class="b-target-editor">
+            {{if .IsSpending}}
+                {{if .HasSubItems}}
+                <div class="b-field-label">Made up of</div>
+                {{range .SubItems}}
+                <form class="row g-2 align-items-center mb-2"
+                      hx-put="/budget/items/{{$.ItemID}}/subitems/{{.ID}}" hx-trigger="change"
+                      hx-target="#budget-setup" hx-swap="innerHTML">
+                    <input type="hidden" name="open" value="{{$.RowID}}">
+                    <div class="col-12 col-md-5">
+                        <input type="text" name="subitem_name" class="form-control form-control-sm"
+                               value="{{.Name}}" placeholder="e.g. Car registration" aria-label="Item name">
+                    </div>
+                    <div class="col-5 col-md-3">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" name="subitem_amount" class="form-control text-end"
+                                   placeholder="0.00" min="0" step="0.01" aria-label="Item amount"
+                                   {{if gt .Amount 0.0}}value="{{.Amount | printf "%.2f"}}"{{end}}>
+                        </div>
+                    </div>
+                    <div class="col-5 col-md-3">
+                        <select name="subitem_frequency" class="form-select form-select-sm" aria-label="Item frequency">
+                            <option value="weekly"      {{if eq .Frequency "weekly"}}selected{{end}}>Weekly</option>
+                            <option value="fortnightly" {{if eq .Frequency "fortnightly"}}selected{{end}}>Fortnightly</option>
+                            <option value="monthly"     {{if or (eq .Frequency "monthly") (eq .Frequency "")}}selected{{end}}>Monthly</option>
+                            <option value="yearly"      {{if eq .Frequency "yearly"}}selected{{end}}>Yearly</option>
+                        </select>
+                    </div>
+                    <div class="col-2 col-md-1 text-end">
+                        <button type="button" class="btn btn-link btn-sm p-0 text-danger"
+                                hx-delete="/budget/items/{{$.ItemID}}/subitems/{{.ID}}"
+                                hx-vals='{"open": "{{$.RowID}}"}'
+                                title="Remove" aria-label="Remove {{.Name}}">
+                            <i class="bi bi-x-circle" aria-hidden="true"></i>
+                        </button>
+                    </div>
                 </form>
                 {{end}}
+                <div class="b-card-sub mb-2">Together {{.DerivedWeekly | fmtWhole}} a week.</div>
+                {{else}}
+                <form class="row g-2 align-items-end mb-2"
+                      hx-post="/budget/targets" hx-trigger="change"
+                      hx-target="#budget-setup" hx-swap="innerHTML">
+                    <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
+                    <input type="hidden" name="sub_category" value="{{.SubCategory}}">
+                    <div class="col-6 col-md-3">
+                        <label class="b-field-label" for="target-{{.RowID}}">Target</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" id="target-{{.RowID}}" name="target_amount" class="form-control text-end"
+                                   placeholder="—" min="0" step="0.01"
+                                   {{if gt .Target 0.0}}value="{{.Target | printf "%.2f"}}"{{end}}>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="b-field-label" for="frequency-{{.RowID}}">Per</label>
+                        <select id="frequency-{{.RowID}}" name="target_frequency" class="form-select form-select-sm"
+                                data-prev="{{if .Frequency}}{{.Frequency}}{{else}}weekly{{end}}"
+                                title="Changing the frequency converts the amount"
+                                onchange="convertTargetFrequency(this)">
+                            <option value="weekly"      {{if or (eq .Frequency "weekly") (eq .Frequency "")}}selected{{end}}>Week</option>
+                            <option value="fortnightly" {{if eq .Frequency "fortnightly"}}selected{{end}}>Fortnight</option>
+                            <option value="monthly"     {{if eq .Frequency "monthly"}}selected{{end}}>Month</option>
+                            <option value="yearly"      {{if eq .Frequency "yearly"}}selected{{end}}>Year</option>
+                        </select>
+                    </div>
+                </form>
+                {{end}}
+                <form class="mb-3" hx-post="/budget/subitems" hx-target="#budget-setup" hx-swap="innerHTML">
+                    <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
+                    <input type="hidden" name="sub_category" value="{{.SubCategory}}">
+                    <button type="submit" class="btn btn-link btn-sm p-0">
+                        <i class="bi bi-plus-circle" aria-hidden="true"></i>{{if .HasSubItems}}Add an item{{else}}Split into items, such as separate bills{{end}}
+                    </button>
+                </form>
+            {{end}}
+
+            <form class="d-flex align-items-center gap-2 flex-wrap mb-2"
+                  hx-post="/budget/kind" hx-target="#budget-setup" hx-swap="innerHTML">
+                <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
+                <input type="hidden" name="sub_category" value="{{.SubCategory}}">
+                <span class="b-field-label mb-0">Counts as</span>
+                <div class="btn-group btn-group-sm" role="group" aria-label="How {{.SubCategory}} counts">
+                    {{$kind := .Kind}}
+                    {{range budgetKinds}}
+                    <button type="submit" name="kind" value="{{.Value}}"
+                            class="btn btn-outline-secondary{{if eq .Value $kind}} active{{end}}"
+                            {{if eq .Value $kind}}aria-pressed="true"{{end}}>{{.Label}}</button>
+                    {{end}}
+                </div>
+            </form>
+
+            <div class="b-card-sub">
+                Averaged over the last {{.WindowWeeks}} weeks{{if gt .PctOfIncome 0.0}} · target is {{.PctOfIncome | fmtPercent}} of take-home pay{{end}}.
             </div>
-        </td>
-    </tr>
-    {{range .SubItems}}
-    <tr class="table-active"
-        hx-put="/budget/items/{{$.ItemID}}/subitems/{{.ID}}"
-        hx-trigger="change"
-        hx-include="this"
-        hx-target="#{{$.RowID}}"
-        hx-swap="outerHTML"
-        hx-on::after-request="if (event.detail.successful) { htmx.trigger(document.body, 'refreshSummary') }">
-        <td class="ps-5">
-            <div class="d-flex align-items-center gap-2">
-                <i class="bi bi-arrow-return-right text-muted flex-shrink-0" aria-hidden="true"></i>
-                <input type="text" name="subitem_name" class="form-control form-control-sm"
-                       value="{{.Name}}" placeholder="e.g. Toyota Hilux registration"
-                       aria-label="Item name">
+            {{if .Merchants}}
+            <div class="d-flex flex-wrap gap-1 mt-2">
+                {{range .Merchants}}<span class="badge bg-light text-muted border fw-normal">{{.}}</span>{{end}}
             </div>
-        </td>
-        <td></td>
-        <td></td>
-        <td>
-            <div class="input-group input-group-sm">
-                <span class="input-group-text">$</span>
-                <input type="number" name="subitem_amount" class="form-control text-end"
-                       placeholder="0.00" min="0" step="0.01"
-                       aria-label="Item amount"
-                       {{if gt .Amount 0.0}}value="{{.Amount | printf "%.2f"}}"{{end}}>
-            </div>
-        </td>
-        <td>
-            <select name="subitem_frequency" class="form-select form-select-sm" aria-label="Item frequency">
-                <option value="weekly"      {{if eq .Frequency "weekly"}}selected{{end}}>Weekly</option>
-                <option value="fortnightly" {{if eq .Frequency "fortnightly"}}selected{{end}}>Fortnightly</option>
-                <option value="monthly"     {{if or (eq .Frequency "monthly") (eq .Frequency "")}}selected{{end}}>Monthly</option>
-                <option value="yearly"      {{if eq .Frequency "yearly"}}selected{{end}}>Yearly</option>
-            </select>
-        </td>
-        <td class="text-center">
-            <button class="btn btn-link btn-sm p-0 text-danger"
-                    type="button"
-                    hx-delete="/budget/items/{{$.ItemID}}/subitems/{{.ID}}"
-                    hx-target="#{{$.RowID}}"
-                    hx-swap="outerHTML"
-                    hx-on::after-request="if (event.detail.successful) { htmx.trigger(document.body, 'refreshSummary') }"
-                    title="Remove" aria-label="Remove this item">
-                <i class="bi bi-x-circle" aria-hidden="true"></i>
-            </button>
-        </td>
-    </tr>
+            {{end}}
+        </div>
+    </details>
+
+    {{if and .NeedsTarget .SuggestedMonthly}}
+    {{/* One click for the usual answers, so clearing unbudgeted spend does
+         not mean typing a figure for each category. */}}
+    <div class="b-target-quick">
+        <form hx-post="/budget/targets" hx-target="#budget-setup" hx-swap="innerHTML">
+            <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
+            <input type="hidden" name="sub_category" value="{{.SubCategory}}">
+            <input type="hidden" name="target_amount" value="{{printf "%.0f" .SuggestedMonthly}}">
+            <input type="hidden" name="target_frequency" value="monthly">
+            <button type="submit" class="btn btn-outline-secondary btn-sm"
+                    title="What it has averaged over the last 13 weeks, rounded up">Use {{.SuggestedMonthly | fmtWhole}} a month</button>
+        </form>
+        <form class="d-flex gap-2" hx-post="/budget/kind" hx-target="#budget-setup" hx-swap="innerHTML">
+            <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
+            <input type="hidden" name="sub_category" value="{{.SubCategory}}">
+            <button type="submit" name="kind" value="savings" class="btn btn-outline-secondary btn-sm">Savings</button>
+            <button type="submit" name="kind" value="ignore" class="btn btn-outline-secondary btn-sm">Ignore</button>
+        </form>
+    </div>
     {{end}}
-</tbody>
+</div>
 {{end}}

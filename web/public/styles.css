@@ -1682,3 +1682,171 @@ a.b-acct:focus-visible {
     flex: 0 0 3.25rem;
     font-variant-numeric: tabular-nums;
 }
+
+/* ==========================================================================
+   Spending targets. Sections fold open like cards; each category is one
+   read-only line that opens into its editor.
+   ========================================================================== */
+
+.b-tsec > summary {
+    list-style: none;
+}
+
+.b-tsec > summary::-webkit-details-marker,
+.b-target > details > summary::-webkit-details-marker {
+    display: none;
+}
+
+.b-tsec-head {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 0.125rem 0.75rem;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+}
+
+.b-tsec-head .b-card-sub {
+    grid-column: 1;
+}
+
+.b-tsec-chev {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    color: var(--b-muted);
+    transition: transform 0.15s ease;
+}
+
+.b-tsec[open] .b-tsec-chev {
+    transform: rotate(180deg);
+}
+
+.b-tsec-count {
+    display: inline-block;
+    min-width: 1.5rem;
+    margin-left: 0.25rem;
+    padding: 0 0.4rem;
+    border-radius: var(--b-radius-pill);
+    background: var(--b-surface-3);
+    color: var(--b-ink-2);
+    font-size: 0.75rem;
+    text-align: center;
+}
+
+.b-tsec-body {
+    border-top: 1px solid var(--b-border);
+}
+
+.b-target {
+    border-bottom: 1px solid var(--b-border);
+}
+
+.b-target:last-child {
+    border-bottom: 0;
+}
+
+.b-target > details > summary {
+    list-style: none;
+}
+
+/* Name, bar and figure on one line; the bar takes whatever room is left. */
+.b-target-line {
+    display: grid;
+    grid-template-columns: minmax(10rem, 1.2fr) minmax(4rem, 1fr) auto auto;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    cursor: pointer;
+}
+
+.b-target-line:hover {
+    background: var(--b-surface-2);
+}
+
+.b-target-name {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.b-target-name > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* A row with no bar still lines its figure up with the rows that have one. */
+.b-target-line > .b-target-amount:nth-child(2) {
+    grid-column: 2 / span 2;
+    justify-self: end;
+}
+
+.b-target-bar {
+    height: 6px;
+    border-radius: var(--b-radius-pill);
+    background: var(--b-surface-3);
+    overflow: hidden;
+}
+
+.b-target-bar > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--b-sage);
+}
+
+.b-target-over .b-target-bar > span {
+    background: var(--b-clay);
+}
+
+.b-target-amount {
+    font-size: 0.875rem;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.b-target-chev {
+    color: var(--b-muted);
+    transition: transform 0.15s ease;
+}
+
+.b-target > details[open] .b-target-chev {
+    transform: rotate(180deg);
+}
+
+.b-target-editor {
+    padding: 0.25rem 1.25rem 1rem;
+}
+
+.b-target-quick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0 1.25rem 0.75rem;
+}
+
+@media (max-width: 575.98px) {
+    .b-target-line {
+        grid-template-columns: 1fr auto;
+        padding: 0.75rem 1rem;
+    }
+
+    .b-target-bar {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+
+    .b-target-line > .b-target-amount:nth-child(2) {
+        grid-column: auto;
+    }
+
+    .b-target-chev {
+        display: none;
+    }
+
+    .b-target-editor,
+    .b-target-quick {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}
