@@ -14,22 +14,44 @@ function initBudgetPerfChart() {
 
     // One stacked bar per week: budgeted spend at the base, unbudgeted on top,
     // so whatever rises past the target line is visibly the unbudgeted part.
-    // The server always sends both in that order. Slate and brick are app
-    // accents that stay distinct under colour-vision deficiency, where the
-    // other accent pairs do not; brick marks the part that needs attention. A
-    // surface-coloured border leaves a gap between the segments.
-    const palette = [budge.colour('slate'), budge.colour('brick')];
-    const datasets = series.map((s, i) => ({
-        type: 'bar',
-        label: s.label,
-        data: s.data,
-        stack: 'spend',
-        backgroundColor: palette[i],
-        borderColor: budge.surface,
-        borderWidth: { top: 2 },
-        borderSkipped: 'bottom',
-        order: 2,
-    }));
+    // The server always sends both in that order. The budgeted part is filled
+    // green for a week that came in at or under target and orange for one that
+    // went over; the unbudgeted part is left unfilled and outlined in grey, so
+    // it reads as spend the budget never planned for.
+    const under = budge.colour('sage');
+    const over = budge.colour('clay');
+    const unbudgeted = budge.colour('muted');
+    const weekColour = actuals.map(v => target > 0 && v > target ? over : under);
+    const [budgetedSeries, unbudgetedSeries] = series;
+    const datasets = [];
+    if (budgetedSeries) {
+        datasets.push({
+            type: 'bar',
+            label: budgetedSeries.label,
+            data: budgetedSeries.data,
+            stack: 'spend',
+            backgroundColor: weekColour,
+            // A surface-coloured top edge leaves a gap before the outline above.
+            borderColor: budge.surface,
+            borderWidth: { top: 2 },
+            borderSkipped: 'bottom',
+            order: 2,
+        });
+    }
+    if (unbudgetedSeries) {
+        datasets.push({
+            type: 'bar',
+            label: unbudgetedSeries.label,
+            data: unbudgetedSeries.data,
+            stack: 'spend',
+            backgroundColor: 'transparent',
+            hoverBackgroundColor: 'transparent',
+            borderColor: unbudgeted,
+            borderWidth: 2,
+            borderSkipped: false,
+            order: 2,
+        });
+    }
     datasets.push({
         type: 'line',
         label: 'Budget Target',
@@ -67,7 +89,22 @@ function initBudgetPerfChart() {
                 }
             },
             plugins: {
-                legend: { position: 'top', labels: { color: budge.ink, boxWidth: 12 } },
+                // The budgeted colour varies by week, so the legend names what
+                // each colour means rather than listing the datasets.
+                legend: {
+                    position: 'top',
+                    onClick: null,
+                    labels: {
+                        color: budge.ink,
+                        boxWidth: 12,
+                        generateLabels: () => [
+                            { text: 'Budgeted, under target', fillStyle: under, strokeStyle: under, lineWidth: 0, fontColor: budge.ink },
+                            { text: 'Budgeted, over target', fillStyle: over, strokeStyle: over, lineWidth: 0, fontColor: budge.ink },
+                            { text: 'Unbudgeted', fillStyle: 'transparent', strokeStyle: unbudgeted, lineWidth: 2, fontColor: budge.ink },
+                            { text: 'Budget target', fillStyle: 'transparent', strokeStyle: budge.ink, lineWidth: 2, lineDash: [6, 4], fontColor: budge.ink },
+                        ],
+                    },
+                },
                 tooltip: {
                     // Empty segments are noise in a per-week list.
                     filter: item => item.dataset.type === 'line' || item.parsed.y > 0,
