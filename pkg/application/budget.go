@@ -913,64 +913,55 @@ func buildBudgetSummary(salary models.BudgetSalary) BudgetSummary {
 type BudgetPerformanceData struct {
 	Labels  string
 	Actuals string
-	Series  string // []PerformanceSeries, each bar split by broad category
+	Series  string // []PerformanceSeries, each bar split by budgeted and unbudgeted
 	Weeks   string // ISO date of each bar's Monday, for opening its breakdown
 	Target  float64
 	HasData bool
 }
 
-// PerformanceSeries is one broad category's spend in each charted week.
+// PerformanceSeries is one segment of every charted week's bar.
 type PerformanceSeries struct {
 	Label string    `json:"label"`
 	Data  []float64 `json:"data"`
 }
 
-// maxPerformanceSeries is how many broad categories the chart names before
-// folding the rest into "Other". It matches the validated categorical palette
-// in charts.js; past it, adjacent segments stop being distinguishable.
-const maxPerformanceSeries = 7
+// The two segments of each week's bar. Splitting by whether spend has a
+// target answers why a week went over at a glance: budgeted spend is what the
+// target line was drawn for, so unbudgeted spend stacked on top of it is the
+// usual culprit. The breakdown beneath the chart has the per-category detail.
+const (
+	budgetedSeries   = "Budgeted"
+	unbudgetedSeries = "Unbudgeted"
+)
 
-const otherSeries = "Other"
-
-// buildPerformanceSeries totals each week's counted spend, and splits it by
-// broad category, largest over the whole period first so the biggest sits at
-// the base of each stack.
+// buildPerformanceSeries totals each week's counted spend and splits it into
+// spend in categories with a target and spend in categories without one.
+// Both series are always present, so each keeps its colour.
 func buildPerformanceSeries(weeks []time.Time, txs []models.Transaction, items map[string]models.BudgetItem) ([]float64, []PerformanceSeries) {
 	index := make(map[time.Time]int, len(weeks))
 	for i, w := range weeks {
 		index[w] = i
 	}
 	totals := make([]float64, len(weeks))
-	byBroad := make(map[string][]float64)
-	overall := make(map[string]float64)
+	budgeted := make([]float64, len(weeks))
+	unbudgeted := make([]float64, len(weeks))
 	for _, tx := range txs {
 		i, charted := index[isoWeekStart(tx.Date)]
 		if !charted {
 			continue
 		}
-		broad, _, ok := countedSpend(tx, items)
+		_, specific, ok := countedSpend(tx, items)
 		if !ok {
 			continue
 		}
 		amount := math.Abs(tx.Amount)
-		if byBroad[broad] == nil {
-			byBroad[broad] = make([]float64, len(weeks))
+		if weeklyTarget(items[strings.ToLower(specific)]) > 0 {
+			budgeted[i] += amount
+		} else {
+			unbudgeted[i] += amount
 		}
-		byBroad[broad][i] += amount
-		overall[broad] += amount
 		totals[i] += amount
 	}
-
-	names := make([]string, 0, len(byBroad))
-	for name := range byBroad {
-		names = append(names, name)
-	}
-	sort.Slice(names, func(i, j int) bool {
-		if overall[names[i]] != overall[names[j]] {
-			return overall[names[i]] > overall[names[j]]
-		}
-		return names[i] < names[j]
-	})
 
 	round := func(values []float64) []float64 {
 		for i, v := range values {
@@ -978,24 +969,10 @@ func buildPerformanceSeries(weeks []time.Time, txs []models.Transaction, items m
 		}
 		return values
 	}
-	var series []PerformanceSeries
-	var other []float64
-	for n, name := range names {
-		if n < maxPerformanceSeries {
-			series = append(series, PerformanceSeries{Label: name, Data: round(byBroad[name])})
-			continue
-		}
-		if other == nil {
-			other = make([]float64, len(weeks))
-		}
-		for i, v := range byBroad[name] {
-			other[i] += v
-		}
+	return round(totals), []PerformanceSeries{
+		{Label: budgetedSeries, Data: round(budgeted)},
+		{Label: unbudgetedSeries, Data: round(unbudgeted)},
 	}
-	if other != nil {
-		series = append(series, PerformanceSeries{Label: otherSeries, Data: round(other)})
-	}
-	return round(totals), series
 }
 
 // budgetItemsByCategory indexes items by their lower-cased subcategory, the

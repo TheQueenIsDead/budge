@@ -104,9 +104,9 @@
     });
 
     // categorical is the validated palette for stacked or adjacent series,
-    // read from the --b-viz-* tokens. Colours go by position, so callers pass
-    // series largest first and fold anything past the seventh into "Other",
-    // which takes otherColour.
+    // read from the --b-viz-* tokens. Colours go by position, so a caller
+    // keeps each series in a fixed slot and folds anything past the seventh
+    // into "Other", which takes otherColour.
     Object.defineProperty(budge, "categorical", {
         get: function () {
             const fallback = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7"];

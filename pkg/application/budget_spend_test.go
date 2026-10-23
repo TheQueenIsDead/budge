@@ -336,44 +336,40 @@ func TestBuildPerformanceSeries(t *testing.T) {
 		time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC),
 	}
 	in := func(week int) time.Time { return weeks[week].AddDate(0, 0, 2) }
-	items := budgetItemsByCategory([]models.BudgetItem{{Category: "Standing orders", Kind: models.BudgetKindSavings}})
-
-	var txs []models.Transaction
-	// Nine broad categories, so two must fold into Other. Spend rises with
-	// the index, so Broad 9 is the largest and Broad 1 the smallest.
-	for n := 1; n <= 9; n++ {
-		broad := "Broad " + string(rune('0'+n))
-		txs = append(txs, spendTx(broad+"a", "EFTPOS", broad, broad, "", "", -float64(n*10), in(0)))
-		txs = append(txs, spendTx(broad+"b", "EFTPOS", broad, broad, "", "", -float64(n), in(1)))
+	items := budgetItemsByCategory([]models.BudgetItem{
+		{Category: "Supermarkets", Amount: 150, Frequency: "weekly"},
+		{Category: "Local government", Amount: 3_500, Frequency: "yearly"},
+		{Category: "Cafes"}, // saved without a target
+		{Category: "Standing orders", Kind: models.BudgetKindSavings, Amount: 100, Frequency: "weekly"},
+	})
+	txs := []models.Transaction{
+		spendTx("groceries", "EFTPOS", "Food", "Supermarkets", "", "", -120, in(0)),
+		spendTx("rates", "DEBIT", "Housing", "Local government", "", "", -862, in(0)),
+		spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -410, in(0)),
+		spendTx("coffee", "EFTPOS", "Lifestyle", "Cafes", "", "", -6, in(1)),
+		spendTx("fund", "STANDING ORDER", "", "", "", "FISHER FUNDS", -385, in(1)),
+		spendTx("before", "EFTPOS", "Food", "Supermarkets", "", "", -1_000, weeks[0].AddDate(0, 0, -3)),
 	}
-	txs = append(txs,
-		spendTx("fund", "STANDING ORDER", "", "", "", "FISHER FUNDS", -385, in(0)),
-		spendTx("before", "EFTPOS", "Broad 9", "Broad 9", "", "", -1_000, weeks[0].AddDate(0, 0, -3)),
-	)
 
 	totals, series := buildPerformanceSeries(weeks, txs, items)
 
-	assert.InDelta(t, 450, totals[0], 0.001, "savings and weeks outside the chart are left out")
-	assert.InDelta(t, 45, totals[1], 0.001)
+	require.Len(t, series, 2)
+	assert.Equal(t, budgetedSeries, series[0].Label, "budgeted sits at the base of the stack")
+	assert.Equal(t, unbudgetedSeries, series[1].Label)
 
-	require.Len(t, series, maxPerformanceSeries+1)
-	assert.Equal(t, "Broad 9", series[0].Label, "largest first, so it sits at the base of the stack")
-	assert.Equal(t, "Broad 3", series[maxPerformanceSeries-1].Label)
-	other := series[maxPerformanceSeries]
-	assert.Equal(t, otherSeries, other.Label)
-	assert.InDelta(t, 30, other.Data[0], 0.001, "Broad 1 and 2 fold into Other")
+	assert.InDelta(t, 982, series[0].Data[0], 0.001, "a yearly target still makes its spend budgeted")
+	assert.InDelta(t, 410, series[1].Data[0], 0.001, "a category with no saved item is unbudgeted")
+	assert.InDelta(t, 6, series[1].Data[1], 0.001, "a saved item with no amount is unbudgeted")
+	assert.InDelta(t, 6, totals[1], 0.001, "savings and weeks outside the chart are left out")
 
 	for week := range weeks {
-		var stacked float64
-		for _, s := range series {
-			stacked += s.Data[week]
-		}
-		assert.InDelta(t, totals[week], stacked, 0.001, "each bar's segments add up to its total")
+		assert.InDelta(t, totals[week], series[0].Data[week]+series[1].Data[week], 0.001, "each bar's segments add up to its total")
 	}
 }
 
 func TestBuildPerformanceSeriesWithoutSpend(t *testing.T) {
 	totals, series := buildPerformanceSeries(performanceWeeks(time.Now()), nil, nil)
 	assert.Len(t, totals, 13)
-	assert.Empty(t, series)
+	require.Len(t, series, 2, "both series are always sent so each keeps its colour")
+	assert.Len(t, series[0].Data, 13)
 }

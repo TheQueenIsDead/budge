@@ -12,18 +12,17 @@ function initBudgetPerfChart() {
     const weeks   = JSON.parse(canvas.dataset.weeks || '[]');
     const money   = v => '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    // One stacked bar per week, one segment per broad category. The server
-    // sends the series largest first, which is also palette order, so the
-    // biggest category sits at the base in the first colour. A surface-
-    // coloured border leaves a gap between segments, so neighbours read as
-    // separate even where their colours are close.
+    // One stacked bar per week: budgeted spend at the base, unbudgeted on top,
+    // so whatever rises past the target line is visibly the unbudgeted part.
+    // The server always sends both in that order, so each keeps its colour. A
+    // surface-coloured border leaves a gap between the segments.
     const palette = budge.categorical;
     const datasets = series.map((s, i) => ({
         type: 'bar',
         label: s.label,
         data: s.data,
         stack: 'spend',
-        backgroundColor: s.label === 'Other' ? budge.otherColour : palette[i % palette.length],
+        backgroundColor: palette[i],
         borderColor: budge.surface,
         borderWidth: { top: 2 },
         borderSkipped: 'bottom',
