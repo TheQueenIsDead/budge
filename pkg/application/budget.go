@@ -224,9 +224,46 @@ func (app *Application) Budget(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 	return c.Render(http.StatusOK, "budget", map[string]interface{}{
-		"Income":    buildIncomeTile(salary),
-		"SetupData": setupData,
+		"Income":  buildIncomeTile(salary),
+		"Targets": buildTargetsTile(setupData),
 	})
+}
+
+// BudgetTargets is the page for setting spending targets, kept off the budget
+// page so that page can lead with how the weeks went.
+func (app *Application) BudgetTargets(c echo.Context) error {
+	setupData, err := app.buildSetupData()
+	if err != nil {
+		app.Toast(c, "Error", "Could not load category data.")
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	return c.Render(http.StatusOK, "budget.targets", map[string]interface{}{"SetupData": setupData})
+}
+
+// TargetsTileData is the view-model for the targets summary on the budget page.
+type TargetsTileData struct {
+	TotalTargetWeekly float64
+	TargetCount       int
+	// Spending categories with recent spend and no target: the usual reason a
+	// week lands over, so the tile calls them out.
+	NeedsTargetCount int
+	UntargetedWeekly float64
+}
+
+func buildTargetsTile(setup CategorySetupData) TargetsTileData {
+	tile := TargetsTileData{TotalTargetWeekly: setup.TotalTargetWeekly}
+	for _, group := range setup.Groups {
+		for _, row := range group.Rows {
+			if row.HasTarget {
+				tile.TargetCount++
+			}
+			if row.NeedsTarget {
+				tile.NeedsTargetCount++
+				tile.UntargetedWeekly += row.ActualWeekly
+			}
+		}
+	}
+	return tile
 }
 
 // BudgetSaveTarget creates or updates a BudgetItem for a category pair and

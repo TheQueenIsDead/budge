@@ -566,17 +566,15 @@ func TestBudgetTemplatesRender(t *testing.T) {
 			"full page",
 			"budget",
 			map[string]any{
-				"Income":    buildIncomeTile(models.BudgetSalary{Salary: 100_000, SalaryFrequency: "yearly", IncludePAYE: true, KiwiSaverRate: 3}),
-				"SetupData": setup,
+				"Income":  buildIncomeTile(models.BudgetSalary{Salary: 100_000, SalaryFrequency: "yearly", IncludePAYE: true, KiwiSaverRate: 3}),
+				"Targets": buildTargetsTile(setup),
 			},
 		},
+		{"targets page", "budget.targets", map[string]any{"SetupData": setup}},
 		{
-			"page with no transactions still renders the savings goal",
-			"budget",
-			map[string]any{
-				"Income":    buildIncomeTile(models.BudgetSalary{}),
-				"SetupData": CategorySetupData{HasData: false},
-			},
+			"targets page with no transactions still renders the savings goal",
+			"budget.targets",
+			map[string]any{"SetupData": CategorySetupData{HasData: false}},
 		},
 		{"income page", "budget.income", map[string]any{"Salary": models.BudgetSalary{Salary: 100_000, SalaryFrequency: "yearly"}}},
 		{"income breakdown", "budget.summary", BudgetSummary{GrossAnnual: 100_000, NetAnnual: 72_372.50}},
@@ -778,19 +776,50 @@ func TestIncomeTile(t *testing.T) {
 	})
 }
 
-func TestBudgetPageLeavesIncomeFormToItsOwnPage(t *testing.T) {
+func TestBudgetPageLeadsWithTheWeeksAndLinksToConfiguration(t *testing.T) {
+	salary := models.BudgetSalary{Salary: 100_000, SalaryFrequency: "yearly"}
 	budget := renderTemplate(t, "budget", map[string]any{
-		"Income":    buildIncomeTile(models.BudgetSalary{Salary: 100_000, SalaryFrequency: "yearly"}),
-		"SetupData": CategorySetupData{},
+		"Income":  buildIncomeTile(salary),
+		"Targets": TargetsTileData{},
 	})
-	assert.NotContains(t, budget, `name="salary"`)
-	assert.Contains(t, budget, `hx-get="/budget/allocation"`, "the allocation bar stays on the budget page")
-	assert.NotContains(t, budget, `hx-get="/budget/cards"`, "the summary cards move to the income page")
-	assert.Contains(t, budget, `href="/budget/income"`)
+	assert.Contains(t, budget, `hx-get="/budget/performance"`)
+	assert.Contains(t, budget, `hx-get="/budget/week"`)
+	assert.Less(t, strings.Index(budget, `hx-get="/budget/week"`), strings.Index(budget, `href="/budget/income"`),
+		"the chart and breakdown come before the configuration tiles")
+	assert.Contains(t, budget, `href="/budget/targets"`)
+	for _, moved := range []string{`name="salary"`, `name="target_amount"`, `hx-get="/budget/allocation"`, `hx-get="/budget/cards"`} {
+		assert.NotContains(t, budget, moved)
+	}
 
-	income := renderTemplate(t, "budget.income", map[string]any{"Salary": models.BudgetSalary{Salary: 100_000, SalaryFrequency: "yearly"}})
+	income := renderTemplate(t, "budget.income", map[string]any{"Salary": salary})
 	assert.Contains(t, income, `name="salary"`)
 	assert.Contains(t, income, `value="100000.00"`)
 	assert.Contains(t, income, `hx-get="/budget/summary"`, "the breakdown moves with the form")
 	assert.Contains(t, income, `hx-get="/budget/cards"`)
+
+	targets := renderTemplate(t, "budget.targets", map[string]any{"SetupData": CategorySetupData{}})
+	assert.Contains(t, targets, `id="budget-setup"`, "the kind menu swaps the table by this id")
+	assert.Contains(t, targets, `hx-get="/budget/allocation"`)
+}
+
+func TestTargetsTile(t *testing.T) {
+	setup := CategorySetupData{
+		TotalTargetWeekly: 300,
+		Groups: []BroadCategoryGroup{{Rows: []CategoryTargetRow{
+			buildSetupRowData(models.BudgetItem{Category: "Supermarkets", Amount: 150, Frequency: "weekly"}, 140, 1_000, false, false),
+			buildSetupRowData(models.BudgetItem{Category: "Fuel", Amount: 150, Frequency: "weekly"}, 60, 1_000, false, false),
+			buildSetupRowData(models.BudgetItem{Category: "Loan"}, 390, 1_000, false, false),
+			buildSetupRowData(models.BudgetItem{Category: "Standing orders", Kind: models.BudgetKindSavings}, 100, 1_000, false, false),
+		}}},
+	}
+
+	tile := buildTargetsTile(setup)
+
+	assert.Equal(t, 2, tile.TargetCount)
+	assert.Equal(t, 1, tile.NeedsTargetCount, "savings rows never need a target")
+	assert.InDelta(t, 390, tile.UntargetedWeekly, 0.001)
+
+	html := renderTemplate(t, "budget.targets.tile", tile)
+	assert.Contains(t, html, "across 2 categories")
+	assert.Contains(t, html, "$390.00/wk in 1 without a target")
 }

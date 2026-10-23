@@ -1,31 +1,11 @@
 {{define "budget"}}
     <div class="b-page-head">
-        <h2>Budget Planner</h2>
-        <p class="b-page-sub">Set what you earn, allocate it, then see how the weeks land.</p>
+        <h2>Budget</h2>
+        <p class="b-page-sub">How the weeks are landing against your targets, and why.</p>
     </div>
 
-    {{/* Page order follows the task: income comes first because every
-         target is weighed against it, but it is set once and rarely
-         revisited, so only a summary sits here and the form has its own page. */}}
-    {{template "budget.income.tile" .Income}}
-
-    <!-- Share of take-home pay the targets claim -->
-    <div id="budget-allocation"
-         hx-get="/budget/allocation"
-         hx-trigger="load, refreshSummary from:body"
-         hx-swap="innerHTML"></div>
-
-    <!-- Spending Targets Card -->
-    <div class="b-card b-card-pad mb-3">
-        <h3 class="b-card-title mb-1"><i class="bi bi-bullseye me-2"></i>Spending Targets</h3>
-        <p class="b-card-sub mb-3">
-            Actual spend window matches your target frequency — weekly targets use the last 4 weeks, monthly 3 months, yearly 13 months.
-            Set a target next to any category and it saves automatically; switching a target's frequency converts the amount for you.
-            Use <i class="bi bi-three-dots-vertical" aria-hidden="true"></i><span class="visually-hidden">the row menu</span> to count a category as savings, or ignore it, so it stops counting against the budget.
-        </p>
-        {{/* Swap target for "Counts as" changes, which move totals across groups. */}}
-        <div id="budget-setup">{{template "budget.setup" .SetupData}}</div>
-    </div>
+    {{/* The page leads with the outcome. Income and targets are set up once
+         and revisited rarely, so each is a summary tile linking to its own page. */}}
 
     {{/* innerHTML, not outerHTML — an outerHTML swap would replace the element
          carrying hx-trigger and the chart would never refresh again. */}}
@@ -44,6 +24,67 @@
          hx-trigger="load, refreshSummary from:body"
          hx-vals='js:{start: document.getElementById("budget-week-start")?.value || ""}'
          hx-swap="innerHTML"></div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-md-6">{{template "budget.income.tile" .Income}}</div>
+        <div class="col-12 col-md-6">{{template "budget.targets.tile" .Targets}}</div>
+    </div>
+{{end}}
+
+{{define "budget.targets"}}
+    <div class="b-page-head d-flex align-items-start justify-content-between gap-3">
+        <div class="min-width-0">
+            <h2>Spending Targets</h2>
+            <p class="b-page-sub">What each category may spend, and what it actually has.</p>
+        </div>
+        <a href="/budget" class="btn btn-sm btn-outline-secondary flex-shrink-0"
+           hx-boost="true" hx-target="#main" aria-label="Back to budget">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+    </div>
+
+    <!-- Share of take-home pay the targets claim -->
+    <div id="budget-allocation"
+         hx-get="/budget/allocation"
+         hx-trigger="load, refreshSummary from:body"
+         hx-swap="innerHTML"></div>
+
+    <div class="b-card b-card-pad mb-3">
+        <p class="b-card-sub mb-3">
+            Actual spend window matches your target frequency — weekly targets use the last 4 weeks, monthly 3 months, yearly 13 months.
+            Set a target next to any category and it saves automatically; switching a target's frequency converts the amount for you.
+            Use <i class="bi bi-three-dots-vertical" aria-hidden="true"></i><span class="visually-hidden">the row menu</span> to count a category as savings, or ignore it, so it stops counting against the budget.
+        </p>
+        {{/* Swap target for "Counts as" changes, which move totals across groups. */}}
+        <div id="budget-setup">{{template "budget.setup" .SetupData}}</div>
+    </div>
+{{end}}
+
+{{define "budget.targets.tile"}}
+<a href="/budget/targets" class="b-card b-card-pad h-100 d-block text-reset text-decoration-none"
+   hx-boost="true" hx-target="#main" aria-label="Configure spending targets">
+    <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+        <div class="d-flex align-items-center gap-2 min-width-0">
+            <span class="b-chip b-accent-brick"><i class="bi bi-bullseye"></i></span>
+            <div class="min-width-0">
+                <div class="b-card-title">Spending targets</div>
+                <div class="b-card-sub">
+                    {{if .TargetCount}}
+                    <span class="fw-semibold">{{.TotalTargetWeekly | fmtCurrency}}/wk</span> across {{.TargetCount}} categories
+                    {{else}}
+                    No targets set yet.
+                    {{end}}
+                    {{if .NeedsTargetCount}}
+                    · <span class="text-warning">{{.UntargetedWeekly | fmtCurrency}}/wk in {{.NeedsTargetCount}} without a target</span>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+        <span class="btn btn-sm btn-outline-secondary flex-shrink-0">
+            Configure <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i>
+        </span>
+    </div>
+</a>
 {{end}}
 
 {{define "budget.income"}}
@@ -128,7 +169,7 @@
 {{end}}
 
 {{define "budget.income.tile"}}
-<a href="/budget/income" class="b-card b-card-pad mb-3 d-block text-reset text-decoration-none"
+<a href="/budget/income" class="b-card b-card-pad h-100 d-block text-reset text-decoration-none"
    hx-boost="true" hx-target="#main" aria-label="Configure income">
     <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
         <div class="d-flex align-items-center gap-2 min-width-0">
