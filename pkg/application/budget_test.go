@@ -585,6 +585,13 @@ func TestBudgetTemplatesRender(t *testing.T) {
 		{"cards without a salary", "budget.cards", BudgetCardsData{}},
 		{"performance with data", "budget.performance", BudgetPerformanceData{Labels: `["1 Jan"]`, Actuals: `[12.5]`, Target: 100, HasData: true}},
 		{"performance without data", "budget.performance", BudgetPerformanceData{}},
+		{"week breakdown", "budget.week", WeekBreakdown{
+			Start: time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC), Weeks: performanceWeeks(time.Now()),
+			Total: 1_000, Target: 800, Diff: 200, UnspentTarget: 50, UnspentCount: 2,
+			Lines:   []WeekLine{{Broad: "Housing", Specific: "Rates", Actual: 862, Target: 70, Diff: 792, HasTarget: true, Billed: "billed yearly", Count: 1}},
+			Largest: []WeekTransaction{{Date: time.Now(), Title: "CCC", Category: "Rates", Amount: 862}},
+		}},
+		{"week breakdown with no spend", "budget.week", WeekBreakdown{Weeks: performanceWeeks(time.Now())}},
 		{"setup with data", "budget.setup", setup},
 		{"setup without data", "budget.setup", CategorySetupData{HasData: false}},
 	}

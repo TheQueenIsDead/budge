@@ -34,6 +34,14 @@
          hx-get="/budget/performance"
          hx-trigger="load, refreshSummary from:body"
          hx-swap="innerHTML"></div>
+
+    {{/* Kept outside #budget-performance so a refresh keeps the chosen week:
+         hx-include sends the picker's current value back with the request. */}}
+    <div id="budget-week"
+         hx-get="/budget/week"
+         hx-trigger="load, refreshSummary from:body"
+         hx-include="#budget-week-start"
+         hx-swap="innerHTML"></div>
 {{end}}
 
 {{define "budget.income"}}
@@ -281,6 +289,7 @@
         <canvas id="budget-perf-chart"
                 data-labels="{{.Labels}}"
                 data-actuals="{{.Actuals}}"
+                data-weeks="{{.Weeks}}"
                 data-target="{{printf "%.2f" .Target}}"></canvas>
     </div>
     {{else}}
@@ -289,6 +298,98 @@
         <h4>No performance yet</h4>
         <p>Sync transactions and set spending targets to see how each week lands.</p>
     </div>
+    {{end}}
+</div>
+{{end}}
+
+{{define "budget.week"}}
+<div class="b-card b-card-pad mb-3">
+    <div class="b-card-head flex-wrap">
+        <div>
+            <h3 class="b-card-title"><i class="bi bi-search me-2"></i>Week Breakdown</h3>
+            <p class="b-card-sub">Where the week's spend went against each category's share of the target. Click a bar above to switch weeks.</p>
+        </div>
+        <select id="budget-week-start" name="start" class="form-select form-select-sm w-auto"
+                aria-label="Week to break down"
+                hx-get="/budget/week" hx-target="#budget-week" hx-swap="innerHTML" hx-trigger="change">
+            {{range .Weeks}}
+            <option value="{{.Format "2006-01-02"}}" {{if .Equal $.Start}}selected{{end}}>Week of {{.Format "2 Jan"}}</option>
+            {{end}}
+        </select>
+    </div>
+
+    <p class="mb-3">
+        {{.Start.Format "Mon 2 Jan"}} – {{.End.Format "Mon 2 Jan"}}:
+        spent <span class="fw-semibold">{{.Total | fmtCurrency}}</span>
+        against <span class="fw-semibold">{{.Target | fmtCurrency}}</span>,
+        {{if gt .Diff 0.0}}
+        <span class="fw-semibold text-danger">{{.Diff | fmtCurrencyAbs}} over</span>.
+        {{else}}
+        <span class="fw-semibold text-success">{{.Diff | fmtCurrencyAbs}} under</span>.
+        {{end}}
+    </p>
+
+    {{if .Lines}}
+    <div class="table-responsive">
+        <table class="table table-sm mb-3">
+            <thead>
+                <tr class="text-muted">
+                    <th>Category</th>
+                    <th class="text-end">Spent</th>
+                    <th class="text-end">Weekly target</th>
+                    <th class="text-end">Over / under</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Lines}}
+                <tr>
+                    <td>
+                        <div>{{.Specific}} <small class="text-muted">· {{.Broad}}</small></div>
+                        {{if .Billed}}<div class="text-muted small"><i class="bi bi-calendar-event me-1" aria-hidden="true"></i>{{.Billed}}, so the bill lands in one week</div>{{end}}
+                    </td>
+                    <td class="text-end text-nowrap">{{.Actual | fmtCurrency}}{{if gt .Count 1}} <small class="text-muted">×{{.Count}}</small>{{end}}</td>
+                    <td class="text-end text-nowrap">{{if .HasTarget}}{{.Target | fmtCurrency}}{{else}}<span class="text-warning">No target</span>{{end}}</td>
+                    <td class="text-end text-nowrap fw-semibold {{if gt .Diff 0.0}}text-danger{{else}}text-success{{end}}">
+                        {{if gt .Diff 0.0}}+{{else}}−{{end}}{{.Diff | fmtCurrencyAbs}}
+                    </td>
+                </tr>
+                {{end}}
+                {{if .UnspentCount}}
+                <tr class="text-muted">
+                    <td>Targets with no spend this week <small>({{.UnspentCount}})</small></td>
+                    <td class="text-end">$0.00</td>
+                    <td class="text-end">{{.UnspentTarget | fmtCurrency}}</td>
+                    <td class="text-end text-success">−{{.UnspentTarget | fmtCurrencyAbs}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+            <tfoot>
+                <tr class="fw-bold">
+                    <td>Total</td>
+                    <td class="text-end">{{.Total | fmtCurrency}}</td>
+                    <td class="text-end">{{.Target | fmtCurrency}}</td>
+                    <td class="text-end {{if gt .Diff 0.0}}text-danger{{else}}text-success{{end}}">{{if gt .Diff 0.0}}+{{else}}−{{end}}{{.Diff | fmtCurrencyAbs}}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {{end}}
+
+    {{if .Largest}}
+    <h4 class="b-card-title small text-muted mb-2">Largest this week</h4>
+    <ul class="list-unstyled mb-0">
+        {{range .Largest}}
+        <li class="d-flex justify-content-between gap-2 py-1 border-bottom">
+            <span class="min-width-0 text-truncate">
+                <small class="text-muted me-2">{{.Date.Format "Mon 2 Jan"}}</small>{{.Title}}
+                <small class="text-muted">· {{.Category}}</small>
+            </span>
+            <span class="text-nowrap fw-semibold">{{.Amount | fmtCurrency}}</span>
+        </li>
+        {{end}}
+    </ul>
+    {{else}}
+    <p class="text-muted mb-0">No counted spending this week.</p>
     {{end}}
 </div>
 {{end}}

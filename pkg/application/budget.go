@@ -578,10 +578,7 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 	if err != nil {
 		return CategorySetupData{}, err
 	}
-	itemBySubCat := make(map[string]models.BudgetItem)
-	for _, it := range items {
-		itemBySubCat[strings.ToLower(it.Category)] = it
-	}
+	itemBySubCat := budgetItemsByCategory(items)
 
 	type pairKey struct{ broad, specific string }
 	totals := make(map[pairKey]float64)
@@ -862,8 +859,44 @@ func buildBudgetSummary(salary models.BudgetSalary) BudgetSummary {
 type BudgetPerformanceData struct {
 	Labels  string
 	Actuals string
+	Weeks   string // ISO date of each bar's Monday, for opening its breakdown
 	Target  float64
 	HasData bool
+}
+
+// budgetItemsByCategory indexes items by their lower-cased subcategory, the
+// key every budget view matches transactions on.
+func budgetItemsByCategory(items []models.BudgetItem) map[string]models.BudgetItem {
+	byCategory := make(map[string]models.BudgetItem, len(items))
+	for _, item := range items {
+		byCategory[strings.ToLower(item.Category)] = item
+	}
+	return byCategory
+}
+
+// countedSpend is spendCategory narrowed to what counts against the budget:
+// categories marked as savings or ignored are left out. A category with no
+// saved item is spending.
+func countedSpend(tx models.Transaction, items map[string]models.BudgetItem) (broad, specific string, ok bool) {
+	broad, specific, ok = spendCategory(tx)
+	if !ok {
+		return "", "", false
+	}
+	if item, saved := items[strings.ToLower(specific)]; saved && !item.IsSpending() {
+		return "", "", false
+	}
+	return broad, specific, true
+}
+
+// performanceWeeks is the Monday of each of the 13 weeks the chart shows,
+// oldest first.
+func performanceWeeks(now time.Time) []time.Time {
+	ws := isoWeekStart(now)
+	weeks := make([]time.Time, 13)
+	for i := range weeks {
+		weeks[12-i] = ws.AddDate(0, 0, -7*i)
+	}
+	return weeks
 }
 
 func (app *Application) BudgetPerformance(c echo.Context) error {
@@ -877,46 +910,187 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 	}
 
 	var target float64
-	notSpending := make(map[string]bool)
 	for _, item := range items {
 		target += weeklyTarget(item)
-		if !item.IsSpending() {
-			notSpending[strings.ToLower(item.Category)] = true
-		}
 	}
-
-	// Build 13 weekly buckets, most recent on the right.
-	ws := isoWeekStart(time.Now())
-	weeks := make([]time.Time, 13)
-	for i := range weeks {
-		weeks[12-i] = ws.AddDate(0, 0, -7*i)
-	}
+	byCategory := budgetItemsByCategory(items)
 
 	weekTotals := make(map[time.Time]float64)
 	for _, tx := range txs {
-		_, specific, ok := spendCategory(tx)
-		if !ok || notSpending[strings.ToLower(specific)] {
+		if _, _, ok := countedSpend(tx, byCategory); !ok {
 			continue
 		}
 		weekTotals[isoWeekStart(tx.Date)] += math.Abs(tx.Amount)
 	}
 
-	labels := make([]string, 13)
-	actuals := make([]float64, 13)
+	weeks := performanceWeeks(time.Now())
+	labels := make([]string, len(weeks))
+	starts := make([]string, len(weeks))
+	actuals := make([]float64, len(weeks))
 	for i, w := range weeks {
 		labels[i] = w.Format("2 Jan")
+		starts[i] = w.Format(time.DateOnly)
 		actuals[i] = math.Round(weekTotals[w]*100) / 100
 	}
 
 	labelsJSON, _ := json.Marshal(labels)
+	startsJSON, _ := json.Marshal(starts)
 	actualsJSON, _ := json.Marshal(actuals)
 
 	return c.Render(http.StatusOK, "budget.performance", BudgetPerformanceData{
 		Labels:  string(labelsJSON),
 		Actuals: string(actualsJSON),
+		Weeks:   string(startsJSON),
 		Target:  math.Round(target*100) / 100,
 		HasData: len(txs) > 0 || target > 0,
 	})
+}
+
+// ---- week breakdown ----
+
+// largeTransactionCount is how many of a week's biggest debits are listed
+// beneath its category breakdown.
+const largeTransactionCount = 5
+
+// WeekLine is one category's spend in a single week against its share of the
+// weekly target.
+type WeekLine struct {
+	Broad     string
+	Specific  string
+	Actual    float64
+	Target    float64
+	Diff      float64 // Actual - Target; positive is over
+	HasTarget bool
+	Count     int
+	// Billed is set when the target is monthly or yearly: the target is spread
+	// across every week, but the bill lands in one, so that week spikes.
+	Billed string
+}
+
+// WeekBreakdown explains one week of the performance chart. Its lines and
+// UnspentTarget add up to Total - Target, so every dollar over is accounted for.
+type WeekBreakdown struct {
+	Start         time.Time
+	Weeks         []time.Time // the chart's weeks, for the picker
+	Total         float64
+	Target        float64
+	Diff          float64
+	Lines         []WeekLine
+	UnspentTarget float64 // targets for categories with no spend this week
+	UnspentCount  int
+	Largest       []WeekTransaction
+}
+
+// WeekTransaction is one of a week's biggest debits.
+type WeekTransaction struct {
+	Date     time.Time
+	Title    string
+	Category string
+	Amount   float64
+}
+
+func (w WeekBreakdown) End() time.Time { return w.Start.AddDate(0, 0, 6) }
+
+// buildWeekBreakdown splits one week's counted spend by category. Targets are
+// the same weekly-normalised figures the chart's target line sums.
+func buildWeekBreakdown(start time.Time, txs []models.Transaction, items []models.BudgetItem) WeekBreakdown {
+	byCategory := budgetItemsByCategory(items)
+	week := WeekBreakdown{Start: start}
+
+	type key struct{ broad, specific string }
+	lines := make(map[key]*WeekLine)
+	var counted []models.Transaction
+	for _, tx := range txs {
+		if !isoWeekStart(tx.Date).Equal(start) {
+			continue
+		}
+		broad, specific, ok := countedSpend(tx, byCategory)
+		if !ok {
+			continue
+		}
+		k := key{broad, specific}
+		if lines[k] == nil {
+			lines[k] = &WeekLine{Broad: broad, Specific: specific}
+		}
+		amount := math.Abs(tx.Amount)
+		lines[k].Actual += amount
+		lines[k].Count++
+		week.Total += amount
+		counted = append(counted, tx)
+	}
+
+	spent := make(map[string]bool, len(lines))
+	for _, line := range lines {
+		spent[strings.ToLower(line.Specific)] = true
+		item := byCategory[strings.ToLower(line.Specific)]
+		line.Target = weeklyTarget(item)
+		line.HasTarget = line.Target > 0
+		line.Diff = line.Actual - line.Target
+		if line.HasTarget && (len(item.SubItems) > 0 || item.Frequency == "monthly" || item.Frequency == "yearly") {
+			line.Billed = "billed " + item.Frequency
+			if len(item.SubItems) > 0 {
+				line.Billed = "billed as separate items"
+			}
+		}
+		week.Lines = append(week.Lines, *line)
+	}
+	for _, item := range items {
+		target := weeklyTarget(item)
+		week.Target += target
+		if target > 0 && !spent[strings.ToLower(item.Category)] {
+			week.UnspentTarget += target
+			week.UnspentCount++
+		}
+	}
+	week.Diff = week.Total - week.Target
+
+	sort.Slice(week.Lines, func(i, j int) bool {
+		if week.Lines[i].Diff != week.Lines[j].Diff {
+			return week.Lines[i].Diff > week.Lines[j].Diff
+		}
+		return week.Lines[i].Specific < week.Lines[j].Specific
+	})
+
+	sort.Slice(counted, func(i, j int) bool { return counted[i].Amount < counted[j].Amount })
+	for i, tx := range counted {
+		if i == largeTransactionCount {
+			break
+		}
+		_, specific, _ := spendCategory(tx)
+		week.Largest = append(week.Largest, WeekTransaction{
+			Date:     tx.Date,
+			Title:    spendMerchant(tx),
+			Category: specific,
+			Amount:   math.Abs(tx.Amount),
+		})
+	}
+	return week
+}
+
+// BudgetWeek renders the breakdown for the week starting on ?start=, or the
+// last full week when none is given, since the current one is still filling.
+func (app *Application) BudgetWeek(c echo.Context) error {
+	weeks := performanceWeeks(time.Now())
+	start := weeks[len(weeks)-2]
+	if raw := c.QueryParam("start"); raw != "" {
+		parsed, err := time.Parse(time.DateOnly, raw)
+		if err != nil {
+			return c.NoContent(http.StatusBadRequest)
+		}
+		start = isoWeekStart(parsed)
+	}
+
+	txs, err := app.store.ReadTransactionsByDate(start.AddDate(0, 0, -1), start.AddDate(0, 0, 8))
+	if err != nil {
+		return err
+	}
+	items, err := app.store.ReadBudgetItems()
+	if err != nil {
+		return err
+	}
+	week := buildWeekBreakdown(start, txs, items)
+	week.Weeks = weeks
+	return c.Render(http.StatusOK, "budget.week", week)
 }
 
 // isoWeekStart returns the Monday of the ISO week containing t, normalised to

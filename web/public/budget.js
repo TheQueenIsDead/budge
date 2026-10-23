@@ -8,6 +8,7 @@ function initBudgetPerfChart() {
     const actuals = JSON.parse(canvas.dataset.actuals);
     const target  = parseFloat(canvas.dataset.target);
     const labels  = JSON.parse(canvas.dataset.labels);
+    const weeks   = JSON.parse(canvas.dataset.weeks || '[]');
     new Chart(canvas, {
         data: {
             labels,
@@ -37,6 +38,15 @@ function initBudgetPerfChart() {
             responsive: true,
             maintainAspectRatio: false,
             interaction: { mode: 'index' },
+            // A bar opens that week in the breakdown beneath the chart.
+            onClick: (event, elements) => {
+                if (!elements.length || !weeks[elements[0].index]) return;
+                htmx.ajax('GET', '/budget/week?start=' + weeks[elements[0].index],
+                    { target: '#budget-week', swap: 'innerHTML' });
+            },
+            onHover: (event, elements) => {
+                event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+            },
             scales: {
                 y: {
                     beginAtZero: true,

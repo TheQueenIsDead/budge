@@ -235,3 +235,97 @@ func TestRowsCollapseWithTheirGroup(t *testing.T) {
 		assert.Equal(t, food.RowID, row.BroadRowID, row.SubCategory)
 	}
 }
+
+func TestBuildWeekBreakdown(t *testing.T) {
+	monday := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	wed := monday.AddDate(0, 0, 2)
+	items := []models.BudgetItem{
+		{Category: "Supermarkets", BroadCategory: "Food", Amount: 150, Frequency: "weekly"},
+		{Category: "Local government", BroadCategory: "Housing", Amount: 3_640, Frequency: "yearly"}, // $70/wk
+		{Category: "Cafes", BroadCategory: "Lifestyle", Amount: 50, Frequency: "weekly"},
+		{Category: "Standing orders", Kind: models.BudgetKindSavings},
+	}
+	txs := []models.Transaction{
+		spendTx("g1", "EFTPOS", "Food", "Supermarkets", "Countdown", "", -80, wed),
+		spendTx("g2", "EFTPOS", "Food", "Supermarkets", "New World", "", -40, wed),
+		spendTx("rates", "DEBIT", "Housing", "Local government", "CCC", "", -862, wed),
+		spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -410, wed),
+		spendTx("fund", "STANDING ORDER", "", "", "", "AP#1 TO FISHER FUNDS", -385, wed),
+		spendTx("next-week", "EFTPOS", "Food", "Supermarkets", "Countdown", "", -500, monday.AddDate(0, 0, 7)),
+		spendTx("pay", "CREDIT", "", "", "", "SALARY", 3_000, wed),
+	}
+
+	week := buildWeekBreakdown(monday, txs, items)
+
+	assert.InDelta(t, 80+40+862+410, week.Total, 0.001, "savings, income and other weeks are left out")
+	assert.InDelta(t, 150+70+50, week.Target, 0.001)
+	assert.InDelta(t, week.Total-week.Target, week.Diff, 0.001)
+
+	var linesDiff float64
+	for _, line := range week.Lines {
+		linesDiff += line.Diff
+	}
+	assert.InDelta(t, week.Diff, linesDiff-week.UnspentTarget, 0.001,
+		"every dollar over or under is accounted for by a line or the unspent targets")
+	assert.Equal(t, 1, week.UnspentCount, "cafes had a target and no spend")
+	assert.InDelta(t, 50, week.UnspentTarget, 0.001)
+
+	require.Len(t, week.Lines, 3)
+	assert.Equal(t, "Local government", week.Lines[0].Specific, "biggest overspend first")
+	assert.Equal(t, "billed yearly", week.Lines[0].Billed)
+	assert.Equal(t, "Loan", week.Lines[1].Specific)
+	assert.False(t, week.Lines[1].HasTarget)
+	assert.InDelta(t, 410, week.Lines[1].Diff, 0.001, "untargeted spend is all over")
+	assert.Equal(t, "Supermarkets", week.Lines[2].Specific)
+	assert.Equal(t, 2, week.Lines[2].Count)
+	assert.Empty(t, week.Lines[2].Billed, "weekly targets do not spike")
+
+	require.NotEmpty(t, week.Largest)
+	assert.Equal(t, "CCC", week.Largest[0].Title)
+	assert.InDelta(t, 862, week.Largest[0].Amount, 0.001)
+}
+
+func TestBuildWeekBreakdownCapsLargestTransactions(t *testing.T) {
+	monday := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	var txs []models.Transaction
+	for i := 1; i <= 8; i++ {
+		txs = append(txs, spendTx(string(rune('a'+i)), "EFTPOS", "Food", "Supermarkets", "", "", -float64(i*10), monday))
+	}
+
+	week := buildWeekBreakdown(monday, txs, nil)
+
+	require.Len(t, week.Largest, largeTransactionCount)
+	assert.InDelta(t, 80, week.Largest[0].Amount, 0.001)
+	assert.InDelta(t, 40, week.Largest[4].Amount, 0.001)
+}
+
+func TestBudgetWeek(t *testing.T) {
+	app := newTestApp(t)
+	recent := time.Now().Add(-48 * time.Hour)
+	require.NoError(t, app.store.CreateTransaction(spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -410, recent)))
+
+	get := func(query string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/budget/week?"+query, nil)
+		req.Header.Set("HX-Request", "true")
+		rec := httptest.NewRecorder()
+		require.NoError(t, app.BudgetWeek(app.http.NewContext(req, rec)))
+		return rec
+	}
+
+	t.Run("a given week is broken down and selected in the picker", func(t *testing.T) {
+		start := isoWeekStart(recent).Format(time.DateOnly)
+		rec := get("start=" + start)
+		require.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "LOAN INTEREST")
+		assert.Contains(t, rec.Body.String(), `value="`+start+`" selected`)
+	})
+
+	t.Run("a mid-week date opens the week containing it", func(t *testing.T) {
+		rec := get("start=" + recent.Format(time.DateOnly))
+		assert.Contains(t, rec.Body.String(), "LOAN INTEREST")
+	})
+
+	t.Run("a malformed date is rejected", func(t *testing.T) {
+		assert.Equal(t, http.StatusBadRequest, get("start=yesterday").Code)
+	})
+}
