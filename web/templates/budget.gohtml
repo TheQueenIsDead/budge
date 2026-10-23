@@ -36,11 +36,13 @@
          hx-swap="innerHTML"></div>
 
     {{/* Kept outside #budget-performance so a refresh keeps the chosen week:
-         hx-include sends the picker's current value back with the request. */}}
+         the picker's value is sent back with the request. It is read in JS
+         rather than with hx-include because the picker only exists after the
+         first load, and an hx-include that matches nothing logs an error. */}}
     <div id="budget-week"
          hx-get="/budget/week"
          hx-trigger="load, refreshSummary from:body"
-         hx-include="#budget-week-start"
+         hx-vals='js:{start: document.getElementById("budget-week-start")?.value || ""}'
          hx-swap="innerHTML"></div>
 {{end}}
 
