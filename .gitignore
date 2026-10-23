@@ -104,6 +104,7 @@ go.work
 # must never be committed.
 budge.bolt.db
 budge.bolt.db.lock
+budge.bolt.db.bak-*
 tmp/
 uploads/
 .claude/
