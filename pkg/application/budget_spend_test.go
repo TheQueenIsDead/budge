@@ -398,3 +398,28 @@ func TestDashboardMonthsAreWhole(t *testing.T) {
 	assert.Len(t, months, 2)
 	assert.Contains(t, months, "May 26")
 }
+
+func TestWithoutUncountedDropsSavingsAndIgnoredSpend(t *testing.T) {
+	app := newTestApp(t)
+	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "loan", Category: "Loan", Kind: models.BudgetKindIgnore}))
+	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "fund", Category: "Savings", BroadCategory: "General", Kind: models.BudgetKindSavings}))
+	now := time.Now()
+	txs := []models.Transaction{
+		spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -410, now),
+		spendTx("fund", models.TypeCountedTransfer, "General", "Savings", "", "AP#1 TO FISHER FUNDS", -100, now),
+		spendTx("repay", models.TypeCountedTransfer, "Housing", "Mortgage", "", "AP#2 TO D J KING", -641, now),
+		spendTx("groceries", "EFTPOS", "Food", "Supermarkets", "", "", -80, now),
+		spendTx("pay", "CREDIT", "", "", "", "SALARY", 3000, now),
+		spendTx("sweep", "TRANSFER", "Transfer", "Transfer", "", "TO SAVINGS", -500, now),
+	}
+
+	kept, err := app.withoutUncounted(txs)
+	require.NoError(t, err)
+
+	var ids []string
+	for _, tx := range kept {
+		ids = append(ids, tx.Id)
+	}
+	assert.Equal(t, []string{"repay", "groceries", "pay", "sweep"}, ids,
+		"interest and fund contributions go; repayments, spending, income and plain transfers are left for each view to treat as it does")
+}

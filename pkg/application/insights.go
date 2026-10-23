@@ -31,6 +31,9 @@ func (app *Application) Insights(c echo.Context) error {
 	now := time.Now()
 
 	transactions, err := app.store.ReadTransactionsByDate(now.AddDate(0, -insightsHistory, 0), now)
+	if err == nil {
+		transactions, err = app.withoutUncounted(transactions)
+	}
 	if err != nil {
 		app.Toast(c, "Error", "Could not load spending insights.")
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())

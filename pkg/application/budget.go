@@ -968,6 +968,27 @@ func countedSpend(tx models.Transaction, items map[string]models.BudgetItem) (br
 	return broad, specific, true
 }
 
+// withoutUncounted drops debits in categories the owner has marked as savings
+// or ignored on the targets page, so every view of spending agrees with the
+// budget: a contribution to an investment fund is not spending, and loan
+// interest is not counted again on top of the repayments that pay it.
+func (app *Application) withoutUncounted(txs []models.Transaction) ([]models.Transaction, error) {
+	items, err := app.store.ReadBudgetItems()
+	if err != nil {
+		return nil, err
+	}
+	byCategory := budgetItemsByCategory(items)
+	kept := make([]models.Transaction, 0, len(txs))
+	for _, tx := range txs {
+		_, _, spend := spendCategory(tx)
+		_, _, counted := countedSpend(tx, byCategory)
+		if !spend || counted {
+			kept = append(kept, tx)
+		}
+	}
+	return kept, nil
+}
+
 // performanceWeeks is the Monday of each of the 13 weeks the chart shows,
 // oldest first.
 func performanceWeeks(now time.Time) []time.Time {

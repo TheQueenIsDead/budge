@@ -382,6 +382,11 @@ func (app *Application) Dashboard(c echo.Context) error {
 		app.Toast(c, "Error", "Could not load dashboard data.")
 		return c.NoContent(http.StatusInternalServerError)
 	}
+	transactions, err := app.withoutUncounted(transactions)
+	if err != nil {
+		app.Toast(c, "Error", "Could not load dashboard data.")
+		return c.NoContent(http.StatusInternalServerError)
+	}
 
 	// Transfers move money between the owner's own accounts, so counting them
 	// as spend would double up every dollar that passes through.
