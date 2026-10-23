@@ -50,6 +50,12 @@ type CategoryTargetRow struct {
 	Open      bool // the row being edited, drawn expanded
 }
 
+// IsUncategorised reports whether the row holds debits Akahu could not
+// categorise, the ones a rule is most often wanted for.
+func (r CategoryTargetRow) IsUncategorised() bool {
+	return r.BroadCategory == uncategorisedGroup
+}
+
 // BarWidth is how full the row's progress bar is drawn, capped at full.
 func (r CategoryTargetRow) BarWidth() float64 {
 	return math.Min(r.Percentage*100, 100)

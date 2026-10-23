@@ -590,14 +590,17 @@
             </div>
             {{if .Merchants}}
             {{/* Each merchant leads to its transactions, to file one payment
-                 elsewhere, or to a rule that files all of them. */}}
+                 elsewhere. Uncategorised ones also offer a rule, since that is
+                 usually what they need; elsewhere it would only add noise. */}}
             <div class="d-flex flex-wrap gap-1 mt-2">
                 {{range .Merchants}}
                 <span class="b-merchant">
                     <a href="/transactions?search={{.}}" title="See these transactions">{{.}}</a>
+                    {{if $.IsUncategorised}}
                     <a href="/settings?rule={{.}}#rules" title="Make a rule for “{{.}}”" aria-label="Make a rule for {{.}}">
                         <i class="bi bi-signpost-split" aria-hidden="true"></i>
                     </a>
+                    {{end}}
                 </span>
                 {{end}}
             </div>
