@@ -14,9 +14,11 @@ function initBudgetPerfChart() {
 
     // One stacked bar per week: budgeted spend at the base, unbudgeted on top,
     // so whatever rises past the target line is visibly the unbudgeted part.
-    // The server always sends both in that order, so each keeps its colour. A
+    // The server always sends both in that order. Slate and brick are app
+    // accents that stay distinct under colour-vision deficiency, where the
+    // other accent pairs do not; brick marks the part that needs attention. A
     // surface-coloured border leaves a gap between the segments.
-    const palette = budge.categorical;
+    const palette = [budge.colour('slate'), budge.colour('brick')];
     const datasets = series.map((s, i) => ({
         type: 'bar',
         label: s.label,
