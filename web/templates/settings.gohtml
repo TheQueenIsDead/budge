@@ -62,7 +62,7 @@
     <!-- What runs by itself -->
     <div id="schedule">{{ template "settings.schedule" .schedule }}</div>
 
-    <!-- Categories and the rules that file transactions under them -->
+    <!-- Categories, and the rules that file transactions under them -->
     <div id="categories">{{ template "settings.categories" .categories }}</div>
 
     <!-- Connected accounts -->
@@ -225,133 +225,132 @@
 {{ end }}
 
 {{ define "settings.categories" }}
+{{/* One swap target for both cards: a new category has to appear in the
+     rule picker straight away. */}}
+{{ if .Error }}
+<div class="alert alert-warning py-2 small mb-3" role="alert">{{ .Error }}</div>
+{{ end }}
+
 <div class="b-card b-card-pad mb-3">
     <div class="b-card-head">
         <div>
-            <h3 class="b-card-title"><i class="bi bi-tags me-2"></i>Categories &amp; rules</h3>
+            <h3 class="b-card-title"><i class="bi bi-tags me-2"></i>Categories</h3>
             <p class="b-card-sub">
-                Rules file transactions under a category when Akahu leaves them uncategorised or gets
-                them wrong. They apply to every transaction, including ones already synced, and
-                deleting a rule puts Akahu's category back.
+                Your own categories, alongside the ones Akahu assigns, for rules to file
+                transactions under. Marked ★ in the rule picker.
             </p>
         </div>
     </div>
 
-    {{ if .Error }}
-    <div class="alert alert-warning py-2 small" role="alert">{{ .Error }}</div>
+    {{ if .Custom }}
+    <ul class="list-unstyled mb-3">
+        {{ range .Custom }}
+        <li class="d-flex align-items-center justify-content-between gap-2 py-1 border-bottom">
+            <span>{{ .Broad }} / <span class="fw-semibold">{{ .Specific }}</span></span>
+            <button type="button" class="btn btn-link btn-sm p-0 text-danger"
+                    hx-delete="/settings/categories/{{ .ID }}"
+                    hx-target="#categories" hx-swap="innerHTML"
+                    title="Delete category" aria-label="Delete {{ .Specific }}">
+                <i class="bi bi-x-circle" aria-hidden="true"></i>
+            </button>
+        </li>
+        {{ end }}
+    </ul>
+    {{ else }}
+    <p class="text-muted small mb-3">None yet.</p>
     {{ end }}
 
-    <div class="row g-3">
-        <div class="col-12 col-lg-7">
-            <div class="b-sched">
-                <div class="fw-semibold">Rules</div>
-                <p class="b-card-sub mb-2">Tried top to bottom; the first that matches wins.</p>
-
-                {{ if .Rules }}
-                <ol class="list-unstyled mb-3">
-                    {{ range .Rules }}
-                    <li class="d-flex align-items-start justify-content-between gap-2 py-2 border-bottom">
-                        <div class="min-width-0">
-                            <div>
-                                Contains <span class="font-monospace">“{{ .Contains }}”</span>
-                                {{ if .Type }}<span class="text-muted">and type is</span> <span class="badge-category">{{ .Type }}</span>{{ end }}
-                            </div>
-                            <div class="small">
-                                <i class="bi bi-arrow-return-right text-muted" aria-hidden="true"></i>
-                                {{ .Broad }} / <span class="fw-semibold">{{ .Specific }}</span>
-                                <span class="{{ if .Matches }}text-muted{{ else }}text-warning{{ end }} ms-1">
-                                    · {{ .Matches }} transaction{{ if ne .Matches 1 }}s{{ end }}
-                                </span>
-                            </div>
-                        </div>
-                        <button type="button" class="btn btn-link btn-sm p-0 text-danger flex-shrink-0"
-                                hx-delete="/settings/rules/{{ .ID }}"
-                                hx-target="#categories" hx-swap="innerHTML"
-                                title="Delete rule" aria-label="Delete the rule for {{ .Contains }}">
-                            <i class="bi bi-x-circle" aria-hidden="true"></i>
-                        </button>
-                    </li>
-                    {{ end }}
-                </ol>
-                {{ else }}
-                <p class="text-muted small mb-3">No rules yet.</p>
-                {{ end }}
-
-                <form hx-post="/settings/rules" hx-target="#categories" hx-swap="innerHTML" class="row g-2 align-items-end">
-                    <div class="col-12 col-md-5">
-                        <label class="b-field-label" for="rule-contains">Description or merchant contains</label>
-                        <input class="form-control form-control-sm" id="rule-contains" name="contains"
-                               placeholder="e.g. LOAN INTEREST" required>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <label class="b-field-label" for="rule-type">Type</label>
-                        <select class="form-select form-select-sm" id="rule-type" name="type">
-                            <option value="">Any</option>
-                            {{ range .Types }}<option value="{{ . }}">{{ . | fmtTitle }}</option>{{ end }}
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-4">
-                        <label class="b-field-label" for="rule-category">File under</label>
-                        <select class="form-select form-select-sm" id="rule-category" name="category" required>
-                            <option value="">Choose…</option>
-                            {{ range .Groups }}
-                            <optgroup label="{{ .Broad }}">
-                                {{ range .Options }}<option value="{{ .Specific }}">{{ .Specific }}{{ if .Custom }} ★{{ end }}</option>{{ end }}
-                            </optgroup>
-                            {{ end }}
-                        </select>
-                    </div>
-                    <div class="col-12">
-                        <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg"></i>Add rule</button>
-                    </div>
-                </form>
-            </div>
+    <form hx-post="/settings/categories" hx-target="#categories" hx-swap="innerHTML" class="row g-2 align-items-end">
+        <div class="col-6 col-md-4">
+            <label class="b-field-label" for="category-broad">Group</label>
+            <input class="form-control form-control-sm" id="category-broad" name="broad"
+                   list="category-broads" placeholder="e.g. General" required>
+            <datalist id="category-broads">
+                {{ range .Groups }}<option value="{{ .Broad }}"></option>{{ end }}
+            </datalist>
         </div>
+        <div class="col-6 col-md-4">
+            <label class="b-field-label" for="category-specific">Name</label>
+            <input class="form-control form-control-sm" id="category-specific" name="specific"
+                   placeholder="e.g. Housing" required>
+        </div>
+        <div class="col-12 col-md-4">
+            <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg"></i>Add category</button>
+        </div>
+    </form>
+</div>
 
-        <div class="col-12 col-lg-5">
-            <div class="b-sched">
-                <div class="fw-semibold">Your categories</div>
-                <p class="b-card-sub mb-2">Alongside Akahu's, for rules to file under. Marked ★ in the rule picker.</p>
-
-                {{ if .Custom }}
-                <ul class="list-unstyled mb-3">
-                    {{ range .Custom }}
-                    <li class="d-flex align-items-center justify-content-between gap-2 py-1 border-bottom">
-                        <span>{{ .Broad }} / <span class="fw-semibold">{{ .Specific }}</span></span>
-                        <button type="button" class="btn btn-link btn-sm p-0 text-danger"
-                                hx-delete="/settings/categories/{{ .ID }}"
-                                hx-target="#categories" hx-swap="innerHTML"
-                                title="Delete category" aria-label="Delete {{ .Specific }}">
-                            <i class="bi bi-x-circle" aria-hidden="true"></i>
-                        </button>
-                    </li>
-                    {{ end }}
-                </ul>
-                {{ else }}
-                <p class="text-muted small mb-3">None yet.</p>
-                {{ end }}
-
-                <form hx-post="/settings/categories" hx-target="#categories" hx-swap="innerHTML" class="row g-2 align-items-end">
-                    <div class="col-6">
-                        <label class="b-field-label" for="category-broad">Group</label>
-                        <input class="form-control form-control-sm" id="category-broad" name="broad"
-                               list="category-broads" placeholder="e.g. General" required>
-                        <datalist id="category-broads">
-                            {{ range .Groups }}<option value="{{ .Broad }}"></option>{{ end }}
-                        </datalist>
-                    </div>
-                    <div class="col-6">
-                        <label class="b-field-label" for="category-specific">Name</label>
-                        <input class="form-control form-control-sm" id="category-specific" name="specific"
-                               placeholder="e.g. Housing" required>
-                    </div>
-                    <div class="col-12">
-                        <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg"></i>Add category</button>
-                    </div>
-                </form>
-            </div>
+<div class="b-card b-card-pad mb-3">
+    <div class="b-card-head">
+        <div>
+            <h3 class="b-card-title"><i class="bi bi-signpost-split me-2"></i>Rules</h3>
+            <p class="b-card-sub">
+                File transactions under a category when Akahu leaves them uncategorised or gets
+                them wrong. Rules apply to every transaction, including ones already synced, and
+                are tried top to bottom; the first that matches wins. Deleting a rule puts
+                Akahu's category back.
+            </p>
         </div>
     </div>
+
+    {{ if .Rules }}
+    <ol class="list-unstyled mb-3">
+        {{ range .Rules }}
+        <li class="d-flex align-items-start justify-content-between gap-2 py-2 border-bottom">
+            <div class="min-width-0">
+                <div>
+                    Contains <span class="font-monospace">“{{ .Contains }}”</span>
+                    {{ if .Type }}<span class="text-muted">and type is</span> <span class="badge-category">{{ .Type }}</span>{{ end }}
+                </div>
+                <div class="small">
+                    <i class="bi bi-arrow-return-right text-muted" aria-hidden="true"></i>
+                    {{ .Broad }} / <span class="fw-semibold">{{ .Specific }}</span>
+                    <span class="{{ if .Matches }}text-muted{{ else }}text-warning{{ end }} ms-1">
+                        · {{ .Matches }} transaction{{ if ne .Matches 1 }}s{{ end }}
+                    </span>
+                </div>
+            </div>
+            <button type="button" class="btn btn-link btn-sm p-0 text-danger flex-shrink-0"
+                    hx-delete="/settings/rules/{{ .ID }}"
+                    hx-target="#categories" hx-swap="innerHTML"
+                    title="Delete rule" aria-label="Delete the rule for {{ .Contains }}">
+                <i class="bi bi-x-circle" aria-hidden="true"></i>
+            </button>
+        </li>
+        {{ end }}
+    </ol>
+    {{ else }}
+    <p class="text-muted small mb-3">No rules yet.</p>
+    {{ end }}
+
+    <form hx-post="/settings/rules" hx-target="#categories" hx-swap="innerHTML" class="row g-2 align-items-end">
+        <div class="col-12 col-md-5">
+            <label class="b-field-label" for="rule-contains">Description or merchant contains</label>
+            <input class="form-control form-control-sm" id="rule-contains" name="contains"
+                   placeholder="e.g. LOAN INTEREST" required>
+        </div>
+        <div class="col-6 col-md-3">
+            <label class="b-field-label" for="rule-type">Type</label>
+            <select class="form-select form-select-sm" id="rule-type" name="type">
+                <option value="">Any</option>
+                {{ range .Types }}<option value="{{ . }}">{{ . | fmtTitle }}</option>{{ end }}
+            </select>
+        </div>
+        <div class="col-6 col-md-4">
+            <label class="b-field-label" for="rule-category">File under</label>
+            <select class="form-select form-select-sm" id="rule-category" name="category" required>
+                <option value="">Choose…</option>
+                {{ range .Groups }}
+                <optgroup label="{{ .Broad }}">
+                    {{ range .Options }}<option value="{{ .Specific }}">{{ .Specific }}{{ if .Custom }} ★{{ end }}</option>{{ end }}
+                </optgroup>
+                {{ end }}
+            </select>
+        </div>
+        <div class="col-12">
+            <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg"></i>Add rule</button>
+        </div>
+    </form>
 </div>
 {{ end }}
 
