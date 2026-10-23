@@ -82,6 +82,57 @@ func topMerchants(spend map[string]float64) []string {
 	return names
 }
 
+// uncategorisedGroup collects debits Akahu could not categorise. They are
+// still real outgoings, so leaving them out of the setup table while the
+// weekly chart counts them makes weeks look over budget for no visible reason.
+const uncategorisedGroup = "Uncategorised"
+
+// uncategorisedLabels names the rows inside the uncategorised group. Without
+// a category the transaction type is the most telling thing left: loan
+// interest, a standing order to an investment fund and cash withdrawals each
+// get a row of their own that a target can be set against.
+var uncategorisedLabels = map[string]string{
+	"LOAN":           "Loan",
+	"STANDING ORDER": "Standing orders",
+	"PAYMENT":        "Payments",
+	"DIRECT DEBIT":   "Direct debits",
+	"ATM":            "ATM withdrawals",
+	"EFTPOS":         "EFTPOS",
+	"DEBIT":          "Card debits",
+	"FEE":            "Fees",
+}
+
+// spendCategory decides whether a transaction is spending and, if it is,
+// which broad and specific category it belongs to. Every budget view goes
+// through here so the chart and the setup table always count the same money.
+func spendCategory(tx models.Transaction) (broad, specific string, ok bool) {
+	if tx.Amount >= 0 || tx.Type == "TRANSFER" {
+		return "", "", false
+	}
+	broad = tx.Category.Groups.PersonalFinance.Name
+	if broad == "" {
+		label, known := uncategorisedLabels[tx.Type]
+		if !known {
+			label = "Other"
+		}
+		return uncategorisedGroup, label, true
+	}
+	specific = tx.Category.Name
+	if specific == "" {
+		specific = broad
+	}
+	return broad, specific, true
+}
+
+// spendMerchant names who a transaction was paid to. Uncategorised debits
+// rarely carry a merchant, so the cleaned bank description stands in for it.
+func spendMerchant(tx models.Transaction) string {
+	if tx.Merchant.Name != "" {
+		return tx.Merchant.Name
+	}
+	return timelineTitle(BuildTransactionRow(tx))
+}
+
 // BroadCategoryGroup groups target rows under their parent Akahu category.
 type BroadCategoryGroup struct {
 	Name              string
@@ -367,21 +418,13 @@ func (app *Application) subcatSpend(subCat, freq string) (float64, []string, err
 
 	var total float64
 	merchantSpend := make(map[string]float64)
-	subCatLower := strings.ToLower(subCat)
 	for _, tx := range txs {
-		if tx.Amount >= 0 || tx.Type == "TRANSFER" {
-			continue
-		}
-		specific := strings.ToLower(tx.Category.Name)
-		broad := strings.ToLower(tx.Category.Groups.PersonalFinance.Name)
-		if specific == "" {
-			specific = broad
-		}
-		if specific != subCatLower && broad != subCatLower {
+		broad, specific, ok := spendCategory(tx)
+		if !ok || !strings.EqualFold(specific, subCat) && !strings.EqualFold(broad, subCat) {
 			continue
 		}
 		amt := math.Abs(tx.Amount)
-		if name := tx.Merchant.Name; name != "" {
+		if name := spendMerchant(tx); name != "" {
 			merchantSpend[name] += amt
 		}
 		if cutoff.IsZero() || tx.Date.After(cutoff) {
@@ -495,20 +538,13 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 	merchantSpend := make(map[pairKey]map[string]float64)
 
 	for _, tx := range txs {
-		if tx.Amount >= 0 || tx.Type == "TRANSFER" {
+		broad, specific, ok := spendCategory(tx)
+		if !ok {
 			continue
-		}
-		broad := tx.Category.Groups.PersonalFinance.Name
-		if broad == "" {
-			continue
-		}
-		specific := tx.Category.Name
-		if specific == "" {
-			specific = broad
 		}
 		key := pairKey{broad, specific}
 		amt := math.Abs(tx.Amount)
-		if name := tx.Merchant.Name; name != "" {
+		if name := spendMerchant(tx); name != "" {
 			if merchantSpend[key] == nil {
 				merchantSpend[key] = make(map[string]float64)
 			}
@@ -742,7 +778,7 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 
 	weekTotals := make(map[time.Time]float64)
 	for _, tx := range txs {
-		if tx.Amount >= 0 || tx.Type == "TRANSFER" {
+		if _, _, ok := spendCategory(tx); !ok {
 			continue
 		}
 		weekTotals[isoWeekStart(tx.Date)] += math.Abs(tx.Amount)
