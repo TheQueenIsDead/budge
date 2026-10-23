@@ -52,7 +52,7 @@ func (app *Application) SettingsImport(c echo.Context) error {
 	}
 
 	counts := backup.Counts()
-	message := fmt.Sprintf("Imported %d memories, %d assets and %d budget items.", counts.Memories, counts.Assets, counts.BudgetItems)
+	message := fmt.Sprintf("Imported %d memories, %d assets, %d budget items and %d category rules.", counts.Memories, counts.Assets, counts.BudgetItems, counts.Rules)
 	app.Toast(c, "Imported", message)
 	return app.Settings(c)
 }

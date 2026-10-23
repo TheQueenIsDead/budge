@@ -25,6 +25,8 @@ type Backup struct {
 	BudgetSalary *BudgetSalary `json:"budget_salary,omitempty"`
 
 	Schedule *ScheduleSettings `json:"schedule,omitempty"`
+
+	Categories *CategorySettings `json:"categories,omitempty"`
 }
 
 // BackupCounts says what a backup holds, for telling the owner what an import
@@ -33,8 +35,13 @@ type BackupCounts struct {
 	Memories    int
 	Assets      int
 	BudgetItems int
+	Rules       int
 }
 
 func (b Backup) Counts() BackupCounts {
-	return BackupCounts{Memories: len(b.Memories), Assets: len(b.Assets), BudgetItems: len(b.BudgetItems)}
+	counts := BackupCounts{Memories: len(b.Memories), Assets: len(b.Assets), BudgetItems: len(b.BudgetItems)}
+	if b.Categories != nil {
+		counts.Rules = len(b.Categories.Rules)
+	}
+	return counts
 }

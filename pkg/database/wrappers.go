@@ -251,6 +251,9 @@ func (s *Store) ExportBackup() (models.Backup, error) {
 		schedule.AkahuLastRun, schedule.AssetsLastRun = time.Time{}, time.Time{}
 		backup.Schedule = &schedule
 	}
+	if categories, err := Get[models.CategorySettings](s.db, models.CategorySettings{}.Key()); err == nil {
+		backup.Categories = &categories
+	}
 	return backup, nil
 }
 
@@ -278,6 +281,15 @@ func (s *Store) ImportBackup(backup models.Backup) error {
 		schedule = append(schedule, next)
 	}
 
+	var categories []models.CategorySettings
+	if backup.Categories != nil {
+		current, err := s.GetCategorySettings()
+		if err != nil {
+			return err
+		}
+		categories = append(categories, mergeCategorySettings(current, *backup.Categories))
+	}
+
 	return s.db.Update(func(tx *bolt.Tx) error {
 		return errors.Join(
 			putAll(tx, backup.Memories),
@@ -286,8 +298,38 @@ func (s *Store) ImportBackup(backup models.Backup) error {
 			putAll(tx, []models.TimelinePreferences{prefs}),
 			putAll(tx, salary),
 			putAll(tx, schedule),
+			putAll(tx, categories),
 		)
 	})
+}
+
+// mergeCategorySettings folds imported categories and rules into the current
+// ones the way the rest of an import merges: same ID overwrites in place,
+// anything new is added after what is already here, keeping rule order.
+func mergeCategorySettings(current, imported models.CategorySettings) models.CategorySettings {
+	categories := make(map[string]int, len(current.Categories))
+	for i, category := range current.Categories {
+		categories[category.ID] = i
+	}
+	for _, category := range imported.Categories {
+		if i, ok := categories[category.ID]; ok {
+			current.Categories[i] = category
+		} else {
+			current.Categories = append(current.Categories, category)
+		}
+	}
+	rules := make(map[string]int, len(current.Rules))
+	for i, rule := range current.Rules {
+		rules[rule.ID] = i
+	}
+	for _, rule := range imported.Rules {
+		if i, ok := rules[rule.ID]; ok {
+			current.Rules[i] = rule
+		} else {
+			current.Rules = append(current.Rules, rule)
+		}
+	}
+	return current
 }
 
 // unionStrings combines two lists, keeping the order of the first and adding
@@ -335,21 +377,46 @@ func (s *Store) CountTransactions() (int, error) {
 func (s *Store) CreateTransaction(transaction models.Transaction) error {
 	return Create[models.Transaction](s.db, transaction)
 }
+
+// Category rules are applied as transactions are read rather than written
+// back, so they reach every transaction already synced and removing one
+// restores Akahu's category without a resync.
+
+func (s *Store) categorised(txs []models.Transaction, err error) ([]models.Transaction, error) {
+	if err != nil {
+		return nil, err
+	}
+	settings, err := s.GetCategorySettings()
+	if err != nil {
+		return nil, err
+	}
+	settings.Apply(txs)
+	return txs, nil
+}
+
 func (s *Store) ReadTransactions() ([]models.Transaction, error) {
-	return Read[models.Transaction](s.db)
+	return s.categorised(Read[models.Transaction](s.db))
 }
 func (s *Store) ReadTransactionsByAccount(account string) ([]models.Transaction, error) {
-	return ReadFilter[models.Transaction](s.db, func(transaction models.Transaction) bool {
+	return s.categorised(ReadFilter[models.Transaction](s.db, func(transaction models.Transaction) bool {
 		return transaction.Account == account
-	})
+	}))
 }
 func (s *Store) ReadTransactionsByDate(start time.Time, end time.Time) ([]models.Transaction, error) {
-	return ReadFilter[models.Transaction](s.db, func(transaction models.Transaction) bool {
+	return s.categorised(ReadFilter[models.Transaction](s.db, func(transaction models.Transaction) bool {
 		return transaction.Date.After(start) && transaction.Date.Before(end)
-	})
+	}))
 }
 func (s *Store) SearchTransactions(search string, account string) ([]models.Transaction, error) {
-	return ReadFilter[models.Transaction](s.db, func(transaction models.Transaction) bool {
+	settings, err := s.GetCategorySettings()
+	if err != nil {
+		return nil, err
+	}
+	return s.categorised(ReadFilter[models.Transaction](s.db, func(transaction models.Transaction) bool {
+		// Searching by a rule's category should find what it filed.
+		one := []models.Transaction{transaction}
+		settings.Apply(one)
+		transaction = one[0]
 
 		accountMatch := account == "" || transaction.Account == account
 
@@ -370,7 +437,7 @@ func (s *Store) SearchTransactions(search string, account string) ([]models.Tran
 		searchMatch := strings.Contains(haystack, needle)
 
 		return accountMatch && searchMatch
-	})
+	}))
 }
 
 /* Budget Items */
@@ -507,4 +574,20 @@ func (s *Store) DeleteSynced() error {
 		_, transactionErr := tx.CreateBucket(buckets.TransactionBucket)
 		return errors.Join(accountErr, merchantErr, transactionErr)
 	})
+}
+
+/* Categories */
+
+func (s *Store) GetCategorySettings() (models.CategorySettings, error) {
+	// Like the salary, an unsaved document reads back as an error; it simply
+	// means no categories or rules have been set up yet.
+	settings, err := Get[models.CategorySettings](s.db, models.CategorySettings{}.Key())
+	if err != nil {
+		return models.CategorySettings{}, nil
+	}
+	return settings, nil
+}
+
+func (s *Store) SaveCategorySettings(settings models.CategorySettings) error {
+	return Update[models.CategorySettings](s.db, settings)
 }
