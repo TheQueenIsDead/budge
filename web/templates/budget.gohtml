@@ -457,12 +457,7 @@
                    title="Actual spend is averaged over a window matched to each target: the last 4 weeks for weekly targets, 8 for fortnightly, 3 months for monthly and 13 months for yearly."></i>
                 {{end}}
             </span>
-            <span class="b-card-sub">
-                {{if eq .Key "attention"}}{{.Actual | fmtWhole}} a week{{if .Target}} against {{.Target | fmtWhole}} of targets{{end}}
-                {{else if eq .Key "on-track"}}{{.Actual | fmtWhole}} of {{.Target | fmtWhole}} a week
-                {{else if eq .Key "small"}}{{.Actual | fmtWhole}} a week between them, too little to need a target
-                {{else}}{{.Actual | fmtWhole}} a week, left out of the budget{{end}}
-            </span>
+            {{template "budget.setup.section.sum" .}}
             <i class="bi bi-chevron-down b-tsec-chev" aria-hidden="true"></i>
         </summary>
         <div class="b-tsec-body">
@@ -486,15 +481,7 @@
         <div class="d-flex align-items-end justify-content-between gap-3 flex-wrap">
             <div class="min-width-0">
                 <div class="b-card-title"><i class="bi bi-piggy-bank me-2" aria-hidden="true"></i>Savings goal</div>
-                {{/* Income may not be set yet; tracked savings still mean something. */}}
-                {{if gt .NetWeekly 0.0}}
-                <div class="b-card-sub {{if and .HasSavingsGoal (not .MeetsSavingsGoal)}}text-danger{{end}}">
-                    {{if lt .Remaining 0.0}}Targets exceed take-home pay by {{.Remaining | fmtWhole}} a week{{else}}{{.Remaining | fmtWhole}} a week left after targets{{end}}{{if and .HasSavingsGoal .MeetsSavingsGoal}}, which meets the goal{{end}}
-                </div>
-                {{end}}
-                {{if gt .TrackedSavingsWeekly 0.0}}
-                <div class="b-card-sub">{{.TrackedSavingsWeekly | fmtWhole}} a week already going to savings categories</div>
-                {{end}}
+                {{template "budget.setup.savings.note" .}}
             </div>
             <div class="d-flex gap-2">
                 <div class="input-group input-group-sm" style="width:9rem;">
@@ -512,6 +499,35 @@
             </div>
         </div>
     </form>
+{{end}}
+
+{{define "budget.setup.section.sum"}}
+<span class="b-card-sub" id="tsec-sum-{{.Key}}"{{if .OOB}} hx-swap-oob="true"{{end}}>
+    {{if eq .Key "attention"}}{{.Actual | fmtWhole}} a week{{if .Target}} against {{.Target | fmtWhole}} of targets{{end}}
+    {{else if eq .Key "on-track"}}{{.Actual | fmtWhole}} of {{.Target | fmtWhole}} a week
+    {{else if eq .Key "small"}}{{.Actual | fmtWhole}} a week between them, too little to need a target
+    {{else}}{{.Actual | fmtWhole}} a week, left out of the budget{{end}}
+</span>
+{{end}}
+
+{{define "budget.setup.savings.note"}}
+<div id="budget-savings-note"{{if .OOB}} hx-swap-oob="true"{{end}}>
+    {{/* Income may not be set yet; tracked savings still mean something. */}}
+    {{if gt .NetWeekly 0.0}}
+    <div class="b-card-sub {{if and .HasSavingsGoal (not .MeetsSavingsGoal)}}text-danger{{end}}">
+        {{if lt .Remaining 0.0}}Targets exceed take-home pay by {{.Remaining | fmtWhole}} a week{{else}}{{.Remaining | fmtWhole}} a week left after targets{{end}}{{if and .HasSavingsGoal .MeetsSavingsGoal}}, which meets the goal{{end}}
+    </div>
+    {{end}}
+    {{if gt .TrackedSavingsWeekly 0.0}}
+    <div class="b-card-sub">{{.TrackedSavingsWeekly | fmtWhole}} a week already going to savings categories</div>
+    {{end}}
+</div>
+{{end}}
+
+{{define "budget.setup.row.update"}}
+{{template "budget.setup.row" .Row}}
+{{range .Setup.Sections}}{{template "budget.setup.section.sum" .}}{{end}}
+{{template "budget.setup.savings.note" .Setup}}
 {{end}}
 
 {{define "budget.setup.row"}}
@@ -543,7 +559,8 @@
             {{if .IsSpending}}
             <form class="row g-2 align-items-end mb-3"
                   hx-post="/budget/targets" hx-trigger="change"
-                  hx-target="#budget-setup" hx-swap="innerHTML">
+                  hx-target="#{{.RowID}}" hx-swap="outerHTML">
+                <input type="hidden" name="section" value="{{.Section}}">
                 <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
                 <input type="hidden" name="sub_category" value="{{.SubCategory}}">
                 <div class="col-6 col-md-3">
@@ -571,7 +588,8 @@
             {{end}}
 
             <form class="d-flex align-items-center gap-2 flex-wrap mb-2"
-                  hx-post="/budget/kind" hx-target="#budget-setup" hx-swap="innerHTML">
+                  hx-post="/budget/kind" hx-target="#{{.RowID}}" hx-swap="outerHTML">
+                <input type="hidden" name="section" value="{{.Section}}">
                 <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
                 <input type="hidden" name="sub_category" value="{{.SubCategory}}">
                 <span class="b-field-label mb-0">Counts as</span>
@@ -606,7 +624,8 @@
     {{/* One click for the usual answers, so clearing unbudgeted spend does
          not mean typing a figure for each category. */}}
     <div class="b-target-quick">
-        <form hx-post="/budget/targets" hx-target="#budget-setup" hx-swap="innerHTML">
+        <form hx-post="/budget/targets" hx-target="#{{.RowID}}" hx-swap="outerHTML">
+            <input type="hidden" name="section" value="{{.Section}}">
             <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
             <input type="hidden" name="sub_category" value="{{.SubCategory}}">
             <input type="hidden" name="target_amount" value="{{printf "%.0f" .SuggestedMonthly}}">
@@ -614,7 +633,8 @@
             <button type="submit" class="btn btn-outline-secondary btn-sm"
                     title="What it has averaged over the last 13 weeks, rounded up">Use {{.SuggestedMonthly | fmtWhole}} a month</button>
         </form>
-        <form class="d-flex gap-2" hx-post="/budget/kind" hx-target="#budget-setup" hx-swap="innerHTML">
+        <form class="d-flex gap-2" hx-post="/budget/kind" hx-target="#{{.RowID}}" hx-swap="outerHTML">
+            <input type="hidden" name="section" value="{{.Section}}">
             <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
             <input type="hidden" name="sub_category" value="{{.SubCategory}}">
             <button type="submit" name="kind" value="savings" class="btn btn-outline-secondary btn-sm">Savings</button>

@@ -47,7 +47,8 @@ type CategoryTargetRow struct {
 	// Merchants seen in this category, highest spend first. Informational
 	// only — they are derived from transactions, never edited.
 	Merchants []string
-	Open      bool // the row being edited, drawn expanded
+	Open      bool   // the row being edited, drawn expanded
+	Section   string // key of the section the row is drawn in
 }
 
 // BarWidth is how full the row's progress bar is drawn, capped at full.
@@ -141,6 +142,7 @@ type TargetSection struct {
 	Actual float64 // weekly, across the section's rows
 	Target float64 // weekly, across the section's rows
 	Open   bool
+	OOB    bool // drawn as an out-of-band update after an edit
 }
 
 // Section keys, in the order the page shows them.
@@ -183,6 +185,7 @@ func buildTargetSections(rows []CategoryTargetRow, openRow string) []TargetSecti
 		}
 		section := &sections[index[key]]
 		row.Open = row.RowID == openRow
+		row.Section = key
 		section.Rows = append(section.Rows, row)
 		section.Actual += row.ActualWeekly
 		section.Target += row.TargetWeekly
@@ -241,6 +244,7 @@ type CategorySetupData struct {
 	// Weekly spend in categories marked as savings, e.g. a standing order to
 	// an investment fund. Shown beside the goal rather than counted as spending.
 	TrackedSavingsWeekly float64
+	OOB                  bool // drawn as an out-of-band update after an edit
 }
 
 // BudgetCardsData is the view-model for the summary cards on the income page
@@ -350,7 +354,7 @@ func buildTargetsTile(setup CategorySetupData) TargetsTileData {
 }
 
 // BudgetSaveTarget creates or updates a BudgetItem for a category pair and
-// returns the re-rendered page with that row kept open.
+// returns the re-rendered row.
 func (app *Application) BudgetSaveTarget(c echo.Context) error {
 	subCat := c.FormValue("sub_category")
 	if subCat == "" {
@@ -375,7 +379,7 @@ func (app *Application) BudgetSaveTarget(c echo.Context) error {
 			if err := app.store.UpdateBudgetItem(item); err != nil {
 				return err
 			}
-			return app.renderSetup(c, sanitizeID(subCat))
+			return app.renderTargetRow(c, sanitizeID(subCat))
 		}
 	}
 	newItem := models.BudgetItem{
@@ -389,7 +393,7 @@ func (app *Application) BudgetSaveTarget(c echo.Context) error {
 	if err := app.store.CreateBudgetItem(newItem); err != nil {
 		return err
 	}
-	return app.renderSetup(c, sanitizeID(subCat))
+	return app.renderTargetRow(c, sanitizeID(subCat))
 }
 
 type budgetKindOption struct{ Value, Label string }
@@ -444,21 +448,74 @@ func (app *Application) BudgetSaveKind(c echo.Context) error {
 		}
 	}
 
-	return app.renderSetup(c, sanitizeID(subCat))
+	return app.renderTargetRow(c, sanitizeID(subCat))
 }
 
-// renderSetup answers every edit on the targets page with the whole list.
-// An edit can move a row between sections and changes the section totals,
-// so re-rendering only the row would leave the rest out of date. openRow is
-// the row being edited, which stays open wherever it lands.
-func (app *Application) renderSetup(c echo.Context, openRow string) error {
+// TargetRowUpdate answers an edit on the targets page: the edited row, and
+// the figures elsewhere on the page that it changes.
+type TargetRowUpdate struct {
+	Row   CategoryTargetRow
+	Setup CategorySetupData
+}
+
+// renderTargetRow answers an edit with just the edited row, swapped in place.
+// Re-rendering the list instead moved rows between sections and reordered
+// them under the pointer. The row keeps the section it is drawn in, given as
+// "section", even if the edit means it belongs elsewhere; it moves there the
+// next time the page loads. Section totals are worked out with it there too,
+// so they agree with what is on screen.
+func (app *Application) renderTargetRow(c echo.Context, rowID string) error {
 	setup, err := app.buildSetupData()
 	if err != nil {
 		return err
 	}
-	setup.OpenRow = openRow
-	setup.Sections = buildTargetSections(setup.Rows, openRow)
-	return c.Render(http.StatusOK, "budget.setup", setup)
+	setup.Sections = pinRow(buildTargetSections(setup.Rows, rowID), rowID, c.FormValue("section"))
+	setup.OOB = true
+	for i := range setup.Sections {
+		setup.Sections[i].OOB = true
+	}
+	for _, section := range setup.Sections {
+		for _, row := range section.Rows {
+			if row.RowID == rowID {
+				return c.Render(http.StatusOK, "budget.setup.row.update", TargetRowUpdate{Row: row, Setup: setup})
+			}
+		}
+	}
+	return echo.NewHTTPError(http.StatusNotFound, "That category is no longer in the budget.")
+}
+
+// pinRow moves a row into the section it is drawn in, so totals match the
+// page after an edit that would move it. An unknown section leaves it put.
+func pinRow(sections []TargetSection, rowID, key string) []TargetSection {
+	from, to := -1, -1
+	var row CategoryTargetRow
+	for i, section := range sections {
+		if section.Key == key {
+			to = i
+		}
+		for _, r := range section.Rows {
+			if r.RowID == rowID {
+				from, row = i, r
+			}
+		}
+	}
+	if from < 0 || to < 0 || from == to {
+		return sections
+	}
+	kept := sections[from].Rows[:0:0]
+	for _, r := range sections[from].Rows {
+		if r.RowID != rowID {
+			kept = append(kept, r)
+		}
+	}
+	sections[from].Rows = kept
+	sections[from].Actual -= row.ActualWeekly
+	sections[from].Target -= row.TargetWeekly
+	row.Section = key
+	sections[to].Rows = append(sections[to].Rows, row)
+	sections[to].Actual += row.ActualWeekly
+	sections[to].Target += row.TargetWeekly
+	return sections
 }
 
 // BudgetCards returns the summary cards (income / expenses / savings).

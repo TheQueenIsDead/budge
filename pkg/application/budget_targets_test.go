@@ -128,25 +128,52 @@ func openAttr(html, id string) bool {
 	return regexp.MustCompile(`id="` + id + `">\s*<details open`).MatchString(html)
 }
 
-func TestTargetEditsKeepTheRowOpen(t *testing.T) {
+// TestTargetEditsUpdateTheRowInPlace is the regression test for the page
+// jumping about while editing: every edit re-rendered the whole list, which
+// moved rows between sections, reordered them and closed sections opened by
+// hand. An edit now answers with just its row, which stays where it is drawn.
+func TestTargetEditsUpdateTheRowInPlace(t *testing.T) {
 	app := newTestApp(t)
 	recent := time.Now().Add(-48 * time.Hour)
-	require.NoError(t, app.store.CreateTransaction(spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -400, recent)))
+	require.NoError(t, app.store.CreateTransaction(spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -390, recent)))
 	require.NoError(t, app.store.CreateTransaction(spendTx("fuel", "EFTPOS", "Transport", "Fuel", "", "", -40, recent)))
 	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "fuel", Category: "Fuel", BroadCategory: "Transport", Amount: 60, Frequency: "weekly"}))
 
 	c, rec := postForm(t, app, url.Values{
 		"sub_category": {"Loan"}, "broad_category": {uncategorisedGroup},
-		"target_amount": {"400"}, "target_frequency": {"weekly"},
+		"target_amount": {"50"}, "target_frequency": {"weekly"},
+		"section": {sectionAttention},
 	})
 	c.Request().Header.Set("HX-Request", "true")
 	require.NoError(t, app.BudgetSaveTarget(c))
 	html := rec.Body.String()
 
 	assert.True(t, openAttr(html, "sc-loan"), "the edited row stays open")
-	assert.False(t, openAttr(html, "sc-fuel"), "other rows stay closed")
-	assert.Regexp(t, `data-section="on-track" open`, html, "the row moved to on track, so that section opens to show it")
-	assert.NotContains(t, html, `data-section="attention"`, "nothing is left needing attention")
+	assert.NotContains(t, html, `id="sc-fuel"`, "no other row is redrawn")
+	assert.NotContains(t, html, "<details class=\"b-card", "no section is redrawn, so none opens or closes")
+	assert.Contains(t, html, `<input type="hidden" name="section" value="attention">`, "the row stays in the section it is drawn in")
+	assert.Regexp(t, `id="tsec-sum-attention" hx-swap-oob="true">\s*\$98 a week against \$50 of targets`, html,
+		"section totals update alongside, counting the row where it is drawn")
+	assert.Contains(t, html, `id="budget-savings-note" hx-swap-oob="true"`)
+}
+
+func TestPinRowKeepsARowWhereItIsDrawn(t *testing.T) {
+	rows := []CategoryTargetRow{
+		buildSetupRowData(models.BudgetItem{Category: "Fuel", Amount: 60, Frequency: "weekly"}, 40, 1_000),
+		buildSetupRowData(models.BudgetItem{Category: "Loan", Amount: 400, Frequency: "weekly"}, 390, 1_000),
+		buildSetupRowData(models.BudgetItem{Category: "Takeaways", Amount: 20, Frequency: "weekly"}, 50, 1_000),
+	}
+	sections := pinRow(buildTargetSections(rows, ""), sanitizeID("Loan"), sectionAttention)
+
+	require.Equal(t, []string{sectionAttention, sectionOnTrack}, sectionKeys(sections))
+	assert.Equal(t, []string{"Takeaways", "Loan"}, rowNames(sections[0]))
+	assert.Equal(t, sectionAttention, sections[0].Rows[1].Section)
+	assert.InDelta(t, 440, sections[0].Actual, 0.001)
+	assert.Equal(t, []string{"Fuel"}, rowNames(sections[1]))
+	assert.InDelta(t, 40, sections[1].Actual, 0.001)
+
+	unchanged := pinRow(buildTargetSections(rows, ""), sanitizeID("Loan"), "nowhere")
+	assert.Equal(t, []string{"Fuel", "Loan"}, rowNames(unchanged[1]), "an unknown section leaves the row put")
 }
 
 func TestQuickActionsOnlyOfferedForUntargetedSpend(t *testing.T) {

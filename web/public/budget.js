@@ -152,31 +152,6 @@ document.body.addEventListener('htmx:afterSwap', event => {
 });
 initBudgetPerfChart();
 
-// ---- Keep the edited row in place ----
-//
-// Every edit on the targets page re-renders the whole list, and the row being
-// edited can land in another section. Its position on screen is noted before
-// the request and restored after the swap, so it stays under the pointer
-// rather than the page jumping somewhere else.
-
-let pinnedRow = null;
-
-document.body.addEventListener('htmx:beforeRequest', event => {
-    const row = event.detail.elt.closest && event.detail.elt.closest('#budget-setup .b-target');
-    if (row) {
-        pinnedRow = { id: row.id, top: row.getBoundingClientRect().top };
-    }
-});
-
-document.body.addEventListener('htmx:afterSwap', event => {
-    if (!pinnedRow || event.detail.target.id !== 'budget-setup') return;
-    const row = document.getElementById(pinnedRow.id);
-    if (row) {
-        window.scrollBy(0, row.getBoundingClientRect().top - pinnedRow.top);
-    }
-    pinnedRow = null;
-});
-
 // ---- Save confirmation ----
 
 function flashSaved(scope) {
