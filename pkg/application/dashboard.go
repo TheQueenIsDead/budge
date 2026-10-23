@@ -46,8 +46,10 @@ func BuildHighestOutgoingTransactions(current []models.Transaction, n int) []Out
 
 	var outgoing []OutgoingTransaction
 	for _, tx := range current {
-		// Exclude loan interest transactions for this report
-		if strings.ToUpper(tx.Description) == "LOAN INTEREST" {
+		// Loan interest is a cost of borrowing rather than a payment, and a
+		// transfer, even one counted as spending, is money moved between the
+		// owner's own accounts: neither is a transaction to pick out here.
+		if strings.ToUpper(tx.Description) == "LOAN INTEREST" || tx.IsTransfer() {
 			continue
 		}
 		// Only consider outgoing transactions
@@ -289,7 +291,9 @@ func BuildTopMerchants(last, current []models.Transaction, n int) []models.Merch
 		totals := make(map[string]float64)
 		for _, tx := range transactions {
 			// Money coming back from a merchant is a refund, not a payment.
-			if tx.Merchant.Name == "" || tx.Amount >= 0 {
+			// Sync names every transfer's merchant "Transfer", so even one
+			// counted as spending is not a merchant.
+			if tx.Merchant.Name == "" || tx.Amount >= 0 || tx.IsTransfer() {
 				continue
 			}
 			totals[tx.Merchant.Name] += -tx.Amount
@@ -358,6 +362,14 @@ func BuildFrequentMerchants(transactions []models.Transaction, n int) []models.M
 	return results[:n]
 }
 
+// dashboardMonthsStart is where the dashboard's six months begin: the first of
+// the month five months back, so this month and the five before it are whole.
+// Starting six months back to the day left the first bar holding only its
+// last week.
+func dashboardMonthsStart(now time.Time) time.Time {
+	return time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).AddDate(0, -5, 0)
+}
+
 func (app *Application) Dashboard(c echo.Context) error {
 
 	now := time.Now()
@@ -373,14 +385,14 @@ func (app *Application) Dashboard(c echo.Context) error {
 
 	// Transfers move money between the owner's own accounts, so counting them
 	// as spend would double up every dollar that passes through.
-	sixMonthsAgo := now.AddDate(0, -6, 0)
+	sixMonthsAgo := dashboardMonthsStart(now)
 	var nonTransfer, lastSixMonths []models.Transaction
 	for _, tx := range transactions {
 		if tx.Type == "TRANSFER" {
 			continue
 		}
 		nonTransfer = append(nonTransfer, tx)
-		if tx.Date.After(sixMonthsAgo) {
+		if !tx.Date.Before(sixMonthsAgo) {
 			lastSixMonths = append(lastSixMonths, tx)
 		}
 	}

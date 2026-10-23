@@ -364,3 +364,37 @@ func TestBuildPerformanceSeriesWithoutSpend(t *testing.T) {
 	require.Len(t, series, 2, "both series are always sent so each keeps its colour")
 	assert.Len(t, series[0].Data, 13)
 }
+
+func TestDashboardListsLeaveOutTransfers(t *testing.T) {
+	now := time.Now()
+	recent := []models.Transaction{
+		spendTx("repay", models.TypeCountedTransfer, "General", "Mortgage", "Transfer", "AP#19781426 TO D J KING", -641, now),
+		spendTx("cylinder", "PAYMENT", "", "", "", "PAY The Cylinder Guy Limited", -2455, now),
+		spendTx("groceries", "EFTPOS", "Food", "Supermarkets", "PAK'nSAVE", "", -200, now),
+	}
+
+	var merchants []string
+	for _, m := range BuildTopMerchants(nil, recent, 6) {
+		merchants = append(merchants, m.Merchant)
+	}
+	assert.Equal(t, []string{"PAK'nSAVE"}, merchants, "a counted transfer is not a merchant")
+
+	var biggest []string
+	for _, tx := range BuildHighestOutgoingTransactions(recent, 6) {
+		biggest = append(biggest, tx.Description)
+	}
+	assert.Equal(t, []string{"PAY The Cylinder Guy Limited", "PAK'nSAVE"}, biggest)
+}
+
+func TestDashboardMonthsAreWhole(t *testing.T) {
+	now := time.Date(2026, 10, 23, 15, 4, 0, 0, time.UTC)
+	start := dashboardMonthsStart(now)
+	assert.Equal(t, time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC), start, "May to October, with May whole rather than its last week")
+
+	months := AggregateMonthlyTransactions([]models.Transaction{
+		spendTx("first", "EFTPOS", "Food", "Supermarkets", "", "", -10, start),
+		spendTx("now", "EFTPOS", "Food", "Supermarkets", "", "", -10, now),
+	}, time.UTC)
+	assert.Len(t, months, 2)
+	assert.Contains(t, months, "May 26")
+}
