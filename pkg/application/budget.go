@@ -128,7 +128,12 @@ func spendCategory(tx models.Transaction) (broad, specific string, ok bool) {
 
 // spendMerchant names who a transaction was paid to. Uncategorised debits
 // rarely carry a merchant, so the cleaned bank description stands in for it.
+// Sync names every transfer's merchant "Transfer", which tells two transfers
+// apart no better than nothing, so they always use the description.
 func spendMerchant(tx models.Transaction) string {
+	if tx.IsTransfer() {
+		tx.Merchant.Name = ""
+	}
 	if tx.Merchant.Name != "" {
 		return tx.Merchant.Name
 	}

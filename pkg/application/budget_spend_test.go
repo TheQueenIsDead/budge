@@ -55,6 +55,8 @@ func TestSpendMerchantFallsBackToCleanedDescription(t *testing.T) {
 	assert.Equal(t, "Countdown", spendMerchant(spendTx("1", "EFTPOS", "", "", "Countdown", "POS W/D COUNTDOWN-10:01", -5, now)))
 	assert.Equal(t, "Holland Suzuk", spendMerchant(spendTx("2", "EFTPOS", "", "", "", "POS W/D Holland Suzuk-13:04", -5, now)),
 		"card terminal noise is stripped so repeat visits share one tag")
+	assert.Equal(t, "AP#19781426 TO D J KING", spendMerchant(spendTx("3", models.TypeCountedTransfer, "", "", "Transfer", "AP#19781426 TO D J KING", -641, now)),
+		"sync names every transfer's merchant Transfer, so the description identifies it")
 }
 
 // TestChartAndSetupCountTheSameSpend is the regression test for weeks

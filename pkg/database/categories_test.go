@@ -108,3 +108,27 @@ func TestCategorySettingsMergeOnImport(t *testing.T) {
 	}
 	assert.Equal(t, []string{"new", "keep", "added"}, patterns, "same id overwrites in place and rule order is kept")
 }
+
+func TestTransferRules(t *testing.T) {
+	out := categorisedTx("out", "TRANSFER", "AP#19781426 TO D J KING", "")
+	out.Amount = -641
+	in := categorisedTx("in", "TRANSFER", "AP#19781426 FROM D J KING", "")
+	in.Amount = 641
+	plain := models.CategoryRule{ID: "plain", Contains: "AP#19781426", Broad: "General", Specific: "Mortgage"}
+	counted := plain
+	counted.IncludeTransfers = true
+
+	assert.False(t, plain.Matches(out), "transfers are left alone unless the rule opts in")
+	assert.True(t, counted.Matches(out), "an opted-in rule matches the money leaving")
+	assert.False(t, counted.Matches(in), "the money arriving stays a transfer, so it is never counted twice")
+
+	txs := []models.Transaction{out, in}
+	models.CategorySettings{Rules: []models.CategoryRule{counted}}.Apply(txs)
+
+	assert.Equal(t, models.TypeCountedTransfer, txs[0].Type)
+	assert.Equal(t, "Mortgage", txs[0].Category.Name)
+	assert.True(t, txs[0].IsTransfer(), "it is still a transfer, just one that is counted")
+	assert.True(t, counted.Matches(txs[0]), "a counted leg still matches its rule, so match counts stay right")
+	assert.Equal(t, "TRANSFER", txs[1].Type, "the arriving leg is untouched")
+	assert.Empty(t, txs[1].Category.Name)
+}

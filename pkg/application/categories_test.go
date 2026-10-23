@@ -123,19 +123,21 @@ func TestRuleSuggestions(t *testing.T) {
 		spendTx("3", "EFTPOS", "", "", "", "POS W/D Holland Suzuk-13:04", -330, now),
 		spendTx("4", "LOAN", "", "", "", "LOAN INTEREST", -410, now),
 		spendTx("5", "LOAN", "", "", "", "LOAN INTEREST", -356, now),
-		spendTx("6", "TRANSFER", "", "", "", "TO SAVINGS", -500, now),
+		// Sync files both legs of a transfer under "Transfer".
+		spendTx("6", "TRANSFER", "Transfer", "Transfer", "", "AP#19781426 TO D J KING", -641, now),
+		spendTx("6b", "TRANSFER", "Transfer", "Transfer", "", "AP#19781426 FROM D J KING", 641, now),
 		spendTx("7", "STANDING ORDER", "", "", "", "AP#1 TO FISHER FUNDS", -385, now),
 	}
 	settings := models.CategorySettings{Rules: []models.CategoryRule{{Contains: "fisher"}}}
 
 	got := ruleSuggestions(txs, settings)
 
-	assert.Equal(t, []string{"LOAN INTEREST", "Holland Suzuk", "Countdown"}, got,
-		"uncategorised first, then by how often; transfers and already-ruled text are left out")
+	assert.Equal(t, []string{"LOAN INTEREST", "Holland Suzuk", "Countdown", "AP#19781426 TO D J KING"}, got,
+		"uncategorised first, then by how often; money arriving by transfer and already-ruled text are left out")
 	for _, text := range got {
 		matched := false
 		for _, tx := range txs {
-			if (models.CategoryRule{Contains: text}).Matches(tx) {
+			if (models.CategoryRule{Contains: text, IncludeTransfers: true}).Matches(tx) {
 				matched = true
 			}
 		}
@@ -179,4 +181,43 @@ func TestSettingsPreviewRule(t *testing.T) {
 	assert.Contains(t, get("contains=loan+interest&type=LOAN"), "1 transaction")
 	assert.Contains(t, get("contains=loan+interest&type=DEBIT"), "Matches nothing yet", "the type narrows the preview")
 	assert.Empty(t, strings.TrimSpace(get("contains=+")), "nothing typed shows nothing")
+}
+
+func TestTransferRuleBudgetsMortgageRepayments(t *testing.T) {
+	app := newTestApp(t)
+	recent := time.Now().Add(-48 * time.Hour)
+	for _, tx := range []models.Transaction{
+		spendTx("out", "TRANSFER", "Transfer", "Transfer", "", "AP#19781426 TO D J KING", -641, recent),
+		spendTx("in", "TRANSFER", "Transfer", "Transfer", "", "AP#19781426 FROM D J KING", 641, recent),
+		spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -400, recent),
+	} {
+		require.NoError(t, app.store.CreateTransaction(tx))
+	}
+	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "loan", Category: "Loan", Kind: models.BudgetKindIgnore}))
+	require.NoError(t, app.store.SaveCategorySettings(models.CategorySettings{
+		Categories: []models.CustomCategory{{ID: "m", Broad: "General", Specific: "Mortgage"}},
+	}))
+
+	preview := func(query string) string {
+		req := httptest.NewRequest(http.MethodGet, "/settings/rules/preview?"+query, nil)
+		req.Header.Set("HX-Request", "true")
+		rec := httptest.NewRecorder()
+		require.NoError(t, app.SettingsPreviewRule(app.http.NewContext(req, rec)))
+		return rec.Body.String()
+	}
+	assert.Contains(t, preview("contains=AP%2319781426"), "1 transfer between your accounts also matches",
+		"the form says why a repayment is missing")
+	assert.Contains(t, preview("contains=AP%2319781426&include_transfers=1"), "Would file <span class=\"fw-semibold\">1 transaction<",
+		"only the leg where money leaves is filed")
+
+	c, _ := postForm(t, app, url.Values{"contains": {"AP#19781426"}, "category": {"Mortgage"}, "include_transfers": {"1"}})
+	require.NoError(t, app.SettingsAddRule(c))
+
+	setup, err := app.buildSetupData()
+	require.NoError(t, err)
+	general := groupNamed(t, setup, "General")
+	require.Len(t, general.Rows, 1)
+	assert.Equal(t, "Mortgage", general.Rows[0].SubCategory)
+	assert.InDelta(t, 641.0/4, general.Rows[0].ActualWeekly, 0.001, "the repayment is counted once")
+	assert.InDelta(t, 641, chartTotal(t, app), 0.001, "the ignored interest is gone and the repayment counted once")
 }

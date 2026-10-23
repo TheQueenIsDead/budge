@@ -26,13 +26,34 @@ type CategoryRule struct {
 	Type     string
 	Broad    string
 	Specific string
+	// IncludeTransfers lets the rule match money moved between the owner's
+	// own accounts, which rules otherwise leave alone. It exists for
+	// payments that are real outgoings even though both ends are the
+	// owner's, such as a mortgage repayment into a loan account.
+	IncludeTransfers bool
+}
+
+// TypeCountedTransfer marks the outgoing leg of a transfer that a rule has
+// chosen to count as spending. Every view leaves out "TRANSFER", so giving
+// the leg its own type is what brings it into spend, everywhere at once.
+const TypeCountedTransfer = "COUNTED TRANSFER"
+
+// IsTransfer reports whether a transaction moves money between the owner's
+// own accounts, whether or not a rule counts it.
+func (t Transaction) IsTransfer() bool {
+	return t.Type == "TRANSFER" || t.Type == TypeCountedTransfer
 }
 
 // Matches reports whether the rule applies to a transaction. Transfers are
-// money moving between the owner's own accounts, so no rule recategorises
-// them.
+// money moving between the owner's own accounts, so a rule only matches one
+// when it opts in, and then only the leg where money leaves: the leg where it
+// arrives stays a transfer, so the payment is counted once and never as
+// income.
 func (r CategoryRule) Matches(tx Transaction) bool {
-	if r.Contains == "" || tx.Type == "TRANSFER" {
+	if r.Contains == "" {
+		return false
+	}
+	if tx.IsTransfer() && (!r.IncludeTransfers || tx.Amount >= 0) {
 		return false
 	}
 	if r.Type != "" && !strings.EqualFold(r.Type, tx.Type) {
@@ -82,6 +103,9 @@ func (cs CategorySettings) Apply(txs []Transaction) {
 			txs[i].Category.Name = rule.Specific
 			txs[i].Category.Groups.PersonalFinance.Id = RuleCategoryPrefix + rule.ID
 			txs[i].Category.Groups.PersonalFinance.Name = rule.Broad
+			if txs[i].IsTransfer() {
+				txs[i].Type = TypeCountedTransfer
+			}
 		}
 	}
 }

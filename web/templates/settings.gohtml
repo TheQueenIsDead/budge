@@ -301,6 +301,7 @@
                 <div>
                     Contains <span class="font-monospace">“{{ .Contains }}”</span>
                     {{ if .Type }}<span class="text-muted">and type is</span> <span class="badge-category">{{ .Type }}</span>{{ end }}
+                    {{ if .IncludeTransfers }}<span class="badge-category" title="Counts money leaving by transfer as spending">incl. transfers</span>{{ end }}
                 </div>
                 <div class="small">
                     <i class="bi bi-arrow-return-right text-muted" aria-hidden="true"></i>
@@ -356,10 +357,22 @@
              otherwise inherit the form's, and replace the whole card. */}}
         <div class="col-12" id="rule-preview" aria-live="polite"
              hx-get="/settings/rules/preview"
-             hx-trigger="input changed delay:300ms from:#rule-contains, change from:#rule-type"
-             hx-include="#rule-contains, #rule-type"
+             hx-trigger="input changed delay:300ms from:#rule-contains, change from:#rule-type, change from:#rule-transfers"
+             hx-include="#rule-contains, #rule-type, #rule-transfers"
              hx-target="this"
              hx-swap="innerHTML"></div>
+        <div class="col-12">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="rule-transfers" name="include_transfers" value="1">
+                <label class="form-check-label" for="rule-transfers">
+                    Include transfers between your accounts
+                    <span class="d-block b-card-sub">
+                        For payments like a mortgage repayment into a loan account. Only the money
+                        leaving is counted as spending; where it arrives stays a transfer.
+                    </span>
+                </label>
+            </div>
+        </div>
         <div class="col-12">
             <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg"></i>Add rule</button>
         </div>
@@ -387,6 +400,12 @@
     </ul>
     {{ else }}
     <span class="text-warning">Matches nothing yet.</span>
+    {{ end }}
+    {{ if .Transfers }}
+    <div class="text-warning mt-1">
+        {{ .Transfers }} transfer{{ if ne .Transfers 1 }}s{{ end }} between your accounts also match{{ if eq .Transfers 1 }}es{{ end }}.
+        Tick “Include transfers” to count {{ if eq .Transfers 1 }}it{{ else }}them{{ end }} as spending.
+    </div>
     {{ end }}
     {{ if .Taken }}
     <div class="text-muted mt-1">{{ .Taken }} more transaction{{ if ne .Taken 1 }}s{{ end }} match{{ if eq .Taken 1 }}es{{ end }}, but an earlier rule already files {{ if eq .Taken 1 }}it{{ else }}them{{ end }}.</div>

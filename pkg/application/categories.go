@@ -49,7 +49,9 @@ const maxRuleSuggestions = 300
 // merchant, or its description cleaned of card terminal noise. The cleaning
 // only trims, so a suggestion is always text the transaction contains and a
 // rule built from it matches. Transactions a rule already files are left out,
-// and uncategorised ones come first, being what rules are mostly for.
+// and uncategorised ones come first, being what rules are mostly for. Money
+// leaving by transfer is offered too, for rules that count it, but never the
+// leg where it arrives, which no rule can match.
 func ruleSuggestions(txs []models.Transaction, settings models.CategorySettings) []string {
 	type suggestion struct {
 		text          string
@@ -58,7 +60,7 @@ func ruleSuggestions(txs []models.Transaction, settings models.CategorySettings)
 	}
 	byText := make(map[string]*suggestion)
 	for _, tx := range txs {
-		if tx.Type == "TRANSFER" || settings.MatchingRule(tx) >= 0 {
+		if (tx.IsTransfer() && tx.Amount >= 0) || settings.MatchingRule(tx) >= 0 {
 			continue
 		}
 		text := strings.TrimSpace(spendMerchant(tx))
@@ -108,7 +110,7 @@ func categoryCatalogue(custom []models.CustomCategory, txs []models.Transaction)
 	}
 	for _, tx := range txs {
 		broad := tx.Category.Groups.PersonalFinance.Name
-		if broad == "" || tx.Type == "TRANSFER" {
+		if broad == "" || tx.IsTransfer() {
 			continue
 		}
 		specific := tx.Category.Name
@@ -142,7 +144,7 @@ func (app *Application) buildCategoriesView() (CategoriesView, error) {
 		if n := settings.MatchingRule(tx); n >= 0 {
 			matches[n]++
 		}
-		if tx.Type != "" && tx.Type != "TRANSFER" {
+		if tx.Type != "" && !tx.IsTransfer() {
 			types[tx.Type] = true
 		}
 	}
@@ -248,11 +250,12 @@ func (app *Application) SettingsAddRule(c echo.Context) error {
 	}
 
 	settings.Rules = append(settings.Rules, models.CategoryRule{
-		ID:       newID(),
-		Contains: contains,
-		Type:     c.FormValue("type"),
-		Broad:    target.Broad,
-		Specific: target.Specific,
+		ID:               newID(),
+		Contains:         contains,
+		Type:             c.FormValue("type"),
+		Broad:            target.Broad,
+		Specific:         target.Specific,
+		IncludeTransfers: c.FormValue("include_transfers") != "",
 	})
 	if err := app.store.SaveCategorySettings(settings); err != nil {
 		return err
@@ -268,14 +271,23 @@ type RulePreview struct {
 	Contains string
 	Matches  int // transactions the new rule would file
 	Taken    int // matching transactions an earlier rule already files
-	Samples  []WeekTransaction
+	// Transfers counts outgoing transfers the text matches that the rule
+	// would leave alone because it does not include transfers, so the form
+	// can say why a repayment it was typed for is missing.
+	Transfers int
+	Samples   []WeekTransaction
 }
 
 func buildRulePreview(rule models.CategoryRule, txs []models.Transaction, settings models.CategorySettings) RulePreview {
 	preview := RulePreview{Contains: rule.Contains}
+	withTransfers := rule
+	withTransfers.IncludeTransfers = true
 	var matched []models.Transaction
 	for _, tx := range txs {
 		if !rule.Matches(tx) {
+			if withTransfers.Matches(tx) {
+				preview.Transfers++
+			}
 			continue
 		}
 		// A new rule goes last, so anything an existing rule matches stays put.
@@ -304,7 +316,11 @@ func buildRulePreview(rule models.CategoryRule, txs []models.Transaction, settin
 
 // SettingsPreviewRule answers the rule form as it is typed into.
 func (app *Application) SettingsPreviewRule(c echo.Context) error {
-	rule := models.CategoryRule{Contains: strings.TrimSpace(c.QueryParam("contains")), Type: c.QueryParam("type")}
+	rule := models.CategoryRule{
+		Contains:         strings.TrimSpace(c.QueryParam("contains")),
+		Type:             c.QueryParam("type"),
+		IncludeTransfers: c.QueryParam("include_transfers") != "",
+	}
 	if rule.Contains == "" {
 		return c.Render(http.StatusOK, "settings.rules.preview", RulePreview{})
 	}
