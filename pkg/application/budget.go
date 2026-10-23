@@ -41,6 +41,8 @@ type CategoryTargetRow struct {
 	TrendDown     bool    // spending decreased >10%
 	PctOfIncome   float64 // targetWeekly / netWeekly (fraction)
 	TargetWeekly  float64 // weekly-normalised target for internal use
+	Kind          string
+	IsSpending    bool // false for savings and ignored rows, which carry no target
 	// Merchants seen in this category, highest spend first. Informational
 	// only — they are derived from transactions, never edited.
 	Merchants      []string // full list, shown in the popover
@@ -158,6 +160,9 @@ type CategorySetupData struct {
 	Remaining            float64
 	MeetsSavingsGoal     bool
 	HasSavingsGoal       bool
+	// Weekly spend in categories marked as savings, e.g. a standing order to
+	// an investment fund. Shown beside the goal rather than counted as spending.
+	TrackedSavingsWeekly float64
 }
 
 // BudgetCardsData is the view-model for the summary cards and the allocation
@@ -265,6 +270,65 @@ func (app *Application) BudgetSaveTarget(c echo.Context) error {
 		return err
 	}
 	return app.renderSetupRow(c, newItem.ID)
+}
+
+type budgetKindOption struct{ Value, Label string }
+
+// budgetKindOptions are the choices in each row's "Counts as" menu.
+var budgetKindOptions = []budgetKindOption{
+	{models.BudgetKindSpending, "Spending"},
+	{models.BudgetKindSavings, "Savings"},
+	{models.BudgetKindIgnore, "Ignore"},
+}
+
+// BudgetSaveKind sets whether a category counts as spending, savings or is
+// ignored. Moving a row in or out of spending changes its group's totals and
+// the savings footer, so the whole table is re-rendered rather than the row.
+func (app *Application) BudgetSaveKind(c echo.Context) error {
+	subCat := c.FormValue("sub_category")
+	kind := c.FormValue("kind")
+	switch kind {
+	case models.BudgetKindSpending, models.BudgetKindSavings, models.BudgetKindIgnore:
+	default:
+		return c.NoContent(http.StatusBadRequest)
+	}
+	if subCat == "" {
+		return c.NoContent(http.StatusBadRequest)
+	}
+
+	items, err := app.store.ReadBudgetItems()
+	if err != nil {
+		return err
+	}
+	saved := false
+	for _, item := range items {
+		if strings.EqualFold(item.Category, subCat) {
+			item.Kind = kind
+			if err := app.store.UpdateBudgetItem(item); err != nil {
+				return err
+			}
+			saved = true
+			break
+		}
+	}
+	if !saved {
+		if err := app.store.CreateBudgetItem(models.BudgetItem{
+			ID:            newID(),
+			Name:          subCat,
+			Category:      subCat,
+			BroadCategory: c.FormValue("broad_category"),
+			Frequency:     "weekly",
+			Kind:          kind,
+		}); err != nil {
+			return err
+		}
+	}
+
+	setupData, err := app.buildSetupData()
+	if err != nil {
+		return err
+	}
+	return c.Render(http.StatusOK, "budget.setup", setupData)
 }
 
 // BudgetAddSubItem finds or creates the BudgetItem for a subcategory, adds an
@@ -444,6 +508,10 @@ func buildSetupRowData(item models.BudgetItem, actualWeekly, netWeekly float64, 
 	if hasSubItems {
 		targetWeekly = derived
 	}
+	isSpending := item.IsSpending()
+	if !isSpending {
+		targetWeekly = 0
+	}
 	hasTarget := targetWeekly > 0
 
 	freq := item.Frequency
@@ -484,9 +552,11 @@ func buildSetupRowData(item models.BudgetItem, actualWeekly, netWeekly float64, 
 		PctOfIncome:   pctOfIncome,
 		IsOver:        hasTarget && actualWeekly > targetWeekly,
 		HasTarget:     hasTarget,
-		NeedsTarget:   !hasTarget && actualWeekly > 0,
+		NeedsTarget:   isSpending && !hasTarget && actualWeekly > 0,
 		TrendUp:       trendUp,
 		TrendDown:     trendDown,
+		Kind:          item.Kind,
+		IsSpending:    isSpending,
 	}
 }
 
@@ -624,11 +694,17 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 	}
 
 	var groups []BroadCategoryGroup
-	var totalTargetWeekly float64
+	var totalTargetWeekly, trackedSavings float64
 	for _, broad := range broadOrder {
 		rows := groupRows[broad]
 		var totalActual, totalTarget float64
 		for _, row := range rows {
+			if row.Kind == models.BudgetKindSavings {
+				trackedSavings += row.ActualWeekly
+			}
+			if !row.IsSpending {
+				continue
+			}
 			totalActual += row.ActualWeekly
 			totalTarget += row.TargetWeekly
 		}
@@ -668,6 +744,7 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 		Remaining:            remaining,
 		MeetsSavingsGoal:     savingsGoalWeekly > 0 && remaining >= savingsGoalWeekly,
 		HasSavingsGoal:       salary.SavingsGoal > 0,
+		TrackedSavingsWeekly: trackedSavings,
 	}, nil
 }
 
@@ -765,8 +842,12 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 	}
 
 	var target float64
+	notSpending := make(map[string]bool)
 	for _, item := range items {
 		target += weeklyTarget(item)
+		if !item.IsSpending() {
+			notSpending[strings.ToLower(item.Category)] = true
+		}
 	}
 
 	// Build 13 weekly buckets, most recent on the right.
@@ -778,7 +859,8 @@ func (app *Application) BudgetPerformance(c echo.Context) error {
 
 	weekTotals := make(map[time.Time]float64)
 	for _, tx := range txs {
-		if _, _, ok := spendCategory(tx); !ok {
+		_, specific, ok := spendCategory(tx)
+		if !ok || notSpending[strings.ToLower(specific)] {
 			continue
 		}
 		weekTotals[isoWeekStart(tx.Date)] += math.Abs(tx.Amount)
@@ -820,8 +902,12 @@ func isoWeekStart(t time.Time) time.Time {
 
 // weeklyTarget returns the weekly-normalised budget target for an item.
 // When sub-items are present their amounts are summed; otherwise the item's
-// own Amount/Frequency is used.
+// own Amount/Frequency is used. Savings and ignored items are not spending,
+// so they contribute nothing even if an amount was saved before the switch.
 func weeklyTarget(item models.BudgetItem) float64 {
+	if !item.IsSpending() {
+		return 0
+	}
 	if len(item.SubItems) == 0 {
 		return toWeeklyAmount(item.Amount, item.Frequency)
 	}

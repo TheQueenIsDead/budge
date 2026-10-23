@@ -5,6 +5,7 @@ import (
 	"html"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"regexp"
 	"testing"
 	"time"
@@ -94,20 +95,123 @@ func TestChartAndSetupCountTheSameSpend(t *testing.T) {
 	assert.Equal(t, []string{"AP#23533701 TO FISHER FUNDS"}, rows["Standing orders"].Merchants)
 	assert.True(t, rows["Loan"].NeedsTarget, "untargeted spend is flagged so it can be budgeted")
 
-	req := httptest.NewRequest(http.MethodGet, "/budget/performance", nil)
-	rec := httptest.NewRecorder()
-	require.NoError(t, app.BudgetPerformance(app.http.NewContext(req, rec)))
-	require.Equal(t, http.StatusOK, rec.Code)
+	chartTotal := chartTotal(t, app)
+	assert.InDelta(t, 915, chartTotal, 0.001, "income and transfers are excluded")
+	assert.InDelta(t, chartTotal, setupTotal, 0.001, "the chart and the table must count the same money")
+}
 
+func TestNonSpendingRowsCarryNoTarget(t *testing.T) {
+	for _, kind := range []string{models.BudgetKindSavings, models.BudgetKindIgnore} {
+		t.Run(kind, func(t *testing.T) {
+			item := models.BudgetItem{ID: "fund", Category: "Standing orders", Amount: 385, Frequency: "weekly", Kind: kind}
+			row := buildSetupRowData(item, 400, 1_000, false, false)
+
+			assert.False(t, row.IsSpending)
+			assert.False(t, row.HasTarget)
+			assert.False(t, row.IsOver, "a non-spending row can never be over budget")
+			assert.False(t, row.NeedsTarget, "a non-spending row should not nag for a target")
+			assert.Zero(t, row.PctOfIncome)
+
+			html := renderTemplate(t, "budget.setup.row", row)
+			assert.NotContains(t, html, `name="target_amount"`)
+			assert.NotContains(t, html, `hx-post="/budget/subitems"`)
+			assert.Contains(t, html, `hx-post="/budget/kind"`, "the row can still be switched back")
+		})
+	}
+}
+
+func chartTotal(t *testing.T, app *Application) float64 {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	require.NoError(t, app.BudgetPerformance(app.http.NewContext(httptest.NewRequest(http.MethodGet, "/", nil), rec)))
 	match := regexp.MustCompile(`data-actuals="([^"]*)"`).FindStringSubmatch(rec.Body.String())
 	require.Len(t, match, 2)
 	var actuals []float64
 	require.NoError(t, json.Unmarshal([]byte(html.UnescapeString(match[1])), &actuals))
-	var chartTotal float64
+	var total float64
 	for _, v := range actuals {
-		chartTotal += v
+		total += v
+	}
+	return total
+}
+
+func groupNamed(t *testing.T, setup CategorySetupData, name string) BroadCategoryGroup {
+	t.Helper()
+	for _, group := range setup.Groups {
+		if group.Name == name {
+			return group
+		}
+	}
+	t.Fatalf("no %q group", name)
+	return BroadCategoryGroup{}
+}
+
+func TestBudgetSaveKind(t *testing.T) {
+	app := newTestApp(t)
+	recent := time.Now().Add(-48 * time.Hour)
+	for _, tx := range []models.Transaction{
+		spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -400, recent),
+		spendTx("fund", "STANDING ORDER", "", "", "", "AP#1 TO FISHER FUNDS", -200, recent),
+	} {
+		require.NoError(t, app.store.CreateTransaction(tx))
+	}
+	require.InDelta(t, 600, chartTotal(t, app), 0.001)
+
+	saveKind := func(kind string) *httptest.ResponseRecorder {
+		c, rec := postForm(t, app, url.Values{
+			"sub_category":   {"Standing orders"},
+			"broad_category": {uncategorisedGroup},
+			"kind":           {kind},
+		})
+		require.NoError(t, app.BudgetSaveKind(c))
+		return rec
 	}
 
-	assert.InDelta(t, 915, chartTotal, 0.001, "income and transfers are excluded")
-	assert.InDelta(t, chartTotal, setupTotal, 0.001, "the chart and the table must count the same money")
+	t.Run("savings leave the chart and the group total but are tracked", func(t *testing.T) {
+		rec := saveKind(models.BudgetKindSavings)
+		require.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "going to savings categories", "the re-rendered table reports tracked savings")
+
+		assert.InDelta(t, 400, chartTotal(t, app), 0.001)
+		setup, err := app.buildSetupData()
+		require.NoError(t, err)
+		assert.InDelta(t, 400.0/4, groupNamed(t, setup, uncategorisedGroup).TotalActualWeekly, 0.001)
+		assert.InDelta(t, 200.0/4, setup.TrackedSavingsWeekly, 0.001)
+	})
+
+	t.Run("ignored spend is dropped without counting as savings", func(t *testing.T) {
+		saveKind(models.BudgetKindIgnore)
+
+		assert.InDelta(t, 400, chartTotal(t, app), 0.001)
+		setup, err := app.buildSetupData()
+		require.NoError(t, err)
+		assert.Zero(t, setup.TrackedSavingsWeekly)
+	})
+
+	t.Run("switching back to spending counts it again", func(t *testing.T) {
+		saveKind(models.BudgetKindSpending)
+		assert.InDelta(t, 600, chartTotal(t, app), 0.001)
+
+		items, err := app.store.ReadBudgetItems()
+		require.NoError(t, err)
+		assert.Len(t, items, 1, "repeat changes update the same item")
+	})
+
+	t.Run("an unknown kind is rejected", func(t *testing.T) {
+		c, rec := postForm(t, app, url.Values{"sub_category": {"Standing orders"}, "kind": {"bogus"}})
+		require.NoError(t, app.BudgetSaveKind(c))
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+}
+
+func TestSavingTargetKeepsKind(t *testing.T) {
+	app := newTestApp(t)
+	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "fund", Category: "Standing orders", Kind: models.BudgetKindSavings}))
+
+	c, _ := postForm(t, app, url.Values{"sub_category": {"Standing orders"}, "target_amount": {"100"}, "target_frequency": {"weekly"}})
+	require.NoError(t, app.BudgetSaveTarget(c))
+
+	item, err := app.store.GetBudgetItem("fund")
+	require.NoError(t, err)
+	assert.Equal(t, models.BudgetKindSavings, item.Kind)
 }

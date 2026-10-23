@@ -216,6 +216,16 @@ func TestWeeklyTarget(t *testing.T) {
 			100.0*12/52 + 1,
 		},
 		{
+			"savings items are not a spending target",
+			models.BudgetItem{Amount: 385, Frequency: "weekly", Kind: models.BudgetKindSavings},
+			0,
+		},
+		{
+			"ignored items are not a spending target, even with sub-items",
+			models.BudgetItem{Kind: models.BudgetKindIgnore, SubItems: []models.BudgetSubItem{{Amount: 52, Frequency: "yearly"}}},
+			0,
+		},
+		{
 			"sub-items with zero amounts total zero",
 			models.BudgetItem{
 				Amount:   500,

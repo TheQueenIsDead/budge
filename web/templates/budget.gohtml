@@ -81,8 +81,10 @@
         <p class="b-card-sub mb-3">
             Actual spend window matches your target frequency — weekly targets use the last 4 weeks, monthly 3 months, yearly 13 months.
             Set a target next to any category and it saves automatically; switching a target's frequency converts the amount for you.
+            Use <i class="bi bi-three-dots-vertical" aria-hidden="true"></i><span class="visually-hidden">the row menu</span> to count a category as savings, or ignore it, so it stops counting against the budget.
         </p>
-        {{template "budget.setup" .SetupData}}
+        {{/* Swap target for "Counts as" changes, which move totals across groups. */}}
+        <div id="budget-setup">{{template "budget.setup" .SetupData}}</div>
     </div>
 
     {{/* innerHTML, not outerHTML — an outerHTML swap would replace the element
@@ -327,6 +329,9 @@
                         {{end}}
                     </small>
                     {{end}}
+                    {{if gt .TrackedSavingsWeekly 0.0}}
+                    <small class="fw-normal text-muted ms-1">· {{.TrackedSavingsWeekly | fmtCurrency}}/wk going to savings categories</small>
+                    {{end}}
                 </td>
                 <td>
                     <div class="input-group input-group-sm">
@@ -356,7 +361,7 @@
 {{define "budget.setup.row"}}
 {{/* data-group lets the collapse state survive an htmx row swap. */}}
 <tbody id="{{.RowID}}" data-group="{{.BroadRowID}}"{{if .NeedsTarget}} class="border-start border-3 border-warning"{{end}}>
-    <tr {{if not .HasSubItems}}
+    <tr {{if and .IsSpending (not .HasSubItems)}}
         hx-post="/budget/targets"
         hx-trigger="change"
         hx-include="this"
@@ -373,6 +378,8 @@
             <div>
                 {{if .NeedsTarget}}<i class="bi bi-exclamation-circle text-warning me-1" title="No target set" aria-label="No target set"></i>{{end}}
                 {{.SubCategory}}
+                {{if eq .Kind "savings"}}<span class="badge bg-success-subtle text-success-emphasis fw-normal ms-1">Savings</span>{{end}}
+                {{if eq .Kind "ignore"}}<span class="badge bg-secondary-subtle text-secondary-emphasis fw-normal ms-1">Ignored</span>{{end}}
             </div>
             {{if gt .PctOfIncome 0.0}}
             <div class="text-muted small">{{.PctOfIncome | fmtPercent}} of income</div>
@@ -417,7 +424,11 @@
             </span>
             {{end}}
         </td>
-        {{if .HasSubItems}}
+        {{if not .IsSpending}}
+        <td class="text-end text-muted small" colspan="2">
+            {{if eq .Kind "savings"}}Counted towards savings{{else}}Not counted in the budget{{end}}
+        </td>
+        {{else if .HasSubItems}}
         <td class="text-end text-muted" colspan="2">
             <span class="fw-semibold text-body">{{.DerivedWeekly | fmtCurrency}}</span>
             <small class="ms-1">from {{len .SubItems}} items</small>
@@ -447,6 +458,35 @@
         {{end}}
         <td class="text-center">
             <div class="d-flex gap-1 justify-content-center">
+                {{/* Fixed positioning keeps the menu from being clipped by
+                     the scrolling .table-responsive wrapper. */}}
+                <div class="dropdown">
+                    <button type="button" class="btn btn-link btn-sm p-0 text-muted"
+                            data-bs-toggle="dropdown" aria-expanded="false"
+                            data-bs-popper-config='{"strategy":"fixed"}'
+                            title="Counts as…" aria-label="Choose how {{.SubCategory}} counts">
+                        <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><h6 class="dropdown-header">Counts as</h6></li>
+                        {{$row := .}}
+                        {{range $kind := budgetKinds}}
+                        <li>
+                            <button type="button"
+                                    class="dropdown-item{{if eq $kind.Value $row.Kind}} active{{end}}"
+                                    hx-post="/budget/kind"
+                                    hx-include="closest tr"
+                                    hx-vals='{"kind": "{{$kind.Value}}"}'
+                                    hx-target="#budget-setup"
+                                    hx-swap="innerHTML"
+                                    hx-on::after-request="if (event.detail.successful) { htmx.trigger(document.body, 'refreshSummary') }">
+                                {{$kind.Label}}
+                            </button>
+                        </li>
+                        {{end}}
+                    </ul>
+                </div>
+                {{if .IsSpending}}
                 <form hx-post="/budget/subitems"
                       hx-target="#{{.RowID}}"
                       hx-swap="outerHTML"
@@ -458,6 +498,7 @@
                         <i class="bi bi-plus-circle" aria-hidden="true"></i>
                     </button>
                 </form>
+                {{end}}
             </div>
         </td>
     </tr>

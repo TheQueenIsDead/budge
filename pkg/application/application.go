@@ -40,6 +40,7 @@ func templateFuncs() template.FuncMap {
 			p := message.NewPrinter(language.English)
 			return p.Sprintf("$%.2f", math.Abs(number))
 		},
+		"budgetKinds": func() []budgetKindOption { return budgetKindOptions },
 		"fmtPercent": func(number float64) string {
 			p := message.NewPrinter(language.English)
 			return p.Sprintf("%.1f%%", math.Abs(number)*100)
@@ -232,6 +233,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.GET("/budget/cards", app.BudgetCards)
 	app.http.POST("/budget/savings-goal", app.BudgetSaveSavingsGoal)
 	app.http.POST("/budget/targets", app.BudgetSaveTarget)
+	app.http.POST("/budget/kind", app.BudgetSaveKind)
 	app.http.POST("/budget/subitems", app.BudgetAddSubItem)
 	app.http.PUT("/budget/items/:id/subitems/:subid", app.BudgetUpdateSubItem)
 	app.http.DELETE("/budget/items/:id/subitems/:subid", app.BudgetDeleteSubItem)
