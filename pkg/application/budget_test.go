@@ -583,7 +583,7 @@ func TestBudgetTemplatesRender(t *testing.T) {
 		{"cards without a salary", "budget.cards", BudgetCardsData{}},
 		{"allocation in deficit", "budget.allocation", BudgetCardsData{NetWeekly: 1_000, TotalWeeklyExpenses: 1_200, WeeklySavings: -200, HasDeficit: true, PctAllocatedCss: 100, IsOverAllocated: true, HasSalary: true}},
 		{"allocation without a salary", "budget.allocation", BudgetCardsData{}},
-		{"performance with data", "budget.performance", BudgetPerformanceData{Labels: `["1 Jan"]`, Actuals: `[12.5]`, Target: 100, HasData: true}},
+		{"performance with data", "budget.performance", BudgetPerformanceData{Labels: `["1 Jan"]`, Actuals: `[12.5]`, Series: `[{"label":"Food","data":[12.5]}]`, Target: 100, HasData: true}},
 		{"performance without data", "budget.performance", BudgetPerformanceData{}},
 		{"week breakdown", "budget.week", WeekBreakdown{
 			Start: time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC), Weeks: performanceWeeks(time.Now()),

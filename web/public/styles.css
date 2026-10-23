@@ -47,6 +47,22 @@
     --b-muted-accent: #a9b5bd;
     --b-muted-accent-soft: #e8edf0;
 
+    /* Categorical chart series, for charts with several categories side by
+       side or stacked. The low-chroma accents above read as one muted family
+       and fail colour-vision separation when adjacent, so stacked charts use
+       this set instead. The order is what keeps neighbours distinguishable
+       (adjacent CVD ΔE >= 9, normal-vision ΔE >= 19 on white); do not reorder
+       or extend it. Past seven, the remainder folds into "Other", which takes
+       the neutral muted accent. Slots 3-5 sit under 3:1 on white, so a chart
+       using them needs a legend and a table view alongside. */
+    --b-viz-1: #2a78d6;
+    --b-viz-2: #eb6834;
+    --b-viz-3: #1baf7a;
+    --b-viz-4: #eda100;
+    --b-viz-5: #e87ba4;
+    --b-viz-6: #008300;
+    --b-viz-7: #4a3aa7;
+
     /* Shape. Hairline borders carry the structure, so shadows stay faint. */
     --b-radius: 14px;
     --b-radius-sm: 10px;

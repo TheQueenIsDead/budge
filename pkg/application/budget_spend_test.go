@@ -329,3 +329,51 @@ func TestBudgetWeek(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, get("start=yesterday").Code)
 	})
 }
+
+func TestBuildPerformanceSeries(t *testing.T) {
+	weeks := []time.Time{
+		time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC),
+	}
+	in := func(week int) time.Time { return weeks[week].AddDate(0, 0, 2) }
+	items := budgetItemsByCategory([]models.BudgetItem{{Category: "Standing orders", Kind: models.BudgetKindSavings}})
+
+	var txs []models.Transaction
+	// Nine broad categories, so two must fold into Other. Spend rises with
+	// the index, so Broad 9 is the largest and Broad 1 the smallest.
+	for n := 1; n <= 9; n++ {
+		broad := "Broad " + string(rune('0'+n))
+		txs = append(txs, spendTx(broad+"a", "EFTPOS", broad, broad, "", "", -float64(n*10), in(0)))
+		txs = append(txs, spendTx(broad+"b", "EFTPOS", broad, broad, "", "", -float64(n), in(1)))
+	}
+	txs = append(txs,
+		spendTx("fund", "STANDING ORDER", "", "", "", "FISHER FUNDS", -385, in(0)),
+		spendTx("before", "EFTPOS", "Broad 9", "Broad 9", "", "", -1_000, weeks[0].AddDate(0, 0, -3)),
+	)
+
+	totals, series := buildPerformanceSeries(weeks, txs, items)
+
+	assert.InDelta(t, 450, totals[0], 0.001, "savings and weeks outside the chart are left out")
+	assert.InDelta(t, 45, totals[1], 0.001)
+
+	require.Len(t, series, maxPerformanceSeries+1)
+	assert.Equal(t, "Broad 9", series[0].Label, "largest first, so it sits at the base of the stack")
+	assert.Equal(t, "Broad 3", series[maxPerformanceSeries-1].Label)
+	other := series[maxPerformanceSeries]
+	assert.Equal(t, otherSeries, other.Label)
+	assert.InDelta(t, 30, other.Data[0], 0.001, "Broad 1 and 2 fold into Other")
+
+	for week := range weeks {
+		var stacked float64
+		for _, s := range series {
+			stacked += s.Data[week]
+		}
+		assert.InDelta(t, totals[week], stacked, 0.001, "each bar's segments add up to its total")
+	}
+}
+
+func TestBuildPerformanceSeriesWithoutSpend(t *testing.T) {
+	totals, series := buildPerformanceSeries(performanceWeeks(time.Now()), nil, nil)
+	assert.Len(t, totals, 13)
+	assert.Empty(t, series)
+}

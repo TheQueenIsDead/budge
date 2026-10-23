@@ -6,38 +6,47 @@ function initBudgetPerfChart() {
     const existing = Chart.getChart(canvas);
     if (existing) existing.destroy();
     const actuals = JSON.parse(canvas.dataset.actuals);
+    const series  = JSON.parse(canvas.dataset.series || '[]');
     const target  = parseFloat(canvas.dataset.target);
     const labels  = JSON.parse(canvas.dataset.labels);
     const weeks   = JSON.parse(canvas.dataset.weeks || '[]');
+    const money   = v => '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    // One stacked bar per week, one segment per broad category. The server
+    // sends the series largest first, which is also palette order, so the
+    // biggest category sits at the base in the first colour. A surface-
+    // coloured border leaves a gap between segments, so neighbours read as
+    // separate even where their colours are close.
+    const palette = budge.categorical;
+    const datasets = series.map((s, i) => ({
+        type: 'bar',
+        label: s.label,
+        data: s.data,
+        stack: 'spend',
+        backgroundColor: s.label === 'Other' ? budge.otherColour : palette[i % palette.length],
+        borderColor: budge.surface,
+        borderWidth: { top: 2 },
+        borderSkipped: 'bottom',
+        order: 2,
+    }));
+    datasets.push({
+        type: 'line',
+        label: 'Budget Target',
+        data: Array(labels.length).fill(target),
+        borderColor: budge.ink,
+        borderDash: [6, 4],
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: false,
+        order: 1,
+    });
+
     new Chart(canvas, {
-        data: {
-            labels,
-            datasets: [{
-                type: 'bar',
-                label: 'Weekly Spend',
-                data: actuals,
-                backgroundColor: actuals.map(v =>
-                    target > 0 && v > target ? 'rgba(220,53,69,0.75)' : 'rgba(25,135,84,0.75)'),
-                borderColor: actuals.map(v =>
-                    target > 0 && v > target ? 'rgb(220,53,69)' : 'rgb(25,135,84)'),
-                borderWidth: 1,
-                order: 2,
-            }, {
-                type: 'line',
-                label: 'Budget Target',
-                data: Array(actuals.length).fill(target),
-                borderColor: 'rgba(0,0,0,0.3)',
-                borderDash: [6, 4],
-                borderWidth: 2,
-                pointRadius: 0,
-                fill: false,
-                order: 1,
-            }]
-        },
+        data: { labels, datasets },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            interaction: { mode: 'index' },
+            interaction: { mode: 'index', intersect: false },
             // A bar opens that week in the breakdown beneath the chart.
             onClick: (event, elements) => {
                 if (!elements.length || !weeks[elements[0].index]) return;
@@ -48,16 +57,30 @@ function initBudgetPerfChart() {
                 event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
             },
             scales: {
+                x: { stacked: true, grid: { display: false }, ticks: { color: budge.ink } },
                 y: {
+                    stacked: true,
                     beginAtZero: true,
-                    ticks: { callback: v => '$' + v.toLocaleString() }
+                    grid: { color: budge.grid },
+                    ticks: { color: budge.ink, callback: v => '$' + v.toLocaleString() }
                 }
             },
             plugins: {
-                legend: { position: 'top' },
+                legend: { position: 'top', labels: { color: budge.ink, boxWidth: 12 } },
                 tooltip: {
+                    // Empty segments are noise in a per-week list.
+                    filter: item => item.dataset.type === 'line' || item.parsed.y > 0,
+                    itemSort: (a, b) => (a.dataset.type === 'line') - (b.dataset.type === 'line') || b.parsed.y - a.parsed.y,
                     callbacks: {
-                        label: ctx => ' ' + ctx.dataset.label + ': $' + ctx.parsed.y.toFixed(2)
+                        label: ctx => ' ' + ctx.dataset.label + ': ' + money(ctx.parsed.y),
+                        footer: items => {
+                            const i = items[0].dataIndex;
+                            const diff = actuals[i] - target;
+                            const lines = ['Total: ' + money(actuals[i])];
+                            if (target > 0) lines.push((diff > 0 ? 'Over target by ' : 'Under target by ') + money(Math.abs(diff)));
+                            lines.push('Click for the breakdown');
+                            return lines;
+                        }
                     }
                 }
             }
