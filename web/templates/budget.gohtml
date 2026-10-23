@@ -9,9 +9,9 @@
          revisited, so only a summary sits here and the form has its own page. */}}
     {{template "budget.income.tile" .Income}}
 
-    <!-- Summary cards + allocation bar -->
-    <div id="budget-cards"
-         hx-get="/budget/cards"
+    <!-- Share of take-home pay the targets claim -->
+    <div id="budget-allocation"
+         hx-get="/budget/allocation"
          hx-trigger="load, refreshSummary from:body"
          hx-swap="innerHTML"></div>
 
@@ -111,6 +111,12 @@
             </div>
         </div>
     </div>
+
+    <!-- Income, budgeted expenses and what is left -->
+    <div id="budget-cards"
+         hx-get="/budget/cards"
+         hx-trigger="load, refreshSummary from:body"
+         hx-swap="innerHTML"></div>
 
     <!-- Income breakdown (PAYE / ACC / KiwiSaver detail) -->
     <div id="budget-summary"
@@ -250,8 +256,10 @@
     </div>
 </div>
 
-{{/* Allocation bar — same three numbers as the cards above, so it is rendered
-     from the same payload rather than a second endpoint. */}}
+{{end}}
+
+{{/* Allocation bar — the same three numbers as the cards on the income page. */}}
+{{define "budget.allocation"}}
 {{if .HasSalary}}
 <div class="b-card b-card-pad mb-3">
     <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">

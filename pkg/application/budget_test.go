@@ -583,6 +583,8 @@ func TestBudgetTemplatesRender(t *testing.T) {
 		{"cards in surplus", "budget.cards", BudgetCardsData{NetWeekly: 1_000, TotalWeeklyExpenses: 400, WeeklySavings: 600, PctAllocatedCss: 40, HasSalary: true}},
 		{"cards in deficit", "budget.cards", BudgetCardsData{NetWeekly: 1_000, TotalWeeklyExpenses: 1_200, WeeklySavings: -200, HasDeficit: true, PctAllocatedCss: 100, IsOverAllocated: true, HasSalary: true}},
 		{"cards without a salary", "budget.cards", BudgetCardsData{}},
+		{"allocation in deficit", "budget.allocation", BudgetCardsData{NetWeekly: 1_000, TotalWeeklyExpenses: 1_200, WeeklySavings: -200, HasDeficit: true, PctAllocatedCss: 100, IsOverAllocated: true, HasSalary: true}},
+		{"allocation without a salary", "budget.allocation", BudgetCardsData{}},
 		{"performance with data", "budget.performance", BudgetPerformanceData{Labels: `["1 Jan"]`, Actuals: `[12.5]`, Target: 100, HasData: true}},
 		{"performance without data", "budget.performance", BudgetPerformanceData{}},
 		{"week breakdown", "budget.week", WeekBreakdown{
@@ -782,10 +784,13 @@ func TestBudgetPageLeavesIncomeFormToItsOwnPage(t *testing.T) {
 		"SetupData": CategorySetupData{},
 	})
 	assert.NotContains(t, budget, `name="salary"`)
+	assert.Contains(t, budget, `hx-get="/budget/allocation"`, "the allocation bar stays on the budget page")
+	assert.NotContains(t, budget, `hx-get="/budget/cards"`, "the summary cards move to the income page")
 	assert.Contains(t, budget, `href="/budget/income"`)
 
 	income := renderTemplate(t, "budget.income", map[string]any{"Salary": models.BudgetSalary{Salary: 100_000, SalaryFrequency: "yearly"}})
 	assert.Contains(t, income, `name="salary"`)
 	assert.Contains(t, income, `value="100000.00"`)
 	assert.Contains(t, income, `hx-get="/budget/summary"`, "the breakdown moves with the form")
+	assert.Contains(t, income, `hx-get="/budget/cards"`)
 }

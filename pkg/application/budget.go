@@ -165,9 +165,9 @@ type CategorySetupData struct {
 	TrackedSavingsWeekly float64
 }
 
-// BudgetCardsData is the view-model for the summary cards and the allocation
-// bar beneath them. Both are driven by the same three numbers, so they share a
-// single endpoint rather than recomputing the totals independently.
+// BudgetCardsData is the view-model for the summary cards on the income page
+// and the allocation bar on the budget page. Both are driven by the same three
+// numbers, so they share one calculation.
 type BudgetCardsData struct {
 	NetWeekly           float64
 	TotalWeeklyExpenses float64
@@ -408,16 +408,33 @@ func (app *Application) renderSetupRow(c echo.Context, itemID string) error {
 	return c.Render(http.StatusOK, "budget.setup.row", row)
 }
 
-// BudgetCards returns the summary cards (income / expenses / savings) together
-// with the allocation bar that sits beneath them.
+// BudgetCards returns the summary cards (income / expenses / savings).
 func (app *Application) BudgetCards(c echo.Context) error {
-	salary, err := app.store.GetBudgetSalary()
+	data, err := app.buildBudgetCards()
 	if err != nil {
 		return err
 	}
-	items, err := app.store.ReadBudgetItems()
+	return c.Render(http.StatusOK, "budget.cards", data)
+}
+
+// BudgetAllocation returns the bar showing how much of take-home pay the
+// targets claim.
+func (app *Application) BudgetAllocation(c echo.Context) error {
+	data, err := app.buildBudgetCards()
 	if err != nil {
 		return err
+	}
+	return c.Render(http.StatusOK, "budget.allocation", data)
+}
+
+func (app *Application) buildBudgetCards() (BudgetCardsData, error) {
+	salary, err := app.store.GetBudgetSalary()
+	if err != nil {
+		return BudgetCardsData{}, err
+	}
+	items, err := app.store.ReadBudgetItems()
+	if err != nil {
+		return BudgetCardsData{}, err
 	}
 	netWeekly := computeNetWeekly(salary)
 	var totalExpenses float64
@@ -429,7 +446,7 @@ func (app *Application) BudgetCards(c echo.Context) error {
 	if netWeekly > 0 {
 		pct = totalExpenses / netWeekly
 	}
-	return c.Render(http.StatusOK, "budget.cards", BudgetCardsData{
+	return BudgetCardsData{
 		NetWeekly:           netWeekly,
 		TotalWeeklyExpenses: totalExpenses,
 		WeeklySavings:       savings,
@@ -437,7 +454,7 @@ func (app *Application) BudgetCards(c echo.Context) error {
 		PctAllocatedCss:     math.Min(pct*100, 100),
 		IsOverAllocated:     savings < 0,
 		HasSalary:           salary.Salary > 0,
-	})
+	}, nil
 }
 
 // BudgetSaveSavingsGoal persists the weekly savings goal.

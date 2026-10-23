@@ -58,9 +58,11 @@ func TestCategoryRulesApplyOnRead(t *testing.T) {
 		return m
 	}
 	reads := map[string]func() ([]models.Transaction, error){
-		"all":     store.ReadTransactions,
-		"by date": func() ([]models.Transaction, error) { return store.ReadTransactionsByDate(time.Now().AddDate(0, 0, -1), time.Now()) },
-		"search":  func() ([]models.Transaction, error) { return store.SearchTransactions("housing", "") },
+		"all": store.ReadTransactions,
+		"by date": func() ([]models.Transaction, error) {
+			return store.ReadTransactionsByDate(time.Now().AddDate(0, 0, -1), time.Now())
+		},
+		"search": func() ([]models.Transaction, error) { return store.SearchTransactions("housing", "") },
 	}
 	for name, read := range reads {
 		t.Run(name, func(t *testing.T) {
