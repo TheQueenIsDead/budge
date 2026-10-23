@@ -110,7 +110,6 @@ func TestNonSpendingRowsCarryNoTarget(t *testing.T) {
 
 			html := renderTemplate(t, "budget.setup.row", row)
 			assert.NotContains(t, html, `name="target_amount"`)
-			assert.NotContains(t, html, `hx-post="/budget/subitems"`)
 			assert.Contains(t, html, `hx-post="/budget/kind"`, "the row can still be switched back")
 		})
 	}

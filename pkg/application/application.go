@@ -252,9 +252,6 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.POST("/budget/savings-goal", app.BudgetSaveSavingsGoal)
 	app.http.POST("/budget/targets", app.BudgetSaveTarget)
 	app.http.POST("/budget/kind", app.BudgetSaveKind)
-	app.http.POST("/budget/subitems", app.BudgetAddSubItem)
-	app.http.PUT("/budget/items/:id/subitems/:subid", app.BudgetUpdateSubItem)
-	app.http.DELETE("/budget/items/:id/subitems/:subid", app.BudgetDeleteSubItem)
 
 	app.scheduler = newScheduler(app)
 

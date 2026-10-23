@@ -90,13 +90,6 @@ func TestSuggestedTargets(t *testing.T) {
 	}
 	require.NoError(t, app.store.CreateTransaction(spendTx("straggler", "LOAN", "", "", "", "LOAN INTEREST", -1, weekStart.AddDate(0, 0, -3))))
 	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "food", Category: "Supermarkets", BroadCategory: "Food", Amount: 120, Frequency: "weekly"}))
-	for i := 1; i <= 13; i++ {
-		date := weekStart.AddDate(0, 0, -7*i+2)
-		require.NoError(t, app.store.CreateTransaction(spendTx("pay"+string(rune('a'+i)), "PAYMENT", "", "", "", "PAY ROOFER", -50, date)))
-	}
-	// Split into items but with nothing entered yet, so it has no target.
-	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "payments", Category: "Payments", BroadCategory: uncategorisedGroup,
-		SubItems: []models.BudgetSubItem{{ID: "empty", Frequency: "yearly"}}}))
 
 	setup, err := app.buildSetupData()
 	require.NoError(t, err)
@@ -110,8 +103,6 @@ func TestSuggestedTargets(t *testing.T) {
 	assert.InDelta(t, 1301.0/13, loan.ActualWeekly, 0.001)
 	assert.InDelta(t, 434, loan.SuggestedMonthly, 0.001, "$100.08 a week is $433.67 a month, rounded up")
 	assert.Zero(t, rowsIn(t, setup, "Food")[0].SuggestedMonthly, "a category with a target is not offered one")
-	assert.True(t, byName["Payments"].NeedsTarget)
-	assert.Zero(t, byName["Payments"].SuggestedMonthly, "a category split into items takes its target from them, so one amount would be ignored")
 
 	t.Run("accepting the suggestion lands the row on track", func(t *testing.T) {
 		c, _ := postForm(t, app, url.Values{

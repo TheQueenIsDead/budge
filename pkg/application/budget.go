@@ -22,12 +22,9 @@ type CategoryTargetRow struct {
 	RowID         string // HTML-safe id, also how an edit names the row to keep open
 	ActualWeekly  float64
 	// Populated from a saved BudgetItem, if one exists for this pair.
-	ItemID        string
-	Target        float64
-	Frequency     string
-	SubItems      []models.BudgetSubItem
-	DerivedWeekly float64
-	HasSubItems   bool
+	ItemID    string
+	Target    float64
+	Frequency string
 	// Comparison fields, in the target's own frequency for display.
 	ActualDisplay float64
 	TargetDisplay float64
@@ -450,68 +447,6 @@ func (app *Application) BudgetSaveKind(c echo.Context) error {
 	return app.renderSetup(c, sanitizeID(subCat))
 }
 
-// BudgetAddSubItem finds or creates the BudgetItem for a subcategory, adds an
-// empty sub-item, and returns the re-rendered page with the row kept open.
-func (app *Application) BudgetAddSubItem(c echo.Context) error {
-	subCat := c.FormValue("sub_category")
-	broadCat := c.FormValue("broad_category")
-
-	items, err := app.store.ReadBudgetItems()
-	if err != nil {
-		return err
-	}
-	var itemID string
-	for _, it := range items {
-		if strings.EqualFold(it.Category, subCat) {
-			itemID = it.ID
-			break
-		}
-	}
-	if itemID == "" {
-		newItem := models.BudgetItem{
-			ID:            newID(),
-			Name:          subCat,
-			Category:      subCat,
-			BroadCategory: broadCat,
-			Frequency:     "monthly",
-		}
-		if err := app.store.CreateBudgetItem(newItem); err != nil {
-			return err
-		}
-		itemID = newItem.ID
-	}
-	if err := app.store.AddBudgetSubItem(itemID, models.BudgetSubItem{
-		ID:        newID(),
-		Frequency: "yearly",
-	}); err != nil {
-		return err
-	}
-	return app.renderSetup(c, sanitizeID(subCat))
-}
-
-// BudgetUpdateSubItem saves a sub-item and returns the re-rendered page so the
-// derived total updates immediately.
-func (app *Application) BudgetUpdateSubItem(c echo.Context) error {
-	amount, _ := strconv.ParseFloat(c.FormValue("subitem_amount"), 64)
-	if err := app.store.UpdateBudgetSubItem(c.Param("id"), models.BudgetSubItem{
-		ID:        c.Param("subid"),
-		Name:      c.FormValue("subitem_name"),
-		Amount:    amount,
-		Frequency: c.FormValue("subitem_frequency"),
-	}); err != nil {
-		return err
-	}
-	return app.renderSetup(c, c.FormValue("open"))
-}
-
-// BudgetDeleteSubItem removes a sub-item and returns the re-rendered page.
-func (app *Application) BudgetDeleteSubItem(c echo.Context) error {
-	if err := app.store.DeleteBudgetSubItem(c.Param("id"), c.Param("subid")); err != nil {
-		return err
-	}
-	return app.renderSetup(c, c.FormValue("open"))
-}
-
 // renderSetup answers every edit on the targets page with the whole list.
 // An edit can move a row between sections and changes the section totals,
 // so re-rendering only the row would leave the rest out of date. openRow is
@@ -592,28 +527,13 @@ func (app *Application) BudgetSaveSavingsGoal(c echo.Context) error {
 }
 
 func buildSetupRowData(item models.BudgetItem, actualWeekly, netWeekly float64) CategoryTargetRow {
-	var derived float64
-	for _, si := range item.SubItems {
-		derived += toWeeklyAmount(si.Amount, si.Frequency)
-	}
-	hasSubItems := len(item.SubItems) > 0
-	targetWeekly := toWeeklyAmount(item.Amount, item.Frequency)
-	if hasSubItems {
-		targetWeekly = derived
-	}
+	targetWeekly := weeklyTarget(item)
 	isSpending := item.IsSpending()
-	if !isSpending {
-		targetWeekly = 0
-	}
 	hasTarget := targetWeekly > 0
 
 	freq := item.Frequency
-	if hasSubItems || freq == "" {
+	if freq == "" {
 		freq = "weekly"
-	}
-	targetDisplay := item.Amount
-	if hasSubItems {
-		targetDisplay = derived
 	}
 
 	var pct, pctOfIncome float64
@@ -631,11 +551,8 @@ func buildSetupRowData(item models.BudgetItem, actualWeekly, netWeekly float64) 
 		ItemID:        item.ID,
 		Target:        item.Amount,
 		Frequency:     item.Frequency,
-		SubItems:      item.SubItems,
-		DerivedWeekly: derived,
-		HasSubItems:   hasSubItems,
 		ActualDisplay: actualInFrequency(actualWeekly, freq),
-		TargetDisplay: targetDisplay,
+		TargetDisplay: item.Amount,
 		Per:           frequencyPer(freq),
 		WindowWeeks:   actualWindowWeeks(item.Frequency),
 		TargetWeekly:  targetWeekly,
@@ -742,9 +659,7 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 			row.SubCategory = key.specific
 			row.RowID = sanitizeID(key.specific)
 		}
-		// A category split into items takes its target from the items, so a
-		// single suggested amount would have nowhere to go.
-		if !row.HasTarget && row.IsSpending && !row.HasSubItems {
+		if !row.HasTarget && row.IsSpending {
 			row.SuggestedMonthly = math.Ceil(row.ActualWeekly * 52 / 12)
 		}
 		row.Merchants = topMerchants(merchantSpend[key])
@@ -1107,11 +1022,8 @@ func buildWeekBreakdown(start time.Time, txs []models.Transaction, items []model
 		line.Target = weeklyTarget(item)
 		line.HasTarget = line.Target > 0
 		line.Diff = line.Actual - line.Target
-		if line.HasTarget && (len(item.SubItems) > 0 || item.Frequency == "monthly" || item.Frequency == "yearly") {
+		if line.HasTarget && (item.Frequency == "monthly" || item.Frequency == "yearly") {
 			line.Billed = "billed " + item.Frequency
-			if len(item.SubItems) > 0 {
-				line.Billed = "billed as separate items"
-			}
 		}
 		week.Lines = append(week.Lines, *line)
 	}
@@ -1191,21 +1103,13 @@ func isoWeekStart(t time.Time) time.Time {
 // ---- pure functions ----
 
 // weeklyTarget returns the weekly-normalised budget target for an item.
-// When sub-items are present their amounts are summed; otherwise the item's
-// own Amount/Frequency is used. Savings and ignored items are not spending,
-// so they contribute nothing even if an amount was saved before the switch.
+// Savings and ignored items are not spending, so they contribute nothing
+// even if an amount was saved before the switch.
 func weeklyTarget(item models.BudgetItem) float64 {
 	if !item.IsSpending() {
 		return 0
 	}
-	if len(item.SubItems) == 0 {
-		return toWeeklyAmount(item.Amount, item.Frequency)
-	}
-	var total float64
-	for _, si := range item.SubItems {
-		total += toWeeklyAmount(si.Amount, si.Frequency)
-	}
-	return total
+	return toWeeklyAmount(item.Amount, item.Frequency)
 }
 
 func actualInFrequency(weeklyActual float64, frequency string) float64 {

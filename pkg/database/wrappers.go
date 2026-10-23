@@ -454,41 +454,6 @@ func (s *Store) ReadBudgetItems() ([]models.BudgetItem, error) {
 func (s *Store) UpdateBudgetItem(item models.BudgetItem) error {
 	return Update[models.BudgetItem](s.db, item)
 }
-func (s *Store) AddBudgetSubItem(itemID string, sub models.BudgetSubItem) error {
-	item, err := Get[models.BudgetItem](s.db, []byte(itemID))
-	if err != nil {
-		return err
-	}
-	item.SubItems = append(item.SubItems, sub)
-	return Update[models.BudgetItem](s.db, item)
-}
-func (s *Store) UpdateBudgetSubItem(itemID string, sub models.BudgetSubItem) error {
-	item, err := Get[models.BudgetItem](s.db, []byte(itemID))
-	if err != nil {
-		return err
-	}
-	for i, si := range item.SubItems {
-		if si.ID == sub.ID {
-			item.SubItems[i] = sub
-			break
-		}
-	}
-	return Update[models.BudgetItem](s.db, item)
-}
-func (s *Store) DeleteBudgetSubItem(itemID, subID string) error {
-	item, err := Get[models.BudgetItem](s.db, []byte(itemID))
-	if err != nil {
-		return err
-	}
-	filtered := item.SubItems[:0]
-	for _, si := range item.SubItems {
-		if si.ID != subID {
-			filtered = append(filtered, si)
-		}
-	}
-	item.SubItems = filtered
-	return Update[models.BudgetItem](s.db, item)
-}
 
 /* Budget Salary */
 

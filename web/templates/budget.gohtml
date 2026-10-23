@@ -541,80 +541,33 @@
 
         <div class="b-target-editor">
             {{if .IsSpending}}
-                {{if .HasSubItems}}
-                <div class="b-field-label">Made up of</div>
-                {{range .SubItems}}
-                <form class="row g-2 align-items-center mb-2"
-                      hx-put="/budget/items/{{$.ItemID}}/subitems/{{.ID}}" hx-trigger="change"
-                      hx-target="#budget-setup" hx-swap="innerHTML">
-                    <input type="hidden" name="open" value="{{$.RowID}}">
-                    <div class="col-12 col-md-5">
-                        <input type="text" name="subitem_name" class="form-control form-control-sm"
-                               value="{{.Name}}" placeholder="e.g. Car registration" aria-label="Item name">
+            <form class="row g-2 align-items-end mb-3"
+                  hx-post="/budget/targets" hx-trigger="change"
+                  hx-target="#budget-setup" hx-swap="innerHTML">
+                <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
+                <input type="hidden" name="sub_category" value="{{.SubCategory}}">
+                <div class="col-6 col-md-3">
+                    <label class="b-field-label" for="target-{{.RowID}}">Target</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">$</span>
+                        <input type="number" id="target-{{.RowID}}" name="target_amount" class="form-control text-end"
+                               placeholder="—" min="0" step="0.01"
+                               {{if gt .Target 0.0}}value="{{.Target | printf "%.2f"}}"{{end}}>
                     </div>
-                    <div class="col-5 col-md-3">
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text">$</span>
-                            <input type="number" name="subitem_amount" class="form-control text-end"
-                                   placeholder="0.00" min="0" step="0.01" aria-label="Item amount"
-                                   {{if gt .Amount 0.0}}value="{{.Amount | printf "%.2f"}}"{{end}}>
-                        </div>
-                    </div>
-                    <div class="col-5 col-md-3">
-                        <select name="subitem_frequency" class="form-select form-select-sm" aria-label="Item frequency">
-                            <option value="weekly"      {{if eq .Frequency "weekly"}}selected{{end}}>Weekly</option>
-                            <option value="fortnightly" {{if eq .Frequency "fortnightly"}}selected{{end}}>Fortnightly</option>
-                            <option value="monthly"     {{if or (eq .Frequency "monthly") (eq .Frequency "")}}selected{{end}}>Monthly</option>
-                            <option value="yearly"      {{if eq .Frequency "yearly"}}selected{{end}}>Yearly</option>
-                        </select>
-                    </div>
-                    <div class="col-2 col-md-1 text-end">
-                        <button type="button" class="btn btn-link btn-sm p-0 text-danger"
-                                hx-delete="/budget/items/{{$.ItemID}}/subitems/{{.ID}}"
-                                hx-vals='{"open": "{{$.RowID}}"}'
-                                title="Remove" aria-label="Remove {{.Name}}">
-                            <i class="bi bi-x-circle" aria-hidden="true"></i>
-                        </button>
-                    </div>
-                </form>
-                {{end}}
-                <div class="b-card-sub mb-2">Together {{.DerivedWeekly | fmtWhole}} a week.</div>
-                {{else}}
-                <form class="row g-2 align-items-end mb-2"
-                      hx-post="/budget/targets" hx-trigger="change"
-                      hx-target="#budget-setup" hx-swap="innerHTML">
-                    <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
-                    <input type="hidden" name="sub_category" value="{{.SubCategory}}">
-                    <div class="col-6 col-md-3">
-                        <label class="b-field-label" for="target-{{.RowID}}">Target</label>
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text">$</span>
-                            <input type="number" id="target-{{.RowID}}" name="target_amount" class="form-control text-end"
-                                   placeholder="—" min="0" step="0.01"
-                                   {{if gt .Target 0.0}}value="{{.Target | printf "%.2f"}}"{{end}}>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <label class="b-field-label" for="frequency-{{.RowID}}">Per</label>
-                        <select id="frequency-{{.RowID}}" name="target_frequency" class="form-select form-select-sm"
-                                data-prev="{{if .Frequency}}{{.Frequency}}{{else}}weekly{{end}}"
-                                title="Changing the frequency converts the amount"
-                                onchange="convertTargetFrequency(this)">
-                            <option value="weekly"      {{if or (eq .Frequency "weekly") (eq .Frequency "")}}selected{{end}}>Week</option>
-                            <option value="fortnightly" {{if eq .Frequency "fortnightly"}}selected{{end}}>Fortnight</option>
-                            <option value="monthly"     {{if eq .Frequency "monthly"}}selected{{end}}>Month</option>
-                            <option value="yearly"      {{if eq .Frequency "yearly"}}selected{{end}}>Year</option>
-                        </select>
-                    </div>
-                </form>
-                {{end}}
-                <form class="mb-3" hx-post="/budget/subitems" hx-target="#budget-setup" hx-swap="innerHTML">
-                    <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
-                    <input type="hidden" name="sub_category" value="{{.SubCategory}}">
-                    <button type="submit" class="btn btn-link btn-sm p-0">
-                        <i class="bi bi-plus-circle" aria-hidden="true"></i>{{if .HasSubItems}}Add an item{{else}}Split into items, such as separate bills{{end}}
-                    </button>
-                </form>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="b-field-label" for="frequency-{{.RowID}}">Per</label>
+                    <select id="frequency-{{.RowID}}" name="target_frequency" class="form-select form-select-sm"
+                            data-prev="{{if .Frequency}}{{.Frequency}}{{else}}weekly{{end}}"
+                            title="Changing the frequency converts the amount"
+                            onchange="convertTargetFrequency(this)">
+                        <option value="weekly"      {{if or (eq .Frequency "weekly") (eq .Frequency "")}}selected{{end}}>Week</option>
+                        <option value="fortnightly" {{if eq .Frequency "fortnightly"}}selected{{end}}>Fortnight</option>
+                        <option value="monthly"     {{if eq .Frequency "monthly"}}selected{{end}}>Month</option>
+                        <option value="yearly"      {{if eq .Frequency "yearly"}}selected{{end}}>Year</option>
+                    </select>
+                </div>
+            </form>
             {{end}}
 
             <form class="d-flex align-items-center gap-2 flex-wrap mb-2"

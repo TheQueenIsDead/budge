@@ -2,13 +2,6 @@ package models
 
 import "github.com/TheQueenIsDead/budge/pkg/database/buckets"
 
-type BudgetSubItem struct {
-	ID        string
-	Name      string
-	Amount    float64
-	Frequency string
-}
-
 // How a budget item's transactions are treated. The zero value is spending,
 // so items saved before kinds existed keep counting exactly as they did.
 const (
@@ -24,7 +17,6 @@ type BudgetItem struct {
 	Frequency     string
 	Category      string
 	BroadCategory string
-	SubItems      []BudgetSubItem
 	Kind          string
 }
 

@@ -194,26 +194,14 @@ func TestWeeklyTarget(t *testing.T) {
 		expected float64
 	}{
 		{
-			"no sub-items uses the item's own amount",
+			"a monthly amount is spread across the weeks",
 			models.BudgetItem{Amount: 100, Frequency: "monthly"},
 			100.0 * 12 / 52,
 		},
 		{
-			"empty sub-item slice still uses the item's own amount",
-			models.BudgetItem{Amount: 50, Frequency: "weekly", SubItems: []models.BudgetSubItem{}},
-			50,
-		},
-		{
-			"sub-items are summed and override the parent amount",
-			models.BudgetItem{
-				Amount:    999, // deliberately ignored
-				Frequency: "weekly",
-				SubItems: []models.BudgetSubItem{
-					{Amount: 100, Frequency: "monthly"}, // 23.0769
-					{Amount: 52, Frequency: "yearly"},   // 1
-				},
-			},
-			100.0*12/52 + 1,
+			"a yearly amount is spread across the weeks",
+			models.BudgetItem{Amount: 520, Frequency: "yearly"},
+			10,
 		},
 		{
 			"savings items are not a spending target",
@@ -221,16 +209,8 @@ func TestWeeklyTarget(t *testing.T) {
 			0,
 		},
 		{
-			"ignored items are not a spending target, even with sub-items",
-			models.BudgetItem{Kind: models.BudgetKindIgnore, SubItems: []models.BudgetSubItem{{Amount: 52, Frequency: "yearly"}}},
-			0,
-		},
-		{
-			"sub-items with zero amounts total zero",
-			models.BudgetItem{
-				Amount:   500,
-				SubItems: []models.BudgetSubItem{{Frequency: "yearly"}},
-			},
+			"ignored items are not a spending target",
+			models.BudgetItem{Amount: 52, Frequency: "yearly", Kind: models.BudgetKindIgnore},
 			0,
 		},
 	}
@@ -449,26 +429,6 @@ func TestBuildSetupRowData(t *testing.T) {
 		assert.InDelta(t, 260.0*12/52, row.TargetWeekly, 0.0001)
 	})
 
-	t.Run("sub-items override the parent amount and force weekly display", func(t *testing.T) {
-		item := models.BudgetItem{
-			Category:  "Vehicle",
-			Amount:    999, // deliberately ignored
-			Frequency: "monthly",
-			SubItems: []models.BudgetSubItem{
-				{Amount: 520, Frequency: "yearly"}, // 10/wk
-				{Amount: 10, Frequency: "weekly"},  // 10/wk
-			},
-		}
-		row := buildSetupRowData(item, 15, netWeekly)
-
-		assert.True(t, row.HasSubItems)
-		assert.InDelta(t, 20, row.DerivedWeekly, 0.0001)
-		assert.InDelta(t, 20, row.TargetWeekly, 0.0001)
-		assert.InDelta(t, 20, row.TargetDisplay, 0.0001)
-		assert.Equal(t, "a week", row.Per, "sub-item rows always display weekly")
-		assert.InDelta(t, 0.75, row.Percentage, 0.0001)
-	})
-
 	t.Run("zero income leaves share of income at zero", func(t *testing.T) {
 		item := models.BudgetItem{Category: "Groceries", Amount: 200, Frequency: "weekly"}
 		row := buildSetupRowData(item, 150, 0)
@@ -507,7 +467,7 @@ func TestBudgetTemplatesRender(t *testing.T) {
 		}, 120, 1_000),
 		buildSetupRowData(models.BudgetItem{
 			ID: "item-2", Category: "Vehicle", BroadCategory: "Transport",
-			SubItems: []models.BudgetSubItem{{ID: "sub-1", Name: "Rego", Amount: 520, Frequency: "yearly"}},
+			Amount: 520, Frequency: "yearly",
 		}, 5, 1_000),
 		buildSetupRowData(models.BudgetItem{Category: "Fees", BroadCategory: "Uncategorised"}, 1, 1_000),
 		buildSetupRowData(models.BudgetItem{Category: "Standing orders", BroadCategory: "Uncategorised", Kind: models.BudgetKindSavings}, 100, 1_000),
