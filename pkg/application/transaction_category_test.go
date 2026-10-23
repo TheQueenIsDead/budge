@@ -89,22 +89,12 @@ func TestCategorisingOneTransaction(t *testing.T) {
 	})
 }
 
-func TestMerchantTagsLeadToTransactionsAndRules(t *testing.T) {
+func TestMerchantTagsLeadToTheirTransactions(t *testing.T) {
 	row := buildSetupRowData(models.BudgetItem{Category: "Payments", BroadCategory: uncategorisedGroup}, 105, 1_000)
 	row.Merchants = []string{"PAY The Cylinder Guy Limited"}
 	html := renderTemplate(t, "budget.setup.row", row)
 	assert.Contains(t, html, `href="/transactions?search=PAY%20The%20Cylinder%20Guy%20Limited"`)
-	assert.Contains(t, html, `href="/settings?rule=PAY%20The%20Cylinder%20Guy%20Limited#rules"`, "uncategorised spend offers a rule")
-
-	categorised := buildSetupRowData(models.BudgetItem{Category: "Fuel stations", BroadCategory: "Transport"}, 50, 1_000)
-	categorised.Merchants = []string{"Z Energy"}
-	html = renderTemplate(t, "budget.setup.row", categorised)
-	assert.Contains(t, html, `href="/transactions?search=Z%20Energy"`)
-	assert.NotContains(t, html, `/settings?rule=`, "a categorised merchant only leads to its transactions")
-
-	settings := renderTemplate(t, "settings.categories", CategoriesView{Prefill: "PAY The Cylinder Guy Limited"})
-	assert.Contains(t, settings, `value="PAY The Cylinder Guy Limited" autofocus`)
-	assert.Contains(t, settings, `hx-trigger="load, input changed`, "the preview shows straight away")
+	assert.NotContains(t, html, "/settings", "rules are made from the transactions page")
 }
 
 func TestTransactionsWarnAboutUncategorisedSpend(t *testing.T) {

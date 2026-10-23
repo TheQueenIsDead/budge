@@ -1836,11 +1836,6 @@ a.b-acct:focus-visible {
     text-decoration: none;
 }
 
-.b-merchant a + a {
-    border-left: 1px solid var(--b-border);
-    color: var(--b-muted);
-}
-
 .b-merchant a:hover {
     background: var(--b-surface-3);
     color: var(--b-primary-ink);

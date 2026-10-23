@@ -280,7 +280,7 @@
     </form>
 </div>
 
-<div class="b-card b-card-pad mb-3" id="rules">
+<div class="b-card b-card-pad mb-3">
     <div class="b-card-head">
         <div>
             <h3 class="b-card-title"><i class="bi bi-signpost-split me-2"></i>Rules</h3>
@@ -329,8 +329,7 @@
             <label class="b-field-label" for="rule-contains">Description or merchant contains</label>
             <input class="form-control form-control-sm" id="rule-contains" name="contains"
                    list="rule-suggestions" autocomplete="off"
-                   placeholder="e.g. LOAN INTEREST" required
-                   {{ if .Prefill }}value="{{ .Prefill }}" autofocus{{ end }}>
+                   placeholder="e.g. LOAN INTEREST" required>
             <datalist id="rule-suggestions">
                 {{ range .Suggestions }}<option value="{{ . }}"></option>{{ end }}
             </datalist>
@@ -358,7 +357,7 @@
              otherwise inherit the form's, and replace the whole card. */}}
         <div class="col-12" id="rule-preview" aria-live="polite"
              hx-get="/settings/rules/preview"
-             hx-trigger="{{ if .Prefill }}load, {{ end }}input changed delay:300ms from:#rule-contains, change from:#rule-type, change from:#rule-transfers"
+             hx-trigger="input changed delay:300ms from:#rule-contains, change from:#rule-type, change from:#rule-transfers"
              hx-include="#rule-contains, #rule-type, #rule-transfers"
              hx-target="this"
              hx-swap="innerHTML"></div>

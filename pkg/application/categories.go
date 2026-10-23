@@ -38,10 +38,7 @@ type CategoriesView struct {
 	Types  []string // transaction types seen, for narrowing a rule
 	// Suggestions autofill the rule's match text, uncategorised first.
 	Suggestions []string
-	// Prefill starts the rule form with this text, when a merchant link on
-	// the targets page sent the owner here to make a rule for it.
-	Prefill string
-	Error   string
+	Error       string
 }
 
 // maxRuleSuggestions bounds the autofill list; past a few hundred the browser

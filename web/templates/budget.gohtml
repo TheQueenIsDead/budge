@@ -589,18 +589,12 @@
                 Averaged over the last {{.WindowWeeks}} weeks{{if gt .PctOfIncome 0.0}} · target is {{.PctOfIncome | fmtPercent}} of take-home pay{{end}}.
             </div>
             {{if .Merchants}}
-            {{/* Each merchant leads to its transactions, to file one payment
-                 elsewhere. Uncategorised ones also offer a rule, since that is
-                 usually what they need; elsewhere it would only add noise. */}}
+            {{/* Each merchant leads to its transactions, where one payment or
+                 every one like it can be filed under another category. */}}
             <div class="d-flex flex-wrap gap-1 mt-2">
                 {{range .Merchants}}
                 <span class="b-merchant">
-                    <a href="/transactions?search={{.}}" title="See these transactions">{{.}}</a>
-                    {{if $.IsUncategorised}}
-                    <a href="/settings?rule={{.}}#rules" title="Make a rule for “{{.}}”" aria-label="Make a rule for {{.}}">
-                        <i class="bi bi-signpost-split" aria-hidden="true"></i>
-                    </a>
-                    {{end}}
+                    <a href="/transactions?search={{.}}" title="See these transactions, to categorise them">{{.}}</a>
                 </span>
                 {{end}}
             </div>
