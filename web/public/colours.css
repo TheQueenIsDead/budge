@@ -93,8 +93,11 @@
 :root {
     --bs-body-color: var(--b-ink);
     --bs-body-color-rgb: 22, 32, 43;
-    --bs-body-bg: var(--b-bg);
-    --bs-body-bg-rgb: 243, 245, 247;
+    /* Bootstrap fills form controls, dropdowns and modals with the body
+       background, so it takes the card surface; the page ground is set on
+       body itself in styles.css. */
+    --bs-body-bg: var(--b-surface);
+    --bs-body-bg-rgb: 255, 255, 255;
     --bs-emphasis-color: var(--b-ink);
     --bs-emphasis-color-rgb: 22, 32, 43;
     --bs-secondary-color: var(--b-muted);
