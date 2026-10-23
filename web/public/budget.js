@@ -1,5 +1,17 @@
 // ---- Weekly performance chart ----
 
+// budgetedColours fills each week's budgeted segment the way the dashboard's
+// spark bars are drawn: a pastel tint for every week, sage when it came in at
+// or under target and clay when it went over, and the full accent for the week
+// open in the breakdown, so the bar and the table are visibly the same week.
+function budgetedColours(actuals, target, weeks) {
+    const selected = document.getElementById('budget-week-start')?.value;
+    return actuals.map((v, i) => {
+        const accent = target > 0 && v > target ? 'clay' : 'sage';
+        return weeks[i] === selected ? budge.colour(accent) : budge.colourSoft(accent);
+    });
+}
+
 function initBudgetPerfChart() {
     const canvas = document.getElementById('budget-perf-chart');
     if (!canvas) return;
@@ -14,15 +26,12 @@ function initBudgetPerfChart() {
 
     // One stacked bar per week: budgeted spend at the base, unbudgeted on top,
     // so whatever rises past the target line is visibly the unbudgeted part.
-    // The server always sends both in that order. The budgeted part is filled
-    // with the same good/bad pair as the delta badges elsewhere: green for a
-    // week that came in at or under target, red for one that went over. The
-    // unbudgeted part is left unfilled and outlined in grey, so it reads as
-    // spend the budget never planned for.
-    const under = budge.positive;
-    const over = budge.negative;
+    // The server always sends both in that order. The unbudgeted part is left
+    // unfilled and outlined in grey, so it reads as spend the budget never
+    // planned for.
+    const under = budge.colourSoft('sage');
+    const over = budge.colourSoft('clay');
     const unbudgeted = budge.colour('muted');
-    const weekColour = actuals.map(v => target > 0 && v > target ? over : under);
     const [budgetedSeries, unbudgetedSeries] = series;
     const datasets = [];
     if (budgetedSeries) {
@@ -31,7 +40,7 @@ function initBudgetPerfChart() {
             label: budgetedSeries.label,
             data: budgetedSeries.data,
             stack: 'spend',
-            backgroundColor: weekColour,
+            backgroundColor: budgetedColours(actuals, target, weeks),
             // A surface-coloured top edge leaves a gap before the outline above.
             borderColor: budge.surface,
             borderWidth: { top: 2 },
@@ -99,8 +108,8 @@ function initBudgetPerfChart() {
                         color: budge.ink,
                         boxWidth: 12,
                         generateLabels: () => [
-                            { text: 'Budgeted, under target', fillStyle: under, strokeStyle: under, lineWidth: 0, fontColor: budge.ink },
-                            { text: 'Budgeted, over target', fillStyle: over, strokeStyle: over, lineWidth: 0, fontColor: budge.ink },
+                            { text: 'Budgeted, under target', fillStyle: under, strokeStyle: budge.colour('sage'), lineWidth: 1, fontColor: budge.ink },
+                            { text: 'Budgeted, over target', fillStyle: over, strokeStyle: budge.colour('clay'), lineWidth: 1, fontColor: budge.ink },
                             { text: 'Unbudgeted', fillStyle: 'transparent', strokeStyle: unbudgeted, lineWidth: 2, fontColor: budge.ink },
                             { text: 'Budget target', fillStyle: 'transparent', strokeStyle: budge.ink, lineWidth: 2, lineDash: [6, 4], fontColor: budge.ink },
                         ],
@@ -127,7 +136,20 @@ function initBudgetPerfChart() {
     });
 }
 
-document.body.addEventListener('htmx:afterSwap', initBudgetPerfChart);
+// A new breakdown moves the highlight, which only needs the colours redrawn;
+// anything else swapped in may be the chart itself, so that is rebuilt.
+document.body.addEventListener('htmx:afterSwap', event => {
+    const canvas = document.getElementById('budget-perf-chart');
+    const chart = canvas && Chart.getChart(canvas);
+    if (chart && event.detail.target.id === 'budget-week') {
+        const bars = chart.data.datasets[0];
+        bars.backgroundColor = budgetedColours(
+            JSON.parse(canvas.dataset.actuals), parseFloat(canvas.dataset.target), JSON.parse(canvas.dataset.weeks || '[]'));
+        chart.update('none');
+        return;
+    }
+    initBudgetPerfChart();
+});
 initBudgetPerfChart();
 
 // ---- Broad category collapse ----
