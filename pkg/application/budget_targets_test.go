@@ -163,3 +163,37 @@ func TestQuickActionsOnlyOfferedForUntargetedSpend(t *testing.T) {
 	assert.NotContains(t, html, "b-target-quick")
 	assert.Contains(t, html, "$50</span> of $60 a week", "the read-only line is one figure against its target")
 }
+
+// TestTargetsWithoutSpendStillHaveARow is the regression test for a target
+// that counted toward the total but had no row, because nothing had been
+// spent in its category, so it could be neither seen nor changed.
+func TestTargetsWithoutSpendStillHaveARow(t *testing.T) {
+	app := newTestApp(t)
+	require.NoError(t, app.store.CreateTransaction(spendTx("fuel", "EFTPOS", "Transport", "Fuel", "", "", -40, time.Now().Add(-48*time.Hour))))
+	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "fuel", Category: "Fuel", BroadCategory: "Transport", Amount: 60, Frequency: "weekly"}))
+	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "taxi", Category: "Taxis", BroadCategory: "Transport", Amount: 312, Frequency: "yearly"}))
+
+	setup, err := app.buildSetupData()
+	require.NoError(t, err)
+	cards, err := app.buildBudgetCards()
+	require.NoError(t, err)
+
+	rows := rowsIn(t, setup, "Transport")
+	require.Len(t, rows, 2)
+	byName := map[string]CategoryTargetRow{}
+	for _, row := range rows {
+		byName[row.SubCategory] = row
+	}
+	taxi := byName["Taxis"]
+	assert.True(t, taxi.HasTarget)
+	assert.Zero(t, taxi.ActualWeekly)
+	assert.InDelta(t, cards.TotalWeeklyExpenses, setup.TotalTargetWeekly, 0.001, "the page and the allocation bar total the same targets")
+
+	for _, section := range setup.Sections {
+		for _, row := range section.Rows {
+			if row.SubCategory == "Taxis" {
+				assert.Equal(t, sectionOnTrack, section.Key, "nothing spent against a target is on track")
+			}
+		}
+	}
+}

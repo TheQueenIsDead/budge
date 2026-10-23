@@ -666,6 +666,24 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 		rows = append(rows, row)
 	}
 
+	// A saved category with no spending in the window still has a target
+	// that counts toward the total, so it gets a row too; otherwise it could
+	// be neither seen nor changed.
+	shown := make(map[string]bool, len(rows))
+	for _, row := range rows {
+		shown[strings.ToLower(row.SubCategory)] = true
+	}
+	for _, item := range items {
+		if shown[strings.ToLower(item.Category)] {
+			continue
+		}
+		row := buildSetupRowData(item, 0, netWeekly)
+		if weeklyTarget(item) == 0 {
+			row.WindowWeeks = untargetedWindowWeeks
+		}
+		rows = append(rows, row)
+	}
+
 	var totalTargetWeekly, trackedSavings float64
 	for _, row := range rows {
 		totalTargetWeekly += row.TargetWeekly
