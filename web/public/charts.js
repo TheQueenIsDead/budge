@@ -54,6 +54,14 @@
         },
         get primaryInk() {
             return token("--b-primary-ink", "#315774");
+        },
+        // The good/bad pair the delta badges use, for charts that show
+        // whether something came in under or over.
+        get positive() {
+            return token("--b-positive", "#2f7359");
+        },
+        get negative() {
+            return token("--b-negative", "#a8504e");
         }
     };
 

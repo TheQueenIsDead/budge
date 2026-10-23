@@ -15,11 +15,12 @@ function initBudgetPerfChart() {
     // One stacked bar per week: budgeted spend at the base, unbudgeted on top,
     // so whatever rises past the target line is visibly the unbudgeted part.
     // The server always sends both in that order. The budgeted part is filled
-    // green for a week that came in at or under target and orange for one that
-    // went over; the unbudgeted part is left unfilled and outlined in grey, so
-    // it reads as spend the budget never planned for.
-    const under = budge.colour('sage');
-    const over = budge.colour('clay');
+    // with the same good/bad pair as the delta badges elsewhere: green for a
+    // week that came in at or under target, red for one that went over. The
+    // unbudgeted part is left unfilled and outlined in grey, so it reads as
+    // spend the budget never planned for.
+    const under = budge.positive;
+    const over = budge.negative;
     const unbudgeted = budge.colour('muted');
     const weekColour = actuals.map(v => target > 0 && v > target ? over : under);
     const [budgetedSeries, unbudgetedSeries] = series;
