@@ -215,3 +215,23 @@ func TestSavingTargetKeepsKind(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, models.BudgetKindSavings, item.Kind)
 }
+
+// TestRowsCollapseWithTheirGroup is the regression test for untargeted rows
+// staying visible when their group was collapsed: with no saved item they
+// were tagged with an empty group id instead of the group they sit under.
+func TestRowsCollapseWithTheirGroup(t *testing.T) {
+	app := newTestApp(t)
+	recent := time.Now().Add(-48 * time.Hour)
+	require.NoError(t, app.store.CreateTransaction(spendTx("untargeted", "EFTPOS", "Food", "Bakeries", "", "", -5, recent)))
+	require.NoError(t, app.store.CreateTransaction(spendTx("targeted", "EFTPOS", "Food", "Supermarkets", "", "", -50, recent)))
+	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "s", Category: "Supermarkets", BroadCategory: "Food", Amount: 100, Frequency: "weekly"}))
+
+	setup, err := app.buildSetupData()
+	require.NoError(t, err)
+
+	food := groupNamed(t, setup, "Food")
+	require.Len(t, food.Rows, 2)
+	for _, row := range food.Rows {
+		assert.Equal(t, food.RowID, row.BroadRowID, row.SubCategory)
+	}
+}

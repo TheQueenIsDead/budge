@@ -686,9 +686,9 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 			row.SubCategory = key.specific
 			row.RowID = sanitizeID(key.specific)
 		}
-		if row.BroadRowID == "" {
-			row.BroadRowID = sanitizeBroadID(key.broad)
-		}
+		// The row is listed under key.broad, so its collapse id must match that
+		// group even when there is no saved item or it names another group.
+		row.BroadRowID = sanitizeBroadID(key.broad)
 		row.setMerchants(topMerchants(merchantSpend[key]))
 		groupRows[key.broad] = append(groupRows[key.broad], row)
 	}
