@@ -6,7 +6,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
         <meta name="description" content="Budge, a personal finance dashboard">
-        <meta name="theme-color" content="#f3f5f7">
+        <meta name="theme-color" content="">
         <link rel="icon" href="{{ asset "/static/favicon.ico" }}">
 
         <title>Budge</title>
@@ -29,10 +29,17 @@
              rendered with a stylesheet cached from before it. -->
         <script defer src="{{ asset "/static/toast.js" }}"></script>
         <script defer src="{{ asset "/static/budget.js" }}"></script>
+        <link rel="stylesheet" href="{{ asset "/static/colours.css" }}">
         <link rel="stylesheet" href="{{ asset "/static/styles.css" }}">
         <!-- Not deferred: inline chart code in the page body runs during parsing,
              which is before a deferred script would execute. -->
         <script src="{{ asset "/static/charts.js" }}"></script>
+        <!-- The browser chrome takes the page ground. A meta tag cannot read a
+             CSS variable, so it is copied across once the stylesheet is in. -->
+        <script>
+            document.querySelector('meta[name="theme-color"]').content =
+                getComputedStyle(document.documentElement).getPropertyValue('--b-bg').trim();
+        </script>
 
         <!-- HTMX -->
         <script src="https://unpkg.com/htmx.org@2.0.0"></script>

@@ -1,0 +1,212 @@
+/* ==========================================================================
+   Budge colours
+
+   Every colour the app uses is defined here and nowhere else. Stylesheets,
+   templates and scripts reference these tokens: CSS through var(), scripts
+   through window.budge in charts.js. A test fails the build if a colour
+   literal appears in any other file under web/.
+
+   One pale blue-grey ground, one slate primary, and a fixed accent per
+   spending category. The accents are pastel by design: the soft tint is the
+   everyday fill, and the full accent is kept for a highlight - the period a
+   headline figure refers to, or the item currently selected. Categories keep
+   the same colour everywhere they appear, so a colour becomes a label you can
+   read at a glance.
+   ========================================================================== */
+
+:root {
+    /* Ground and ink. A pale blue-grey ground under white cards. The neutral
+       carries a slight blue bias toward the primary, so it reads as chosen
+       rather than as an off-the-shelf grey. */
+    --b-bg: #f3f5f7;
+    --b-surface: #ffffff;
+    --b-surface-2: #f9fafb;
+    --b-surface-3: #eaeef1;
+    --b-border: #e0e6ea;
+    --b-border-strong: #cbd4db;
+    --b-ink: #16202b;
+    --b-ink-2: #48555f;
+    --b-muted: #78858f;
+
+    /* Text and icons drawn on a filled accent or status colour. */
+    --b-on-accent: #ffffff;
+
+    /* Shadows, tinted with the ink so they sit with the ground. */
+    --b-shadow-faint: rgba(22, 32, 43, 0.04);
+    --b-shadow-soft: rgba(22, 32, 43, 0.08);
+
+    /* Brand. A slate blue, dark enough to carry text at small sizes. */
+    --b-primary: #3d6b8f;
+    --b-primary-ink: #315774;
+    --b-primary-soft: #e6eef4;
+    --b-primary-ring: rgba(61, 107, 143, 0.18);
+
+    /* Direction. Money in is good, money out is not. Both are held low in
+       chroma so an ordinary balance sheet does not read as a set of alarms. */
+    --b-positive: #2f7359;
+    --b-positive-soft: #e2efea;
+    --b-negative: #a8504e;
+    --b-negative-soft: #f6e7e6;
+
+    /* Category accents. One fixed hue per spending category, low chroma so
+       colour identifies a category without ever raising its voice. */
+    --b-sage: #4f8a6d;
+    --b-sage-soft: #e3efe9;
+    --b-clay: #b3803c;
+    --b-clay-soft: #f5ebdc;
+    --b-plum: #7b6a9e;
+    --b-plum-soft: #eceaf4;
+    --b-slate: #3d6b8f;
+    --b-slate-soft: #e6eef4;
+    --b-brick: #b8635a;
+    --b-brick-soft: #f7e8e6;
+    --b-muted-accent: #a9b5bd;
+    --b-muted-accent-soft: #e8edf0;
+
+    /* Attention, for something that needs a decision but is not wrong, such
+       as spend with no target. It is the clay accent rather than a yellow,
+       which would be the one loud colour in the app. */
+    --b-warning: var(--b-clay);
+    --b-warning-soft: var(--b-clay-soft);
+
+    /* Further series hues, for charts that colour by an arbitrary category
+       past the five accents above. Each is a muted mix of two accents, so it
+       sits in the same family without repeating one. */
+    --b-series-6: #5f8a8a;
+    --b-series-7: #8a7b9e;
+    --b-series-8: #9e8a5f;
+    --b-series-9: #6d8a4f;
+    --b-series-10: #a86b7b;
+}
+
+/* ==========================================================================
+   Bootstrap bridge
+
+   Bootstrap's utilities and components read its own theme variables, so
+   pointing those at the tokens above makes text-success, bg-danger,
+   alert-warning and the rest render in this palette without touching the
+   templates that use them. Utilities that take an opacity read the -rgb
+   triplets, which CSS cannot derive from a hex, so each is written out beside
+   its token and must change with it.
+   ========================================================================== */
+
+:root {
+    --bs-body-color: var(--b-ink);
+    --bs-body-color-rgb: 22, 32, 43;
+    --bs-body-bg: var(--b-bg);
+    --bs-body-bg-rgb: 243, 245, 247;
+    --bs-emphasis-color: var(--b-ink);
+    --bs-emphasis-color-rgb: 22, 32, 43;
+    --bs-secondary-color: var(--b-muted);
+    --bs-secondary-bg: var(--b-surface-3);
+    --bs-tertiary-bg: var(--b-surface-2);
+    --bs-border-color: var(--b-border);
+    --bs-border-color-translucent: var(--b-border);
+    --bs-heading-color: var(--b-ink);
+    --bs-link-color: var(--b-primary);
+    --bs-link-color-rgb: 61, 107, 143;
+    --bs-link-hover-color: var(--b-primary-ink);
+    --bs-link-hover-color-rgb: 49, 87, 116;
+    --bs-focus-ring-color: var(--b-primary-ring);
+
+    --bs-primary: var(--b-primary);
+    --bs-primary-rgb: 61, 107, 143;
+    --bs-primary-text-emphasis: var(--b-primary-ink);
+    --bs-primary-bg-subtle: var(--b-primary-soft);
+    --bs-primary-border-subtle: var(--b-primary-soft);
+
+    --bs-secondary: var(--b-muted);
+    --bs-secondary-rgb: 120, 133, 143;
+    --bs-secondary-text-emphasis: var(--b-ink-2);
+    --bs-secondary-bg-subtle: var(--b-muted-accent-soft);
+    --bs-secondary-border-subtle: var(--b-border);
+
+    --bs-success: var(--b-positive);
+    --bs-success-rgb: 47, 115, 89;
+    --bs-success-text-emphasis: var(--b-positive);
+    --bs-success-bg-subtle: var(--b-positive-soft);
+    --bs-success-border-subtle: var(--b-positive-soft);
+
+    --bs-danger: var(--b-negative);
+    --bs-danger-rgb: 168, 80, 78;
+    --bs-danger-text-emphasis: var(--b-negative);
+    --bs-danger-bg-subtle: var(--b-negative-soft);
+    --bs-danger-border-subtle: var(--b-negative-soft);
+
+    --bs-warning: var(--b-warning);
+    --bs-warning-rgb: 179, 128, 60;
+    --bs-warning-text-emphasis: var(--b-warning);
+    --bs-warning-bg-subtle: var(--b-warning-soft);
+    --bs-warning-border-subtle: var(--b-warning-soft);
+
+    --bs-info: var(--b-slate);
+    --bs-info-rgb: 61, 107, 143;
+    --bs-info-text-emphasis: var(--b-primary-ink);
+    --bs-info-bg-subtle: var(--b-slate-soft);
+    --bs-info-border-subtle: var(--b-slate-soft);
+
+    --bs-light: var(--b-surface-2);
+    --bs-light-rgb: 249, 250, 251;
+    --bs-light-text-emphasis: var(--b-ink-2);
+    --bs-light-bg-subtle: var(--b-surface-2);
+    --bs-light-border-subtle: var(--b-border);
+
+    --bs-dark: var(--b-ink);
+    --bs-dark-rgb: 22, 32, 43;
+
+    --bs-white-rgb: 255, 255, 255;
+}
+
+/* Table variants and alerts set their own colours per class rather than
+   reading the theme variables, so they are restated here. */
+.table-light {
+    --bs-table-color: var(--b-ink);
+    --bs-table-bg: var(--b-surface-2);
+    --bs-table-border-color: var(--b-border);
+    --bs-table-striped-bg: var(--b-surface-3);
+    --bs-table-hover-bg: var(--b-surface-3);
+    --bs-table-active-bg: var(--b-surface-3);
+}
+
+.table-success {
+    --bs-table-color: var(--b-ink);
+    --bs-table-bg: var(--b-positive-soft);
+    --bs-table-border-color: var(--b-border);
+}
+
+.table-danger {
+    --bs-table-color: var(--b-ink);
+    --bs-table-bg: var(--b-negative-soft);
+    --bs-table-border-color: var(--b-border);
+}
+
+.table-active {
+    --bs-table-bg-state: var(--b-surface-3);
+}
+
+.alert-warning {
+    --bs-alert-color: var(--b-warning);
+    --bs-alert-bg: var(--b-warning-soft);
+    --bs-alert-border-color: var(--b-warning-soft);
+}
+
+.btn-outline-danger {
+    --bs-btn-color: var(--b-negative);
+    --bs-btn-border-color: var(--b-negative);
+    --bs-btn-hover-color: var(--b-on-accent);
+    --bs-btn-hover-bg: var(--b-negative);
+    --bs-btn-hover-border-color: var(--b-negative);
+    --bs-btn-active-color: var(--b-on-accent);
+    --bs-btn-active-bg: var(--b-negative);
+    --bs-btn-active-border-color: var(--b-negative);
+}
+
+.dropdown-menu {
+    --bs-dropdown-link-active-bg: var(--b-primary);
+    --bs-dropdown-link-active-color: var(--b-on-accent);
+}
+
+.form-check-input:checked {
+    background-color: var(--b-primary);
+    border-color: var(--b-primary);
+}

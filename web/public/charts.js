@@ -1,9 +1,9 @@
 // Chart colours, shared by every canvas in the app.
 //
 // Chart.js needs literal colours while the interface is themed with CSS custom
-// properties, so the two have to agree. Rather than repeat the hexes in each
-// template, they are read from the stylesheet: the tokens in styles.css stay the
-// single source, and a palette change does not need chasing through templates.
+// properties, so the two have to agree. Every colour is read from the tokens in
+// colours.css, the only place a colour is written down; nothing here or in a
+// template restates one.
 //
 // Lookups are lazy and memoised. Resolving at load would depend on this script
 // being parsed after the stylesheet link, which is a silent failure if the head
@@ -21,18 +21,18 @@
         muted: "--b-muted-accent"
     };
 
-    const FALLBACK = "#3d6b8f";
     const cache = {};
 
-    function token(name, fallback) {
+    function token(name) {
         if (cache[name] === undefined) {
             const value = getComputedStyle(document.documentElement)
                 .getPropertyValue(name)
                 .trim();
             // Only cache a real answer, so a call made before the stylesheet is
-            // ready does not poison every later lookup.
+            // ready does not poison every later lookup. An empty colour leaves
+            // Chart.js to its default rather than drawing nothing.
             if (!value) {
-                return fallback;
+                return value;
             }
             cache[name] = value;
         }
@@ -41,30 +41,33 @@
 
     const budge = {
         get ink() {
-            return token("--b-muted", "#78858f");
+            return token("--b-muted");
         },
         get grid() {
-            return token("--b-surface-3", "#e6ecf0");
+            return token("--b-surface-3");
         },
         get surface() {
-            return token("--b-surface", "#ffffff");
+            return token("--b-surface");
         },
         get primary() {
-            return token("--b-primary", FALLBACK);
+            return token("--b-primary");
         },
         get primaryInk() {
-            return token("--b-primary-ink", "#315774");
+            return token("--b-primary-ink");
+        },
+        get primarySoft() {
+            return token("--b-primary-soft");
         }
     };
 
     // colour resolves an accent by token name, falling back to the primary so an
     // unrecognised name renders as a colour rather than as nothing.
     budge.colour = function (name) {
-        return token(ACCENT_TOKENS[name] || "--b-primary", FALLBACK);
+        return token(ACCENT_TOKENS[name] || "--b-primary");
     };
 
     budge.colourSoft = function (name) {
-        return token((ACCENT_TOKENS[name] || "--b-primary") + "-soft", "#e6eef4");
+        return token((ACCENT_TOKENS[name] || "--b-primary") + "-soft");
     };
 
     // mix blends an accent towards white. The soft tokens are tuned to sit
@@ -94,11 +97,11 @@
                 budge.colour("plum"),
                 budge.colour("slate"),
                 budge.colour("brick"),
-                "#5f8a8a",
-                "#8a7b9e",
-                "#9e8a5f",
-                "#6d8a4f",
-                "#a86b7b"
+                token("--b-series-6"),
+                token("--b-series-7"),
+                token("--b-series-8"),
+                token("--b-series-9"),
+                token("--b-series-10")
             ];
         }
     });
