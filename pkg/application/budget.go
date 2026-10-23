@@ -43,6 +43,11 @@ type CategoryTargetRow struct {
 	// that window too, so accepting it lands the row on track rather than
 	// tripping over a lumpy month.
 	SuggestedMonthly float64
+	// Generous marks a target set well above what the category spends, and
+	// LoweredTarget is what it could come down to, in the target's own
+	// frequency. Zero means the category spends nothing to budget for.
+	Generous      bool
+	LoweredTarget float64
 	// Merchants seen in this category, highest spend first. Informational
 	// only — they are derived from transactions, never edited.
 	Merchants []string
@@ -147,6 +152,7 @@ type TargetSection struct {
 // Section keys, in the order the page shows them.
 const (
 	sectionAttention  = "attention"
+	sectionGenerous   = "generous"
 	sectionOnTrack    = "on-track"
 	sectionSmall      = "small"
 	sectionNotCounted = "not-counted"
@@ -157,17 +163,30 @@ const (
 // tips a budget over.
 const smallSpendWeekly = 5.0
 
+// A target counts as generous when spending is under this share of it and at
+// least this far below it each week. Both have to hold, so a small yearly
+// budget that has not been touched yet is not flagged for a few dollars.
+const (
+	generousShare     = 0.5
+	generousGapWeekly = 20.0
+)
+
+// loweredHeadroom is added to what a generous category spends when offering
+// a lower target, so a slightly bigger week does not tip it straight over.
+const loweredHeadroom = 1.1
+
 // buildTargetSections sorts rows into the page's sections. Needs attention is
 // always open; another section opens only when it holds the row being edited,
 // so a row that moves section after an edit never disappears from view.
 func buildTargetSections(rows []CategoryTargetRow, openRow string) []TargetSection {
 	sections := []TargetSection{
 		{Key: sectionAttention, Title: "Needs attention", Open: true},
+		{Key: sectionGenerous, Title: "Could be lower", Open: true},
 		{Key: sectionOnTrack, Title: "On track"},
 		{Key: sectionSmall, Title: "Small categories"},
 		{Key: sectionNotCounted, Title: "Not counted"},
 	}
-	index := map[string]int{sectionAttention: 0, sectionOnTrack: 1, sectionSmall: 2, sectionNotCounted: 3}
+	index := map[string]int{sectionAttention: 0, sectionGenerous: 1, sectionOnTrack: 2, sectionSmall: 3, sectionNotCounted: 4}
 	for _, row := range rows {
 		key := sectionOnTrack
 		switch {
@@ -175,6 +194,8 @@ func buildTargetSections(rows []CategoryTargetRow, openRow string) []TargetSecti
 			key = sectionNotCounted
 		case row.IsOver:
 			key = sectionAttention
+		case row.Generous:
+			key = sectionGenerous
 		case row.HasTarget:
 			key = sectionOnTrack
 		case row.ActualWeekly >= smallSpendWeekly:
@@ -214,6 +235,10 @@ func buildTargetSections(rows []CategoryTargetRow, openRow string) []TargetSecti
 			return rows[i].SubCategory < rows[j].SubCategory
 		})
 	}
+	generous := sections[index[sectionGenerous]].Rows
+	sort.SliceStable(generous, func(i, j int) bool {
+		return generous[i].TargetWeekly-generous[i].ActualWeekly > generous[j].TargetWeekly-generous[j].ActualWeekly
+	})
 	small := sections[index[sectionSmall]].Rows
 	sort.SliceStable(small, func(i, j int) bool { return small[i].ActualWeekly > small[j].ActualWeekly })
 
@@ -325,6 +350,8 @@ type TrackingSummary struct {
 	// does not add up.
 	UntargetedWeekly float64
 	UntargetedCount  int
+	// Targets set well above what their categories spend.
+	GenerousCount int
 }
 
 // IsOver reports whether spending in targeted categories is over their
@@ -350,6 +377,9 @@ func buildTrackingSummary(rows []CategoryTargetRow) TrackingSummary {
 			summary.Target += row.TargetWeekly
 			if row.IsOver {
 				summary.OverCount++
+			}
+			if row.Generous {
+				summary.GenerousCount++
 			}
 		case row.NeedsTarget:
 			summary.UntargetedWeekly += row.ActualWeekly
@@ -653,6 +683,26 @@ const untargetedWindowWeeks = 13
 // over, so a target set to the dollar is not flagged for a few cents.
 const overToleranceWeekly = 1.0
 
+// markGenerous flags a target set well above what its category spends, and
+// works out what it could be lowered to. Spending is judged on the higher of
+// the row's own window and the last 13 weeks, so a quiet month does not flag
+// a weekly target and a yearly one is not judged on its quiet weeks alone.
+func markGenerous(row *CategoryTargetRow, recentWeekly float64) {
+	if !row.HasTarget || !row.IsSpending {
+		return
+	}
+	spent := math.Max(row.ActualWeekly, recentWeekly)
+	if spent >= row.TargetWeekly*generousShare || row.TargetWeekly-spent < generousGapWeekly {
+		return
+	}
+	row.Generous = true
+	freq := row.Frequency
+	if freq == "" {
+		freq = "weekly"
+	}
+	row.LoweredTarget = math.Ceil(actualInFrequency(spent*loweredHeadroom, freq))
+}
+
 // buildSetupData groups 13 months of transactions by category pair and merges
 // in any saved targets, one row per pair.
 func (app *Application) buildSetupData() (CategorySetupData, error) {
@@ -725,6 +775,9 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 		if !row.HasTarget && row.IsSpending {
 			row.SuggestedMonthly = math.Ceil(row.ActualWeekly * 52 / 12)
 		}
+		if row.HasTarget && !row.IsOver {
+			markGenerous(&row, spend[key][untargetedWindowWeeks]/untargetedWindowWeeks)
+		}
 		row.Merchants = topMerchants(merchantSpend[key])
 		rows = append(rows, row)
 	}
@@ -744,6 +797,7 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 		if weeklyTarget(item) == 0 {
 			row.WindowWeeks = untargetedWindowWeeks
 		}
+		markGenerous(&row, 0)
 		rows = append(rows, row)
 	}
 

@@ -20,7 +20,7 @@
                     {{end}}
                 </div>
                 <div class="b-card-sub">
-                    {{if .OverCount}}{{.OverCount}} categor{{if eq .OverCount 1}}y is{{else}}ies are{{end}} over target{{else if .Target}}Every category is within its target{{end}}{{if .UntargetedCount}} · {{.UntargetedWeekly | fmtWhole}} a week in {{.UntargetedCount}} categor{{if eq .UntargetedCount 1}}y{{else}}ies{{end}} with no target{{end}}
+                    {{if .OverCount}}{{.OverCount}} categor{{if eq .OverCount 1}}y is{{else}}ies are{{end}} over target{{else if .Target}}Every category is within its target{{end}}{{if .GenerousCount}} · {{.GenerousCount}} target{{if ne .GenerousCount 1}}s{{end}} well above spending{{end}}{{if .UntargetedCount}} · {{.UntargetedWeekly | fmtWhole}} a week in {{.UntargetedCount}} categor{{if eq .UntargetedCount 1}}y{{else}}ies{{end}} with no target{{end}}
                 </div>
             </div>
             {{if .Target}}
@@ -354,6 +354,7 @@
 {{define "budget.setup.section.sum"}}
 <span class="b-card-sub" id="tsec-sum-{{.Key}}"{{if .OOB}} hx-swap-oob="true"{{end}}>
     {{if eq .Key "attention"}}{{.Actual | fmtWhole}} a week{{if .Target}} against {{.Target | fmtWhole}} of targets{{end}}
+    {{else if eq .Key "generous"}}{{.Actual | fmtWhole}} a week spent against {{.Target | fmtWhole}} of targets; lowering them frees the rest
     {{else if eq .Key "on-track"}}{{.Actual | fmtWhole}} of {{.Target | fmtWhole}} a week
     {{else if eq .Key "small"}}{{.Actual | fmtWhole}} a week between them, too little to need a target
     {{else}}{{.Actual | fmtWhole}} a week, left out of the budget{{end}}
@@ -469,6 +470,24 @@
             {{end}}
         </div>
     </details>
+
+    {{if .Generous}}
+    {{/* A target far above what is spent overstates the budget, so the usual
+         answer is one click away. */}}
+    <div class="b-target-quick">
+        <form hx-post="/budget/targets" hx-target="#{{.RowID}}" hx-swap="outerHTML">
+            <input type="hidden" name="section" value="{{.Section}}">
+            <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
+            <input type="hidden" name="sub_category" value="{{.SubCategory}}">
+            <input type="hidden" name="target_amount" value="{{printf "%.0f" .LoweredTarget}}">
+            <input type="hidden" name="target_frequency" value="{{if .Frequency}}{{.Frequency}}{{else}}weekly{{end}}">
+            <button type="submit" class="btn btn-outline-secondary btn-sm"
+                    title="What it has spent, judged over the longer of its own period and the last 13 weeks, plus 10% headroom">
+                {{if .LoweredTarget}}Lower to {{.LoweredTarget | fmtWhole}} {{.Per}}{{else}}Remove target, nothing spent{{end}}
+            </button>
+        </form>
+    </div>
+    {{end}}
 
     {{if and .NeedsTarget .SuggestedMonthly}}
     {{/* One click for the usual answers, so clearing unbudgeted spend does

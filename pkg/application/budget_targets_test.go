@@ -224,3 +224,48 @@ func TestTargetsWithoutSpendStillHaveARow(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerousTargets(t *testing.T) {
+	row := func(item models.BudgetItem, actual, recent float64) CategoryTargetRow {
+		r := buildSetupRowData(item, actual, 1_000)
+		markGenerous(&r, recent)
+		return r
+	}
+
+	convenience := row(models.BudgetItem{Category: "Convenience", Amount: 150, Frequency: "weekly"}, 10, 12)
+	assert.True(t, convenience.Generous, "spending $12 against $150 is well under")
+	assert.InDelta(t, 14, convenience.LoweredTarget, 0.001, "lowered to the higher of its own window and the last 13 weeks, $12, plus 10% headroom, rounded up")
+
+	quietMonth := row(models.BudgetItem{Category: "Convenience", Amount: 150, Frequency: "weekly"}, 10, 99)
+	assert.False(t, quietMonth.Generous, "a quiet month is not enough when the last 13 weeks ran near the target")
+
+	groceries := row(models.BudgetItem{Category: "Groceries", Amount: 200, Frequency: "weekly"}, 157, 150)
+	assert.False(t, groceries.Generous, "spending over half the target is close enough")
+
+	taxis := row(models.BudgetItem{Category: "Taxis", Amount: 300, Frequency: "yearly"}, 0, 0)
+	assert.False(t, taxis.Generous, "an untouched small budget is under $20 a week below, so it is not flagged")
+
+	payments := row(models.BudgetItem{Category: "Payments", Amount: 105, Frequency: "weekly"}, 0, 0)
+	assert.True(t, payments.Generous)
+	assert.Zero(t, payments.LoweredTarget, "nothing spent offers to remove the target")
+	assert.Contains(t, renderTemplate(t, "budget.setup.row", payments), "Remove target, nothing spent")
+
+	power := row(models.BudgetItem{Category: "Power", Amount: 400, Frequency: "monthly"}, 20, 25)
+	assert.True(t, power.Generous)
+	assert.InDelta(t, 120, power.LoweredTarget, 0.001, "$25 a week with 10% headroom is $119.17 a month, rounded up, in the target's own frequency")
+	assert.Contains(t, renderTemplate(t, "budget.setup.row", power), "Lower to $120 a month")
+
+	over := row(models.BudgetItem{Category: "Takeaways", Amount: 20, Frequency: "weekly"}, 80, 80)
+	assert.False(t, over.Generous)
+
+	ignored := row(models.BudgetItem{Category: "Loan", Amount: 400, Frequency: "weekly", Kind: models.BudgetKindIgnore}, 0, 0)
+	assert.False(t, ignored.Generous, "only spending targets are judged")
+
+	sections := buildTargetSections([]CategoryTargetRow{groceries, convenience, payments}, "")
+	assert.Equal(t, []string{sectionGenerous, sectionOnTrack}, sectionKeys(sections))
+	assert.Equal(t, []string{"Convenience", "Payments"}, rowNames(sections[0]), "furthest under first")
+	assert.True(t, sections[0].Open, "the prompt to readjust is shown, not folded away")
+
+	summary := buildTrackingSummary([]CategoryTargetRow{groceries, convenience, payments})
+	assert.Equal(t, 2, summary.GenerousCount)
+}
