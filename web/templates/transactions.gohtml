@@ -13,6 +13,7 @@
               hx-push-url="true">
             <input type="hidden" name="from" value="{{ .from }}">
             <input type="hidden" name="to" value="{{ .to }}">
+            {{ if .uncategorisedOnly }}<input type="hidden" name="uncategorised" value="1">{{ end }}
 
             <div class="row g-2">
                 <div class="col-12 col-sm-7">
@@ -57,6 +58,30 @@
             <span class="b-summary-item text-muted ms-auto d-none d-sm-inline-flex">{{ .took }}</span>
         </div>
     </div>
+
+    {{/* Uncategorised spending all counts as unbudgeted, so it is called out
+         until it is filed, with a way straight to it. */}}
+    {{ if .uncategorisedOnly }}
+        <div class="alert alert-warning d-flex align-items-start gap-2 mb-3" role="status">
+            <i class="bi bi-funnel" aria-hidden="true"></i>
+            <div class="flex-grow-1">
+                Showing only spending from the last {{ .uncategorisedWeeks }} weeks with no category.
+                Use <i class="bi bi-tag" aria-hidden="true"></i><span class="visually-hidden">the tag button</span>
+                on each to file it, or tick the rule box to file everything like it.
+            </div>
+            <a class="text-nowrap" href="/transactions" hx-boost="true" hx-target="#main">Show everything</a>
+        </div>
+    {{ else if .uncategorisedCount }}
+        <div class="alert alert-warning d-flex align-items-start gap-2 mb-3" role="status">
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+            <div class="flex-grow-1">
+                <span class="fw-semibold">{{ .uncategorisedCount }} payment{{ if ne .uncategorisedCount 1 }}s{{ end }} in the last {{ .uncategorisedWeeks }} weeks
+                {{ if eq .uncategorisedCount 1 }}has{{ else }}have{{ end }} no category</span>, {{ .uncategorisedTotal | fmtWhole }} in all.
+                Until they are filed, the budget can only lump them together under Uncategorised.
+            </div>
+            <a class="text-nowrap" href="/transactions?uncategorised=1" hx-boost="true" hx-target="#main">Show them</a>
+        </div>
+    {{ end }}
 
     <!-- Spend behind the results. Stacked by the same categories that colour the
          rows, so a band and a row chip of the same colour mean the same thing. -->
@@ -165,7 +190,7 @@
         {{ if .hasMore }}
             <div class="text-center my-3">
                 <a class="btn btn-outline-secondary"
-                   href="/transactions?search={{ .search }}&account={{ .account }}&from={{ .from }}&to={{ .to }}&limit={{ .nextLimit }}"
+                   href="/transactions?search={{ .search }}&account={{ .account }}&from={{ .from }}&to={{ .to }}&limit={{ .nextLimit }}{{ if .uncategorisedOnly }}&uncategorised=1{{ end }}"
                    hx-boost="true" hx-target="#main">
                     Load more
                     <span class="text-muted">({{ .total }} in total)</span>

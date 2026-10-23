@@ -106,3 +106,44 @@ func TestMerchantTagsLeadToTransactionsAndRules(t *testing.T) {
 	assert.Contains(t, settings, `value="PAY The Cylinder Guy Limited" autofocus`)
 	assert.Contains(t, settings, `hx-trigger="load, input changed`, "the preview shows straight away")
 }
+
+func TestTransactionsWarnAboutUncategorisedSpend(t *testing.T) {
+	app := newTestApp(t)
+	recent := time.Now().Add(-48 * time.Hour)
+	for _, tx := range []models.Transaction{
+		spendTx("cylinder", "PAYMENT", "", "", "", "PAY The Cylinder Guy Limited", -1200, recent),
+		spendTx("old", "PAYMENT", "", "", "", "PAY Someone Long Ago", -500, time.Now().AddDate(0, -6, 0)),
+		spendTx("groceries", "EFTPOS", "Food", "Supermarkets", "Countdown", "", -80, recent),
+		spendTx("sweep", "TRANSFER", "Transfer", "Transfer", "", "TO SAVINGS", -900, recent),
+		spendTx("kiwisaver", "CREDIT", "", "", "", "Employer Contributions", 300, recent),
+		spendTx("cash", "ATM", "", "", "", "ATM W/D The Palms", -200, recent),
+	} {
+		require.NoError(t, app.store.CreateTransaction(tx))
+	}
+	// Cash withdrawals are ignored in the budget, a decision already made.
+	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "atm", Category: "ATM withdrawals", Kind: models.BudgetKindIgnore}))
+
+	get := func(query string) string {
+		req := httptest.NewRequest(http.MethodGet, "/transactions?"+query, nil)
+		req.Header.Set("HX-Request", "true")
+		rec := httptest.NewRecorder()
+		require.NoError(t, app.Transactions(app.http.NewContext(req, rec)))
+		return rec.Body.String()
+	}
+
+	page := get("")
+	assert.Regexp(t, `1 payment in the last 13 weeks\s+has no category</span>, \$1,200 in all`, page,
+		"only recent money out with no category counts: not old spend, money in, transfers, ignored rows or categorised spend")
+	assert.Contains(t, page, `href="/transactions?uncategorised=1"`)
+
+	filtered := get("uncategorised=1")
+	assert.Contains(t, filtered, "Showing only spending from the last 13 weeks with no category")
+	assert.Contains(t, filtered, "PAY The Cylinder Guy Limited")
+	for _, other := range []string{"Countdown", "PAY Someone Long Ago", "TO SAVINGS", "Employer Contributions", "ATM W/D"} {
+		assert.NotContains(t, filtered, other)
+	}
+	assert.Contains(t, filtered, `name="uncategorised" value="1"`, "searching keeps the filter")
+
+	setCategory(t, app, "cylinder", url.Values{"category": {"Supermarkets"}})
+	assert.NotContains(t, get(""), "has no category", "once everything is filed the warning goes away")
+}
