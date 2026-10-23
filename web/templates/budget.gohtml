@@ -5,7 +5,8 @@
     </div>
 
     {{/* The page leads with the outcome. Income and targets are set up once
-         and revisited rarely, so each is a summary tile linking to its own page. */}}
+         and revisited rarely, so each is a summary tile linking to its own
+         page, placed between the chart and the breakdown. */}}
 
     {{/* innerHTML, not outerHTML — an outerHTML swap would replace the element
          carrying hx-trigger and the chart would never refresh again. */}}
@@ -14,6 +15,11 @@
          hx-get="/budget/performance"
          hx-trigger="load, refreshSummary from:body"
          hx-swap="innerHTML"></div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-md-6">{{template "budget.income.tile" .Income}}</div>
+        <div class="col-12 col-md-6">{{template "budget.targets.tile" .Targets}}</div>
+    </div>
 
     {{/* Kept outside #budget-performance so a refresh keeps the chosen week:
          the picker's value is sent back with the request. It is read in JS
@@ -24,11 +30,6 @@
          hx-trigger="load, refreshSummary from:body"
          hx-vals='js:{start: document.getElementById("budget-week-start")?.value || ""}'
          hx-swap="innerHTML"></div>
-
-    <div class="row g-3 mb-3">
-        <div class="col-12 col-md-6">{{template "budget.income.tile" .Income}}</div>
-        <div class="col-12 col-md-6">{{template "budget.targets.tile" .Targets}}</div>
-    </div>
 {{end}}
 
 {{define "budget.targets"}}

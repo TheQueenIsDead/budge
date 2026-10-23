@@ -776,7 +776,7 @@ func TestIncomeTile(t *testing.T) {
 	})
 }
 
-func TestBudgetPageLeadsWithTheWeeksAndLinksToConfiguration(t *testing.T) {
+func TestBudgetPageLeadsWithTheChartAndLinksToConfiguration(t *testing.T) {
 	salary := models.BudgetSalary{Salary: 100_000, SalaryFrequency: "yearly"}
 	budget := renderTemplate(t, "budget", map[string]any{
 		"Income":  buildIncomeTile(salary),
@@ -784,8 +784,9 @@ func TestBudgetPageLeadsWithTheWeeksAndLinksToConfiguration(t *testing.T) {
 	})
 	assert.Contains(t, budget, `hx-get="/budget/performance"`)
 	assert.Contains(t, budget, `hx-get="/budget/week"`)
-	assert.Less(t, strings.Index(budget, `hx-get="/budget/week"`), strings.Index(budget, `href="/budget/income"`),
-		"the chart and breakdown come before the configuration tiles")
+	chart, tiles, week := strings.Index(budget, `hx-get="/budget/performance"`), strings.Index(budget, `href="/budget/income"`), strings.Index(budget, `hx-get="/budget/week"`)
+	assert.Less(t, chart, tiles, "the chart leads the page")
+	assert.Less(t, tiles, week, "the configuration tiles sit between the chart and the breakdown")
 	assert.Contains(t, budget, `href="/budget/targets"`)
 	for _, moved := range []string{`name="salary"`, `name="target_amount"`, `hx-get="/budget/allocation"`, `hx-get="/budget/cards"`} {
 		assert.NotContains(t, budget, moved)
