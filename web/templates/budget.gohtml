@@ -1,88 +1,51 @@
 {{define "budget"}}
     <div class="b-page-head">
         <h2>Budget</h2>
-        <p class="b-page-sub">How the weeks are landing against your targets, and why.</p>
+        <p class="b-page-sub">How spending is tracking against your targets, each measured over its own period.</p>
     </div>
 
-    {{/* The page leads with the outcome. Income and targets are set up once
-         and revisited rarely, so each is a summary tile linking to its own
-         page, placed between the chart and the breakdown. */}}
-
-    {{/* innerHTML, not outerHTML — an outerHTML swap would replace the element
-         carrying hx-trigger and the chart would never refresh again. */}}
-    <!-- Weekly performance chart -->
-    <div id="budget-performance"
-         hx-get="/budget/performance"
-         hx-trigger="load, refreshSummary from:body"
-         hx-swap="innerHTML"></div>
+    {{with .SetupData.Tracking}}
+    {{/* The headline is per week across every category, but each category is
+         measured over the window its frequency implies, so a fortnightly
+         payment or a yearly bill does not swing it from week to week. */}}
+    <div class="b-card b-card-pad mb-3 b-tracking{{if .IsOver}} b-target-over b-accent-clay{{else}} b-accent-sage{{end}}">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <span class="b-chip"><i class="bi {{if .IsOver}}bi-exclamation-lg{{else}}bi-check-lg{{end}}"></i></span>
+            <div class="min-width-0 flex-grow-1">
+                <div class="b-card-title">
+                    {{if .Target}}
+                    {{.Actual | fmtWhole}} a week against {{.Target | fmtWhole}} of targets
+                    {{else}}
+                    No targets set yet
+                    {{end}}
+                </div>
+                <div class="b-card-sub">
+                    {{if .OverCount}}{{.OverCount}} categor{{if eq .OverCount 1}}y is{{else}}ies are{{end}} over target{{else if .Target}}Every category is within its target{{end}}{{if .UntargetedCount}} · {{.UntargetedWeekly | fmtWhole}} a week in {{.UntargetedCount}} categor{{if eq .UntargetedCount 1}}y{{else}}ies{{end}} with no target{{end}}
+                </div>
+            </div>
+            {{if .Target}}
+            <div class="b-target-bar b-tracking-bar flex-grow-1" aria-hidden="true">
+                <span style="width:{{printf "%.0f" .BarWidth}}%"></span>
+            </div>
+            {{end}}
+        </div>
+    </div>
+    {{end}}
 
     <div class="row g-3 mb-3">
-        <div class="col-12 col-md-6">{{template "budget.income.tile" .Income}}</div>
-        <div class="col-12 col-md-6">{{template "budget.targets.tile" .Targets}}</div>
+        <div class="col-12 col-lg-5">{{template "budget.income.tile" .Income}}</div>
+        <!-- Share of take-home pay the targets claim -->
+        <div class="col-12 col-lg-7" id="budget-allocation"
+             hx-get="/budget/allocation"
+             hx-trigger="load, refreshSummary from:body"
+             hx-swap="innerHTML"></div>
     </div>
 
-    {{/* Kept outside #budget-performance so a refresh keeps the chosen week:
-         the picker's value is sent back with the request. It is read in JS
-         rather than with hx-include because the picker only exists after the
-         first load, and an hx-include that matches nothing logs an error. */}}
-    <div id="budget-week"
-         hx-get="/budget/week"
-         hx-trigger="load, refreshSummary from:body"
-         hx-vals='js:{start: document.getElementById("budget-week-start")?.value || ""}'
-         hx-swap="innerHTML"></div>
-{{end}}
-
-{{define "budget.targets"}}
-    <div class="b-page-head d-flex align-items-start justify-content-between gap-3">
-        <div class="min-width-0">
-            <h2>Spending Targets</h2>
-            <p class="b-page-sub">What each category may spend, and what it actually has.</p>
-        </div>
-        <a href="/budget" class="btn btn-sm btn-outline-secondary flex-shrink-0"
-           hx-boost="true" hx-target="#main" aria-label="Back to budget">
-            <i class="bi bi-arrow-left"></i>
-        </a>
-    </div>
-
-    <!-- Share of take-home pay the targets claim -->
-    <div id="budget-allocation"
-         hx-get="/budget/allocation"
-         hx-trigger="load, refreshSummary from:body"
-         hx-swap="innerHTML"></div>
-
-    {{/* Every edit on the page swaps this whole list, and then refreshes the
-         allocation bar above it. */}}
+    {{/* Every edit swaps just its row, and then refreshes the allocation bar. */}}
     <div id="budget-setup"
          hx-on::after-request="if (event.detail.successful) { htmx.trigger(document.body, 'refreshSummary') }">
         {{template "budget.setup" .SetupData}}
     </div>
-{{end}}
-
-{{define "budget.targets.tile"}}
-<a href="/budget/targets" class="b-card b-card-pad h-100 d-block text-reset text-decoration-none"
-   hx-boost="true" hx-target="#main" aria-label="Configure spending targets">
-    <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
-        <div class="d-flex align-items-center gap-2 min-width-0">
-            <span class="b-chip b-accent-brick"><i class="bi bi-bullseye"></i></span>
-            <div class="min-width-0">
-                <div class="b-card-title">Spending targets</div>
-                <div class="b-card-sub">
-                    {{if .TargetCount}}
-                    <span class="fw-semibold">{{.TotalTargetWeekly | fmtCurrency}}/wk</span> across {{.TargetCount}} categories
-                    {{else}}
-                    No targets set yet.
-                    {{end}}
-                    {{if .NeedsTargetCount}}
-                    · <span class="text-warning">{{.UntargetedWeekly | fmtCurrency}}/wk in {{.NeedsTargetCount}} without a target</span>
-                    {{end}}
-                </div>
-            </div>
-        </div>
-        <span class="btn btn-sm btn-outline-secondary flex-shrink-0">
-            Configure <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i>
-        </span>
-    </div>
-</a>
 {{end}}
 
 {{define "budget.income"}}
@@ -302,7 +265,8 @@
 {{/* Allocation bar — the same three numbers as the cards on the income page. */}}
 {{define "budget.allocation"}}
 {{if .HasSalary}}
-<div class="b-card b-card-pad mb-3">
+{{/* Sits beside the income tile, so it fills the row's height. */}}
+<div class="b-card b-card-pad h-100 d-flex flex-column justify-content-center">
     <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
         <span class="text-muted small">
             <span class="fw-semibold text-body">{{.TotalWeeklyExpenses | fmtCurrency}}</span>
@@ -330,120 +294,6 @@
 {{end}}
 {{end}}
 
-{{define "budget.performance"}}
-<div class="b-card b-card-pad mb-3">
-    <h3 class="b-card-title mb-3"><i class="bi bi-graph-up me-2"></i>Weekly Performance — Last 13 Weeks</h3>
-    {{if .HasData}}
-    <div class="b-chart">
-        <canvas id="budget-perf-chart"
-                data-labels="{{.Labels}}"
-                data-actuals="{{.Actuals}}"
-                data-series="{{.Series}}"
-                data-weeks="{{.Weeks}}"
-                data-target="{{printf "%.2f" .Target}}"></canvas>
-    </div>
-    {{else}}
-    <div class="b-empty">
-        <i class="bi bi-graph-up"></i>
-        <h4>No performance yet</h4>
-        <p>Sync transactions and set spending targets to see how each week lands.</p>
-    </div>
-    {{end}}
-</div>
-{{end}}
-
-{{define "budget.week"}}
-<div class="b-card b-card-pad mb-3">
-    <div class="b-card-head flex-wrap">
-        <div>
-            <h3 class="b-card-title"><i class="bi bi-search me-2"></i>Week Breakdown</h3>
-            <p class="b-card-sub">Where the week's spend went against each category's share of the target. Click a bar above to switch weeks.</p>
-        </div>
-        <select id="budget-week-start" name="start" class="form-select form-select-sm w-auto"
-                aria-label="Week to break down"
-                hx-get="/budget/week" hx-target="#budget-week" hx-swap="innerHTML" hx-trigger="change">
-            {{range .Weeks}}
-            <option value="{{.Format "2006-01-02"}}" {{if .Equal $.Start}}selected{{end}}>Week of {{.Format "2 Jan"}}</option>
-            {{end}}
-        </select>
-    </div>
-
-    <p class="mb-3">
-        {{.Start.Format "Mon 2 Jan"}} – {{.End.Format "Mon 2 Jan"}}:
-        spent <span class="fw-semibold">{{.Total | fmtCurrency}}</span>
-        against <span class="fw-semibold">{{.Target | fmtCurrency}}</span>,
-        {{if gt .Diff 0.0}}
-        <span class="fw-semibold text-danger">{{.Diff | fmtCurrencyAbs}} over</span>.
-        {{else}}
-        <span class="fw-semibold text-success">{{.Diff | fmtCurrencyAbs}} under</span>.
-        {{end}}
-    </p>
-
-    {{if .Lines}}
-    <div class="table-responsive">
-        <table class="table table-sm mb-3">
-            <thead>
-                <tr class="text-muted">
-                    <th>Category</th>
-                    <th class="text-end">Spent</th>
-                    <th class="text-end">Weekly target</th>
-                    <th class="text-end">Over / under</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{range .Lines}}
-                <tr>
-                    <td>
-                        <div>{{.Specific}} <small class="text-muted">· {{.Broad}}</small></div>
-                        {{if .Billed}}<div class="text-muted small"><i class="bi bi-calendar-event me-1" aria-hidden="true"></i>{{.Billed}}, so the bill lands in one week</div>{{end}}
-                    </td>
-                    <td class="text-end text-nowrap">{{.Actual | fmtCurrency}}{{if gt .Count 1}} <small class="text-muted">×{{.Count}}</small>{{end}}</td>
-                    <td class="text-end text-nowrap">{{if .HasTarget}}{{.Target | fmtCurrency}}{{else}}<span class="text-warning">No target</span>{{end}}</td>
-                    <td class="text-end text-nowrap fw-semibold {{if gt .Diff 0.0}}text-danger{{else}}text-success{{end}}">
-                        {{if gt .Diff 0.0}}+{{else}}−{{end}}{{.Diff | fmtCurrencyAbs}}
-                    </td>
-                </tr>
-                {{end}}
-                {{if .UnspentCount}}
-                <tr class="text-muted">
-                    <td>Targets with no spend this week <small>({{.UnspentCount}})</small></td>
-                    <td class="text-end">$0.00</td>
-                    <td class="text-end">{{.UnspentTarget | fmtCurrency}}</td>
-                    <td class="text-end text-success">−{{.UnspentTarget | fmtCurrencyAbs}}</td>
-                </tr>
-                {{end}}
-            </tbody>
-            <tfoot>
-                <tr class="fw-bold">
-                    <td>Total</td>
-                    <td class="text-end">{{.Total | fmtCurrency}}</td>
-                    <td class="text-end">{{.Target | fmtCurrency}}</td>
-                    <td class="text-end {{if gt .Diff 0.0}}text-danger{{else}}text-success{{end}}">{{if gt .Diff 0.0}}+{{else}}−{{end}}{{.Diff | fmtCurrencyAbs}}</td>
-                </tr>
-            </tfoot>
-        </table>
-    </div>
-    {{end}}
-
-    {{if .Largest}}
-    <h4 class="b-card-title small text-muted mb-2">Largest this week</h4>
-    <ul class="list-unstyled mb-0">
-        {{range .Largest}}
-        <li class="d-flex justify-content-between gap-2 py-1 border-bottom">
-            <span class="min-width-0 text-truncate">
-                <small class="text-muted me-2">{{.Date.Format "Mon 2 Jan"}}</small>{{.Title}}
-                <small class="text-muted">· {{.Category}}</small>
-            </span>
-            <span class="text-nowrap fw-semibold">{{.Amount | fmtCurrency}}</span>
-        </li>
-        {{end}}
-    </ul>
-    {{else}}
-    <p class="text-muted mb-0">No counted spending this week.</p>
-    {{end}}
-</div>
-{{end}}
-
 {{define "budget.setup"}}
 {{if .HasData}}
     {{range .Sections}}
@@ -454,7 +304,7 @@
                 {{if eq .Key "on-track"}}
                 <i class="bi bi-info-circle text-muted ms-1" tabindex="0" data-bs-toggle="tooltip"
                    aria-label="How actual spend is measured"
-                   title="Actual spend is averaged over a window matched to each target: the last 4 weeks for weekly targets, 8 for fortnightly, 3 months for monthly and 13 months for yearly."></i>
+                   title="Actual spend is averaged over a window matched to each target: the last 4 weeks for weekly targets, 8 for fortnightly, 3 months for monthly and the last 12 months for yearly."></i>
                 {{end}}
             </span>
             {{template "budget.setup.section.sum" .}}
@@ -515,7 +365,7 @@
     {{/* Income may not be set yet; tracked savings still mean something. */}}
     {{if gt .NetWeekly 0.0}}
     <div class="b-card-sub {{if and .HasSavingsGoal (not .MeetsSavingsGoal)}}text-danger{{end}}">
-        {{if lt .Remaining 0.0}}Targets exceed take-home pay by {{.Remaining | fmtWhole}} a week{{else}}{{.Remaining | fmtWhole}} a week left after targets{{end}}{{if and .HasSavingsGoal .MeetsSavingsGoal}}, which meets the goal{{end}}
+        {{if lt .Remaining 0.0}}Targets exceed take-home pay by {{.Remaining | fmtWholeAbs}} a week{{else}}{{.Remaining | fmtWhole}} a week left after targets{{end}}{{if and .HasSavingsGoal .MeetsSavingsGoal}}, which meets the goal{{end}}
     </div>
     {{end}}
     {{if gt .TrackedSavingsWeekly 0.0}}

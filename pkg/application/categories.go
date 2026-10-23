@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v4"
@@ -283,7 +284,15 @@ type RulePreview struct {
 	// would leave alone because it does not include transfers, so the form
 	// can say why a repayment it was typed for is missing.
 	Transfers int
-	Samples   []WeekTransaction
+	Samples   []RuleSample
+}
+
+// RuleSample is one of the transactions a rule preview lists.
+type RuleSample struct {
+	Date     time.Time
+	Title    string
+	Category string
+	Amount   float64
 }
 
 func buildRulePreview(rule models.CategoryRule, txs []models.Transaction, settings models.CategorySettings) RulePreview {
@@ -315,7 +324,7 @@ func buildRulePreview(rule models.CategoryRule, txs []models.Transaction, settin
 		if category == "" {
 			category = tx.Category.Groups.PersonalFinance.Name
 		}
-		preview.Samples = append(preview.Samples, WeekTransaction{
+		preview.Samples = append(preview.Samples, RuleSample{
 			Date: tx.Date, Title: tx.Description, Category: category, Amount: tx.Amount,
 		})
 	}

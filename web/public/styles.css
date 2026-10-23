@@ -1884,3 +1884,9 @@ a.b-acct:focus-visible {
         padding-right: 1rem;
     }
 }
+
+/* The budget page's headline: overall spend against targets. */
+.b-tracking-bar {
+    min-width: 8rem;
+    max-width: 20rem;
+}

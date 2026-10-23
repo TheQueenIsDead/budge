@@ -1,12 +1,9 @@
 package application
 
 import (
-	"encoding/json"
-	"html"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"regexp"
 	"testing"
 	"time"
 
@@ -59,10 +56,10 @@ func TestSpendMerchantFallsBackToCleanedDescription(t *testing.T) {
 		"sync names every transfer's merchant Transfer, so the description identifies it")
 }
 
-// TestChartAndSetupCountTheSameSpend is the regression test for weeks
-// showing as over budget with nothing in the setup table to explain it: the
-// chart counted uncategorised debits that the table silently dropped.
-func TestChartAndSetupCountTheSameSpend(t *testing.T) {
+// TestBudgetCountsUncategorisedSpend is the regression test for weeks
+// showing as over budget with nothing in the table to explain it: the
+// weekly chart counted uncategorised debits that the table silently dropped.
+func TestBudgetCountsUncategorisedSpend(t *testing.T) {
 	app := newTestApp(t)
 	recent := time.Now().Add(-48 * time.Hour)
 	for _, tx := range []models.Transaction{
@@ -78,11 +75,6 @@ func TestChartAndSetupCountTheSameSpend(t *testing.T) {
 	setup, err := app.buildSetupData()
 	require.NoError(t, err)
 
-	var setupTotal float64
-	for _, row := range setup.Rows {
-		setupTotal += row.ActualWeekly * float64(row.WindowWeeks)
-	}
-
 	rows := map[string]CategoryTargetRow{}
 	for _, row := range rowsIn(t, setup, uncategorisedGroup) {
 		rows[row.SubCategory] = row
@@ -91,9 +83,7 @@ func TestChartAndSetupCountTheSameSpend(t *testing.T) {
 	assert.Equal(t, []string{"AP#23533701 TO FISHER FUNDS"}, rows["Standing orders"].Merchants)
 	assert.True(t, rows["Loan"].NeedsTarget, "untargeted spend is flagged so it can be budgeted")
 
-	chartTotal := chartTotal(t, app)
-	assert.InDelta(t, 915, chartTotal, 0.001, "income and transfers are excluded")
-	assert.InDelta(t, chartTotal, setupTotal, 0.001, "the chart and the table must count the same money")
+	assert.InDelta(t, 915, countedTotal(t, app), 0.001, "every debit is counted, but not income or transfers")
 }
 
 func TestNonSpendingRowsCarryNoTarget(t *testing.T) {
@@ -115,17 +105,18 @@ func TestNonSpendingRowsCarryNoTarget(t *testing.T) {
 	}
 }
 
-func chartTotal(t *testing.T, app *Application) float64 {
+// countedTotal is the spending the budget counts across every category, each
+// over its own window. Every fixture transaction is recent enough to fall in
+// every window, so it adds back up to the raw amounts.
+func countedTotal(t *testing.T, app *Application) float64 {
 	t.Helper()
-	rec := httptest.NewRecorder()
-	require.NoError(t, app.BudgetPerformance(app.http.NewContext(httptest.NewRequest(http.MethodGet, "/", nil), rec)))
-	match := regexp.MustCompile(`data-actuals="([^"]*)"`).FindStringSubmatch(rec.Body.String())
-	require.Len(t, match, 2)
-	var actuals []float64
-	require.NoError(t, json.Unmarshal([]byte(html.UnescapeString(match[1])), &actuals))
+	setup, err := app.buildSetupData()
+	require.NoError(t, err)
 	var total float64
-	for _, v := range actuals {
-		total += v
+	for _, row := range setup.Rows {
+		if row.IsSpending {
+			total += row.ActualWeekly * float64(row.WindowWeeks)
+		}
 	}
 	return total
 }
@@ -166,7 +157,7 @@ func TestBudgetSaveKind(t *testing.T) {
 	} {
 		require.NoError(t, app.store.CreateTransaction(tx))
 	}
-	require.InDelta(t, 600, chartTotal(t, app), 0.001)
+	require.InDelta(t, 600, countedTotal(t, app), 0.001)
 
 	saveKind := func(kind string) *httptest.ResponseRecorder {
 		c, rec := postForm(t, app, url.Values{
@@ -178,12 +169,12 @@ func TestBudgetSaveKind(t *testing.T) {
 		return rec
 	}
 
-	t.Run("savings leave the chart and the counted total but are tracked", func(t *testing.T) {
+	t.Run("savings leave the counted total but are tracked", func(t *testing.T) {
 		rec := saveKind(models.BudgetKindSavings)
 		require.Equal(t, http.StatusOK, rec.Code)
 		assert.Contains(t, rec.Body.String(), "going to savings categories", "the re-rendered table reports tracked savings")
 
-		assert.InDelta(t, 400, chartTotal(t, app), 0.001)
+		assert.InDelta(t, 400, countedTotal(t, app), 0.001)
 		setup, err := app.buildSetupData()
 		require.NoError(t, err)
 		assert.InDelta(t, 400.0/untargetedWindowWeeks, countedWeekly(rowsIn(t, setup, uncategorisedGroup)), 0.001)
@@ -193,7 +184,7 @@ func TestBudgetSaveKind(t *testing.T) {
 	t.Run("ignored spend is dropped without counting as savings", func(t *testing.T) {
 		saveKind(models.BudgetKindIgnore)
 
-		assert.InDelta(t, 400, chartTotal(t, app), 0.001)
+		assert.InDelta(t, 400, countedTotal(t, app), 0.001)
 		setup, err := app.buildSetupData()
 		require.NoError(t, err)
 		assert.Zero(t, setup.TrackedSavingsWeekly)
@@ -201,7 +192,7 @@ func TestBudgetSaveKind(t *testing.T) {
 
 	t.Run("switching back to spending counts it again", func(t *testing.T) {
 		saveKind(models.BudgetKindSpending)
-		assert.InDelta(t, 600, chartTotal(t, app), 0.001)
+		assert.InDelta(t, 600, countedTotal(t, app), 0.001)
 
 		items, err := app.store.ReadBudgetItems()
 		require.NoError(t, err)
@@ -225,144 +216,6 @@ func TestSavingTargetKeepsKind(t *testing.T) {
 	item, err := app.store.GetBudgetItem("fund")
 	require.NoError(t, err)
 	assert.Equal(t, models.BudgetKindSavings, item.Kind)
-}
-
-func TestBuildWeekBreakdown(t *testing.T) {
-	monday := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
-	wed := monday.AddDate(0, 0, 2)
-	items := []models.BudgetItem{
-		{Category: "Supermarkets", BroadCategory: "Food", Amount: 150, Frequency: "weekly"},
-		{Category: "Local government", BroadCategory: "Housing", Amount: 3_640, Frequency: "yearly"}, // $70/wk
-		{Category: "Cafes", BroadCategory: "Lifestyle", Amount: 50, Frequency: "weekly"},
-		{Category: "Standing orders", Kind: models.BudgetKindSavings},
-	}
-	txs := []models.Transaction{
-		spendTx("g1", "EFTPOS", "Food", "Supermarkets", "Countdown", "", -80, wed),
-		spendTx("g2", "EFTPOS", "Food", "Supermarkets", "New World", "", -40, wed),
-		spendTx("rates", "DEBIT", "Housing", "Local government", "CCC", "", -862, wed),
-		spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -410, wed),
-		spendTx("fund", "STANDING ORDER", "", "", "", "AP#1 TO FISHER FUNDS", -385, wed),
-		spendTx("next-week", "EFTPOS", "Food", "Supermarkets", "Countdown", "", -500, monday.AddDate(0, 0, 7)),
-		spendTx("pay", "CREDIT", "", "", "", "SALARY", 3_000, wed),
-	}
-
-	week := buildWeekBreakdown(monday, txs, items)
-
-	assert.InDelta(t, 80+40+862+410, week.Total, 0.001, "savings, income and other weeks are left out")
-	assert.InDelta(t, 150+70+50, week.Target, 0.001)
-	assert.InDelta(t, week.Total-week.Target, week.Diff, 0.001)
-
-	var linesDiff float64
-	for _, line := range week.Lines {
-		linesDiff += line.Diff
-	}
-	assert.InDelta(t, week.Diff, linesDiff-week.UnspentTarget, 0.001,
-		"every dollar over or under is accounted for by a line or the unspent targets")
-	assert.Equal(t, 1, week.UnspentCount, "cafes had a target and no spend")
-	assert.InDelta(t, 50, week.UnspentTarget, 0.001)
-
-	require.Len(t, week.Lines, 3)
-	assert.Equal(t, "Local government", week.Lines[0].Specific, "biggest overspend first")
-	assert.Equal(t, "billed yearly", week.Lines[0].Billed)
-	assert.Equal(t, "Loan", week.Lines[1].Specific)
-	assert.False(t, week.Lines[1].HasTarget)
-	assert.InDelta(t, 410, week.Lines[1].Diff, 0.001, "untargeted spend is all over")
-	assert.Equal(t, "Supermarkets", week.Lines[2].Specific)
-	assert.Equal(t, 2, week.Lines[2].Count)
-	assert.Empty(t, week.Lines[2].Billed, "weekly targets do not spike")
-
-	require.NotEmpty(t, week.Largest)
-	assert.Equal(t, "CCC", week.Largest[0].Title)
-	assert.InDelta(t, 862, week.Largest[0].Amount, 0.001)
-}
-
-func TestBuildWeekBreakdownCapsLargestTransactions(t *testing.T) {
-	monday := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
-	var txs []models.Transaction
-	for i := 1; i <= 8; i++ {
-		txs = append(txs, spendTx(string(rune('a'+i)), "EFTPOS", "Food", "Supermarkets", "", "", -float64(i*10), monday))
-	}
-
-	week := buildWeekBreakdown(monday, txs, nil)
-
-	require.Len(t, week.Largest, largeTransactionCount)
-	assert.InDelta(t, 80, week.Largest[0].Amount, 0.001)
-	assert.InDelta(t, 40, week.Largest[4].Amount, 0.001)
-}
-
-func TestBudgetWeek(t *testing.T) {
-	app := newTestApp(t)
-	recent := time.Now().Add(-48 * time.Hour)
-	require.NoError(t, app.store.CreateTransaction(spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -410, recent)))
-
-	get := func(query string) *httptest.ResponseRecorder {
-		req := httptest.NewRequest(http.MethodGet, "/budget/week?"+query, nil)
-		req.Header.Set("HX-Request", "true")
-		rec := httptest.NewRecorder()
-		require.NoError(t, app.BudgetWeek(app.http.NewContext(req, rec)))
-		return rec
-	}
-
-	t.Run("a given week is broken down and selected in the picker", func(t *testing.T) {
-		start := isoWeekStart(recent).Format(time.DateOnly)
-		rec := get("start=" + start)
-		require.Equal(t, http.StatusOK, rec.Code)
-		assert.Contains(t, rec.Body.String(), "LOAN INTEREST")
-		assert.Contains(t, rec.Body.String(), `value="`+start+`" selected`)
-	})
-
-	t.Run("a mid-week date opens the week containing it", func(t *testing.T) {
-		rec := get("start=" + recent.Format(time.DateOnly))
-		assert.Contains(t, rec.Body.String(), "LOAN INTEREST")
-	})
-
-	t.Run("a malformed date is rejected", func(t *testing.T) {
-		assert.Equal(t, http.StatusBadRequest, get("start=yesterday").Code)
-	})
-}
-
-func TestBuildPerformanceSeries(t *testing.T) {
-	weeks := []time.Time{
-		time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC),
-		time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC),
-	}
-	in := func(week int) time.Time { return weeks[week].AddDate(0, 0, 2) }
-	items := budgetItemsByCategory([]models.BudgetItem{
-		{Category: "Supermarkets", Amount: 150, Frequency: "weekly"},
-		{Category: "Local government", Amount: 3_500, Frequency: "yearly"},
-		{Category: "Cafes"}, // saved without a target
-		{Category: "Standing orders", Kind: models.BudgetKindSavings, Amount: 100, Frequency: "weekly"},
-	})
-	txs := []models.Transaction{
-		spendTx("groceries", "EFTPOS", "Food", "Supermarkets", "", "", -120, in(0)),
-		spendTx("rates", "DEBIT", "Housing", "Local government", "", "", -862, in(0)),
-		spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -410, in(0)),
-		spendTx("coffee", "EFTPOS", "Lifestyle", "Cafes", "", "", -6, in(1)),
-		spendTx("fund", "STANDING ORDER", "", "", "", "FISHER FUNDS", -385, in(1)),
-		spendTx("before", "EFTPOS", "Food", "Supermarkets", "", "", -1_000, weeks[0].AddDate(0, 0, -3)),
-	}
-
-	totals, series := buildPerformanceSeries(weeks, txs, items)
-
-	require.Len(t, series, 2)
-	assert.Equal(t, budgetedSeries, series[0].Label, "budgeted sits at the base of the stack")
-	assert.Equal(t, unbudgetedSeries, series[1].Label)
-
-	assert.InDelta(t, 982, series[0].Data[0], 0.001, "a yearly target still makes its spend budgeted")
-	assert.InDelta(t, 410, series[1].Data[0], 0.001, "a category with no saved item is unbudgeted")
-	assert.InDelta(t, 6, series[1].Data[1], 0.001, "a saved item with no amount is unbudgeted")
-	assert.InDelta(t, 6, totals[1], 0.001, "savings and weeks outside the chart are left out")
-
-	for week := range weeks {
-		assert.InDelta(t, totals[week], series[0].Data[week]+series[1].Data[week], 0.001, "each bar's segments add up to its total")
-	}
-}
-
-func TestBuildPerformanceSeriesWithoutSpend(t *testing.T) {
-	totals, series := buildPerformanceSeries(performanceWeeks(time.Now()), nil, nil)
-	assert.Len(t, totals, 13)
-	require.Len(t, series, 2, "both series are always sent so each keeps its colour")
-	assert.Len(t, series[0].Data, 13)
 }
 
 func TestDashboardListsLeaveOutTransfers(t *testing.T) {

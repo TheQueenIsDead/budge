@@ -2,7 +2,6 @@ package application
 
 import (
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
 	"math"
 	"net/http"
@@ -229,6 +228,7 @@ func buildTargetSections(rows []CategoryTargetRow, openRow string) []TargetSecti
 
 // CategorySetupData is the view-model for the budget.setup partial.
 type CategorySetupData struct {
+	Tracking             TrackingSummary
 	Rows                 []CategoryTargetRow
 	Sections             []TargetSection
 	OpenRow              string // RowID of the row being edited, kept open
@@ -294,6 +294,10 @@ type BudgetSummary struct {
 	NetWeekly            float64
 }
 
+// Budget shows how spending is tracking against the targets. Each category is
+// measured over a window matched to its target's frequency rather than week
+// by week, so a fortnightly mortgage or a monthly power bill reads as on
+// track instead of spiking in the week it is paid.
 func (app *Application) Budget(c echo.Context) error {
 	salary, err := app.store.GetBudgetSalary()
 	if err != nil {
@@ -306,51 +310,53 @@ func (app *Application) Budget(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 	return c.Render(http.StatusOK, "budget", map[string]interface{}{
-		"Income":  buildIncomeTile(salary),
-		"Targets": buildTargetsTile(setupData),
+		"Income":    buildIncomeTile(salary),
+		"SetupData": setupData,
 	})
 }
 
-// BudgetTargets is the page for setting spending targets, kept off the budget
-// page so that page can lead with how the weeks went.
-func (app *Application) BudgetTargets(c echo.Context) error {
-	setupData, err := app.buildSetupData()
-	if err != nil {
-		app.Toast(c, "Error", "Could not load category data.")
-		return c.NoContent(http.StatusInternalServerError)
-	}
-	return c.Render(http.StatusOK, "budget.targets", map[string]interface{}{"SetupData": setupData})
-}
-
-// TargetsTileData is the view-model for the targets summary on the budget page.
-type TargetsTileData struct {
-	TotalTargetWeekly float64
-	TargetCount       int
-	// Spending categories with recent spend and no target: the usual reason a
-	// week lands over, so the tile calls them out.
-	NeedsTargetCount int
+// TrackingSummary is the budget page's headline, totalled across categories,
+// each measured over its own window and expressed per week.
+type TrackingSummary struct {
+	Actual    float64 // spend in categories with a target
+	Target    float64
+	OverCount int
+	// Spend with no target to measure it against, the usual reason a budget
+	// does not add up.
 	UntargetedWeekly float64
+	UntargetedCount  int
 }
 
-func buildTargetsTile(setup CategorySetupData) TargetsTileData {
-	tile := TargetsTileData{TotalTargetWeekly: setup.TotalTargetWeekly}
-	for _, row := range setup.Rows {
-		if row.HasTarget {
-			tile.TargetCount++
-		}
+// IsOver reports whether spending in targeted categories is over their
+// targets in total, allowing the same dollar a week each row is allowed.
+func (t TrackingSummary) IsOver() bool {
+	return t.Target > 0 && t.Actual > t.Target+overToleranceWeekly
+}
+
+// BarWidth is how full the headline bar is drawn, capped at full.
+func (t TrackingSummary) BarWidth() float64 {
+	if t.Target <= 0 {
+		return 0
 	}
-	for _, section := range setup.Sections {
-		if section.Key != sectionAttention {
-			continue
-		}
-		for _, row := range section.Rows {
-			if row.NeedsTarget {
-				tile.NeedsTargetCount++
-				tile.UntargetedWeekly += row.ActualWeekly
+	return math.Min(t.Actual/t.Target*100, 100)
+}
+
+func buildTrackingSummary(rows []CategoryTargetRow) TrackingSummary {
+	var summary TrackingSummary
+	for _, row := range rows {
+		switch {
+		case row.HasTarget:
+			summary.Actual += row.ActualWeekly
+			summary.Target += row.TargetWeekly
+			if row.IsOver {
+				summary.OverCount++
 			}
+		case row.NeedsTarget:
+			summary.UntargetedWeekly += row.ActualWeekly
+			summary.UntargetedCount++
 		}
 	}
-	return tile
+	return summary
 }
 
 // BudgetSaveTarget creates or updates a BudgetItem for a category pair and
@@ -633,7 +639,7 @@ func actualWindowWeeks(frequency string) int {
 	case "monthly":
 		return 13
 	case "yearly":
-		return 56
+		return 52
 	}
 	return 4
 }
@@ -674,7 +680,7 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 	// a transaction falls inside counts it, so each is a plain total.
 	spend := make(map[pairKey]map[int]float64)
 	merchantSpend := make(map[pairKey]map[string]float64)
-	windows := []int{4, 8, 13, 56}
+	windows := []int{4, 8, 13, 52}
 	weekStart := isoWeekStart(time.Now())
 
 	for _, tx := range txs {
@@ -694,7 +700,7 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 			merchantSpend[key][name] += amt
 		}
 		for _, weeks := range windows {
-			if weeks == 56 || tx.Date.After(weekStart.AddDate(0, 0, -7*weeks)) {
+			if tx.Date.After(weekStart.AddDate(0, 0, -7*weeks)) {
 				spend[key][weeks] += amt
 			}
 		}
@@ -753,6 +759,7 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 	remaining := netWeekly - totalTargetWeekly
 
 	return CategorySetupData{
+		Tracking:             buildTrackingSummary(rows),
 		Rows:                 rows,
 		Sections:             buildTargetSections(rows, ""),
 		HasData:              len(txs) > 0,
@@ -874,76 +881,6 @@ func buildBudgetSummary(salary models.BudgetSalary) BudgetSummary {
 	}
 }
 
-// ---- performance chart ----
-
-// BudgetPerformanceData is the view-model for the budget.performance partial.
-// Labels and Actuals are JSON strings embedded as data attributes on the canvas;
-// Go's HTML-encoding of attribute values keeps them safe, and dataset decodes them.
-type BudgetPerformanceData struct {
-	Labels  string
-	Actuals string
-	Series  string // []PerformanceSeries, each bar split by budgeted and unbudgeted
-	Weeks   string // ISO date of each bar's Monday, for opening its breakdown
-	Target  float64
-	HasData bool
-}
-
-// PerformanceSeries is one segment of every charted week's bar.
-type PerformanceSeries struct {
-	Label string    `json:"label"`
-	Data  []float64 `json:"data"`
-}
-
-// The two segments of each week's bar. Splitting by whether spend has a
-// target answers why a week went over at a glance: budgeted spend is what the
-// target line was drawn for, so unbudgeted spend stacked on top of it is the
-// usual culprit. The breakdown beneath the chart has the per-category detail.
-const (
-	budgetedSeries   = "Budgeted"
-	unbudgetedSeries = "Unbudgeted"
-)
-
-// buildPerformanceSeries totals each week's counted spend and splits it into
-// spend in categories with a target and spend in categories without one.
-// Both series are always present, so each keeps its colour.
-func buildPerformanceSeries(weeks []time.Time, txs []models.Transaction, items map[string]models.BudgetItem) ([]float64, []PerformanceSeries) {
-	index := make(map[time.Time]int, len(weeks))
-	for i, w := range weeks {
-		index[w] = i
-	}
-	totals := make([]float64, len(weeks))
-	budgeted := make([]float64, len(weeks))
-	unbudgeted := make([]float64, len(weeks))
-	for _, tx := range txs {
-		i, charted := index[isoWeekStart(tx.Date)]
-		if !charted {
-			continue
-		}
-		_, specific, ok := countedSpend(tx, items)
-		if !ok {
-			continue
-		}
-		amount := math.Abs(tx.Amount)
-		if weeklyTarget(items[strings.ToLower(specific)]) > 0 {
-			budgeted[i] += amount
-		} else {
-			unbudgeted[i] += amount
-		}
-		totals[i] += amount
-	}
-
-	round := func(values []float64) []float64 {
-		for i, v := range values {
-			values[i] = math.Round(v*100) / 100
-		}
-		return values
-	}
-	return round(totals), []PerformanceSeries{
-		{Label: budgetedSeries, Data: round(budgeted)},
-		{Label: unbudgetedSeries, Data: round(unbudgeted)},
-	}
-}
-
 // budgetItemsByCategory indexes items by their lower-cased subcategory, the
 // key every budget view matches transactions on.
 func budgetItemsByCategory(items []models.BudgetItem) map[string]models.BudgetItem {
@@ -987,199 +924,6 @@ func (app *Application) withoutUncounted(txs []models.Transaction) ([]models.Tra
 		}
 	}
 	return kept, nil
-}
-
-// performanceWeeks is the Monday of each of the 13 weeks the chart shows,
-// oldest first.
-func performanceWeeks(now time.Time) []time.Time {
-	ws := isoWeekStart(now)
-	weeks := make([]time.Time, 13)
-	for i := range weeks {
-		weeks[12-i] = ws.AddDate(0, 0, -7*i)
-	}
-	return weeks
-}
-
-func (app *Application) BudgetPerformance(c echo.Context) error {
-	txs, err := app.store.ReadTransactionsByDate(time.Now().AddDate(0, -3, 0), time.Now())
-	if err != nil {
-		return err
-	}
-	items, err := app.store.ReadBudgetItems()
-	if err != nil {
-		return err
-	}
-
-	var target float64
-	for _, item := range items {
-		target += weeklyTarget(item)
-	}
-	weeks := performanceWeeks(time.Now())
-	actuals, series := buildPerformanceSeries(weeks, txs, budgetItemsByCategory(items))
-	labels := make([]string, len(weeks))
-	starts := make([]string, len(weeks))
-	for i, w := range weeks {
-		labels[i] = w.Format("2 Jan")
-		starts[i] = w.Format(time.DateOnly)
-	}
-
-	labelsJSON, _ := json.Marshal(labels)
-	startsJSON, _ := json.Marshal(starts)
-	actualsJSON, _ := json.Marshal(actuals)
-	seriesJSON, _ := json.Marshal(series)
-
-	return c.Render(http.StatusOK, "budget.performance", BudgetPerformanceData{
-		Labels:  string(labelsJSON),
-		Actuals: string(actualsJSON),
-		Series:  string(seriesJSON),
-		Weeks:   string(startsJSON),
-		Target:  math.Round(target*100) / 100,
-		HasData: len(txs) > 0 || target > 0,
-	})
-}
-
-// ---- week breakdown ----
-
-// largeTransactionCount is how many of a week's biggest debits are listed
-// beneath its category breakdown.
-const largeTransactionCount = 5
-
-// WeekLine is one category's spend in a single week against its share of the
-// weekly target.
-type WeekLine struct {
-	Broad     string
-	Specific  string
-	Actual    float64
-	Target    float64
-	Diff      float64 // Actual - Target; positive is over
-	HasTarget bool
-	Count     int
-	// Billed is set when the target is monthly or yearly: the target is spread
-	// across every week, but the bill lands in one, so that week spikes.
-	Billed string
-}
-
-// WeekBreakdown explains one week of the performance chart. Its lines and
-// UnspentTarget add up to Total - Target, so every dollar over is accounted for.
-type WeekBreakdown struct {
-	Start         time.Time
-	Weeks         []time.Time // the chart's weeks, for the picker
-	Total         float64
-	Target        float64
-	Diff          float64
-	Lines         []WeekLine
-	UnspentTarget float64 // targets for categories with no spend this week
-	UnspentCount  int
-	Largest       []WeekTransaction
-}
-
-// WeekTransaction is one of a week's biggest debits.
-type WeekTransaction struct {
-	Date     time.Time
-	Title    string
-	Category string
-	Amount   float64
-}
-
-func (w WeekBreakdown) End() time.Time { return w.Start.AddDate(0, 0, 6) }
-
-// buildWeekBreakdown splits one week's counted spend by category. Targets are
-// the same weekly-normalised figures the chart's target line sums.
-func buildWeekBreakdown(start time.Time, txs []models.Transaction, items []models.BudgetItem) WeekBreakdown {
-	byCategory := budgetItemsByCategory(items)
-	week := WeekBreakdown{Start: start}
-
-	type key struct{ broad, specific string }
-	lines := make(map[key]*WeekLine)
-	var counted []models.Transaction
-	for _, tx := range txs {
-		if !isoWeekStart(tx.Date).Equal(start) {
-			continue
-		}
-		broad, specific, ok := countedSpend(tx, byCategory)
-		if !ok {
-			continue
-		}
-		k := key{broad, specific}
-		if lines[k] == nil {
-			lines[k] = &WeekLine{Broad: broad, Specific: specific}
-		}
-		amount := math.Abs(tx.Amount)
-		lines[k].Actual += amount
-		lines[k].Count++
-		week.Total += amount
-		counted = append(counted, tx)
-	}
-
-	spent := make(map[string]bool, len(lines))
-	for _, line := range lines {
-		spent[strings.ToLower(line.Specific)] = true
-		item := byCategory[strings.ToLower(line.Specific)]
-		line.Target = weeklyTarget(item)
-		line.HasTarget = line.Target > 0
-		line.Diff = line.Actual - line.Target
-		if line.HasTarget && (item.Frequency == "monthly" || item.Frequency == "yearly") {
-			line.Billed = "billed " + item.Frequency
-		}
-		week.Lines = append(week.Lines, *line)
-	}
-	for _, item := range items {
-		target := weeklyTarget(item)
-		week.Target += target
-		if target > 0 && !spent[strings.ToLower(item.Category)] {
-			week.UnspentTarget += target
-			week.UnspentCount++
-		}
-	}
-	week.Diff = week.Total - week.Target
-
-	sort.Slice(week.Lines, func(i, j int) bool {
-		if week.Lines[i].Diff != week.Lines[j].Diff {
-			return week.Lines[i].Diff > week.Lines[j].Diff
-		}
-		return week.Lines[i].Specific < week.Lines[j].Specific
-	})
-
-	sort.Slice(counted, func(i, j int) bool { return counted[i].Amount < counted[j].Amount })
-	for i, tx := range counted {
-		if i == largeTransactionCount {
-			break
-		}
-		_, specific, _ := spendCategory(tx)
-		week.Largest = append(week.Largest, WeekTransaction{
-			Date:     tx.Date,
-			Title:    spendMerchant(tx),
-			Category: specific,
-			Amount:   math.Abs(tx.Amount),
-		})
-	}
-	return week
-}
-
-// BudgetWeek renders the breakdown for the week starting on ?start=, or the
-// last full week when none is given, since the current one is still filling.
-func (app *Application) BudgetWeek(c echo.Context) error {
-	weeks := performanceWeeks(time.Now())
-	start := weeks[len(weeks)-2]
-	if raw := c.QueryParam("start"); raw != "" {
-		parsed, err := time.Parse(time.DateOnly, raw)
-		if err != nil {
-			return c.NoContent(http.StatusBadRequest)
-		}
-		start = isoWeekStart(parsed)
-	}
-
-	txs, err := app.store.ReadTransactionsByDate(start.AddDate(0, 0, -1), start.AddDate(0, 0, 8))
-	if err != nil {
-		return err
-	}
-	items, err := app.store.ReadBudgetItems()
-	if err != nil {
-		return err
-	}
-	week := buildWeekBreakdown(start, txs, items)
-	week.Weeks = weeks
-	return c.Render(http.StatusOK, "budget.week", week)
 }
 
 // isoWeekStart returns the Monday of the ISO week containing t, normalised to

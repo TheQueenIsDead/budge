@@ -219,5 +219,5 @@ func TestTransferRuleBudgetsMortgageRepayments(t *testing.T) {
 	require.Len(t, general, 1)
 	assert.Equal(t, "Mortgage", general[0].SubCategory)
 	assert.InDelta(t, 641.0/untargetedWindowWeeks, general[0].ActualWeekly, 0.001, "the repayment is counted once")
-	assert.InDelta(t, 641, chartTotal(t, app), 0.001, "the ignored interest is gone and the repayment counted once")
+	assert.InDelta(t, 641, countedTotal(t, app), 0.001, "the ignored interest is gone and the repayment counted once")
 }

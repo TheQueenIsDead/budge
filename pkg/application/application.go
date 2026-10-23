@@ -45,6 +45,12 @@ func templateFuncs() template.FuncMap {
 			}
 			return p.Sprintf("$%.0f", number)
 		},
+		// fmtWholeAbs is fmtWhole without the sign, for where the words say
+		// which way the figure goes.
+		"fmtWholeAbs": func(number float64) string {
+			p := message.NewPrinter(language.English)
+			return p.Sprintf("$%.0f", math.Abs(number))
+		},
 		"fmtCurrencyAbs": func(number float64) string {
 			p := message.NewPrinter(language.English)
 			return p.Sprintf("$%.2f", math.Abs(number))
@@ -245,11 +251,10 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	// Budget
 	app.http.GET("/budget", app.Budget)
 	app.http.GET("/budget/income", app.BudgetIncome)
-	app.http.GET("/budget/targets", app.BudgetTargets)
+	// The targets now live on the budget page itself.
+	app.http.GET("/budget/targets", func(c echo.Context) error { return c.Redirect(http.StatusMovedPermanently, "/budget") })
 	app.http.GET("/budget/summary", app.BudgetSummary)
 	app.http.POST("/budget/salary", app.BudgetSaveSalary)
-	app.http.GET("/budget/performance", app.BudgetPerformance)
-	app.http.GET("/budget/week", app.BudgetWeek)
 	app.http.GET("/budget/cards", app.BudgetCards)
 	app.http.GET("/budget/allocation", app.BudgetAllocation)
 	app.http.POST("/budget/savings-goal", app.BudgetSaveSavingsGoal)
