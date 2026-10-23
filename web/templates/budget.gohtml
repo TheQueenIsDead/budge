@@ -589,8 +589,17 @@
                 Averaged over the last {{.WindowWeeks}} weeks{{if gt .PctOfIncome 0.0}} · target is {{.PctOfIncome | fmtPercent}} of take-home pay{{end}}.
             </div>
             {{if .Merchants}}
+            {{/* Each merchant leads to its transactions, to file one payment
+                 elsewhere, or to a rule that files all of them. */}}
             <div class="d-flex flex-wrap gap-1 mt-2">
-                {{range .Merchants}}<span class="badge bg-light text-muted border fw-normal">{{.}}</span>{{end}}
+                {{range .Merchants}}
+                <span class="b-merchant">
+                    <a href="/transactions?search={{.}}" title="See these transactions">{{.}}</a>
+                    <a href="/settings?rule={{.}}#rules" title="Make a rule for “{{.}}”" aria-label="Make a rule for {{.}}">
+                        <i class="bi bi-signpost-split" aria-hidden="true"></i>
+                    </a>
+                </span>
+                {{end}}
             </div>
             {{end}}
         </div>

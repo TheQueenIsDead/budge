@@ -2,6 +2,7 @@ package application
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
@@ -60,6 +61,7 @@ func (app *Application) Settings(c echo.Context) error {
 		app.Toast(c, "Error", "Could not read category rules.")
 		return c.NoContent(http.StatusInternalServerError)
 	}
+	categories.Prefill = strings.TrimSpace(c.QueryParam("rule"))
 
 	return c.Render(http.StatusOK, "settings", map[string]interface{}{
 		"accounts":       accounts,

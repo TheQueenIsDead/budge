@@ -329,6 +329,17 @@ func mergeCategorySettings(current, imported models.CategorySettings) models.Cat
 			current.Rules = append(current.Rules, rule)
 		}
 	}
+	overrides := make(map[string]int, len(current.Overrides))
+	for i, o := range current.Overrides {
+		overrides[o.TransactionID] = i
+	}
+	for _, o := range imported.Overrides {
+		if i, ok := overrides[o.TransactionID]; ok {
+			current.Overrides[i] = o
+		} else {
+			current.Overrides = append(current.Overrides, o)
+		}
+	}
 	return current
 }
 
@@ -392,6 +403,19 @@ func (s *Store) categorised(txs []models.Transaction, err error) ([]models.Trans
 	}
 	settings.Apply(txs)
 	return txs, nil
+}
+
+// GetTransaction reads one transaction, categorised like every other read.
+func (s *Store) GetTransaction(id string) (models.Transaction, error) {
+	tx, err := Get[models.Transaction](s.db, []byte(id))
+	if err != nil {
+		return tx, err
+	}
+	txs, err := s.categorised([]models.Transaction{tx}, nil)
+	if err != nil {
+		return tx, err
+	}
+	return txs[0], nil
 }
 
 func (s *Store) ReadTransactions() ([]models.Transaction, error) {

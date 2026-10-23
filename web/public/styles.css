@@ -1635,6 +1635,8 @@ a.b-acct:focus-visible {
     right: 0;
     top: calc(100% + 0.25rem);
     z-index: 20;
+    /* The cell it opens from is right-aligned; the form reads left to right. */
+    text-align: left;
     width: min(20rem, calc(100vw - 2rem));
     margin-top: 0;
     padding: 0.75rem;
@@ -1816,6 +1818,32 @@ a.b-acct:focus-visible {
 
 .b-target-editor {
     padding: 0.25rem 1.25rem 1rem;
+}
+
+.b-merchant {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--b-border);
+    border-radius: var(--b-radius-pill);
+    background: var(--b-surface-2);
+    font-size: 0.75rem;
+    overflow: hidden;
+}
+
+.b-merchant a {
+    padding: 0.15rem 0.5rem;
+    color: var(--b-ink-2);
+    text-decoration: none;
+}
+
+.b-merchant a + a {
+    border-left: 1px solid var(--b-border);
+    color: var(--b-muted);
+}
+
+.b-merchant a:hover {
+    background: var(--b-surface-3);
+    color: var(--b-primary-ink);
 }
 
 .b-target-quick {

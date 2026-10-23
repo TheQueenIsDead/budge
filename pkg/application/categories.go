@@ -38,7 +38,10 @@ type CategoriesView struct {
 	Types  []string // transaction types seen, for narrowing a rule
 	// Suggestions autofill the rule's match text, uncategorised first.
 	Suggestions []string
-	Error       string
+	// Prefill starts the rule form with this text, when a merchant link on
+	// the targets page sent the owner here to make a rule for it.
+	Prefill string
+	Error   string
 }
 
 // maxRuleSuggestions bounds the autofill list; past a few hundred the browser
@@ -156,16 +159,24 @@ func (app *Application) buildCategoriesView() (CategoriesView, error) {
 	}
 	sort.Strings(view.Types)
 
+	view.Groups = categoryOptionGroups(categoryCatalogue(settings.Categories, txs))
+	return view, nil
+}
+
+// categoryOptionGroups lays a catalogue out for a category picker: grouped by
+// broad category, each group and its options in alphabetical order.
+func categoryOptionGroups(catalogue map[string]CategoryOption) []CategoryOptionGroup {
 	byBroad := make(map[string][]CategoryOption)
-	for _, option := range categoryCatalogue(settings.Categories, txs) {
+	for _, option := range catalogue {
 		byBroad[option.Broad] = append(byBroad[option.Broad], option)
 	}
+	var groups []CategoryOptionGroup
 	for broad, options := range byBroad {
 		sort.Slice(options, func(i, j int) bool { return options[i].Specific < options[j].Specific })
-		view.Groups = append(view.Groups, CategoryOptionGroup{Broad: broad, Options: options})
+		groups = append(groups, CategoryOptionGroup{Broad: broad, Options: options})
 	}
-	sort.Slice(view.Groups, func(i, j int) bool { return view.Groups[i].Broad < view.Groups[j].Broad })
-	return view, nil
+	sort.Slice(groups, func(i, j int) bool { return groups[i].Broad < groups[j].Broad })
+	return groups
 }
 
 // renderCategories answers every categories action with the whole card, so

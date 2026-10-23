@@ -67,11 +67,35 @@ func (r CategoryRule) Matches(tx Transaction) bool {
 // RuleCategoryPrefix starts the category id of a transaction a rule filed.
 const RuleCategoryPrefix = "rule:"
 
-// CategorySettings holds the custom categories and the rules, in the order
-// the rules are tried.
+// OverrideCategoryPrefix marks the category id of a transaction the owner
+// filed by hand.
+const OverrideCategoryPrefix = "override:"
+
+// CategoryOverride files one transaction under a category, for the one-off
+// payment no rule would describe, such as a plumber fixing the hot water
+// cylinder. It wins over rules and over Akahu.
+type CategoryOverride struct {
+	TransactionID string
+	Broad         string
+	Specific      string
+}
+
+// CategorySettings holds the custom categories, the rules in the order they
+// are tried, and the per-transaction overrides.
 type CategorySettings struct {
 	Categories []CustomCategory
 	Rules      []CategoryRule
+	Overrides  []CategoryOverride
+}
+
+// Override returns the override for a transaction, if it has one.
+func (cs CategorySettings) Override(transactionID string) (CategoryOverride, bool) {
+	for _, o := range cs.Overrides {
+		if o.TransactionID == transactionID {
+			return o, true
+		}
+	}
+	return CategoryOverride{}, false
 }
 
 func (cs CategorySettings) Key() []byte    { return []byte("categories") }
@@ -87,25 +111,40 @@ func (cs CategorySettings) MatchingRule(tx Transaction) int {
 	return -1
 }
 
-// Apply recategorises transactions in place. The first matching rule wins.
-// Only the copy being read is changed: Akahu's own category stays in the
-// database, so deleting a rule restores it straight away.
+// Apply recategorises transactions in place. An override for the
+// transaction wins; otherwise the first matching rule does. Only the copy
+// being read is changed: Akahu's own category stays in the database, so
+// removing an override or a rule restores it straight away.
 func (cs CategorySettings) Apply(txs []Transaction) {
-	if len(cs.Rules) == 0 {
+	if len(cs.Rules) == 0 && len(cs.Overrides) == 0 {
 		return
 	}
+	overrides := make(map[string]CategoryOverride, len(cs.Overrides))
+	for _, o := range cs.Overrides {
+		overrides[o.TransactionID] = o
+	}
 	for i := range txs {
+		if o, ok := overrides[txs[i].Id]; ok {
+			file(&txs[i], OverrideCategoryPrefix+o.TransactionID, o.Broad, o.Specific)
+			continue
+		}
 		if n := cs.MatchingRule(txs[i]); n >= 0 {
 			rule := cs.Rules[n]
-			// The ids mark the category as set by a rule, and the group id is
-			// what Transaction.Categories checks before showing the group.
-			txs[i].Category.Id = RuleCategoryPrefix + rule.ID
-			txs[i].Category.Name = rule.Specific
-			txs[i].Category.Groups.PersonalFinance.Id = RuleCategoryPrefix + rule.ID
-			txs[i].Category.Groups.PersonalFinance.Name = rule.Broad
-			if txs[i].IsTransfer() {
-				txs[i].Type = TypeCountedTransfer
-			}
+			file(&txs[i], RuleCategoryPrefix+rule.ID, rule.Broad, rule.Specific)
 		}
+	}
+}
+
+// file puts a transaction under a category. The ids mark where the category
+// came from, and the group id is what Transaction.Categories checks before
+// showing the group. Money leaving by transfer that is filed somewhere is
+// counted as spending; the leg where it arrives stays a transfer.
+func file(tx *Transaction, id, broad, specific string) {
+	tx.Category.Id = id
+	tx.Category.Name = specific
+	tx.Category.Groups.PersonalFinance.Id = id
+	tx.Category.Groups.PersonalFinance.Name = broad
+	if tx.IsTransfer() && tx.Amount < 0 {
+		tx.Type = TypeCountedTransfer
 	}
 }

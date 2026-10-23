@@ -132,3 +132,31 @@ func TestTransferRules(t *testing.T) {
 	assert.Equal(t, "TRANSFER", txs[1].Type, "the arriving leg is untouched")
 	assert.Empty(t, txs[1].Category.Name)
 }
+
+func TestOverridesWinOverRulesAndAkahu(t *testing.T) {
+	cylinder := categorisedTx("cyl", "PAYMENT", "PAY The Cylinder Guy Limited", "")
+	cylinder.Amount = -1200
+	roofer := categorisedTx("roof", "PAYMENT", "PAY Christchurch Roofing", "")
+	moved := categorisedTx("out", "TRANSFER", "TO D J KING", "")
+	moved.Amount = -300
+	settings := models.CategorySettings{
+		Rules: []models.CategoryRule{{ID: "pay", Contains: "PAY ", Broad: "General", Specific: "Payments"}},
+		Overrides: []models.CategoryOverride{
+			{TransactionID: "cyl", Broad: "Household", Specific: "Plumbing"},
+			{TransactionID: "out", Broad: "General", Specific: "Mortgage"},
+		},
+	}
+	txs := []models.Transaction{cylinder, roofer, moved}
+
+	settings.Apply(txs)
+
+	assert.Equal(t, "Plumbing", txs[0].Category.Name, "the override wins over the rule")
+	assert.Equal(t, models.OverrideCategoryPrefix+"cyl", txs[0].Category.Id)
+	assert.Equal(t, "Payments", txs[1].Category.Name, "other transactions still follow the rule")
+	assert.Equal(t, models.TypeCountedTransfer, txs[2].Type, "money leaving by transfer that is filed by hand is counted")
+
+	_, ok := settings.Override("cyl")
+	assert.True(t, ok)
+	_, ok = settings.Override("roof")
+	assert.False(t, ok)
+}
