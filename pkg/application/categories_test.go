@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -111,4 +112,71 @@ func TestSettingsCategoriesRenders(t *testing.T) {
 	assert.Contains(t, html, `hx-delete="/settings/rules/r1"`)
 	assert.Contains(t, html, `class="text-warning ms-1"`, "a rule matching nothing is flagged")
 	assert.Contains(t, html, "Housing ★")
+	assert.Contains(t, html, `hx-target="this"`, "the preview must not inherit the form's target and replace the card")
+}
+
+func TestRuleSuggestions(t *testing.T) {
+	now := time.Now()
+	txs := []models.Transaction{
+		spendTx("1", "EFTPOS", "Food", "Supermarkets", "Countdown", "POS W/D COUNTDOWN", -50, now),
+		spendTx("2", "EFTPOS", "Food", "Supermarkets", "Countdown", "", -60, now),
+		spendTx("3", "EFTPOS", "", "", "", "POS W/D Holland Suzuk-13:04", -330, now),
+		spendTx("4", "LOAN", "", "", "", "LOAN INTEREST", -410, now),
+		spendTx("5", "LOAN", "", "", "", "LOAN INTEREST", -356, now),
+		spendTx("6", "TRANSFER", "", "", "", "TO SAVINGS", -500, now),
+		spendTx("7", "STANDING ORDER", "", "", "", "AP#1 TO FISHER FUNDS", -385, now),
+	}
+	settings := models.CategorySettings{Rules: []models.CategoryRule{{Contains: "fisher"}}}
+
+	got := ruleSuggestions(txs, settings)
+
+	assert.Equal(t, []string{"LOAN INTEREST", "Holland Suzuk", "Countdown"}, got,
+		"uncategorised first, then by how often; transfers and already-ruled text are left out")
+	for _, text := range got {
+		matched := false
+		for _, tx := range txs {
+			if (models.CategoryRule{Contains: text}).Matches(tx) {
+				matched = true
+			}
+		}
+		assert.True(t, matched, "%q must match the transaction it came from", text)
+	}
+}
+
+func TestBuildRulePreview(t *testing.T) {
+	base := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	var txs []models.Transaction
+	for i := 0; i < 7; i++ {
+		txs = append(txs, spendTx(string(rune('a'+i)), "LOAN", "", "", "", "LOAN INTEREST", -400, base.AddDate(0, 0, 14*i)))
+	}
+	txs = append(txs, spendTx("fee", "FEE", "", "", "", "LOAN ESTABLISHMENT FEE", -200, base))
+	settings := models.CategorySettings{Rules: []models.CategoryRule{{Contains: "establishment"}}}
+
+	preview := buildRulePreview(models.CategoryRule{Contains: "loan"}, txs, settings)
+
+	assert.Equal(t, 7, preview.Matches)
+	assert.Equal(t, 1, preview.Taken, "the fee is already filed by an earlier rule")
+	require.Len(t, preview.Samples, rulePreviewSamples)
+	assert.True(t, preview.Samples[0].Date.After(preview.Samples[1].Date), "most recent first")
+	assert.Contains(t, renderTemplate(t, "settings.rules.preview", preview), "· uncategorised")
+
+	none := buildRulePreview(models.CategoryRule{Contains: "nothing like this"}, txs, settings)
+	assert.Contains(t, renderTemplate(t, "settings.rules.preview", none), "Matches nothing yet")
+}
+
+func TestSettingsPreviewRule(t *testing.T) {
+	app := newTestApp(t)
+	require.NoError(t, app.store.CreateTransaction(spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -410, time.Now().Add(-time.Hour))))
+
+	get := func(query string) string {
+		req := httptest.NewRequest(http.MethodGet, "/settings/rules/preview?"+query, nil)
+		req.Header.Set("HX-Request", "true")
+		rec := httptest.NewRecorder()
+		require.NoError(t, app.SettingsPreviewRule(app.http.NewContext(req, rec)))
+		return rec.Body.String()
+	}
+
+	assert.Contains(t, get("contains=loan+interest&type=LOAN"), "1 transaction")
+	assert.Contains(t, get("contains=loan+interest&type=DEBIT"), "Matches nothing yet", "the type narrows the preview")
+	assert.Empty(t, strings.TrimSpace(get("contains=+")), "nothing typed shows nothing")
 }

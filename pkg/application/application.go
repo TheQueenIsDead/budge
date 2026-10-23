@@ -189,6 +189,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.POST("/settings/categories", app.SettingsAddCategory)
 	app.http.DELETE("/settings/categories/:id", app.SettingsDeleteCategory)
 	app.http.POST("/settings/rules", app.SettingsAddRule)
+	app.http.GET("/settings/rules/preview", app.SettingsPreviewRule)
 	app.http.DELETE("/settings/rules/:id", app.SettingsDeleteRule)
 	app.http.POST("/settings/danger/remove/synced", app.SettingsDeleteSynced)
 	app.http.GET("/settings/backup", app.SettingsExport)

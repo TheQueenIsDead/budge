@@ -36,7 +36,65 @@ type CategoriesView struct {
 	Rules  []RuleView
 	Groups []CategoryOptionGroup
 	Types  []string // transaction types seen, for narrowing a rule
-	Error  string
+	// Suggestions autofill the rule's match text, uncategorised first.
+	Suggestions []string
+	Error       string
+}
+
+// maxRuleSuggestions bounds the autofill list; past a few hundred the browser
+// list is too long to be useful and typing narrows it anyway.
+const maxRuleSuggestions = 300
+
+// ruleSuggestions offers match text for a new rule: each transaction's
+// merchant, or its description cleaned of card terminal noise. The cleaning
+// only trims, so a suggestion is always text the transaction contains and a
+// rule built from it matches. Transactions a rule already files are left out,
+// and uncategorised ones come first, being what rules are mostly for.
+func ruleSuggestions(txs []models.Transaction, settings models.CategorySettings) []string {
+	type suggestion struct {
+		text          string
+		count         int
+		uncategorised bool
+	}
+	byText := make(map[string]*suggestion)
+	for _, tx := range txs {
+		if tx.Type == "TRANSFER" || settings.MatchingRule(tx) >= 0 {
+			continue
+		}
+		text := strings.TrimSpace(spendMerchant(tx))
+		if text == "" {
+			continue
+		}
+		key := strings.ToLower(text)
+		if byText[key] == nil {
+			byText[key] = &suggestion{text: text}
+		}
+		byText[key].count++
+		if tx.Category.Groups.PersonalFinance.Name == "" {
+			byText[key].uncategorised = true
+		}
+	}
+	all := make([]*suggestion, 0, len(byText))
+	for _, s := range byText {
+		all = append(all, s)
+	}
+	sort.Slice(all, func(i, j int) bool {
+		if all[i].uncategorised != all[j].uncategorised {
+			return all[i].uncategorised
+		}
+		if all[i].count != all[j].count {
+			return all[i].count > all[j].count
+		}
+		return all[i].text < all[j].text
+	})
+	if len(all) > maxRuleSuggestions {
+		all = all[:maxRuleSuggestions]
+	}
+	texts := make([]string, len(all))
+	for i, s := range all {
+		texts[i] = s.text
+	}
+	return texts
 }
 
 // categoryCatalogue lists every category a rule can target: the custom ones
@@ -74,7 +132,7 @@ func (app *Application) buildCategoriesView() (CategoriesView, error) {
 		return CategoriesView{}, err
 	}
 
-	view := CategoriesView{Custom: settings.Categories}
+	view := CategoriesView{Custom: settings.Categories, Suggestions: ruleSuggestions(txs, settings)}
 
 	// Rules match on description, merchant and type, none of which a rule
 	// changes, so matching the already-categorised copies counts correctly.
@@ -200,6 +258,65 @@ func (app *Application) SettingsAddRule(c echo.Context) error {
 		return err
 	}
 	return app.renderCategories(c, "")
+}
+
+// rulePreviewSamples is how many matching transactions the preview lists.
+const rulePreviewSamples = 5
+
+// RulePreview shows what a rule would match before it is saved.
+type RulePreview struct {
+	Contains string
+	Matches  int // transactions the new rule would file
+	Taken    int // matching transactions an earlier rule already files
+	Samples  []WeekTransaction
+}
+
+func buildRulePreview(rule models.CategoryRule, txs []models.Transaction, settings models.CategorySettings) RulePreview {
+	preview := RulePreview{Contains: rule.Contains}
+	var matched []models.Transaction
+	for _, tx := range txs {
+		if !rule.Matches(tx) {
+			continue
+		}
+		// A new rule goes last, so anything an existing rule matches stays put.
+		if settings.MatchingRule(tx) >= 0 {
+			preview.Taken++
+			continue
+		}
+		preview.Matches++
+		matched = append(matched, tx)
+	}
+	sort.Slice(matched, func(i, j int) bool { return matched[i].Date.After(matched[j].Date) })
+	for i, tx := range matched {
+		if i == rulePreviewSamples {
+			break
+		}
+		category := tx.Category.Name
+		if category == "" {
+			category = tx.Category.Groups.PersonalFinance.Name
+		}
+		preview.Samples = append(preview.Samples, WeekTransaction{
+			Date: tx.Date, Title: tx.Description, Category: category, Amount: tx.Amount,
+		})
+	}
+	return preview
+}
+
+// SettingsPreviewRule answers the rule form as it is typed into.
+func (app *Application) SettingsPreviewRule(c echo.Context) error {
+	rule := models.CategoryRule{Contains: strings.TrimSpace(c.QueryParam("contains")), Type: c.QueryParam("type")}
+	if rule.Contains == "" {
+		return c.Render(http.StatusOK, "settings.rules.preview", RulePreview{})
+	}
+	settings, err := app.store.GetCategorySettings()
+	if err != nil {
+		return err
+	}
+	txs, err := app.store.ReadTransactions()
+	if err != nil {
+		return err
+	}
+	return c.Render(http.StatusOK, "settings.rules.preview", buildRulePreview(rule, txs, settings))
 }
 
 func (app *Application) SettingsDeleteRule(c echo.Context) error {

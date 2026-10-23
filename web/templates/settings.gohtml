@@ -327,7 +327,11 @@
         <div class="col-12 col-md-5">
             <label class="b-field-label" for="rule-contains">Description or merchant contains</label>
             <input class="form-control form-control-sm" id="rule-contains" name="contains"
+                   list="rule-suggestions" autocomplete="off"
                    placeholder="e.g. LOAN INTEREST" required>
+            <datalist id="rule-suggestions">
+                {{ range .Suggestions }}<option value="{{ . }}"></option>{{ end }}
+            </datalist>
         </div>
         <div class="col-6 col-md-3">
             <label class="b-field-label" for="rule-type">Type</label>
@@ -347,11 +351,48 @@
                 {{ end }}
             </select>
         </div>
+        {{/* Re-rendered with the card, so its "from:" listeners always bind
+             to the current inputs. hx-target is set here because it would
+             otherwise inherit the form's, and replace the whole card. */}}
+        <div class="col-12" id="rule-preview" aria-live="polite"
+             hx-get="/settings/rules/preview"
+             hx-trigger="input changed delay:300ms from:#rule-contains, change from:#rule-type"
+             hx-include="#rule-contains, #rule-type"
+             hx-target="this"
+             hx-swap="innerHTML"></div>
         <div class="col-12">
             <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg"></i>Add rule</button>
         </div>
     </form>
 </div>
+{{ end }}
+
+{{ define "settings.rules.preview" }}
+{{ if .Contains }}
+<div class="b-sched small">
+    {{ if .Matches }}
+    <div class="mb-1">
+        Would file <span class="fw-semibold">{{ .Matches }} transaction{{ if ne .Matches 1 }}s{{ end }}</span>{{ if gt .Matches (len .Samples) }}, most recent:{{ else }}:{{ end }}
+    </div>
+    <ul class="list-unstyled mb-0">
+        {{ range .Samples }}
+        <li class="d-flex justify-content-between gap-2">
+            <span class="min-width-0 text-truncate">
+                <span class="text-muted me-1">{{ .Date.Format "2 Jan 2006" }}</span>{{ .Title }}
+                <span class="text-muted">· {{ if .Category }}{{ .Category }}{{ else }}uncategorised{{ end }}</span>
+            </span>
+            <span class="text-nowrap">{{ .Amount | fmtCurrency }}</span>
+        </li>
+        {{ end }}
+    </ul>
+    {{ else }}
+    <span class="text-warning">Matches nothing yet.</span>
+    {{ end }}
+    {{ if .Taken }}
+    <div class="text-muted mt-1">{{ .Taken }} more transaction{{ if ne .Taken 1 }}s{{ end }} match{{ if eq .Taken 1 }}es{{ end }}, but an earlier rule already files {{ if eq .Taken 1 }}it{{ else }}them{{ end }}.</div>
+    {{ end }}
+</div>
+{{ end }}
 {{ end }}
 
 {{ define "settings.schedule" }}
