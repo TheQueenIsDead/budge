@@ -224,7 +224,7 @@ func (app *Application) Budget(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 	return c.Render(http.StatusOK, "budget", map[string]interface{}{
-		"Salary":    salary,
+		"Income":    buildIncomeTile(salary),
 		"SetupData": setupData,
 	})
 }
@@ -772,7 +772,42 @@ func (app *Application) BudgetSummary(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	return c.Render(http.StatusOK, "budget.summary", buildBudgetSummary(salary))
+}
 
+// IncomeTileData is the view-model for the income summary on the budget page.
+type IncomeTileData struct {
+	Salary     models.BudgetSalary
+	Summary    BudgetSummary
+	Deductions []string // the deductions that apply, named for the tile
+}
+
+func buildIncomeTile(salary models.BudgetSalary) IncomeTileData {
+	tile := IncomeTileData{Salary: salary, Summary: buildBudgetSummary(salary)}
+	if salary.IncludePAYE {
+		tile.Deductions = append(tile.Deductions, "PAYE", "ACC")
+	}
+	if salary.KiwiSaverRate > 0 {
+		tile.Deductions = append(tile.Deductions, fmt.Sprintf("KiwiSaver %g%%", salary.KiwiSaverRate))
+	}
+	if salary.StudentLoan {
+		tile.Deductions = append(tile.Deductions, "Student loan")
+	}
+	return tile
+}
+
+// BudgetIncome is the page for configuring income, kept off the budget page
+// because it is set once and rarely revisited.
+func (app *Application) BudgetIncome(c echo.Context) error {
+	salary, err := app.store.GetBudgetSalary()
+	if err != nil {
+		app.Toast(c, "Error", "Could not load salary config.")
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	return c.Render(http.StatusOK, "budget.income", map[string]interface{}{"Salary": salary})
+}
+
+func buildBudgetSummary(salary models.BudgetSalary) BudgetSummary {
 	annual := toAnnual(salary.Salary, salary.SalaryFrequency)
 	var payeAnnual, accAnnual, studentLoanAnnual float64
 	if salary.IncludePAYE {
@@ -785,7 +820,7 @@ func (app *Application) BudgetSummary(c echo.Context) error {
 	kiwiSaverAnnual := annual * (salary.KiwiSaverRate / 100)
 	netAnnual := annual - payeAnnual - accAnnual - kiwiSaverAnnual - studentLoanAnnual
 
-	return c.Render(http.StatusOK, "budget.summary", BudgetSummary{
+	return BudgetSummary{
 		GrossHourly:          annual / 52 / 40,
 		GrossAnnual:          annual,
 		GrossMonthly:         annual / 12,
@@ -816,7 +851,7 @@ func (app *Application) BudgetSummary(c echo.Context) error {
 		NetMonthly:           netAnnual / 12,
 		NetFortnightly:       netAnnual / 26,
 		NetWeekly:            netAnnual / 52,
-	})
+	}
 }
 
 // ---- performance chart ----

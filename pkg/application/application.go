@@ -227,6 +227,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	// Budget
 	app.http.GET("/budget", app.Budget)
+	app.http.GET("/budget/income", app.BudgetIncome)
 	app.http.GET("/budget/summary", app.BudgetSummary)
 	app.http.POST("/budget/salary", app.BudgetSaveSalary)
 	app.http.GET("/budget/performance", app.BudgetPerformance)

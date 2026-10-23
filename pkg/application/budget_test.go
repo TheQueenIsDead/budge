@@ -566,7 +566,7 @@ func TestBudgetTemplatesRender(t *testing.T) {
 			"full page",
 			"budget",
 			map[string]any{
-				"Salary":    models.BudgetSalary{Salary: 100_000, SalaryFrequency: "yearly", IncludePAYE: true, KiwiSaverRate: 3},
+				"Income":    buildIncomeTile(models.BudgetSalary{Salary: 100_000, SalaryFrequency: "yearly", IncludePAYE: true, KiwiSaverRate: 3}),
 				"SetupData": setup,
 			},
 		},
@@ -574,10 +574,11 @@ func TestBudgetTemplatesRender(t *testing.T) {
 			"page with no transactions still renders the savings goal",
 			"budget",
 			map[string]any{
-				"Salary":    models.BudgetSalary{},
+				"Income":    buildIncomeTile(models.BudgetSalary{}),
 				"SetupData": CategorySetupData{HasData: false},
 			},
 		},
+		{"income page", "budget.income", map[string]any{"Salary": models.BudgetSalary{Salary: 100_000, SalaryFrequency: "yearly"}}},
 		{"income breakdown", "budget.summary", BudgetSummary{GrossAnnual: 100_000, NetAnnual: 72_372.50}},
 		{"cards in surplus", "budget.cards", BudgetCardsData{NetWeekly: 1_000, TotalWeeklyExpenses: 400, WeeklySavings: 600, PctAllocatedCss: 40, HasSalary: true}},
 		{"cards in deficit", "budget.cards", BudgetCardsData{NetWeekly: 1_000, TotalWeeklyExpenses: 1_200, WeeklySavings: -200, HasDeficit: true, PctAllocatedCss: 100, IsOverAllocated: true, HasSalary: true}},
@@ -745,4 +746,39 @@ func tableCells(t *testing.T, html string) []string {
 		cells = append(cells, rest[:end])
 		rest = rest[end+len("</td>"):]
 	}
+}
+
+func TestIncomeTile(t *testing.T) {
+	t.Run("summarises take-home pay and the deductions that apply", func(t *testing.T) {
+		tile := buildIncomeTile(models.BudgetSalary{Salary: 100_000, SalaryFrequency: "yearly", IncludePAYE: true, KiwiSaverRate: 3, StudentLoan: true})
+		assert.Equal(t, []string{"PAYE", "ACC", "KiwiSaver 3%", "Student loan"}, tile.Deductions)
+
+		html := renderTemplate(t, "budget.income.tile", tile)
+		assert.Contains(t, html, "take-home")
+		assert.Contains(t, html, "PAYE, ACC, KiwiSaver 3%, Student loan")
+		assert.Contains(t, html, `href="/budget/income"`)
+	})
+
+	t.Run("prompts for income when none is set", func(t *testing.T) {
+		tile := buildIncomeTile(models.BudgetSalary{})
+		assert.Empty(t, tile.Deductions)
+
+		html := renderTemplate(t, "budget.income.tile", tile)
+		assert.Contains(t, html, "No income set yet")
+		assert.NotContains(t, html, "/wk")
+	})
+}
+
+func TestBudgetPageLeavesIncomeFormToItsOwnPage(t *testing.T) {
+	budget := renderTemplate(t, "budget", map[string]any{
+		"Income":    buildIncomeTile(models.BudgetSalary{Salary: 100_000, SalaryFrequency: "yearly"}),
+		"SetupData": CategorySetupData{},
+	})
+	assert.NotContains(t, budget, `name="salary"`)
+	assert.Contains(t, budget, `href="/budget/income"`)
+
+	income := renderTemplate(t, "budget.income", map[string]any{"Salary": models.BudgetSalary{Salary: 100_000, SalaryFrequency: "yearly"}})
+	assert.Contains(t, income, `name="salary"`)
+	assert.Contains(t, income, `value="100000.00"`)
+	assert.Contains(t, income, `hx-get="/budget/summary"`, "the breakdown moves with the form")
 }
