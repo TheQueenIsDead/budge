@@ -14,4 +14,5 @@ FROM gcr.io/distroless/static-debian12
 
 COPY --from=build /go/bin/budge /
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s CMD ["/budge", "healthcheck"]
 CMD ["/budge"]
