@@ -180,6 +180,9 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.Use(Caching())
 
 	// General
+	app.http.GET("/healthz", func(c echo.Context) error {
+		return c.String(http.StatusOK, "ok\n")
+	})
 	app.http.GET("/", app.Dashboard)
 	app.http.GET("/4XX", app._4XX)
 
