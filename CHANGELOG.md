@@ -1,5 +1,49 @@
 # Changelog
 
+## [1.17.0](https://github.com/TheQueenIsDead/budge/compare/v1.16.1...v1.17.0) (2026-10-25)
+
+
+### Features
+
+* **budget:** break down why a week went over budget ([faadb31](https://github.com/TheQueenIsDead/budge/commit/faadb3144d16ba41c9977e6e09eae97bfeeb3d74))
+* **budget:** colour weekly bars by whether they went over ([3e7bfc8](https://github.com/TheQueenIsDead/budge/commit/3e7bfc8c16b494f8a3b8ca1aa172943e6090002f))
+* **budget:** draw weekly bars in pastel, highlighting the open week ([66b4d25](https://github.com/TheQueenIsDead/budge/commit/66b4d259953a91c4c55fbd8306bd659732f60fc9))
+* **budget:** flag targets set well above what is spent ([2fce5e5](https://github.com/TheQueenIsDead/budge/commit/2fce5e532125ee4b0487fddf0f51ca41b6e662e0))
+* **budget:** lead the budget page with how the weeks went ([4b5329b](https://github.com/TheQueenIsDead/budge/commit/4b5329b49915d141d0e73ca77dbdd7ca6bb5f3a7))
+* **budget:** let categories count as savings or be ignored ([fa78d3f](https://github.com/TheQueenIsDead/budge/commit/fa78d3fda5a77c189a28018e319c8bb0d5bf5a3e))
+* **budget:** move income settings to their own page ([b1e1ec9](https://github.com/TheQueenIsDead/budge/commit/b1e1ec9b65cec9f8fb78487da78e91409bdb782f))
+* **budget:** move the summary cards to the income page ([6117f7c](https://github.com/TheQueenIsDead/budge/commit/6117f7cabab147ef9109fb5ff9797c5f750ba321))
+* **budget:** offer a rule only for uncategorised merchants ([6a3cca5](https://github.com/TheQueenIsDead/budge/commit/6a3cca54e685337d4fdd11bb5fcfae1eef31e284))
+* **budget:** put the configuration tiles between chart and breakdown ([d8c2f4f](https://github.com/TheQueenIsDead/budge/commit/d8c2f4f6d265eaaa49f46c27476da66507c2ee6e))
+* **budget:** redesign spending targets around what needs attention ([1153ff8](https://github.com/TheQueenIsDead/budge/commit/1153ff872017632dedee014c24646fac69d58714))
+* **budget:** split each week's bar by broad category ([4c1b6f5](https://github.com/TheQueenIsDead/budge/commit/4c1b6f52d57499f89a28797509ae9804eb1a6c3d))
+* **budget:** split the weekly chart into budgeted and unbudgeted ([0ce65b9](https://github.com/TheQueenIsDead/budge/commit/0ce65b98a91f67ec41b8a680adbeb71415d14dc9))
+* **budget:** track each category over its own period, on one page ([b430a5d](https://github.com/TheQueenIsDead/budge/commit/b430a5d4eb3d2cb9bd4119282a9758dcb461cd21))
+* **categories:** add category rules applied as transactions are read ([8bd925e](https://github.com/TheQueenIsDead/budge/commit/8bd925e7a2cbf3cd0acc8cd98bb4c92d66c14aa7))
+* **categories:** categorise one transaction, from where you see it ([a1a12e1](https://github.com/TheQueenIsDead/budge/commit/a1a12e1772a2787f17e4c76049ef176ae572cb91))
+* **categories:** let a rule count transfers, for mortgage repayments ([b032a28](https://github.com/TheQueenIsDead/budge/commit/b032a2868c6935033c7e499d119f5efab8a93eaa))
+* **portfolio:** edit what was paid for an asset ([e4b09e9](https://github.com/TheQueenIsDead/budge/commit/e4b09e9a934c5b09d8c0cc3224d22ebd2e58aba7))
+* **settings:** manage custom categories and category rules ([81d19ec](https://github.com/TheQueenIsDead/budge/commit/81d19ece9ea9f79e894a1703a62498fd04a46d19))
+* **settings:** suggest and preview what a new rule will match ([f5ab595](https://github.com/TheQueenIsDead/budge/commit/f5ab59532ca085a429db436294670e1fa370eeda))
+* **transactions:** warn about uncategorised spending ([9db0129](https://github.com/TheQueenIsDead/budge/commit/9db0129d9f513d7e9a719fece645ccd2eac1f6af))
+
+
+### Bug Fixes
+
+* **budget:** collapse untargeted rows with their group ([92cfd06](https://github.com/TheQueenIsDead/budge/commit/92cfd06ec9763075b70222e50a43f59492196e29))
+* **budget:** count uncategorised debits in the setup table ([44b58d3](https://github.com/TheQueenIsDead/budge/commit/44b58d3d6a6208ce275fa46ab3eb91fab23c54f6))
+* **budget:** draw the weekly chart in the app's own accents ([d0fbf62](https://github.com/TheQueenIsDead/budge/commit/d0fbf627c8a2ea1d15bcc7ef20060b47afa64970))
+* **budget:** edit a target in place instead of redrawing the list ([92d7880](https://github.com/TheQueenIsDead/budge/commit/92d7880d17d918b37bc14f0bb38e3854c8485b6f))
+* **budget:** keep the edited target row in place on screen ([70da2a6](https://github.com/TheQueenIsDead/budge/commit/70da2a63ef3a4f4cab85bb9bb542230c1d1924f1))
+* **budget:** show targets for categories with no recent spend ([3e19a73](https://github.com/TheQueenIsDead/budge/commit/3e19a73d526699e80f88100e5a5e74844e7162b1))
+* **budget:** stop the week breakdown logging an error on first load ([4bb20b6](https://github.com/TheQueenIsDead/budge/commit/4bb20b6abdd26a49d0b86283472d086983067779))
+* **budget:** use the app's good/bad colours for over and under ([e6340ab](https://github.com/TheQueenIsDead/budge/commit/e6340ab662de5d3ea42633aacc32d8ae5bd8c1fd))
+* **dashboard:** leave out spending marked as savings or ignored ([f9f3c06](https://github.com/TheQueenIsDead/budge/commit/f9f3c06c62679922936cfd3f13cfd6df7e96f196))
+* **dashboard:** leave transfers out of top merchants and biggest payments ([997b7d5](https://github.com/TheQueenIsDead/budge/commit/997b7d5bf2ab9d0bd5a539bf4aec322747e6e631))
+* **deps:** update module github.com/labstack/echo/v4 to v4.16.1 ([#101](https://github.com/TheQueenIsDead/budge/issues/101)) ([3f9e385](https://github.com/TheQueenIsDead/budge/commit/3f9e38551d33490826723aa4a934c946ebbc593e))
+* **deps:** update module github.com/labstack/echo/v4 to v4.16.2 ([#103](https://github.com/TheQueenIsDead/budge/issues/103)) ([966ac2a](https://github.com/TheQueenIsDead/budge/commit/966ac2a7bf5d36d88a2b9bb52f7c462873a9e6da))
+* **web:** keep form controls white on the colour bridge ([e472b9a](https://github.com/TheQueenIsDead/budge/commit/e472b9a07d2d8c69e1d28a23d90d8b608e3c1abf))
+
 ## [1.16.1](https://github.com/TheQueenIsDead/budge/compare/v1.16.0...v1.16.1) (2026-10-15)
 
 
