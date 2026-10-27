@@ -752,7 +752,7 @@ func BuildTimeline(transactions []models.Transaction, memories []models.Memory, 
 	// a routine merchant whose big withdrawals should be skipped.
 	var spend, pool []models.Transaction
 	for _, tx := range transactions {
-		if !(timelineSpend(tx) || cashWithdrawal(tx)) || tx.Date.Before(start) || !tx.Date.Before(end) {
+		if !timelineSpend(tx) && !cashWithdrawal(tx) || tx.Date.Before(start) || !tx.Date.Before(end) {
 			continue
 		}
 		if !cashWithdrawal(tx) {

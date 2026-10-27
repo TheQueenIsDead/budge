@@ -832,11 +832,6 @@ var performanceRanges = []PerformanceRange{
 // weeksPerMonth turns weekly figures into monthly ones.
 const weeksPerMonth = 52.0 / 12.0
 
-func monthStart(t time.Time) time.Time {
-	t = t.UTC()
-	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
-}
-
 func (app *Application) BudgetPerformance(c echo.Context) error {
 	span := performanceRanges[1]
 	for _, r := range performanceRanges {
