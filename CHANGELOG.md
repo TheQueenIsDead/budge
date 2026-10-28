@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.18.0](https://github.com/TheQueenIsDead/budge/compare/v1.17.0...v1.18.0) (2026-10-28)
+
+
+### Features
+
+* **transactions:** tick many to add to a memory, and remove in one click ([93fb385](https://github.com/TheQueenIsDead/budge/commit/93fb38594337d83d5eaeafa1d7795908977793b2))
+
+
+### Bug Fixes
+
+* **portfolio:** stop float dust turning a zero balance into a huge change ([100902a](https://github.com/TheQueenIsDead/budge/commit/100902aa068d05961e5c12dfe51562478324b3ef))
+
 ## [1.17.0](https://github.com/TheQueenIsDead/budge/compare/v1.16.1...v1.17.0) (2026-10-25)
 
 
