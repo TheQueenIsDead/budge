@@ -162,6 +162,13 @@ main.container {
     font-size: 1.05rem;
 }
 
+/* A logo in place of an icon, for a card about a service. */
+.b-chip img {
+    width: 60%;
+    height: 60%;
+    border-radius: 50%;
+}
+
 .b-chip-sm {
     width: 30px;
     height: 30px;

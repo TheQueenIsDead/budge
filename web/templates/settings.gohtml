@@ -6,18 +6,17 @@
     </div>
 
     <!-- Akahu -->
-    <div class="b-card b-card-pad mb-3">
+    <div class="b-card b-card-pad mb-3 b-accent-slate">
         <div class="b-card-head">
-            <div>
-                <h3 class="b-card-title">
-                    <img src="{{ asset "/static/akahu.svg" }}" class="rounded-circle me-1" alt=""
-                         style="height: 1em; margin-top: -0.2em">
-                    Akahu
-                </h3>
-                <p class="b-card-sub">
-                    New Zealand's open finance platform, and where transaction data comes
-                    from. <a href="https://www.akahu.nz/consumer">More about Akahu</a>.
-                </p>
+            <div class="d-flex align-items-center gap-2">
+                <span class="b-chip"><img src="{{ asset "/static/akahu.svg" }}" alt=""></span>
+                <div>
+                    <h3 class="b-card-title">Akahu</h3>
+                    <p class="b-card-sub">
+                        New Zealand's open finance platform, and where transaction data comes
+                        from. <a href="https://www.akahu.nz/consumer">More about Akahu</a>.
+                    </p>
+                </div>
             </div>
         </div>
 
@@ -25,7 +24,7 @@
             <div class="row g-2">
                 <div class="col-12 col-md-6">
                     <label class="b-field-label" for="akahuAppToken">App token</label>
-                    <div class="input-group">
+                    <div class="input-group input-group-sm">
                         <input class="form-control" id="akahuAppToken" name="akahuAppToken"
                                value="{{ .akahuAppToken }}" type="password" autocomplete="off">
                         <span class="input-group-text">
@@ -37,7 +36,7 @@
 
                 <div class="col-12 col-md-6">
                     <label class="b-field-label" for="akahuUserToken">User token</label>
-                    <div class="input-group">
+                    <div class="input-group input-group-sm">
                         <input class="form-control" id="akahuUserToken" name="akahuUserToken"
                                value="{{ .akahuUserToken }}" type="password" autocomplete="off">
                         <span class="input-group-text">
@@ -48,7 +47,7 @@
                 </div>
 
                 <div class="col-12 d-flex align-items-center flex-wrap gap-2 mt-2">
-                    <button class="btn btn-outline-secondary" hx-post="/integrations/akahu/save"
+                    <button class="btn btn-outline-secondary btn-sm" hx-post="/integrations/akahu/save"
                             hx-disabled-elt="this" hx-swap="none">
                         Save tokens
                     </button>
@@ -132,31 +131,37 @@
             </div>
         </div>
 
-        <div class="b-sched">
-            <div class="fw-semibold">Export</div>
-            <!-- A plain form: the response is a file to save, not a page to swap. -->
-            <p class="b-card-sub mb-2">
-                Akahu tokens are not included, so the file is safe to keep. Enter them again on
-                the new instance, then sync.
-            </p>
-            <form action="/settings/backup" method="get">
-                <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i>Download</button>
-            </form>
-        </div>
-
-        <div class="b-sched">
-            <div class="fw-semibold">Import</div>
-            <p class="b-card-sub mb-2">
-                Adds a backup to what is here. Anything in both is replaced by the backup's
-                copy; nothing else is removed.
-            </p>
-            <form hx-post="/settings/backup" hx-encoding="multipart/form-data" hx-target="#main"
-                  hx-confirm="Import this backup into this instance?"
-                  class="d-flex flex-wrap align-items-center gap-2">
-                <input class="form-control form-control-sm w-auto" type="file" name="backup"
-                       accept="application/json,.json" required aria-label="Backup file">
-                <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-upload"></i>Import</button>
-            </form>
+        <!-- Side by side once there is room, the way the schedule's options sit. -->
+        <div class="row g-3">
+            <div class="col-12 col-md-6">
+                <div class="b-sched">
+                    <div class="fw-semibold">Export</div>
+                    <!-- A plain form: the response is a file to save, not a page to swap. -->
+                    <p class="b-card-sub mb-2">
+                        Akahu tokens are not included, so the file is safe to keep. Enter them again on
+                        the new instance, then sync.
+                    </p>
+                    <form action="/settings/backup" method="get">
+                        <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i>Download</button>
+                    </form>
+                </div>
+            </div>
+            <div class="col-12 col-md-6">
+                <div class="b-sched">
+                    <div class="fw-semibold">Import</div>
+                    <p class="b-card-sub mb-2">
+                        Adds a backup to what is here. Anything in both is replaced by the backup's
+                        copy; nothing else is removed.
+                    </p>
+                    <form hx-post="/settings/backup" hx-encoding="multipart/form-data" hx-target="#main"
+                          hx-confirm="Import this backup into this instance?"
+                          class="d-flex flex-wrap align-items-center gap-2">
+                        <input class="form-control form-control-sm w-auto" type="file" name="backup"
+                               accept="application/json,.json" required aria-label="Backup file">
+                        <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-upload"></i>Import</button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -197,14 +202,14 @@
      {{ if .Running }}hx-get="/integrations/akahu/sync?started={{ .StartedKey }}"
      hx-trigger="every 1s" hx-swap="outerHTML" hx-target="this"{{ end }}>
     {{ if .Running }}
-        <button type="button" class="btn btn-primary htmx-request" disabled>
+        <button type="button" class="btn btn-primary btn-sm htmx-request" disabled>
             <i class="bi bi-arrow-repeat"></i> Syncing&hellip;
         </button>
         <span class="b-delta-note ms-auto">
             {{ if .Fetched }}Fetched {{ .Fetched }} transactions&hellip;{{ else }}Contacting Akahu&hellip;{{ end }}
         </span>
     {{ else }}
-        <button type="button" class="btn btn-primary" hx-post="/integrations/akahu/sync"
+        <button type="button" class="btn btn-primary btn-sm" hx-post="/integrations/akahu/sync"
                 hx-target="#akahu-sync" hx-swap="outerHTML" hx-disabled-elt="this">
             <i class="bi bi-arrow-repeat"></i> Sync now
         </button>
@@ -231,14 +236,17 @@
 <div class="alert alert-warning py-2 small mb-3" role="alert">{{ .Error }}</div>
 {{ end }}
 
-<div class="b-card b-card-pad mb-3">
+<div class="b-card b-card-pad mb-3 b-accent-clay">
     <div class="b-card-head">
-        <div>
-            <h3 class="b-card-title"><i class="bi bi-tags me-2"></i>Categories</h3>
-            <p class="b-card-sub">
+        <div class="d-flex align-items-center gap-2">
+            <span class="b-chip"><i class="bi bi-tags"></i></span>
+            <div>
+                <h3 class="b-card-title">Categories</h3>
+                <p class="b-card-sub">
                 Your own categories, alongside the ones Akahu assigns, for rules to file
                 transactions under. Marked ★ in the rule picker.
-            </p>
+                </p>
+            </div>
         </div>
     </div>
 
@@ -257,7 +265,7 @@
         {{ end }}
     </ul>
     {{ else }}
-    <p class="text-muted small mb-3">None yet.</p>
+    <p class="text-muted small mb-3">No categories yet.</p>
     {{ end }}
 
     <form hx-post="/settings/categories" hx-target="#categories" hx-swap="innerHTML" class="row g-2 align-items-end">
@@ -280,16 +288,19 @@
     </form>
 </div>
 
-<div class="b-card b-card-pad mb-3">
+<div class="b-card b-card-pad mb-3 b-accent-clay">
     <div class="b-card-head">
-        <div>
-            <h3 class="b-card-title"><i class="bi bi-signpost-split me-2"></i>Rules</h3>
-            <p class="b-card-sub">
+        <div class="d-flex align-items-center gap-2">
+            <span class="b-chip"><i class="bi bi-signpost-split"></i></span>
+            <div>
+                <h3 class="b-card-title">Rules</h3>
+                <p class="b-card-sub">
                 File transactions under a category when Akahu leaves them uncategorised or gets
                 them wrong. Rules apply to every transaction, including ones already synced, and
                 are tried top to bottom; the first that matches wins. Deleting a rule puts
                 Akahu's category back.
-            </p>
+                </p>
+            </div>
         </div>
     </div>
 
@@ -415,14 +426,17 @@
 {{ end }}
 
 {{ define "settings.schedule" }}
-<div class="b-card b-card-pad mb-3" id="schedule">
+<div class="b-card b-card-pad mb-3 b-accent-plum" id="schedule">
     <div class="b-card-head">
-        <div>
-            <h3 class="b-card-title"><i class="bi bi-clock-history me-2"></i>Run on a schedule</h3>
-            <p class="b-card-sub">
+        <div class="d-flex align-items-center gap-2">
+            <span class="b-chip"><i class="bi bi-clock-history"></i></span>
+            <div>
+                <h3 class="b-card-title">Run on a schedule</h3>
+                <p class="b-card-sub">
                 Anything that fails while this is running is reported under the bell,
                 since there is nobody watching a background job.
-            </p>
+                </p>
+            </div>
         </div>
     </div>
 
@@ -440,7 +454,7 @@
                     <p class="b-card-sub mb-2">Pull balances and transactions from Akahu.</p>
 
                     <label class="b-field-label" for="akahu-interval">How often</label>
-                    <select class="form-select" id="akahu-interval" name="akahu_interval">
+                    <select class="form-select form-select-sm" id="akahu-interval" name="akahu_interval">
                         {{ $current := .Settings.AkahuEvery.Key }}
                         {{ range .AkahuIntervals }}
                             <option value="{{ .Key }}" {{ if eq .Key $current }}selected{{ end }}>{{ .Label }}</option>
@@ -475,7 +489,7 @@
                     </p>
 
                     <label class="b-field-label" for="assets-interval">How often</label>
-                    <select class="form-select" id="assets-interval" name="assets_interval">
+                    <select class="form-select form-select-sm" id="assets-interval" name="assets_interval">
                         {{ $current := .Settings.AssetsEvery.Key }}
                         {{ range .AssetIntervals }}
                             <option value="{{ .Key }}" {{ if eq .Key $current }}selected{{ end }}>{{ .Label }}</option>
@@ -498,7 +512,7 @@
             </div>
 
             <div class="col-12">
-                <button type="submit" class="btn btn-primary">Save schedule</button>
+                <button type="submit" class="btn btn-primary btn-sm">Save schedule</button>
             </div>
         </div>
     </form>
