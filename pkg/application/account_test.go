@@ -192,6 +192,29 @@ func TestBuildAccountGroups(t *testing.T) {
 		assert.True(t, summary.HasHistory)
 	})
 
+	t.Run("a previous balance of float dust counts as zero", func(t *testing.T) {
+		// The real case: a revolving loan drawn from empty, whose amounts sum
+		// to -253.54999999999959 against a balance of -253.55, leaving a
+		// previous balance of about -4e-13 and a delta in the quadrillions.
+		var transactions []models.Transaction
+		for _, amount := range []float64{-100.1, -50.2, -40.3, -30.4, -20.5, -12.05} {
+			tx := transaction("a", amount)
+			transactions = append(transactions, tx)
+		}
+		var sum float64
+		for _, tx := range transactions {
+			sum += tx.Amount
+		}
+		require.NotEqual(t, -253.55, sum, "the amounts must not sum exactly, or this proves nothing")
+
+		groups := BuildAccountGroups([]models.Account{account("a", "Transactional 5K", "NZHL", "LOAN", -253.55)}, transactions, nil)
+
+		summary := groups[0].Accounts[0]
+		assert.Equal(t, -253.55, summary.Change)
+		assert.Equal(t, 0.0, summary.PreviousBalance)
+		assert.Zero(t, summary.Delta)
+	})
+
 	t.Run("annotates status and type", func(t *testing.T) {
 		closed := account("a", "Old Card", "Bank", "CREDITCARD", -40)
 		closed.Status = "INACTIVE"

@@ -191,7 +191,9 @@
                                         <span class="b-delta {{ if gt .Change 0.0 }}b-delta-good{{ else if lt .Change 0.0 }}b-delta-bad{{ else }}b-delta-flat{{ end }}"
                                               data-bs-toggle="tooltip" data-bs-placement="left"
                                               title="{{ .Change | fmtCurrency }} over the last 30 days, from {{ .PreviousBalance | fmtCurrency }}">
-                                            <i class="bi {{ if gt .Change 0.0 }}bi-arrow-up-short{{ else if lt .Change 0.0 }}bi-arrow-down-short{{ else }}bi-dash{{ end }}"></i>{{ .Delta | fmtPercent }}
+                                            {{/* Starting from nothing, there is no percentage to give, so the
+                                                 movement is shown in dollars. */}}
+                                            <i class="bi {{ if gt .Change 0.0 }}bi-arrow-up-short{{ else if lt .Change 0.0 }}bi-arrow-down-short{{ else }}bi-dash{{ end }}"></i>{{ if eq .PreviousBalance 0.0 }}{{ .Change | fmtCurrencyAbs }}{{ else }}{{ .Delta | fmtPercent }}{{ end }}
                                         </span>
                                     {{ else }}
                                         <span class="b-delta b-delta-flat">No activity</span>

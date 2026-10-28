@@ -170,6 +170,11 @@ func BuildPortfolio(accounts []models.Account, assets []AssetSummary) Portfolio 
 	return portfolio
 }
 
+// roundCents rounds an amount of money to the nearest cent.
+func roundCents(amount float64) float64 {
+	return math.Round(amount*100) / 100
+}
+
 // BuildAccountGroups arranges accounts under their connection. transactions are
 // those inside the reporting window and drive the movement shown against each
 // balance; hasTransactions says which accounts have any history at all, which
@@ -198,11 +203,15 @@ func BuildAccountGroups(accounts []models.Account, transactions []models.Transac
 			Icon:            AccountTypeIcon(account.Type),
 			IsActive:        account.Status == "" || strings.EqualFold(account.Status, "ACTIVE"),
 			IsLoan:          strings.EqualFold(account.Type, "LOAN"),
-			Change:          changes[account.Id],
+			Change:          roundCents(changes[account.Id]),
 			HasHistory:      seen[account.Id],
 			HasTransactions: hasTransactions[account.Id],
 		}
-		summary.PreviousBalance = account.Balance.Current - summary.Change
+		// Summing float amounts leaves dust: an account that started the
+		// window empty can come out at -0.0000000000004 rather than 0, and
+		// dividing by that reads as a change of quadrillions of percent.
+		// Money is counted in cents, so the arithmetic is too.
+		summary.PreviousBalance = roundCents(account.Balance.Current - summary.Change)
 		if summary.PreviousBalance != 0 {
 			summary.Delta = summary.Change / math.Abs(summary.PreviousBalance)
 		}
