@@ -7,8 +7,11 @@
 
     <!-- Filters. Sticky, so search stays reachable well down a long list. -->
     <div class="b-filters">
+        {{/* The listeners name the two filters by id. A bare "from:select"
+             would match every select on the page, so picking a memory or a
+             category further down would reload the list underneath it. */}}
         <form hx-get="/transactions"
-              hx-trigger="input delay:400ms from:input[name='search'], change from:select"
+              hx-trigger="input delay:400ms from:#search, change from:#account"
               hx-target="#main"
               hx-push-url="true">
             <input type="hidden" name="from" value="{{ .from }}">
@@ -108,6 +111,10 @@
 
     {{ if .days }}
 
+        <!-- Ticking rows brings up a bar to add them all to one memory, or take
+             them out of theirs, as on the timeline. -->
+        <div class="b-tx-feed">
+
         <!-- Phone: a card per transaction, grouped under the day it happened. -->
         <div class="d-md-none">
             {{ range .days }}
@@ -120,7 +127,7 @@
                 <div class="b-tx-list mb-2">
                     {{ range .Rows }}
                         <div class="b-tx{{ if .Accent }} b-accent-{{ .Accent }}{{ end }}">
-                            <span class="b-chip"><i class="bi {{ .Icon }}"></i></span>
+                            {{ template "transactions.pick" (dict "Row" . "Size" "") }}
                             <div class="b-tx-body">
                                 <div class="b-tx-name">{{ .Title }}</div>
                                 <div class="b-tx-meta" id="txcats-m-{{ .Id }}">
@@ -133,7 +140,7 @@
                                 {{ .Amount | fmtCurrency }}
                             </div>
                             {{ template "transactions.category" (dict "ID" .Id "Layout" "m") }}
-                            {{ template "transactions.memory" (dict "ID" .Id "MemoryID" .MemoryID "MemoryTitle" .MemoryTitle "Layout" "m" "Options" $.memories "Kinds" $.kinds) }}
+                            {{ template "transactions.memory" (dict "ID" .Id "MemoryID" .MemoryID "MemoryTitle" .MemoryTitle "Layout" "m" "Options" $.memories) }}
                         </div>
                     {{ end }}
                 </div>
@@ -159,7 +166,7 @@
                         <tr>
                             <td>
                                 <div class="d-flex align-items-center gap-2{{ if .Accent }} b-accent-{{ .Accent }}{{ end }}">
-                                    <span class="b-chip b-chip-sm"><i class="bi {{ .Icon }}"></i></span>
+                                    {{ template "transactions.pick" (dict "Row" . "Size" "b-chip-sm") }}
                                     <span class="fw-semibold">{{ .Title }}</span>
                                 </div>
                             </td>
@@ -177,7 +184,7 @@
                             <td class="b-txmem-cell">
                                 <div class="d-flex justify-content-end gap-1">
                                     {{ template "transactions.category" (dict "ID" .Id "Layout" "d") }}
-                                    {{ template "transactions.memory" (dict "ID" .Id "MemoryID" .MemoryID "MemoryTitle" .MemoryTitle "Layout" "d" "Options" $.memories "Kinds" $.kinds) }}
+                                    {{ template "transactions.memory" (dict "ID" .Id "MemoryID" .MemoryID "MemoryTitle" .MemoryTitle "Layout" "d" "Options" $.memories) }}
                                 </div>
                             </td>
                         </tr>
@@ -197,6 +204,16 @@
                 </a>
             </div>
         {{ end }}
+
+        {{/* Picking a memory saves at once. Unticks everything once saved,
+             which also hides the bar again. */}}
+        <form id="tx-group" class="b-tl-form b-tl-groupbar" hx-post="/transactions/memory" hx-trigger="change" hx-swap="none"
+              hx-on::after-request="if (event.detail.successful) document.querySelectorAll('[form=tx-group]:checked').forEach(b => b.checked = false)">
+            <span class="b-tl-count"></span>
+            {{ template "transactions.groupbar" (dict "Options" .memories) }}
+        </form>
+
+        </div>
 
     {{ else }}
         <div class="b-empty">
@@ -310,39 +327,56 @@
      another. Every transaction is drawn twice, as a phone card and a table
      row, so the id carries the layout to keep the two copies apart. */}}
 {{ define "transactions.memory" }}
-<details class="b-txmem" id="txmem-{{ .Layout }}-{{ .ID }}"{{ if .OOB }} hx-swap-oob="true"{{ end }}>
-    <summary class="b-txmem-toggle{{ if .MemoryID }} b-txmem-in{{ end }}"
-             title="{{ if .MemoryID }}In “{{ .MemoryTitle }}”{{ else }}Add to memory{{ end }}"
-             aria-label="{{ if .MemoryID }}In memory “{{ .MemoryTitle }}”, move to another{{ else }}Add to memory{{ end }}">
-        <i class="bi {{ if .MemoryID }}bi-bookmark-check-fill{{ else }}bi-bookmark-plus{{ end }}"></i>
-    </summary>
-    <form class="b-tl-form b-txmem-form" hx-post="/transactions/{{ .ID }}/memory"
-          hx-target="#txmem-{{ .Layout }}-{{ .ID }}" hx-swap="outerHTML">
-        <input type="hidden" name="layout" value="{{ .Layout }}">
-        <div class="b-txmem-head">
-            {{ if .MemoryID }}In “{{ .MemoryTitle }}”. Move to:{{ else }}Add to memory{{ end }}
-        </div>
-        {{ $current := .MemoryID }}
-        {{ if .Options }}
-            <select class="form-select form-select-sm b-tl-target" name="memory" aria-label="Which memory">
-                <option value="">New memory&hellip;</option>
-                {{ range .Options }}
-                    {{ if ne .Id $current }}<option value="{{ .Id }}">{{ .Label }}</option>{{ end }}
-                {{ end }}
-            </select>
-        {{ end }}
-        <span class="b-tl-new">
-            <input class="form-control form-control-sm" name="title"
-                   placeholder="Name this memory" aria-label="Memory name">
-            <select class="form-select form-select-sm" name="kind" aria-label="What kind of memory">
-                {{ range .Kinds }}<option value="{{ .Key }}">{{ .Label }}</option>{{ end }}
-            </select>
-            <input class="form-control form-control-sm" name="note"
-                   placeholder="A note, if you like" aria-label="Note">
-        </span>
-        <button class="btn btn-sm btn-primary">Save</button>
-    </form>
-</details>
+{{ if .MemoryID }}
+    {{/* Already in a memory: one click takes it back out. The bookmark turns
+         to a cross on hover, so the click is not a surprise. */}}
+    <button type="button" class="b-txmem b-txmem-toggle b-txmem-in" id="txmem-{{ .Layout }}-{{ .ID }}"{{ if .OOB }} hx-swap-oob="true"{{ end }}
+            hx-delete="/transactions/{{ .ID }}/memory" hx-vals='{{ dict "layout" .Layout | toJSON }}'
+            hx-target="this" hx-swap="outerHTML"
+            title="In “{{ .MemoryTitle }}”. Click to take it out"
+            aria-label="Remove from memory “{{ .MemoryTitle }}”">
+        <i class="bi bi-bookmark-check-fill b-txmem-held"></i>
+        <i class="bi bi-bookmark-x-fill b-txmem-drop"></i>
+    </button>
+{{ else }}
+    {{/* Picking a memory saves straight away. New memories are made on the
+         timeline, so this stays one small dropdown. */}}
+    <details class="b-txmem" id="txmem-{{ .Layout }}-{{ .ID }}"{{ if .OOB }} hx-swap-oob="true"{{ end }}>
+        <summary class="b-txmem-toggle" title="Add to memory" aria-label="Add to memory">
+            <i class="bi bi-bookmark-plus"></i>
+        </summary>
+        <form class="b-tl-form b-txmem-form" hx-post="/transactions/{{ .ID }}/memory" hx-trigger="change"
+              hx-target="#txmem-{{ .Layout }}-{{ .ID }}" hx-swap="outerHTML">
+            <input type="hidden" name="layout" value="{{ .Layout }}">
+            {{ template "transactions.memory.pick" . }}
+        </form>
+    </details>
+{{ end }}
+{{ end }}
+
+{{ define "transactions.memory.pick" }}
+{{ if .Options }}
+    <select class="form-select form-select-sm" name="memory" aria-label="Add to memory">
+        <option value="" selected disabled>Add to memory&hellip;</option>
+        {{ range .Options }}<option value="{{ .Id }}">{{ .Label }}</option>{{ end }}
+    </select>
+{{ else }}
+    <span class="small text-muted">No memories yet. <a href="/timeline">Start one on the timeline</a>.</span>
+{{ end }}
+{{ end }}
+
+{{/* A row's icon doubles as its tick box, so selecting needs no extra
+     column. Once anything is ticked every icon turns into a box, so it is
+     plain which rows are in and which are not. */}}
+{{ define "transactions.pick" }}
+<label class="b-tx-pick" title="Select">
+    <input type="checkbox" class="b-tl-select visually-hidden" name="tx" value="{{ .Row.Id }}"
+           form="tx-group" aria-label="Select {{ .Row.Title }}">
+    <span class="b-chip {{ .Size }}">
+        <i class="bi {{ .Row.Icon }} b-tx-pick-icon"></i>
+        <i class="bi bi-check-lg b-tx-pick-tick"></i>
+    </span>
+</label>
 {{ end }}
 
 {{ define "transactions.category" }}
@@ -397,4 +431,20 @@
 {{ range .Popovers }}{{ template "transactions.category" . }}{{ end }}
 {{ end }}
 
-{{ define "transactions.memory.swap" }}{{ range . }}{{ template "transactions.memory" . }}{{ end }}{{ end }}
+{{ define "transactions.memory.swap" }}
+{{ range .Controls }}{{ template "transactions.memory" . }}{{ end }}
+{{ if .Bar }}{{ template "transactions.groupbar" (dict "Options" .Options "OOB" true) }}{{ end }}
+{{ end }}
+
+{{/* The selection bar's fields, redrawn after it is used so the memory just
+     made can be picked next time. The form itself stays put, so the ticks
+     that belong to it are not orphaned. */}}
+{{ define "transactions.groupbar" }}
+<span id="tx-group-fields" class="b-tl-new-wrap"{{ if .OOB }} hx-swap-oob="true"{{ end }}>
+    {{ template "transactions.memory.pick" . }}
+    <button type="button" class="btn btn-sm btn-outline-secondary" hx-delete="/transactions/memory"
+            title="Take the ticked transactions out of their memories">
+        <i class="bi bi-bookmark-x"></i> Remove
+    </button>
+</span>
+{{ end }}

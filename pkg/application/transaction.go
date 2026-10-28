@@ -213,7 +213,6 @@ func (app *Application) Transactions(c echo.Context) error {
 		"series":    series,
 		"days":      days,
 		"memories":  memories,
-		"kinds":     models.MemoryKinds,
 		"search":    search,
 		"account":   account,
 		"from":      c.QueryParam("from"),

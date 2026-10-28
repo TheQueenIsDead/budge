@@ -225,8 +225,12 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.POST("/timeline/hide", app.TimelineHide)
 	app.http.POST("/timeline/restore", app.TimelineRestore)
 
-	// Adding a transaction to a memory from the transactions list.
+	// Adding transactions to a memory from the transactions list, one at a
+	// time or every ticked row at once, and taking them back out.
+	app.http.POST("/transactions/memory", app.TransactionsAddToMemory)
+	app.http.DELETE("/transactions/memory", app.TransactionsRemoveFromMemory)
 	app.http.POST("/transactions/:id/memory", app.TransactionAddToMemory)
+	app.http.DELETE("/transactions/:id/memory", app.TransactionRemoveFromMemory)
 	app.http.GET("/transactions/:id/category", app.TransactionCategoryForm)
 	app.http.POST("/transactions/:id/category", app.TransactionSetCategory)
 

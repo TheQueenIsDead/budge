@@ -1439,7 +1439,8 @@ a.b-acct:focus-visible {
 
 /* The grouping bar floats over the list once anything is ticked. It counts the
    ticked boxes with a CSS counter, so it needs no script to stay in step. */
-.b-tl-feed {
+.b-tl-feed,
+.b-tx-feed {
     counter-reset: picked;
 }
 
@@ -1466,7 +1467,8 @@ a.b-acct:focus-visible {
     box-shadow: var(--b-shadow-lift);
 }
 
-.b-tl-feed:has(.b-tl-select:checked) .b-tl-groupbar {
+.b-tl-feed:has(.b-tl-select:checked) .b-tl-groupbar,
+.b-tx-feed:has(.b-tl-select:checked) .b-tl-groupbar {
     display: flex;
 }
 
@@ -1630,6 +1632,28 @@ a.b-acct:focus-visible {
     color: var(--b-muted);
 }
 
+/* A click takes it out of the memory, so hovering shows the cross first. */
+.b-txmem-in {
+    padding: 0;
+    background: none;
+    border: 0;
+}
+
+.b-txmem-drop,
+.b-txmem-in:hover .b-txmem-held,
+.b-txmem-in:focus-visible .b-txmem-held {
+    display: none;
+}
+
+.b-txmem-in:hover .b-txmem-drop,
+.b-txmem-in:focus-visible .b-txmem-drop {
+    display: inline;
+}
+
+.b-txmem-in:hover {
+    color: var(--b-brick);
+}
+
 .b-txmem-form {
     position: absolute;
     right: 0;
@@ -1667,6 +1691,56 @@ a.b-acct:focus-visible {
     color: var(--b-ink-2);
     font-size: 0.8rem;
     font-weight: 600;
+}
+
+/* A row's icon is also its tick box. Hovering hints at it; ticking any row
+   turns every icon into a box, and a ticked one fills in. */
+.b-tx-pick {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+    margin: 0;
+    cursor: pointer;
+}
+
+.b-tx-pick .b-chip {
+    border: 1.5px solid transparent;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.b-tx-pick-tick {
+    display: none;
+}
+
+.b-tx-pick:hover .b-chip,
+.b-tx-feed:has(.b-tl-select:checked) .b-tx-pick .b-chip {
+    background: var(--b-surface);
+    border-color: var(--b-border-strong);
+}
+
+.b-tx-feed:has(.b-tl-select:checked) .b-tx-pick-icon {
+    display: none;
+}
+
+.b-tx-pick:has(:checked) .b-chip,
+.b-tx-feed:has(.b-tl-select:checked) .b-tx-pick:has(:checked) .b-chip {
+    background: var(--b-primary);
+    border-color: var(--b-primary);
+    color: var(--b-surface);
+}
+
+.b-tx-pick:has(:checked) .b-tx-pick-tick {
+    display: inline;
+}
+
+.b-tx-pick:has(:focus-visible) .b-chip {
+    box-shadow: 0 0 0 3px var(--b-primary-ring);
+}
+
+/* The selection bar's fields are redrawn as one piece, but lay out as if they
+   sat straight in the bar. */
+.b-tl-new-wrap {
+    display: contents;
 }
 
 .b-txmem-cell {
