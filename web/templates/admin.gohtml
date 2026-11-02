@@ -626,7 +626,9 @@
                     <li>
                         <a href="/admin/traces/{{ .TraceID }}" hx-target="#main" hx-select="unset" hx-swap="innerHTML">
                             <span class="b-admin-name font-monospace">{{ .Name }}</span>
-                            <span class="b-admin-meta">{{ .Status }} · {{ .Start | fmtRelative }}</span>
+                            <span class="b-admin-meta">
+                                {{ with .Exceptions }}{{ with index . 0 }}{{ with .Type }}{{ . }}: {{ end }}{{ .Message }}{{ end }}{{ else }}{{ .Status }}{{ end }}
+                                · {{ .Start | fmtRelative }}</span>
                             <span class="b-num text-danger">{{ .Duration | fmtDuration }}</span>
                         </a>
                     </li>
@@ -683,6 +685,7 @@
                         {{ with .Caller }}<span class="b-admin-meta font-monospace">{{ . }}</span>{{ end }}
                         {{ with .Location }}<span class="b-admin-meta font-monospace">{{ . }}</span>{{ end }}
                         {{ with .Status }}<span class="text-danger small">{{ . }}</span>{{ end }}
+                        {{ range .Exceptions }}{{ template "admin.exception" . }}{{ end }}
                     </div>
                     <div class="b-waterfall-track">
                         <div class="b-waterfall-bar b-waterfall-{{ .Bar }}"
@@ -704,6 +707,20 @@
             {{ template "admin.log.list" .Logs }}
         </div>
     {{ end }}
+{{ end }}
+
+{{/* An exception recorded on a span: what it was, and where from when the
+     stack was kept. */}}
+{{ define "admin.exception" }}
+    <div class="b-admin-exception">
+        <div><i class="bi bi-bug"></i>{{ with .Type }}<b>{{ . }}</b>: {{ end }}{{ .Message }}</div>
+        {{ with .Stack }}
+            <details>
+                <summary>Stack trace</summary>
+                <pre>{{ . }}</pre>
+            </details>
+        {{ end }}
+    </div>
 {{ end }}
 
 {{ define "admin.empty" }}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,6 +25,51 @@ type Span struct {
 	Error    bool
 	Status   string
 	Attrs    map[string]string
+	Events   []SpanEvent `json:",omitempty"`
+}
+
+// SpanEvent is something that happened during a span: most often an
+// exception, recorded with its type, message and, when known, its stack.
+type SpanEvent struct {
+	Name  string
+	Time  time.Time
+	Attrs map[string]string
+}
+
+// Exception is an exception event, read for showing.
+type Exception struct {
+	Type    string
+	Message string
+	Stack   string
+}
+
+// shortType names a Go type by its package's last element, as Go prints it:
+// "*application.recovered" rather than its whole import path.
+func shortType(name string) string {
+	pointer := strings.HasPrefix(name, "*")
+	if i := strings.LastIndex(name, "/"); i >= 0 {
+		name = name[i+1:]
+		if pointer {
+			name = "*" + name
+		}
+	}
+	return name
+}
+
+// Exceptions are the exceptions recorded on the span, in order.
+func (s Span) Exceptions() []Exception {
+	var out []Exception
+	for _, event := range s.Events {
+		if event.Name != "exception" {
+			continue
+		}
+		out = append(out, Exception{
+			Type:    shortType(event.Attrs["exception.type"]),
+			Message: event.Attrs["exception.message"],
+			Stack:   event.Attrs["exception.stacktrace"],
+		})
+	}
+	return out
 }
 
 // End is when the span finished.
@@ -64,6 +110,14 @@ func (s *SpanStore) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpan
 		if span.Parent().IsValid() {
 			parent = span.Parent().SpanID().String()
 		}
+		var events []SpanEvent
+		for _, event := range span.Events() {
+			eventAttrs := make(map[string]string, len(event.Attributes))
+			for _, kv := range event.Attributes {
+				eventAttrs[string(kv.Key)] = kv.Value.Emit()
+			}
+			events = append(events, SpanEvent{Name: event.Name, Time: event.Time, Attrs: eventAttrs})
+		}
 		kept := Span{
 			TraceID:  span.SpanContext().TraceID().String(),
 			SpanID:   span.SpanContext().SpanID().String(),
@@ -75,6 +129,7 @@ func (s *SpanStore) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpan
 			Error:    span.Status().Code == codes.Error,
 			Status:   span.Status().Description,
 			Attrs:    attrs,
+			Events:   events,
 		}
 		if parent == "" {
 			roots = append(roots, kept)

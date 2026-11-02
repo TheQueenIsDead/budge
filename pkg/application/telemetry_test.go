@@ -200,3 +200,43 @@ func TestAdminCompactsTheTelemetryFile(t *testing.T) {
 	assert.Contains(t, rec.Header().Get("HX-Trigger"), "Compacted")
 	assert.False(t, tel.Storage().Compacted.At.IsZero())
 }
+
+func TestAPanicIsRecordedWithItsStack(t *testing.T) {
+	app, tel := instrumentedApp(t)
+	app.http.GET("/boom", func(echo.Context) error { return echo.NewHTTPError(http.StatusInternalServerError, "it broke") })
+	app.http.GET("/panic", func(echo.Context) error { panicHere(); return nil })
+	for _, target := range []string{"/boom", "/panic"} {
+		app.http.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, target, nil))
+	}
+
+	byRoute := map[string]telemetry.Span{}
+	for _, span := range tel.Spans.Requests() {
+		byRoute[span.Attrs["http.route"]] = span
+	}
+
+	panicked := byRoute["/panic"].Exceptions()
+	require.Len(t, panicked, 1, "recorded once, as it was recovered, and not again by the error handler")
+	assert.Equal(t, "application.recovered", panicked[0].Type)
+	assert.Contains(t, panicked[0].Message, "oh no")
+	assert.Contains(t, panicked[0].Stack, "panicHere", "the stack reaches where it panicked")
+
+	var handled int
+	for _, record := range tel.Logs.Recent(otellog.SeverityError) {
+		if record.Message == "request failed" && record.Attrs["uri"] == "/boom" {
+			handled++
+		}
+	}
+	assert.Equal(t, 1, handled, "the error is handled inside the span, and only there")
+
+	failed := byRoute["/boom"].Exceptions()
+	require.Len(t, failed, 1)
+	assert.Contains(t, failed[0].Message, "it broke")
+	assert.Empty(t, failed[0].Stack, "a returned error carries no stack worth keeping")
+
+	rec := httptest.NewRecorder()
+	app.http.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/admin/traces/"+byRoute["/panic"].TraceID, nil))
+	assert.Contains(t, rec.Body.String(), "Stack trace")
+	assert.Contains(t, rec.Body.String(), "panicHere")
+}
+
+func panicHere() { panic("oh no") }

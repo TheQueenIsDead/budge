@@ -2562,3 +2562,31 @@ a.b-acct:focus-visible {
     margin: 0;
     text-align: right;
 }
+
+.b-admin-exception {
+    margin-top: 0.25rem;
+    padding: 0.35rem 0.5rem;
+    border-left: 3px solid var(--b-negative);
+    background: var(--b-negative-soft);
+    border-radius: 0.2rem;
+    color: var(--b-ink);
+    overflow-wrap: anywhere;
+}
+
+.b-admin-exception i {
+    margin-right: 0.3rem;
+    color: var(--b-negative);
+}
+
+.b-admin-exception summary {
+    color: var(--b-muted);
+    cursor: pointer;
+}
+
+.b-admin-exception pre {
+    max-height: 20rem;
+    margin: 0.35rem 0 0;
+    overflow: auto;
+    font-size: 0.6875rem;
+    white-space: pre;
+}

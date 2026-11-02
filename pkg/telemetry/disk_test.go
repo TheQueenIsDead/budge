@@ -136,6 +136,7 @@ func TestTracesOutliveARestart(t *testing.T) {
 	ctx, request := tracer.Start(context.Background(), "GET /budget", trace.WithSpanKind(trace.SpanKindServer))
 	_, query := tracer.Start(ctx, "ReadTransactions transactions")
 	query.End()
+	request.RecordError(errors.New("boom"), trace.WithStackTrace(true))
 	request.SetStatus(codes.Error, "boom")
 	request.End()
 	id := request.SpanContext().TraceID().String()
@@ -149,6 +150,11 @@ func TestTracesOutliveARestart(t *testing.T) {
 	require.Len(t, spans, 2, "the waterfall is read back from disk")
 	assert.Equal(t, "GET /budget", spans[0].Name)
 	assert.Equal(t, spans[0].SpanID, spans[1].ParentID)
+	exceptions := spans[0].Exceptions()
+	require.Len(t, exceptions, 1, "the exception is kept with its span")
+	assert.Equal(t, "boom", exceptions[0].Message)
+	assert.Equal(t, "*errors.errorString", exceptions[0].Type)
+	assert.Contains(t, exceptions[0].Stack, "TestTracesOutliveARestart", "and the stack it was recorded with")
 
 	var roots []Span
 	second.Spans.History(func(span Span) bool { roots = append(roots, span); return true })

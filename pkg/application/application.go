@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -25,6 +26,7 @@ import (
 	"github.com/labstack/gommon/log"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -160,6 +162,12 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.HideBanner = true
 
 	app.http.HTTPErrorHandler = func(err error, c echo.Context) {
+		// Handled already, inside the request's span: Echo hands the error
+		// over again once the middleware has returned.
+		if c.Response().Committed {
+			return
+		}
+
 		// Extract the code from the HTTPError
 		code := http.StatusInternalServerError
 		msg := err.Error()
@@ -175,7 +183,11 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 		if code >= http.StatusInternalServerError {
 			level = slog.LevelError
 			span := trace.SpanFromContext(ctx)
-			span.RecordError(err)
+			// A panic recorded its exception, with the stack it came from,
+			// as it was recovered.
+			if !errors.As(err, new(recovered)) {
+				span.RecordError(err)
+			}
 			span.SetStatus(codes.Error, msg)
 		}
 		slog.Log(ctx, level, "request failed", "error", err, "status", code, "uri", c.Request().RequestURI)
@@ -211,11 +223,25 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	// Middlewares. Every request is traced and timed, apart from static files
 	// and the polls that run in the background of every page, which would
 	// drown out everything else. A panic is recovered, logged and answered.
-	app.http.Use(echootel.NewMiddlewareWithConfig(echootel.Config{ServerName: "budge", Skipper: untraced}))
+	// The tracing middleware ends the request's span as the handler returns,
+	// before Echo would handle an error, so it is handled here instead, while
+	// the span is open to record it.
+	app.http.Use(echootel.NewMiddlewareWithConfig(echootel.Config{
+		ServerName:  "budge",
+		Skipper:     untraced,
+		OnNextError: func(c echo.Context, err error) { c.Error(err) },
+	}))
 	app.http.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
 		LogErrorFunc: func(c echo.Context, err error, stack []byte) error {
-			slog.ErrorContext(c.Request().Context(), "panic", "error", err, "stack", string(stack))
-			return err
+			ctx := c.Request().Context()
+			slog.ErrorContext(ctx, "panic", "error", err, "stack", string(stack))
+			// The stack is where the panic happened, which nothing after
+			// this point can see, so it goes on the request's span now.
+			panicked := recovered{err}
+			trace.SpanFromContext(ctx).RecordError(panicked, trace.WithAttributes(
+				semconv.ExceptionStacktrace(string(stack)),
+			))
+			return panicked
 		},
 	}))
 	app.http.Use(Caching())
@@ -319,6 +345,14 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	return app, nil
 }
+
+// recovered is a panic the recover middleware caught and recorded. It names
+// the exception's type, so a panic reads as one.
+type recovered struct{ error }
+
+func (r recovered) Error() string { return "panic: " + r.error.Error() }
+
+func (r recovered) Unwrap() error { return r.error }
 
 func fmtDuration(d time.Duration) string {
 	switch {
