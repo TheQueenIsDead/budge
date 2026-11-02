@@ -1,6 +1,7 @@
 package application
 
 import (
+	"log/slog"
 	"math"
 	"net/http"
 	"sort"
@@ -427,7 +428,7 @@ func (app *Application) AddressSuggest(c echo.Context) error {
 
 	suggestions, err := property.New().SuggestAddresses(c.Request().Context(), query, 6)
 	if err != nil {
-		c.Logger().Error(err)
+		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
 		return c.JSON(http.StatusOK, []property.Suggestion{})
 	}
 

@@ -10,7 +10,6 @@ import (
 
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/integrations/akahu"
-	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -68,7 +67,7 @@ func TestSyncAkahuFullHistory(t *testing.T) {
 	integrations, store := testIntegrations(t, server.URL)
 
 	began := time.Now()
-	through, err := integrations.SyncAkahu(echo.New().Logger, time.Time{}, nil)
+	through, err := integrations.SyncAkahu(time.Time{}, nil)
 	require.NoError(t, err)
 	took := time.Since(began)
 	assert.Equal(t, time.Date(2026, time.October, 13, 22, 0, 0, 0, time.UTC), through.UTC(),
@@ -96,7 +95,7 @@ func TestSyncAkahuReadsFromAkahusFreshness(t *testing.T) {
 	integrations, _ := testIntegrations(t, server.URL)
 
 	through := time.Date(2026, time.October, 15, 9, 0, 0, 0, time.UTC)
-	_, err := integrations.SyncAkahu(echo.New().Logger, through, nil)
+	_, err := integrations.SyncAkahu(through, nil)
 	require.NoError(t, err)
 
 	require.NotEmpty(t, starts)
@@ -149,7 +148,7 @@ func TestSyncAkahuReportsAkahuErrors(t *testing.T) {
 	defer server.Close()
 	integrations, _ := testIntegrations(t, server.URL)
 
-	_, err := integrations.SyncAkahu(echo.New().Logger, time.Time{}, nil)
+	_, err := integrations.SyncAkahu(time.Time{}, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "429")
 	assert.Contains(t, err.Error(), "Rate limit exceeded")

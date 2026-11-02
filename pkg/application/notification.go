@@ -1,6 +1,7 @@
 package application
 
 import (
+	"log/slog"
 	"net/http"
 	"sort"
 	"time"
@@ -41,7 +42,7 @@ func (app *Application) Notify(level models.NotificationLevel, source, title, me
 	}
 
 	if err := app.store.CreateNotification(notification); err != nil {
-		app.http.Logger.Errorf("could not record notification %q: %v", title, err)
+		slog.Error("could not record notification", "title", title, "error", err)
 	}
 }
 
@@ -84,7 +85,7 @@ func (app *Application) Notifications(c echo.Context) error {
 func (app *Application) NotificationBadge(c echo.Context) error {
 	_, unread, err := app.sortedNotifications()
 	if err != nil {
-		c.Logger().Error(err)
+		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
 		// A badge that cannot be counted is not worth an error page.
 		return c.Render(http.StatusOK, "notifications.badge", 0)
 	}
@@ -96,7 +97,7 @@ func (app *Application) NotificationBadge(c echo.Context) error {
 // with no side effect of its own.
 func (app *Application) NotificationsRead(c echo.Context) error {
 	if err := app.store.MarkNotificationsRead(time.Now()); err != nil {
-		c.Logger().Error(err)
+		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return c.NoContent(http.StatusNoContent)

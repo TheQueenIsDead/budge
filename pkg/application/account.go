@@ -1,6 +1,7 @@
 package application
 
 import (
+	"log/slog"
 	"cmp"
 	"maps"
 	"math"
@@ -266,7 +267,7 @@ func (app *Application) Portfolio(c echo.Context) error {
 
 	accounts, err := app.store.ReadAccounts()
 	if err != nil {
-		c.Logger().Error(err)
+		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to fetch accounts")
 	}
 
@@ -276,7 +277,7 @@ func (app *Application) Portfolio(c echo.Context) error {
 	// any history at all.
 	transactions, err := app.store.ReadTransactions()
 	if err != nil {
-		c.Logger().Error(err)
+		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
 	}
 
 	cutoff := time.Now().AddDate(0, 0, -30)
@@ -293,7 +294,7 @@ func (app *Application) Portfolio(c echo.Context) error {
 	// take the bank balances down with it.
 	assets, err := app.buildAssetSummaries()
 	if err != nil {
-		c.Logger().Error(err)
+		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
 	}
 
 	refreshed, hasRefreshed := OldestRefresh(accounts)
@@ -315,7 +316,7 @@ func (app *Application) Account(c echo.Context) error {
 	accountId := c.Param("id")
 	account, err := app.store.GetAccount([]byte(accountId))
 	if err != nil {
-		c.Logger().Error(err)
+		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to fetch accounts")
 	}
 
@@ -334,7 +335,7 @@ func (app *Application) Account(c echo.Context) error {
 
 	graphData, statistics, err := app.accountBalance(c, account, viewDate)
 	if err != nil {
-		c.Logger().Error(err)
+		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
 		// Continue, maybe graph is not essential
 	}
 
@@ -357,7 +358,7 @@ func (app *Application) accountBalance(c echo.Context, account models.Account, v
 	// Retrieve all transactions for an account
 	transactions, err := app.store.ReadTransactionsByAccount(account.Id)
 	if err != nil {
-		c.Logger().Error(err)
+		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
 		return AccountTimeseriesData{}, AccountStatistics{}, err
 	}
 

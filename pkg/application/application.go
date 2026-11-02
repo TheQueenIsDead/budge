@@ -3,22 +3,30 @@ package application
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
-	"github.com/TheQueenIsDead/budge/pkg/database"
-	"github.com/TheQueenIsDead/budge/pkg/integrations"
-	"github.com/TheQueenIsDead/budge/web"
-	"github.com/dustin/go-humanize"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/gommon/log"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
-	"golang.org/x/text/message"
 	"html/template"
 	"io"
+	"log/slog"
 	"math"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/TheQueenIsDead/budge/pkg/database"
+	"github.com/TheQueenIsDead/budge/pkg/integrations"
+	"github.com/TheQueenIsDead/budge/pkg/telemetry"
+	"github.com/TheQueenIsDead/budge/web"
+	"github.com/dustin/go-humanize"
+	echootel "github.com/labstack/echo-otel/v4"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/gommon/log"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 // templateFuncs are the formatting helpers made available to every template.
@@ -106,13 +114,15 @@ type Application struct {
 	integrations *integrations.Integrations
 	scheduler    *scheduler
 	akahuSync    syncRunner
+	telemetry    *telemetry.Telemetry
 }
 
-func NewApplication(store *database.Store, integrations *integrations.Integrations) (*Application, error) {
+func NewApplication(store *database.Store, integrations *integrations.Integrations, tel *telemetry.Telemetry) (*Application, error) {
 
 	app := new(Application)
 
 	app.integrations = integrations
+	app.telemetry = tel
 
 	app.store = store
 	app.http = echo.New()
@@ -126,7 +136,11 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 		templates: tpl,
 	}
 
+	// Echo's own logging, from starting the server and the like, goes to
+	// slog with the rest, so it is kept and exported too.
 	app.http.Logger.SetLevel(log.INFO)
+	app.http.Logger.SetOutput(echoLogWriter{})
+	app.http.HideBanner = true
 
 	app.http.HTTPErrorHandler = func(err error, c echo.Context) {
 		// Extract the code from the HTTPError
@@ -135,17 +149,23 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 		if he, ok := err.(*echo.HTTPError); ok {
 			code = he.Code
 		}
-		c.Logger().Error(err)
 
-		switch code {
-		case http.StatusNotFound:
-			c.Logger().Errorj(log.JSON{
-				"err": err.Error(),
-				"uri": c.Request().RequestURI,
-			})
-			err = c.Redirect(http.StatusTemporaryRedirect, "/4XX")
-			if err != nil {
-				c.Logger().Error(err)
+		// Logged against the request, so the log names its trace, and the
+		// request's span marked failed for anything that is not the
+		// visitor's mistake.
+		ctx := c.Request().Context()
+		level := slog.LevelWarn
+		if code >= http.StatusInternalServerError {
+			level = slog.LevelError
+			span := trace.SpanFromContext(ctx)
+			span.RecordError(err)
+			span.SetStatus(codes.Error, msg)
+		}
+		slog.Log(ctx, level, "request failed", "error", err, "status", code, "uri", c.Request().RequestURI)
+
+		if code == http.StatusNotFound {
+			if err := c.Redirect(http.StatusTemporaryRedirect, "/4XX"); err != nil {
+				slog.ErrorContext(ctx, "could not redirect to the not found page", "error", err)
 			}
 		}
 
@@ -158,20 +178,29 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 		}
 		buf, err := json.Marshal(event)
 		if err != nil {
-			c.Logger().Error(err)
+			slog.ErrorContext(ctx, "could not word the error", "error", err)
 		}
 		c.Response().Header().Add("Hx-Trigger", string(buf))
 		c.Response().Header().Add("Hx-Reswap", "none")
 
 		// On error, return JSON with the inherited code
 		if err := c.JSON(code, msg); err != nil {
-			c.Logger().Error(err)
+			slog.ErrorContext(ctx, "could not answer the error", "error", err)
 		}
 	}
 
 	app.http.Renderer = t
 
-	// Middlewares
+	// Middlewares. Every request is traced and timed, apart from static files
+	// and the polls that run in the background of every page, which would
+	// drown out everything else. A panic is recovered, logged and answered.
+	app.http.Use(echootel.NewMiddlewareWithConfig(echootel.Config{ServerName: "budge", Skipper: untraced}))
+	app.http.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
+		LogErrorFunc: func(c echo.Context, err error, stack []byte) error {
+			slog.ErrorContext(c.Request().Context(), "panic", "error", err, "stack", string(stack))
+			return err
+		},
+	}))
 	app.http.Use(Caching())
 
 	// General
@@ -271,8 +300,44 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	return app, nil
 }
 
+// untraced reports requests not worth a trace of their own: static files,
+// and the polls that run in the background of every page.
+func untraced(c echo.Context) bool {
+	path := c.Request().URL.Path
+	return strings.HasPrefix(path, "/static/") ||
+		path == "/notifications/badge" ||
+		path == "/integrations/akahu/sync" && c.Request().Method == http.MethodGet
+}
+
+// echoLogWriter hands echo's own log lines, which it writes as JSON, to
+// slog at their level.
+type echoLogWriter struct{}
+
+func (echoLogWriter) Write(p []byte) (int, error) {
+	var line struct {
+		Level   string `json:"level"`
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(p, &line); err != nil || line.Message == "" {
+		slog.Info(strings.TrimSpace(string(p)), "source", "echo")
+		return len(p), nil
+	}
+	level := slog.LevelInfo
+	switch line.Level {
+	case "WARN":
+		level = slog.LevelWarn
+	case "ERROR":
+		level = slog.LevelError
+	case "DEBUG":
+		level = slog.LevelDebug
+	}
+	slog.Log(context.Background(), level, line.Message, "source", "echo")
+	return len(p), nil
+}
+
 func (app *Application) Start() error {
 	app.scheduler.start()
+	slog.Info("http server started", "address", ":1337")
 	return app.http.Start(":1337")
 }
 
@@ -326,7 +391,7 @@ func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Con
 	// Else, render a full template within the context of the main HTML layout
 	partial, err := t.renderPartial(name, data)
 	if err != nil {
-		c.Logger().Error(err)
+		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
 		return err
 	}
 
@@ -346,7 +411,7 @@ func (app *Application) Toast(c echo.Context, level string, message string) {
 	}
 	buf, err := json.Marshal(event)
 	if err != nil {
-		c.Logger().Error(err)
+		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
 		return
 	}
 	c.Response().Header().Add("Hx-Trigger", string(buf))

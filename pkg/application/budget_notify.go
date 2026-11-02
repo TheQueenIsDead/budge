@@ -1,6 +1,7 @@
 package application
 
 import (
+	"log/slog"
 	"fmt"
 	"strings"
 	"time"
@@ -49,7 +50,7 @@ func (app *Application) notifyBudget(now time.Time) {
 		}
 	}
 	if err != nil {
-		app.http.Logger.Errorf("could not check the budget: %v", err)
+		slog.Error("could not check the budget", "error", err)
 	}
 }
 

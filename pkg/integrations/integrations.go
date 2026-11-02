@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"log/slog"
 	"math"
 	"os"
 	"strings"
@@ -9,8 +10,6 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/TheQueenIsDead/budge/pkg/integrations/akahu"
-	"github.com/labstack/echo/v4"
-	log "github.com/sirupsen/logrus"
 )
 
 // syncOverlapDays is how far before Akahu's last known refresh each sync starts
@@ -44,7 +43,7 @@ func (i *Integrations) RegisterAkahu() {
 
 	settings, err := i.store.GetAkahuSettings()
 	if err != nil {
-		log.Error("Could not retrieve akahu settings, falling back to ENV")
+		slog.Warn("could not read the akahu settings, falling back to the environment", "error", err)
 		settings.UserToken = os.Getenv("AKAHU_USER_TOKEN")
 		settings.AppToken = os.Getenv("AKAHU_APP_TOKEN")
 		_ = i.store.UpdateAkahuSettings(settings)
@@ -67,11 +66,11 @@ func (i *Integrations) Config() map[string]interface{} {
 // whole history. progress, which may be nil, is told how many transactions have
 // been fetched as each page arrives. It returns how fresh Akahu's data is now,
 // for the next sync to start from.
-func (i *Integrations) SyncAkahu(logger echo.Logger, dataThrough time.Time, progress func(fetched int)) (time.Time, error) {
+func (i *Integrations) SyncAkahu(dataThrough time.Time, progress func(fetched int)) (time.Time, error) {
 
 	accounts, err := i.AkahuAccounts()
 	if err != nil {
-		logger.Error(err)
+		slog.Error("akahu sync failed", "error", err)
 		return dataThrough, err
 	}
 
@@ -81,7 +80,7 @@ func (i *Integrations) SyncAkahu(logger echo.Logger, dataThrough time.Time, prog
 	}
 	transactions, err := i.akahu.GetTransactions(since, true, progress)
 	if err != nil {
-		logger.Error(err)
+		slog.Error("akahu sync failed", "error", err)
 		return dataThrough, err
 	}
 
@@ -135,7 +134,7 @@ func (i *Integrations) SyncAkahu(logger echo.Logger, dataThrough time.Time, prog
 	}
 
 	if err := i.store.SaveSynced(saved, txs, merchants); err != nil {
-		logger.Error(err)
+		slog.Error("akahu sync failed", "error", err)
 		return dataThrough, err
 	}
 

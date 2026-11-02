@@ -1,6 +1,7 @@
 package application
 
 import (
+	"log/slog"
 	"context"
 	"fmt"
 	"math"
@@ -83,7 +84,7 @@ func (s *scheduler) runDue(ctx context.Context) {
 
 	schedule, err := s.app.store.GetScheduleSettings()
 	if err != nil {
-		s.app.http.Logger.Errorf("scheduler could not read its settings: %v", err)
+		slog.Error("scheduler could not read its settings", "error", err)
 		return
 	}
 
@@ -95,7 +96,7 @@ func (s *scheduler) runDue(ctx context.Context) {
 
 	// Re-read: the Akahu run above has written to the same record.
 	if schedule, err = s.app.store.GetScheduleSettings(); err != nil {
-		s.app.http.Logger.Errorf("scheduler could not read its settings: %v", err)
+		slog.Error("scheduler could not read its settings", "error", err)
 		return
 	}
 
@@ -110,7 +111,7 @@ func (s *scheduler) runDue(ctx context.Context) {
 func (s *scheduler) markRun(job string, at time.Time) {
 	schedule, err := s.app.store.GetScheduleSettings()
 	if err != nil {
-		s.app.http.Logger.Errorf("scheduler could not record a run: %v", err)
+		slog.Error("scheduler could not record a run", "error", err)
 		return
 	}
 	switch job {
@@ -120,7 +121,7 @@ func (s *scheduler) markRun(job string, at time.Time) {
 		schedule.AssetsLastRun = at
 	}
 	if err := s.app.store.SaveScheduleSettings(schedule); err != nil {
-		s.app.http.Logger.Errorf("scheduler could not record a run: %v", err)
+		slog.Error("scheduler could not record a run", "error", err)
 	}
 }
 

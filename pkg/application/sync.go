@@ -88,7 +88,7 @@ func (app *Application) runAkahuSync() error {
 		if err != nil {
 			return err
 		}
-		through, err := app.integrations.SyncAkahu(app.http.Logger, settings.DataThrough, app.akahuSync.progress)
+		through, err := app.integrations.SyncAkahu(settings.DataThrough, app.akahuSync.progress)
 		if err != nil {
 			return err
 		}
