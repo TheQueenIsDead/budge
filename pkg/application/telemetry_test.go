@@ -157,9 +157,9 @@ func TestAdminPageShowsWhatWasRecorded(t *testing.T) {
 	get("/notifications", false)
 	require.NoError(t, tel.Metrics.Collect(context.Background()))
 	overview := adminOverview(tel, "1h")
-	require.Len(t, overview.RequestChart.Values, 1, "two samples make one rate")
-	assert.Positive(t, overview.RequestChart.Values[0], "a request landed between them")
-	assert.NotEmpty(t, overview.QueryChart.Values)
+	require.Len(t, overview.RequestChart.Points, 1, "two samples make one rate")
+	assert.Positive(t, *overview.RequestChart.Points[0].Y, "a request landed between them")
+	assert.NotEmpty(t, overview.QueryChart.Points)
 
 	_, body := get("/admin?tab=logs&level=error&q=nothing-matches-this", true)
 	assert.NotContains(t, body, "it broke", "a search narrows the logs")

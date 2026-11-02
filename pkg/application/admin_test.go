@@ -32,16 +32,39 @@ func TestSpentSplitsATraceByWhatItWaitedOn(t *testing.T) {
 		"budge's own work is what is left, and the phases holding the rest are not counted again")
 }
 
-func TestChartMarksEachRestart(t *testing.T) {
+func TestChartSpansItsRangeAndBreaksAtGaps(t *testing.T) {
 	at := time.Date(2026, time.November, 3, 9, 0, 0, 0, time.Local)
 	point := func(after time.Duration, v float64) telemetry.Point {
 		return telemetry.Point{Time: at.Add(after), Value: v}
 	}
 	points := []telemetry.Point{point(0, 1), point(time.Minute, 2), point(10*time.Minute, 3), point(11*time.Minute, 4)}
-	starts := []time.Time{at.Add(-time.Hour), at.Add(5 * time.Minute)}
+	axis := AdminAxis{
+		From: at.Add(-time.Hour), To: at.Add(time.Hour),
+		Expected: func(time.Time) time.Duration { return time.Minute },
+	}
+	starts := []time.Time{at.Add(-2 * time.Hour), at.Add(5 * time.Minute)}
 
-	c := chart(points, time.Hour, starts)
-	assert.Equal(t, []int{2}, c.Restarts, "the restart falls before the first point after the gap; one before the chart is not drawn")
-	assert.Equal(t, "09:00", c.Labels[0])
-	assert.Equal(t, "Tue 09:00", chart(points, 7*24*time.Hour, nil).Labels[0], "a week names the day")
+	c := chart(points, axis, starts)
+	assert.Equal(t, axis.From.UnixMilli(), c.From, "the axis starts where the range does, not at the first sample")
+	assert.Equal(t, axis.To.UnixMilli(), c.To)
+	require.Len(t, c.Points, 5, "nine minutes without a sample is a gap")
+	assert.Nil(t, c.Points[2].Y, "the line breaks between the samples either side")
+	assert.Equal(t, at.Add(5*time.Minute+30*time.Second).UnixMilli(), c.Points[2].X)
+	assert.Equal(t, 3.0, *c.Points[3].Y)
+	assert.Equal(t, []int64{at.Add(5 * time.Minute).UnixMilli()}, c.Restarts, "only restarts within the range are marked, where they happened")
+}
+
+func TestTicksFallOnTheClock(t *testing.T) {
+	from := time.Date(2026, time.November, 3, 9, 17, 0, 0, time.Local)
+
+	hour := ticks(from, from.Add(time.Hour), time.Hour)
+	require.NotEmpty(t, hour)
+	assert.Equal(t, time.Date(2026, time.November, 3, 9, 20, 0, 0, time.Local), hour[0], "every ten minutes, from the first after the start")
+	assert.Len(t, hour, 6)
+
+	week := ticks(from, from.Add(7*24*time.Hour), 7*24*time.Hour)
+	require.Len(t, week, 7)
+	for _, tick := range week {
+		assert.Zero(t, tick.Hour(), "a week's ticks are at midnight")
+	}
 }

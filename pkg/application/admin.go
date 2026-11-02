@@ -2,6 +2,7 @@ package application
 
 import (
 	"cmp"
+	"math"
 	"net/http"
 	"runtime"
 	"slices"
@@ -66,10 +67,33 @@ type AdminProcess struct {
 }
 
 // AdminChart is a series ready for Chart.js: labels and values side by side.
+// AdminChart is a series ready for Chart.js, on a time axis from From to
+// To in milliseconds. A point with no value breaks the line where samples
+// are missing, rather than drawing across the gap as if they were not.
 type AdminChart struct {
-	Labels   []string  `json:"labels"`
-	Values   []float64 `json:"values"`
-	Restarts []int     `json:"restarts"`
+	Points   []AdminPoint `json:"points"`
+	From     int64        `json:"from"`
+	To       int64        `json:"to"`
+	Ticks    []int64      `json:"ticks"`
+	Days     bool         `json:"days"`
+	Restarts []int64      `json:"restarts"`
+}
+
+type AdminPoint struct {
+	X int64    `json:"x"`
+	Y *float64 `json:"y"`
+}
+
+// AdminAxis is the time a chart spans, where its ticks fall, and how far
+// apart samples are expected, so a longer gap can be drawn as one.
+type AdminAxis struct {
+	From, To time.Time
+	Ticks    []time.Time
+	Days     bool
+	// Expected is how far apart samples are at a time: the sampling
+	// interval in memory, the write interval on disk, or the thinning, if
+	// that is wider.
+	Expected func(at time.Time) time.Duration
 }
 
 type AdminOverview struct {
@@ -381,10 +405,23 @@ func adminOverview(tel *telemetry.Telemetry, rangeKey string) AdminOverview {
 		o.ErrorRate = float64(failed) / float64(requests.Count)
 	}
 
-	since := time.Now().Add(-o.Range.Span)
+	now := time.Now()
+	since := now.Add(-o.Range.Span)
 	var starts []time.Time
 	for _, run := range o.Runs {
 		starts = append(starts, run.Start.Time)
+	}
+	thinned := o.Range.Span / (chartPoints - 1)
+	inMemory := tel.Metrics.Oldest()
+	axis := AdminAxis{
+		From: since, To: now, Ticks: ticks(since, now, o.Range.Span), Days: o.Range.Span > 24*time.Hour,
+		Expected: func(at time.Time) time.Duration {
+			step := tel.SampleEvery
+			if inMemory.IsZero() || at.Before(inMemory) {
+				step = max(step, tel.PersistEvery)
+			}
+			return max(step, thinned)
+		},
 	}
 	history := func(name string) []telemetry.Point {
 		return telemetry.Resample(tel.Metrics.History(name, since), chartPoints)
@@ -398,7 +435,7 @@ func adminOverview(tel *telemetry.Telemetry, rangeKey string) AdminOverview {
 		}
 		return points
 	}
-	draw := func(points []telemetry.Point) AdminChart { return chart(points, o.Range.Span, starts) }
+	draw := func(points []telemetry.Point) AdminChart { return chart(points, axis, starts) }
 
 	// process.cpu.time is seconds of CPU spent, so its rate is how many cores
 	// were busy; as a percentage, 100% is one core, the way top reads.
@@ -420,26 +457,75 @@ func adminOverview(tel *telemetry.Telemetry, rangeKey string) AdminOverview {
 	return o
 }
 
-// chart lays points out for Chart.js, labelled to suit the span shown, and
-// marks where budge started again so a gap or a drop can be read for what
-// it is.
-func chart(points []telemetry.Point, span time.Duration, starts []time.Time) AdminChart {
-	layout := "15:04"
-	if span > 24*time.Hour {
-		layout = "Mon 15:04"
+// gapAfter is how many expected intervals without a sample make a gap.
+const gapAfter = 3
+
+// chart lays points out for Chart.js along the whole axis, breaking the line
+// wherever samples stop for longer than expected, and marks where budge
+// started again so a gap or a drop can be read for what it is.
+func chart(points []telemetry.Point, axis AdminAxis, starts []time.Time) AdminChart {
+	c := AdminChart{
+		Points: make([]AdminPoint, 0, len(points)), From: axis.From.UnixMilli(), To: axis.To.UnixMilli(),
+		Ticks: make([]int64, len(axis.Ticks)), Days: axis.Days, Restarts: []int64{},
 	}
-	c := AdminChart{Labels: make([]string, len(points)), Values: make([]float64, len(points)), Restarts: []int{}}
+	for i, at := range axis.Ticks {
+		c.Ticks[i] = at.UnixMilli()
+	}
 	for i, p := range points {
-		c.Labels[i] = p.Time.Local().Format(layout)
-		c.Values[i] = p.Value
-		for _, start := range starts {
-			if i > 0 && start.After(points[i-1].Time) && !start.After(p.Time) {
-				c.Restarts = append(c.Restarts, i)
-				break
+		if i > 0 {
+			previous := points[i-1].Time
+			if p.Time.Sub(previous) > gapAfter*axis.Expected(previous) {
+				c.Points = append(c.Points, AdminPoint{X: previous.Add(p.Time.Sub(previous) / 2).UnixMilli()})
 			}
+		}
+		value := p.Value
+		c.Points = append(c.Points, AdminPoint{X: p.Time.UnixMilli(), Y: &value})
+	}
+	for _, start := range starts {
+		if !start.Before(axis.From) && !start.After(axis.To) {
+			c.Restarts = append(c.Restarts, start.UnixMilli())
 		}
 	}
 	return c
+}
+
+// tickSteps are where ticks fall for each span: on the hour, at midnight,
+// and so on, so they read as the clock does.
+var tickSteps = []struct{ upTo, step time.Duration }{
+	{time.Hour, 10 * time.Minute},
+	{6 * time.Hour, time.Hour},
+	{24 * time.Hour, 3 * time.Hour},
+	{7 * 24 * time.Hour, 24 * time.Hour},
+	{math.MaxInt64, 5 * 24 * time.Hour},
+}
+
+// ticks are the clock times from..to falls across, in local time.
+func ticks(from, to time.Time, span time.Duration) []time.Time {
+	var step time.Duration
+	for _, s := range tickSteps {
+		if span <= s.upTo {
+			step = s.step
+			break
+		}
+	}
+	local := from.Local()
+	day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.Local)
+	var out []time.Time
+	if step >= 24*time.Hour {
+		days := int(step / (24 * time.Hour))
+		for at := day; !at.After(to); at = at.AddDate(0, 0, days) {
+			if !at.Before(from) {
+				out = append(out, at)
+			}
+		}
+		return out
+	}
+	for at := day.Add(local.Sub(day) / step * step); !at.After(to); at = at.Add(step) {
+		if !at.Before(from) {
+			out = append(out, at)
+		}
+	}
+	return out
 }
 
 func last(points []telemetry.Point) float64 {

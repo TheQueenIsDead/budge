@@ -266,6 +266,23 @@ func after(points []Point, since time.Time) []Point {
 	return nil
 }
 
+// Oldest is the earliest sample still in memory; before it, samples come
+// from disk, a minute or so apart rather than a sample's interval.
+func (m *MetricStore) Oldest() time.Time {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var oldest time.Time
+	for _, byAttrs := range m.series {
+		for _, buffer := range byAttrs {
+			points := buffer.points.all()
+			if n := len(points); n > 0 && (oldest.IsZero() || points[n-1].Time.Before(oldest)) {
+				oldest = points[n-1].Time
+			}
+		}
+	}
+	return oldest
+}
+
 // counts is how many series and points are kept in memory.
 func (m *MetricStore) counts() (series, points int) {
 	m.mu.RLock()

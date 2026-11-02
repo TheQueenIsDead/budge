@@ -93,9 +93,11 @@ type Telemetry struct {
 	Window      time.Duration
 
 	// Retention is how long samples and logs are kept on disk, and Path the
-	// file they are kept in. Without one, Retention is zero.
-	Retention time.Duration
-	Path      string
+	// file they are kept in, a sample every PersistEvery. Without one,
+	// Retention is zero.
+	Retention    time.Duration
+	Path         string
+	PersistEvery time.Duration
 
 	// Run is this run's start, as marked on disk.
 	Run Event
@@ -199,7 +201,7 @@ func Setup(ctx context.Context, opts Options) (*Telemetry, error) {
 		if err != nil {
 			slog.Warn("telemetry is kept in memory only: could not open its file", "path", opts.Path, "error", err)
 		} else {
-			t.disk, t.Retention, t.Path = d, opts.Retention, opts.Path
+			t.disk, t.Retention, t.Path, t.PersistEvery = d, opts.Retention, opts.Path, opts.PersistEvery
 			t.Metrics.disk, t.Logs.disk = d, d
 			if err := d.mark(t.Run); err != nil {
 				slog.Warn("could not mark the start of this run", "error", err)

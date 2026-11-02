@@ -214,25 +214,40 @@
                         }
                         return Math.round(v).toString();
                     };
+                    // Time runs along x as milliseconds, so the axis spans the
+                    // whole range asked for, and a stretch with nothing kept
+                    // is left blank instead of squeezed out.
+                    const tick = function (ms) {
+                        const at = new Date(ms);
+                        return data.days
+                            ? at.toLocaleDateString([], {weekday: "short", day: "numeric"})
+                            : at.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+                    };
+                    const when = function (ms) {
+                        return new Date(ms).toLocaleString([], {weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"});
+                    };
+
                     const datasets = [{
                         label: {{ .title }},
-                        data: data.values,
+                        data: data.points,
                         borderColor: accent,
                         backgroundColor: window.budge.mix({{ .accent }}, 0.25),
                         fill: true,
                         borderWidth: 2,
                         pointRadius: 0,
-                        tension: 0.25
+                        tension: 0,
+                        spanGaps: false
                     }];
                     if (goal) {
                         datasets.push({
                             label: "GC goal",
-                            data: goal.values,
+                            data: goal.points,
                             borderColor: window.budge.ink,
                             borderDash: [4, 4],
                             borderWidth: 1,
                             pointRadius: 0,
-                            fill: false
+                            fill: false,
+                            spanGaps: false
                         });
                     }
 
@@ -241,13 +256,12 @@
                     const restarts = {
                         id: "restarts",
                         afterDatasetsDraw: function (chart) {
-                            const marks = chart.$restarts || [];
                             const x = chart.scales.x, area = chart.chartArea, ctx = chart.ctx;
                             ctx.save();
                             ctx.strokeStyle = window.budge.ink;
                             ctx.setLineDash([3, 3]);
-                            marks.forEach(function (i) {
-                                const at = x.getPixelForValue(i);
+                            ((chart.$axis || data).restarts || []).forEach(function (ms) {
+                                const at = x.getPixelForValue(ms);
                                 ctx.beginPath();
                                 ctx.moveTo(at, area.top);
                                 ctx.lineTo(at, area.bottom);
@@ -259,8 +273,9 @@
 
                     const existing = Chart.getChart(canvas);
                     if (existing) {
-                        existing.$restarts = data.restarts;
-                        existing.data.labels = data.labels;
+                        existing.$axis = data;
+                        existing.options.scales.x.min = data.from;
+                        existing.options.scales.x.max = data.to;
                         datasets.forEach(function (d, i) {
                             if (existing.data.datasets[i]) {
                                 existing.data.datasets[i].data = d.data;
@@ -274,12 +289,13 @@
                     const made = new Chart(canvas, {
                         type: "line",
                         plugins: [restarts],
-                        data: {labels: data.labels, datasets: datasets},
+                        data: {datasets: datasets},
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
                             animation: false,
-                            interaction: {mode: "index", intersect: false},
+                            parsing: {xAxisKey: "x", yAxisKey: "y"},
+                            interaction: {mode: "nearest", axis: "x", intersect: false},
                             scales: {
                                 y: {
                                     beginAtZero: true,
@@ -288,19 +304,32 @@
                                     ticks: {color: ink, callback: format, maxTicksLimit: 5}
                                 },
                                 x: {
+                                    type: "linear",
+                                    min: data.from,
+                                    max: data.to,
                                     border: {display: false},
-                                    grid: {display: false},
-                                    ticks: {color: ink, maxRotation: 0, autoSkipPadding: 16}
+                                    grid: {color: window.budge.grid},
+                                    // Ticks on the clock's boundaries, worked out
+                                    // with the data, rather than wherever the
+                                    // range happens to start.
+                                    afterBuildTicks: function (axis) {
+                                        axis.ticks = ((axis.chart.$axis || data).ticks || []).map(v => ({value: v}));
+                                    },
+                                    ticks: {color: ink, maxRotation: 0, autoSkip: true, autoSkipPadding: 16, callback: tick}
                                 }
                             },
                             plugins: {
                                 legend: {display: false},
-                                tooltip: {callbacks: {label: c => c.dataset.label + ": " + format(c.parsed.y)}}
+                                tooltip: {
+                                    callbacks: {
+                                        title: items => items.length ? when(items[0].parsed.x) : "",
+                                        label: c => c.dataset.label + ": " + format(c.parsed.y)
+                                    }
+                                }
                             }
                         }
                     });
-                    made.$restarts = data.restarts;
-                    made.draw();
+                    made.$axis = data;
                 })();
             </script>
         </div>
