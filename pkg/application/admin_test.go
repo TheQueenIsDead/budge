@@ -34,7 +34,9 @@ func TestSpentSplitsATraceByWhatItWaitedOn(t *testing.T) {
 
 func TestChartMarksEachRestart(t *testing.T) {
 	at := time.Date(2026, time.November, 3, 9, 0, 0, 0, time.Local)
-	point := func(after time.Duration, v float64) telemetry.Point { return telemetry.Point{Time: at.Add(after), Value: v} }
+	point := func(after time.Duration, v float64) telemetry.Point {
+		return telemetry.Point{Time: at.Add(after), Value: v}
+	}
 	points := []telemetry.Point{point(0, 1), point(time.Minute, 2), point(10*time.Minute, 3), point(11*time.Minute, 4)}
 	starts := []time.Time{at.Add(-time.Hour), at.Add(5 * time.Minute)}
 
