@@ -109,3 +109,34 @@ func TestBuildPeriodCharts(t *testing.T) {
 		assert.Contains(t, renderTemplate(t, "budget.periods", []PeriodChart(nil)), "Set a target below")
 	})
 }
+
+func TestMonthsBackLandsEachBillOnce(t *testing.T) {
+	at := func(y int, m time.Month, d int) time.Time { return time.Date(y, m, d, 0, 0, 0, 0, time.UTC) }
+	tests := []struct {
+		name   string
+		today  time.Time
+		months int
+		start  time.Time
+	}{
+		{"an ordinary day", at(2026, time.March, 15), 1, at(2026, time.February, 16)},
+		{"the end of a month after a short one", at(2026, time.March, 30), 1, at(2026, time.March, 1)},
+		{"the last day of a month after a short one", at(2026, time.March, 31), 1, at(2026, time.March, 1)},
+		{"a quarter ending on the 31st", at(2026, time.May, 31), 3, at(2026, time.March, 1)},
+		{"a year ending on a leap day", at(2028, time.February, 29), 12, at(2027, time.March, 1)},
+		{"across a new year", at(2026, time.January, 10), 1, at(2025, time.December, 11)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.start, monthsBack(tt.today, tt.months))
+		})
+	}
+
+	t.Run("a bill on the 1st is in the window at the end of March", func(t *testing.T) {
+		power := spendTx("power", "DIRECT DEBIT", "Utilities", "Electricity services", "Mercury", "", -180, at(2026, time.March, 1).Add(9*time.Hour))
+		charts := BuildPeriodCharts([]models.Transaction{power},
+			map[string]models.BudgetItem{"bills": {BudgetCategory: "bills", Amount: 200, Frequency: "monthly"}},
+			at(2026, time.March, 30).Add(15*time.Hour))
+		require.Len(t, charts, 1)
+		assert.Equal(t, 180.0, charts[0].Total, "counting back with AddDate left this out")
+	})
+}

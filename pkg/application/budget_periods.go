@@ -62,18 +62,34 @@ func rollingBounds(frequency string, now time.Time) (start, end time.Time, step 
 	week := func(t time.Time) time.Time { return t.AddDate(0, 0, 7) }
 	month := func(t time.Time) time.Time { return t.AddDate(0, 1, 0) }
 
+	today := end.AddDate(0, 0, -1)
 	switch frequency {
 	case "fortnightly":
 		return end.AddDate(0, 0, -14), end, day, "Mon 2", "the last 14 days"
 	case "monthly":
-		return end.AddDate(0, -1, 0), end, day, "2 Jan", "the last month"
+		return monthsBack(today, 1), end, day, "2 Jan", "the last month"
 	case "quarterly":
 		// By week: ninety-odd daily bars are too thin to read.
-		return end.AddDate(0, -3, 0), end, week, "2 Jan", "the last 3 months"
+		return monthsBack(today, 3), end, week, "2 Jan", "the last 3 months"
 	case "yearly":
-		return end.AddDate(-1, 0, 0), end, month, "Jan", "the last 12 months"
+		return monthsBack(today, 12), end, month, "Jan", "the last 12 months"
 	}
 	return end.AddDate(0, 0, -7), end, day, "Mon 2", "the last 7 days"
+}
+
+// monthsBack is where a window of the given months ending today starts: the
+// day after today's date that many months ago, or after the last day of that
+// month when it is too short to have the date. A bill paid on the same day
+// each month then lands in the window once, never twice and never missed.
+// Counting back with AddDate instead overflows: a month before 31 March is
+// 3 March, which leaves out a bill paid on the 1st.
+func monthsBack(today time.Time, months int) time.Time {
+	y, m, d := today.Date()
+	first := time.Date(y, m-time.Month(months), 1, 0, 0, 0, 0, today.Location())
+	if last := first.AddDate(0, 1, -1).Day(); d > last {
+		d = last
+	}
+	return time.Date(first.Year(), first.Month(), d, 0, 0, 0, 0, today.Location()).AddDate(0, 0, 1)
 }
 
 // periodTitle names a chart by the frequency of the targets in it. The dates
