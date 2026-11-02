@@ -2,6 +2,7 @@ package database
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"sort"
 	"strings"
@@ -157,6 +158,19 @@ const notificationRetention = 200
 
 func (s *Store) ReadNotifications() ([]models.Notification, error) {
 	return Read[models.Notification](s.db)
+}
+
+// GetNotificationLog reads when each notification was last raised.
+func (s *Store) GetNotificationLog() (models.NotificationLog, error) {
+	log, _, err := GetOptional[models.NotificationLog](s.db, models.NotificationLog{}.Key())
+	if log.Raised == nil {
+		log.Raised = map[string]time.Time{}
+	}
+	return log, err
+}
+
+func (s *Store) SaveNotificationLog(log models.NotificationLog) error {
+	return Update[models.NotificationLog](s.db, log)
 }
 
 // CreateNotification records a notification and drops the oldest once the log
@@ -586,12 +600,13 @@ func (s *Store) DeleteSynced() error {
 
 /* Categories */
 
+// GetCategorySettings reads the rules and corrections. Nothing saved yet
+// means none; a saved document that cannot be read is an error, rather than
+// none, which the next change would save over.
 func (s *Store) GetCategorySettings() (models.CategorySettings, error) {
-	// Like the salary, an unsaved document reads back as an error; it simply
-	// means no categories or rules have been set up yet.
-	settings, err := Get[models.CategorySettings](s.db, models.CategorySettings{}.Key())
+	settings, _, err := GetOptional[models.CategorySettings](s.db, models.CategorySettings{}.Key())
 	if err != nil {
-		return models.CategorySettings{}, nil
+		return models.CategorySettings{}, fmt.Errorf("reading category rules: %w", err)
 	}
 	return settings, nil
 }
@@ -601,11 +616,12 @@ func (s *Store) SaveCategorySettings(settings models.CategorySettings) error {
 }
 
 // GetBudgetCategorySettings reads the owner's category list. Nothing saved
-// yet means budge's own list.
+// yet means budge's own list; a saved list that cannot be read is an error,
+// rather than budge's own list, which the next edit would save over.
 func (s *Store) GetBudgetCategorySettings() (models.BudgetCategorySettings, error) {
-	settings, err := Get[models.BudgetCategorySettings](s.db, models.BudgetCategorySettings{}.Key())
+	settings, _, err := GetOptional[models.BudgetCategorySettings](s.db, models.BudgetCategorySettings{}.Key())
 	if err != nil {
-		return models.BudgetCategorySettings{}, nil
+		return models.BudgetCategorySettings{}, fmt.Errorf("reading the category list: %w", err)
 	}
 	return settings, nil
 }

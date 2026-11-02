@@ -72,7 +72,7 @@ func (g SpendGroup) Billed() bool {
 // Matches reports whether a transaction is spending in the group: filed
 // under it, or under one of its subcategories.
 func (g SpendGroup) Matches(tx models.Transaction) bool {
-	if tx.Type == "TRANSFER" || tx.Amount >= 0 {
+	if !tx.IsDebit() {
 		return false
 	}
 	key := tx.BudgetCategory()

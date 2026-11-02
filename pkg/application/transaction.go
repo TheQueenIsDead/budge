@@ -243,8 +243,7 @@ func uncategorisedSince(now time.Time) time.Time {
 // neither Akahu, a rule nor the owner has filed: what the budget can only
 // lump together under Uncategorised.
 func isUncategorisedSpend(tx models.Transaction, since time.Time) bool {
-	return tx.Amount < 0 && tx.Type != "TRANSFER" &&
-		tx.BudgetCategory() == models.CategoryUncategorised && !tx.Date.Before(since)
+	return tx.IsDebit() && tx.BudgetCategory() == models.CategoryUncategorised && !tx.Date.Before(since)
 }
 
 // transactionDateRange reads an inclusive range of local dates into the times

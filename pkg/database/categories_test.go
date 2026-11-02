@@ -1,12 +1,14 @@
 package database
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	bolt "go.etcd.io/bbolt"
 )
 
 func categorisedTx(id, txType, description, merchant string) models.Transaction {
@@ -458,4 +460,26 @@ func TestBudgetCategoriesAreSavedAndBackedUp(t *testing.T) {
 	saved, err := other.GetBudgetCategorySettings()
 	require.NoError(t, err)
 	assert.Equal(t, "transport", saved.Merged["parking"])
+}
+
+func TestUnreadableCategorySettingsAreAnError(t *testing.T) {
+	useDefaultCategories(t)
+	store := tempStore(t)
+
+	_, err := store.GetBudgetCategorySettings()
+	assert.NoError(t, err, "nothing saved yet is budge's own list, not an error")
+	_, err = store.GetCategorySettings()
+	assert.NoError(t, err)
+
+	require.NoError(t, store.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(models.BudgetCategorySettings{}.Bucket())
+		return errors.Join(
+			b.Put(models.BudgetCategorySettings{}.Key(), []byte("{not json")),
+			b.Put(models.CategorySettings{}.Key(), []byte("{not json")),
+		)
+	}))
+	_, err = store.GetBudgetCategorySettings()
+	assert.Error(t, err, "a saved list that cannot be read is not quietly replaced by the default, for the next edit to save over")
+	_, err = store.GetCategorySettings()
+	assert.Error(t, err)
 }

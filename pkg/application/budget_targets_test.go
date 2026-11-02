@@ -415,7 +415,7 @@ func TestSplitCategory(t *testing.T) {
 
 	t.Run("what is filed under the category itself takes a target too", func(t *testing.T) {
 		body := post(app.BudgetSaveTarget, url.Values{"category": {"home:general"}, "target_amount": {"40"}, "target_frequency": {"monthly"}})
-		assert.Contains(t, body, `id="sc-home-general"`)
+		assert.Contains(t, body, `id="sg-home"`, "a general row has an id of its own, apart from any category's")
 
 		setup, err := app.buildSetupData()
 		require.NoError(t, err)
@@ -554,4 +554,45 @@ func measureGeneral(t *testing.T, category models.BudgetCategory, weekly float64
 	row := buildSetupRowData(generalCategory(category), models.BudgetItem{}, weekly, 1_000)
 	row.General = true
 	return row
+}
+
+func TestSplitWithNoSubcategoriesLeftIsCombined(t *testing.T) {
+	app := newTestApp(t)
+	t.Cleanup(func() { models.UseBudgetCategories(models.BudgetCategorySettings{}) })
+	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "big", BudgetCategory: "big-purchases", Amount: 5200, Frequency: "yearly", Split: true}))
+	settings, err := models.BudgetCategorySettings{}.DeleteBudgetCategory("vehicles", "")
+	require.NoError(t, err)
+	require.NoError(t, app.store.SaveBudgetCategorySettings(settings))
+
+	setup, err := app.buildSetupData()
+	require.NoError(t, err)
+	big := rowByKey(t, setup, "big-purchases")
+	assert.False(t, big.Split, "nothing left to split it into")
+	assert.InDelta(t, 100, big.TargetWeekly, 0.001)
+
+	cards, err := app.buildBudgetCards()
+	require.NoError(t, err)
+	assert.InDelta(t, big.TargetWeekly, cards.TotalWeeklyExpenses, 0.001, "the totals agree with the row")
+
+	items, err := app.store.ReadBudgetItems()
+	require.NoError(t, err)
+	charts := BuildPeriodCharts(nil, budgetTargets(items), time.Now())
+	require.Len(t, charts, 1)
+	assert.Equal(t, "yearly", charts[0].Frequency, "and so do the charts")
+	assert.Equal(t, 5200.0, charts[0].Target)
+}
+
+func TestSplittingAMergedKeyIsRefused(t *testing.T) {
+	app := newTestApp(t)
+	t.Cleanup(func() { models.UseBudgetCategories(models.BudgetCategorySettings{}) })
+	settings, err := models.BudgetCategorySettings{}.DeleteBudgetCategory("home", "bills")
+	require.NoError(t, err)
+	require.NoError(t, app.store.SaveBudgetCategorySettings(settings))
+
+	c, rec := postForm(t, app, url.Values{"category": {"home"}, "split": {"1"}})
+	require.NoError(t, app.BudgetSaveSplit(c))
+	assert.Equal(t, 400, rec.Code, "a stale page naming a deleted category does not split the one it went into")
+	items, err := app.store.ReadBudgetItems()
+	require.NoError(t, err)
+	assert.Empty(t, items)
 }

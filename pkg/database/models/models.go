@@ -165,11 +165,18 @@ func (t *Transaction) Add(tx *Transaction) float64 {
 	return t.Amount + tx.Amount
 }
 
+// IsDebit reports whether money left to go somewhere else: a payment out,
+// not money coming in or moving between the owner's own accounts. Only a
+// debit is filed under a category.
+func (t Transaction) IsDebit() bool {
+	return t.Amount < 0 && t.Type != "TRANSFER"
+}
+
 // Categories names where the transaction is filed, for its badges: the
 // category, then the subcategory when it has one. Money coming in and moving
 // between the owner's accounts is not filed anywhere.
 func (t *Transaction) Categories() (labels []string) {
-	if t.Amount >= 0 || t.Type == "TRANSFER" {
+	if !t.IsDebit() {
 		return nil
 	}
 	key := t.BudgetCategory()

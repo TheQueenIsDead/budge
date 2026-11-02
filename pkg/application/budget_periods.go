@@ -103,7 +103,7 @@ func BuildPeriodCharts(transactions []models.Transaction, targets map[string]mod
 	}
 	var lines []line
 	for _, category := range models.TopBudgetCategories() {
-		if !targets[category.Key].Split {
+		if !budgetedSplit(category, targets) {
 			lines = append(lines, line{category, targets[category.Key]})
 			continue
 		}
@@ -112,6 +112,28 @@ func BuildPeriodCharts(transactions []models.Transaction, targets map[string]mod
 		}
 		general := generalCategory(category)
 		lines = append(lines, line{general, targets[general.Key]})
+	}
+
+	// Each spending transaction is filed once, here, rather than once for
+	// every period charted. A transaction filed under a category itself is
+	// that category's general bucket when it is split.
+	type spent struct {
+		date   time.Time
+		amount float64
+		top    string
+		filed  string
+	}
+	var spending []spent
+	for _, tx := range transactions {
+		category, ok := spendCategory(tx)
+		if !ok {
+			continue
+		}
+		filed := tx.BudgetCategory()
+		if filed == category.Key {
+			filed = generalKey(filed)
+		}
+		spending = append(spending, spent{date: tx.Date.In(now.Location()), amount: -tx.Amount, top: category.Key, filed: filed})
 	}
 
 	var charts []PeriodChart
@@ -148,22 +170,13 @@ func BuildPeriodCharts(transactions []models.Transaction, targets map[string]mod
 		}
 
 		totals := make([]float64, len(bounds))
-		for _, tx := range transactions {
-			category, ok := spendCategory(tx)
-			filed := tx.BudgetCategory()
-			if filed == category.Key {
-				filed = generalKey(filed)
-			}
-			if !ok || !(inPeriod[category.Key] || inPeriod[filed]) {
-				continue
-			}
-			date := tx.Date.In(now.Location())
-			if date.Before(start) || !date.Before(end) {
+		for _, s := range spending {
+			if !(inPeriod[s.top] || inPeriod[s.filed]) || s.date.Before(start) || !s.date.Before(end) {
 				continue
 			}
 			for i := len(bounds) - 1; i >= 0; i-- {
-				if !date.Before(bounds[i]) {
-					totals[i] += -tx.Amount
+				if !s.date.Before(bounds[i]) {
+					totals[i] += s.amount
 					break
 				}
 			}

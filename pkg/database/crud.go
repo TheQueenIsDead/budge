@@ -47,6 +47,21 @@ func Get[T Storable](db *bolt.DB, id []byte) (T, error) {
 	return result, err
 }
 
+// GetOptional is Get for a document that may never have been saved. It
+// reports a missing document as not found rather than as an error, so only a
+// document that is there and cannot be read is an error.
+func GetOptional[T Storable](db *bolt.DB, id []byte) (result T, found bool, err error) {
+	err = db.View(func(tx *bolt.Tx) error {
+		buf := tx.Bucket(result.Bucket()).Get(id)
+		if buf == nil {
+			return nil
+		}
+		found = true
+		return json.Unmarshal(buf, &result)
+	})
+	return result, found, err
+}
+
 // Read iterates the bucket for the given Storable and returns all models of type T.
 func Read[T Storable](db *bolt.DB) ([]T, error) {
 	var result []T

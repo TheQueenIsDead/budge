@@ -117,7 +117,7 @@ func spendCategory(tx models.Transaction) (models.BudgetCategory, bool) {
 // debitCategory is the budge category money leaving went to, whether or not
 // it was spent. Transfers between the owner's own accounts went nowhere.
 func debitCategory(tx models.Transaction) (models.BudgetCategory, bool) {
-	if tx.Amount >= 0 || tx.Type == "TRANSFER" {
+	if !tx.IsDebit() {
 		return models.BudgetCategory{}, false
 	}
 	return models.TopBudgetCategory(tx.BudgetCategory()), true
@@ -503,7 +503,7 @@ func (app *Application) saveGeneralTarget(c echo.Context, key string) error {
 // neither.
 func (app *Application) BudgetSaveSplit(c echo.Context) error {
 	category, ok := models.BudgetCategoryByKey(c.FormValue("category"))
-	if !ok || category.IsSub() || !category.Budgeted() || len(models.BudgetSubcategories(category.Key)) == 0 {
+	if !ok || category.Key != c.FormValue("category") || category.IsSub() || !category.Budgeted() || len(models.BudgetSubcategories(category.Key)) == 0 {
 		return c.NoContent(http.StatusBadRequest)
 	}
 	split := c.FormValue("split") == "1"
@@ -803,7 +803,7 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 	var rows []CategoryTargetRow
 	for _, category := range models.TopBudgetCategories() {
 		subs := models.BudgetSubcategories(category.Key)
-		if !targets[category.Key].Split || len(subs) == 0 || !category.Budgeted() {
+		if !budgetedSplit(category, targets) {
 			row := measure(category)
 			row.Splittable = len(subs) > 0 && category.Budgeted()
 			row.Subs = subcategorySpend(category, spend, row.WindowWeeks)
@@ -822,6 +822,9 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 			subRows = append(subRows, subRow)
 		}
 		generalRow := measure(generalCategory(category))
+		// Its own prefix, so it cannot share an id with a category whose
+		// name happens to read the same, like one called "Shopping general".
+		generalRow.RowID = sanitizeWithPrefix("sg-", category.Key)
 		generalRow.ParentRowID = sanitizeID(category.Key)
 		generalRow.General = true
 		subRows = append(subRows, generalRow)
@@ -1092,12 +1095,20 @@ func budgetTargets(items []models.BudgetItem) map[string]models.BudgetItem {
 	return targets
 }
 
+// budgetedSplit reports whether a category is budgeted by its subcategories:
+// marked split, on budget, and with subcategories to split into. The row, the
+// totals and the charts all ask this, so they agree on which targets are in
+// force, even for a split category whose subcategories have all been deleted.
+func budgetedSplit(category models.BudgetCategory, targets map[string]models.BudgetItem) bool {
+	return targets[category.Key].Split && category.Budgeted() && len(models.BudgetSubcategories(category.Key)) > 0
+}
+
 // weeklyTargetTotal adds up the targets in force, per week: a category's
 // own, or its subcategories' when it is split.
 func weeklyTargetTotal(targets map[string]models.BudgetItem) float64 {
 	var total float64
 	for _, category := range models.TopBudgetCategories() {
-		if !targets[category.Key].Split {
+		if !budgetedSplit(category, targets) {
 			total += weeklyTarget(targets[category.Key])
 			continue
 		}

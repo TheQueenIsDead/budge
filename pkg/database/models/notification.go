@@ -69,3 +69,13 @@ func (n *Notification) Value() ([]byte, error) { return json.Marshal(n) }
 
 // Unread reports whether the notification still needs the owner's attention.
 func (n Notification) Unread() bool { return n.ReadAt.IsZero() }
+
+// NotificationLog records when each notification was last raised, by
+// title, for those not to be raised again too soon. It is kept apart from
+// the notifications, so dismissing one does not make it due again.
+type NotificationLog struct {
+	Raised map[string]time.Time
+}
+
+func (l NotificationLog) Key() []byte    { return []byte("notification-log") }
+func (l NotificationLog) Bucket() []byte { return buckets.SettingsBucket }

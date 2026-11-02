@@ -45,11 +45,19 @@ func TestBudgetNotifications(t *testing.T) {
 		assert.Len(t, notes, 2)
 	})
 
+	t.Run("nor once it has been dismissed", func(t *testing.T) {
+		require.NoError(t, app.store.DeleteNotifications())
+		app.notifyBudget(now.Add(2 * time.Hour))
+		notes, err := app.store.ReadNotifications()
+		require.NoError(t, err)
+		assert.Empty(t, notes, "dismissing a notification does not make it due again")
+	})
+
 	t.Run("but is once a week has passed", func(t *testing.T) {
 		app.notifyBudget(now.Add(budgetRenotifyAfter + time.Hour))
 		notes, err := app.store.ReadNotifications()
 		require.NoError(t, err)
-		assert.Len(t, notes, 4)
+		assert.Len(t, notes, 2)
 	})
 }
 

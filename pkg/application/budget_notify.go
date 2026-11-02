@@ -24,30 +24,32 @@ const budgetRenotifyAfter = 7 * 24 * time.Hour
 
 // notifyBudget raises a notification for each category over its target, and
 // one for spending with no target, unless the same was raised in the last
-// week. Like Notify, a failure is logged rather than returned: a sync that
-// worked should not report failing because its follow-up did not.
+// week. When each was raised is recorded apart from the notifications, so
+// dismissing one does not bring it back at the next sync. Like Notify, a
+// failure is logged rather than returned: a sync that worked should not
+// report failing because its follow-up did not.
 func (app *Application) notifyBudget(now time.Time) {
 	setup, err := app.buildSetupData()
-	if err != nil {
-		app.http.Logger.Errorf("could not check the budget: %v", err)
-		return
-	}
-	existing, err := app.store.ReadNotifications()
-	if err != nil {
-		app.http.Logger.Errorf("could not check the budget: %v", err)
-		return
-	}
-	recent := map[string]bool{}
-	for _, n := range existing {
-		if n.Source == SourceBudget && now.Sub(n.CreatedAt) < budgetRenotifyAfter {
-			recent[n.Title] = true
+	if err == nil {
+		var raised models.NotificationLog
+		raised, err = app.store.GetNotificationLog()
+		if err == nil {
+			changed := false
+			for _, n := range budgetNotifications(setup.Tracking) {
+				if last, ok := raised.Raised[n.Title]; ok && now.Sub(last) < budgetRenotifyAfter {
+					continue
+				}
+				app.Notify(n.Level, SourceBudget, n.Title, n.Message)
+				raised.Raised[n.Title] = now
+				changed = true
+			}
+			if changed {
+				err = app.store.SaveNotificationLog(raised)
+			}
 		}
 	}
-
-	for _, n := range budgetNotifications(setup.Tracking) {
-		if !recent[n.Title] {
-			app.Notify(n.Level, SourceBudget, n.Title, n.Message)
-		}
+	if err != nil {
+		app.http.Logger.Errorf("could not check the budget: %v", err)
 	}
 }
 
