@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"sort"
@@ -31,7 +32,7 @@ type NotificationsProps struct {
 // and a toast needs somebody looking at a page when it fires. A failure to
 // record is logged rather than returned: losing the note about a problem should
 // not become a second problem for the caller to handle.
-func (app *Application) Notify(level models.NotificationLevel, source, title, message string) {
+func (app *Application) Notify(ctx context.Context, level models.NotificationLevel, source, title, message string) {
 	notification := models.Notification{
 		Id:        newID(),
 		Level:     level,
@@ -41,14 +42,14 @@ func (app *Application) Notify(level models.NotificationLevel, source, title, me
 		CreatedAt: time.Now(),
 	}
 
-	if err := app.store.CreateNotification(notification); err != nil {
+	if err := app.store.CreateNotification(ctx, notification); err != nil {
 		slog.Error("could not record notification", "title", title, "error", err)
 	}
 }
 
 // sortedNotifications returns the log newest first, with the count still unread.
-func (app *Application) sortedNotifications() ([]models.Notification, int, error) {
-	notifications, err := app.store.ReadNotifications()
+func (app *Application) sortedNotifications(ctx context.Context) ([]models.Notification, int, error) {
+	notifications, err := app.store.ReadNotifications(ctx)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -67,7 +68,8 @@ func (app *Application) sortedNotifications() ([]models.Notification, int, error
 }
 
 func (app *Application) Notifications(c echo.Context) error {
-	notifications, unread, err := app.sortedNotifications()
+	ctx := c.Request().Context()
+	notifications, unread, err := app.sortedNotifications(ctx)
 	if err != nil {
 		app.Toast(c, "Error", "Could not load notifications.")
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -83,9 +85,10 @@ func (app *Application) Notifications(c echo.Context) error {
 // so the layout can stay a dumb shell: the badge asks for itself on load and
 // again whenever something says the log changed.
 func (app *Application) NotificationBadge(c echo.Context) error {
-	_, unread, err := app.sortedNotifications()
+	ctx := c.Request().Context()
+	_, unread, err := app.sortedNotifications(ctx)
 	if err != nil {
-		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
+		slog.ErrorContext(ctx, "request failed", "error", err)
 		// A badge that cannot be counted is not worth an error page.
 		return c.Render(http.StatusOK, "notifications.badge", 0)
 	}
@@ -96,15 +99,17 @@ func (app *Application) NotificationBadge(c echo.Context) error {
 // than the page doing it while rendering, so opening the list stays a plain GET
 // with no side effect of its own.
 func (app *Application) NotificationsRead(c echo.Context) error {
-	if err := app.store.MarkNotificationsRead(time.Now()); err != nil {
-		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
+	ctx := c.Request().Context()
+	if err := app.store.MarkNotificationsRead(ctx, time.Now()); err != nil {
+		slog.ErrorContext(ctx, "request failed", "error", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return c.NoContent(http.StatusNoContent)
 }
 
 func (app *Application) NotificationDelete(c echo.Context) error {
-	if err := app.store.DeleteNotification(c.Param("id")); err != nil {
+	ctx := c.Request().Context()
+	if err := app.store.DeleteNotification(ctx, c.Param("id")); err != nil {
 		app.Toast(c, "Error", "Could not remove the notification.")
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -112,7 +117,8 @@ func (app *Application) NotificationDelete(c echo.Context) error {
 }
 
 func (app *Application) NotificationsClear(c echo.Context) error {
-	if err := app.store.DeleteNotifications(); err != nil {
+	ctx := c.Request().Context()
+	if err := app.store.DeleteNotifications(ctx); err != nil {
 		app.Toast(c, "Error", "Could not clear notifications.")
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

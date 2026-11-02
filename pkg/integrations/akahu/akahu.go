@@ -1,17 +1,24 @@
 package akahu
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // requestTimeout bounds a single call to Akahu. Without one, a connection that
 // stalls holds the sync open forever, and a scheduled sync never reports back.
 const requestTimeout = 30 * time.Second
+
+// client is shared by every call, and traces each one as a child of the
+// context it was made in.
+var client = &http.Client{Timeout: requestTimeout, Transport: otelhttp.NewTransport(http.DefaultTransport)}
 
 type AkahuClient struct {
 	BaseURL   string `json:"baseURL"`
@@ -59,7 +66,7 @@ func WithApptoken(token string) AkahuOption {
 	}
 }
 
-func (a *AkahuClient) get(path string, query map[string]string) (*http.Response, error) {
+func (a *AkahuClient) get(ctx context.Context, path string, query map[string]string) (*http.Response, error) {
 
 	header := http.Header{}
 	header.Set("Content-Type", "application/json")
@@ -72,12 +79,11 @@ func (a *AkahuClient) get(path string, query map[string]string) (*http.Response,
 		return nil, err
 	}
 
-	client := http.Client{Timeout: requestTimeout}
-	req := &http.Request{
-		Method: http.MethodGet,
-		URL:    url,
-		Header: header,
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
+	if err != nil {
+		return nil, err
 	}
+	req.Header = header
 
 	if len(query) > 0 {
 		q := req.URL.Query()
@@ -114,7 +120,7 @@ func (a *AkahuClient) get(path string, query map[string]string) (*http.Response,
 // pages are small, so a full history is dozens of requests in a row; onPage,
 // when given, is told the running total after each one so a caller can show
 // progress.
-func (a *AkahuClient) GetTransactions(since time.Time, paginate bool, onPage func(fetched int)) (items []Transaction, err error) {
+func (a *AkahuClient) GetTransactions(ctx context.Context, since time.Time, paginate bool, onPage func(fetched int)) (items []Transaction, err error) {
 
 	var query = make(map[string]string)
 
@@ -123,7 +129,7 @@ func (a *AkahuClient) GetTransactions(since time.Time, paginate bool, onPage fun
 	}
 
 	for {
-		res, httpErr := a.get("/transactions", query)
+		res, httpErr := a.get(ctx, "/transactions", query)
 
 		if httpErr != nil {
 			err = httpErr
@@ -157,8 +163,8 @@ func (a *AkahuClient) GetTransactions(since time.Time, paginate bool, onPage fun
 // TODO: Add support for pagination
 // TIP: To access subsequent pages, simply take the cursor.next value from each response and make a new request, supplying this value using the cursor query parameter. In response, you will receive the next page of results, along with a new cursor.next value.
 
-func (a *AkahuClient) GetAccounts() ([]Account, error) {
-	res, err := a.get("/accounts", nil)
+func (a *AkahuClient) GetAccounts(ctx context.Context) ([]Account, error) {
+	res, err := a.get(ctx, "/accounts", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -173,8 +179,8 @@ func (a *AkahuClient) GetAccounts() ([]Account, error) {
 
 }
 
-func (a *AkahuClient) Me() (*Me, error) {
-	res, err := a.get("/me", nil)
+func (a *AkahuClient) Me(ctx context.Context) (*Me, error) {
+	res, err := a.get(ctx, "/me", nil)
 	if err != nil {
 		return nil, err
 	}

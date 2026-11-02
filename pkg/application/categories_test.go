@@ -17,8 +17,8 @@ import (
 func TestCategoryRulesEndToEnd(t *testing.T) {
 	app := newTestApp(t)
 	recent := time.Now().Add(-48 * time.Hour)
-	require.NoError(t, app.store.CreateTransaction(spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -400, recent)))
-	require.NoError(t, app.store.CreateTransaction(spendTx("rates", "DEBIT", "Housing", "Local government", "CCC", "", -860, recent)))
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -400, recent)))
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("rates", "DEBIT", "Housing", "Local government", "CCC", "", -860, recent)))
 
 	post := func(handler echo.HandlerFunc, values url.Values) string {
 		c, rec := postForm(t, app, values)
@@ -31,12 +31,12 @@ func TestCategoryRulesEndToEnd(t *testing.T) {
 	assert.Contains(t, body, "1 transaction\n", "the rule reports what it matched")
 	assert.Regexp(t, `id="category-home" open`, body, "the category the rule went into stays open")
 
-	settings, err := app.store.GetCategorySettings()
+	settings, err := app.store.GetCategorySettings(t.Context())
 	require.NoError(t, err)
 	require.Len(t, settings.Rules, 1)
 	assert.Equal(t, "mortgage", settings.Rules[0].Category)
 
-	setup, err := app.buildSetupData()
+	setup, err := app.buildSetupData(t.Context())
 	require.NoError(t, err)
 	assert.InDelta(t, 1260.0/untargetedWindowWeeks, rowByKey(t, setup, "home").ActualWeekly, 0.001, "the interest joins the rates under Home")
 	assert.Zero(t, rowByKey(t, setup, "loan-interest").ActualWeekly)
@@ -50,7 +50,7 @@ func TestCategoryRulesEndToEnd(t *testing.T) {
 		require.NoError(t, app.SettingsDeleteRule(c))
 		assert.Regexp(t, `id="category-home" open`, rec.Body.String())
 
-		setup, err := app.buildSetupData()
+		setup, err := app.buildSetupData(t.Context())
 		require.NoError(t, err)
 		assert.InDelta(t, 400.0/untargetedWindowWeeks, rowByKey(t, setup, "loan-interest").ActualWeekly, 0.001)
 	})
@@ -72,7 +72,7 @@ func TestSettingsAddRuleRefusals(t *testing.T) {
 			require.NoError(t, app.SettingsAddRule(c))
 			assert.Contains(t, rec.Body.String(), test.expected)
 
-			settings, err := app.store.GetCategorySettings()
+			settings, err := app.store.GetCategorySettings(t.Context())
 			require.NoError(t, err)
 			assert.Empty(t, settings.Rules)
 		})
@@ -81,12 +81,12 @@ func TestSettingsAddRuleRefusals(t *testing.T) {
 
 func TestSettingsCategoriesRenders(t *testing.T) {
 	app := newTestApp(t)
-	require.NoError(t, app.store.CreateTransaction(spendTx("bp", "EFTPOS", "Transport", "Fuel stations", "BP", "", -80, time.Now().Add(-time.Hour))))
-	require.NoError(t, app.store.SaveCategorySettings(models.CategorySettings{Rules: []models.CategoryRule{
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("bp", "EFTPOS", "Transport", "Fuel stations", "BP", "", -80, time.Now().Add(-time.Hour))))
+	require.NoError(t, app.store.SaveCategorySettings(t.Context(), models.CategorySettings{Rules: []models.CategoryRule{
 		{ID: "r1", Contains: "LOAN INTEREST", Type: "LOAN", Category: "mortgage"},
 		{ID: "r2", Contains: "Holland Suzuk", Category: "servicing"},
 	}}))
-	view, err := app.buildCategoriesView("transport")
+	view, err := app.buildCategoriesView(t.Context(), "transport")
 	require.NoError(t, err)
 	view.Error = "Something was refused."
 	html := renderTemplate(t, "settings.categories", view)
@@ -206,7 +206,7 @@ func TestBuildRulePreview(t *testing.T) {
 
 func TestSettingsPreviewRule(t *testing.T) {
 	app := newTestApp(t)
-	require.NoError(t, app.store.CreateTransaction(spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -410, time.Now().Add(-time.Hour))))
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -410, time.Now().Add(-time.Hour))))
 
 	get := func(query string) string {
 		req := httptest.NewRequest(http.MethodGet, "/settings/rules/preview?"+query, nil)
@@ -229,7 +229,7 @@ func TestTransferRuleBudgetsMortgageRepayments(t *testing.T) {
 		spendTx("in", "TRANSFER", "Transfer", "Transfer", "", "AP#19781426 FROM D J KING", 641, recent),
 		spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -400, recent),
 	} {
-		require.NoError(t, app.store.CreateTransaction(tx))
+		require.NoError(t, app.store.CreateTransaction(t.Context(), tx))
 	}
 	preview := func(query string) string {
 		req := httptest.NewRequest(http.MethodGet, "/settings/rules/preview?"+query, nil)
@@ -246,7 +246,7 @@ func TestTransferRuleBudgetsMortgageRepayments(t *testing.T) {
 	c, _ := postForm(t, app, url.Values{"contains": {"AP#19781426"}, "category": {"mortgage"}, "include_transfers": {"1"}})
 	require.NoError(t, app.SettingsAddRule(c))
 
-	setup, err := app.buildSetupData()
+	setup, err := app.buildSetupData(t.Context())
 	require.NoError(t, err)
 	assert.InDelta(t, 641.0/untargetedWindowWeeks, rowByKey(t, setup, "home").ActualWeekly, 0.001, "the repayment is counted once")
 	assert.InDelta(t, 641, countedTotal(t, app), 0.001, "interest is not spending, and the repayment is counted once")
@@ -256,10 +256,10 @@ func TestEditingBudgetCategories(t *testing.T) {
 	app := newTestApp(t)
 	t.Cleanup(func() { models.UseBudgetCategories(models.BudgetCategorySettings{}) })
 	recent := time.Now().Add(-48 * time.Hour)
-	require.NoError(t, app.store.CreateTransaction(spendTx("cafe", "EFTPOS", "Lifestyle", "Cafes and restaurants", "Fat Sallys", "", -30, recent)))
-	require.NoError(t, app.store.CreateTransaction(spendTx("pak", "EFTPOS", "Food", "Supermarkets and grocery stores", "PAK'nSAVE", "", -120, recent)))
-	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "out", BudgetCategory: "eating-out", Amount: 50, Frequency: "weekly"}))
-	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "shop", BudgetCategory: "groceries", Amount: 150, Frequency: "weekly"}))
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("cafe", "EFTPOS", "Lifestyle", "Cafes and restaurants", "Fat Sallys", "", -30, recent)))
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("pak", "EFTPOS", "Food", "Supermarkets and grocery stores", "PAK'nSAVE", "", -120, recent)))
+	require.NoError(t, app.store.CreateBudgetItem(t.Context(), models.BudgetItem{ID: "out", BudgetCategory: "eating-out", Amount: 50, Frequency: "weekly"}))
+	require.NoError(t, app.store.CreateBudgetItem(t.Context(), models.BudgetItem{ID: "shop", BudgetCategory: "groceries", Amount: 150, Frequency: "weekly"}))
 
 	sendFor := func(method string, handler echo.HandlerFunc, key string, values url.Values) *httptest.ResponseRecorder {
 		t.Helper()
@@ -286,7 +286,7 @@ func TestEditingBudgetCategories(t *testing.T) {
 		assert.Equal(t, http.StatusNoContent, rec.Code, "saved quietly: the page already shows it, and a redraw would take the field away")
 		assert.Empty(t, rec.Body.String())
 
-		setup, err := app.buildSetupData()
+		setup, err := app.buildSetupData(t.Context())
 		require.NoError(t, err)
 		row := rowByKey(t, setup, "groceries")
 		assert.Equal(t, "Food shopping", row.Label)
@@ -309,7 +309,7 @@ func TestEditingBudgetCategories(t *testing.T) {
 		assert.Equal(t, "Kids", kids.Label)
 
 		send(http.MethodPost, "/", app.SettingsAddRule, "", url.Values{"contains": {"Fat Sallys"}, "category": {"new-category"}})
-		setup, err := app.buildSetupData()
+		setup, err := app.buildSetupData(t.Context())
 		require.NoError(t, err)
 		assert.InDelta(t, 30.0/13, rowByKey(t, setup, "new-category").ActualWeekly, 0.001)
 	})
@@ -341,7 +341,7 @@ func TestEditingBudgetCategories(t *testing.T) {
 		send(http.MethodPost, "/", app.SettingsAddRule, "", url.Values{"contains": {"Fat Sallys"}, "category": {"eating-out"}})
 		send(http.MethodDelete, "/", app.SettingsDeleteBudgetCategory, "eating-out", url.Values{"into": {"groceries"}})
 
-		setup, err := app.buildSetupData()
+		setup, err := app.buildSetupData(t.Context())
 		require.NoError(t, err)
 		for _, row := range setup.Rows {
 			assert.NotEqual(t, "eating-out", row.Key)
@@ -349,11 +349,11 @@ func TestEditingBudgetCategories(t *testing.T) {
 		groceries := rowByKey(t, setup, "groceries")
 		assert.InDelta(t, 150, groceries.Target, 0.001, "the target it went into keeps its own, not the deleted one's")
 
-		tx, err := app.store.GetTransaction("cafe")
+		tx, err := app.store.GetTransaction(t.Context(), "cafe")
 		require.NoError(t, err)
 		assert.Equal(t, "new-category", tx.BudgetCategory(), "the first rule still wins")
 
-		settings, err := app.store.GetCategorySettings()
+		settings, err := app.store.GetCategorySettings(t.Context())
 		require.NoError(t, err)
 		assert.Equal(t, "groceries", settings.Rules[1].Target(), "a rule naming the deleted category follows its transactions")
 	})

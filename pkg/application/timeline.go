@@ -933,17 +933,18 @@ func (app *Application) Timeline(c echo.Context) error {
 // renderTimeline reads the view and period from the request, which may be a
 // page load's query string or an action's form, and renders the page.
 func (app *Application) renderTimeline(c echo.Context) error {
+	ctx := c.Request().Context()
 	now := time.Now()
 
-	transactions, err := app.store.ReadTransactions()
+	transactions, err := app.store.ReadTransactions(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	memories, err := app.store.ReadMemories()
+	memories, err := app.store.ReadMemories(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	prefs, err := app.store.GetTimelinePreferences()
+	prefs, err := app.store.GetTimelinePreferences(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -999,7 +1000,8 @@ func (app *Application) TimelineSaveMemory(c echo.Context) error {
 
 // TimelineUpdateMemory renames a memory, or changes its kind or note.
 func (app *Application) TimelineUpdateMemory(c echo.Context) error {
-	memory, err := app.store.GetMemory(c.Param("id"))
+	ctx := c.Request().Context()
+	memory, err := app.store.GetMemory(ctx, c.Param("id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "That memory no longer exists.")
 	}
@@ -1010,7 +1012,7 @@ func (app *Application) TimelineUpdateMemory(c echo.Context) error {
 		memory.Title = title
 	}
 
-	if err := app.store.SaveMemory(memory); err != nil {
+	if err := app.store.SaveMemory(ctx, memory); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return app.renderTimeline(c)
@@ -1020,7 +1022,8 @@ func (app *Application) TimelineUpdateMemory(c echo.Context) error {
 // it to the timeline. Taking out the last one removes the memory, since an
 // empty memory has no date to sit at.
 func (app *Application) TimelineRemoveFromMemory(c echo.Context) error {
-	memory, err := app.store.GetMemory(c.Param("id"))
+	ctx := c.Request().Context()
+	memory, err := app.store.GetMemory(ctx, c.Param("id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "That memory no longer exists.")
 	}
@@ -1029,9 +1032,9 @@ func (app *Application) TimelineRemoveFromMemory(c echo.Context) error {
 	memory.TransactionIDs = slices.DeleteFunc(memory.TransactionIDs, func(id string) bool { return id == tx })
 
 	if len(memory.TransactionIDs) == 0 {
-		err = app.store.DeleteMemory(memory.Id)
+		err = app.store.DeleteMemory(ctx, memory.Id)
 	} else {
-		err = app.store.SaveMemory(memory)
+		err = app.store.SaveMemory(ctx, memory)
 	}
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -1042,7 +1045,8 @@ func (app *Application) TimelineRemoveFromMemory(c echo.Context) error {
 // TimelineDeleteMemory deletes a memory. Its purchases go back on the timeline
 // rather than being lost with it.
 func (app *Application) TimelineDeleteMemory(c echo.Context) error {
-	if err := app.store.DeleteMemory(c.Param("id")); err != nil {
+	ctx := c.Request().Context()
+	if err := app.store.DeleteMemory(ctx, c.Param("id")); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return app.renderTimeline(c)
@@ -1084,12 +1088,13 @@ func (app *Application) TimelineRestore(c echo.Context) error {
 }
 
 func (app *Application) updateTimelinePreferences(c echo.Context, apply func(*models.TimelinePreferences, timelineHideRequest)) error {
+	ctx := c.Request().Context()
 	form, err := c.FormParams()
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	prefs, err := app.store.GetTimelinePreferences()
+	prefs, err := app.store.GetTimelinePreferences(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -1098,7 +1103,7 @@ func (app *Application) updateTimelinePreferences(c echo.Context, apply func(*mo
 		Suggestion:   c.FormValue("suggestion"),
 		Merchant:     c.FormValue("merchant"),
 	})
-	if err := app.store.SaveTimelinePreferences(prefs); err != nil {
+	if err := app.store.SaveTimelinePreferences(ctx, prefs); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return app.renderTimeline(c)

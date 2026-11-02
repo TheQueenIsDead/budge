@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"slices"
@@ -24,8 +25,8 @@ type TransactionMemoryOption struct {
 
 // memoryIndex reads every memory, returning which memory holds each
 // transaction and the memories to offer, newest first.
-func (app *Application) memoryIndex() (map[string]models.Memory, []TransactionMemoryOption, error) {
-	memories, err := app.store.ReadMemories()
+func (app *Application) memoryIndex(ctx context.Context) (map[string]models.Memory, []TransactionMemoryOption, error) {
+	memories, err := app.store.ReadMemories(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -64,9 +65,10 @@ func markMemories(days []TransactionDay, held map[string]models.Memory) {
 // new one built from its title, kind and note when none is named. Anything put
 // into a memory was worth keeping, so it is unhidden from the timeline too.
 func (app *Application) addToMemory(c echo.Context, ids []string) (models.Memory, error) {
+	ctx := c.Request().Context()
 	var memory models.Memory
 	if id := c.FormValue("memory"); id != "" {
-		existing, err := app.store.GetMemory(id)
+		existing, err := app.store.GetMemory(ctx, id)
 		if err != nil {
 			return memory, echo.NewHTTPError(http.StatusNotFound, "That memory no longer exists.")
 		}
@@ -87,18 +89,18 @@ func (app *Application) addToMemory(c echo.Context, ids []string) (models.Memory
 		}
 	}
 
-	if err := app.store.SaveMemory(memory); err != nil {
+	if err := app.store.SaveMemory(ctx, memory); err != nil {
 		return memory, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	prefs, err := app.store.GetTimelinePreferences()
+	prefs, err := app.store.GetTimelinePreferences(ctx)
 	if err != nil {
 		return memory, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	prefs.HiddenTransactions = slices.DeleteFunc(prefs.HiddenTransactions, func(id string) bool {
 		return slices.Contains(ids, id)
 	})
-	if err := app.store.SaveTimelinePreferences(prefs); err != nil {
+	if err := app.store.SaveTimelinePreferences(ctx, prefs); err != nil {
 		return memory, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return memory, nil
@@ -107,8 +109,8 @@ func (app *Application) addToMemory(c echo.Context, ids []string) (models.Memory
 // removeFromMemories takes transactions back out of whichever memories hold
 // them, returning the titles of the memories touched. A memory left empty is
 // removed, as on the timeline, since it has no date to sit at.
-func (app *Application) removeFromMemories(ids []string) ([]string, error) {
-	memories, err := app.store.ReadMemories()
+func (app *Application) removeFromMemories(ctx context.Context, ids []string) ([]string, error) {
+	memories, err := app.store.ReadMemories(ctx)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -125,9 +127,9 @@ func (app *Application) removeFromMemories(ids []string) ([]string, error) {
 		touched = append(touched, memory.Title)
 
 		if len(memory.TransactionIDs) == 0 {
-			err = app.store.DeleteMemory(memory.Id)
+			err = app.store.DeleteMemory(ctx, memory.Id)
 		} else {
-			err = app.store.SaveMemory(memory)
+			err = app.store.SaveMemory(ctx, memory)
 		}
 		if err != nil {
 			return touched, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -147,7 +149,8 @@ var transactionMemoryLayouts = []string{"m", "d"}
 // along out of band. With no layout named, as from the selection bar, all of
 // it is out of band, and the bar is redrawn so it offers any memory just made.
 func (app *Application) renderMemoryControls(c echo.Context, ids []string, used string) error {
-	held, options, err := app.memoryIndex()
+	ctx := c.Request().Context()
+	held, options, err := app.memoryIndex(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -214,12 +217,13 @@ func (app *Application) TransactionAddToMemory(c echo.Context) error {
 
 // TransactionRemoveFromMemory takes one transaction back out of its memory.
 func (app *Application) TransactionRemoveFromMemory(c echo.Context) error {
+	ctx := c.Request().Context()
 	id := c.Param("id")
 	if id == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "Pick a transaction to remove.")
 	}
 
-	touched, err := app.removeFromMemories([]string{id})
+	touched, err := app.removeFromMemories(ctx, []string{id})
 	if err != nil {
 		return err
 	}
@@ -265,12 +269,13 @@ func (app *Application) TransactionsAddToMemory(c echo.Context) error {
 // TransactionsRemoveFromMemory takes every ticked transaction out of whichever
 // memory holds it.
 func (app *Application) TransactionsRemoveFromMemory(c echo.Context) error {
+	ctx := c.Request().Context()
 	ids, err := selectedTransactions(c)
 	if err != nil {
 		return err
 	}
 
-	touched, err := app.removeFromMemories(ids)
+	touched, err := app.removeFromMemories(ctx, ids)
 	if err != nil {
 		return err
 	}

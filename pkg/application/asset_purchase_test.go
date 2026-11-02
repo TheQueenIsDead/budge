@@ -13,7 +13,7 @@ import (
 func TestAssetUpdatePurchase(t *testing.T) {
 	app := newTestApp(t)
 	bought := time.Date(2020, 3, 1, 0, 0, 0, 0, time.UTC)
-	require.NoError(t, app.store.CreateAsset(models.Asset{Id: "car", Name: "Car", PurchasePrice: 1000, PurchaseDate: bought}))
+	require.NoError(t, app.store.CreateAsset(t.Context(), models.Asset{Id: "car", Name: "Car", PurchasePrice: 1000, PurchaseDate: bought}))
 
 	update := func(values url.Values) error {
 		c, _ := postForm(t, app, values)
@@ -25,7 +25,7 @@ func TestAssetUpdatePurchase(t *testing.T) {
 
 	t.Run("a corrected price and date are saved", func(t *testing.T) {
 		require.NoError(t, update(url.Values{"purchase_price": {"18500"}, "purchase_date": {"2021-07-15"}}))
-		asset, err := app.store.GetAsset("car")
+		asset, err := app.store.GetAsset(t.Context(), "car")
 		require.NoError(t, err)
 		assert.InDelta(t, 18500, asset.PurchasePrice, 0.001)
 		assert.Equal(t, "2021-07-15", asset.PurchaseDate.Format("2006-01-02"))
@@ -35,7 +35,7 @@ func TestAssetUpdatePurchase(t *testing.T) {
 	t.Run("a missing price or date is refused and changes nothing", func(t *testing.T) {
 		assert.Error(t, update(url.Values{"purchase_price": {"0"}, "purchase_date": {"2021-07-15"}}))
 		assert.Error(t, update(url.Values{"purchase_price": {"200"}, "purchase_date": {""}}))
-		asset, err := app.store.GetAsset("car")
+		asset, err := app.store.GetAsset(t.Context(), "car")
 		require.NoError(t, err)
 		assert.InDelta(t, 18500, asset.PurchasePrice, 0.001)
 	})

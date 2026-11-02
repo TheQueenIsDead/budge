@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"fmt"
 	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
@@ -49,7 +50,7 @@ func NewStore() (*Store, error) {
 
 	// The category list is read on every transaction, so the owner's is put
 	// in use once here rather than read each time.
-	categories, err := store.GetBudgetCategorySettings()
+	categories, err := store.GetBudgetCategorySettings(context.Background())
 	if err != nil {
 		return nil, err
 	}

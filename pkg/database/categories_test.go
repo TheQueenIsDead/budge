@@ -44,10 +44,10 @@ func TestCategoryRulesApplyOnRead(t *testing.T) {
 	groceries := categorisedTx("groceries", "EFTPOS", "COUNTDOWN", "Countdown")
 	groceries.Category.Name = "Supermarkets and grocery stores"
 	groceries.Category.Groups.PersonalFinance.Name = "Food"
-	require.NoError(t, store.CreateTransaction(akahu))
-	require.NoError(t, store.CreateTransaction(groceries))
+	require.NoError(t, store.CreateTransaction(t.Context(), akahu))
+	require.NoError(t, store.CreateTransaction(t.Context(), groceries))
 
-	require.NoError(t, store.SaveCategorySettings(models.CategorySettings{Rules: []models.CategoryRule{
+	require.NoError(t, store.SaveCategorySettings(t.Context(), models.CategorySettings{Rules: []models.CategoryRule{
 		{ID: "first", Contains: "loan interest", Category: "mortgage"},
 		{ID: "second", Contains: "interest", Category: "charity"},
 	}}))
@@ -60,11 +60,11 @@ func TestCategoryRulesApplyOnRead(t *testing.T) {
 		return m
 	}
 	reads := map[string]func() ([]models.Transaction, error){
-		"all": store.ReadTransactions,
+		"all": func() ([]models.Transaction, error) { return store.ReadTransactions(t.Context()) },
 		"by date": func() ([]models.Transaction, error) {
-			return store.ReadTransactionsByDate(time.Now().AddDate(0, 0, -1), time.Now())
+			return store.ReadTransactionsByDate(t.Context(), time.Now().AddDate(0, 0, -1), time.Now())
 		},
-		"search": func() ([]models.Transaction, error) { return store.SearchTransactions("mortgage", "") },
+		"search": func() ([]models.Transaction, error) { return store.SearchTransactions(t.Context(), "mortgage", "") },
 	}
 	for name, read := range reads {
 		t.Run(name, func(t *testing.T) {
@@ -78,20 +78,20 @@ func TestCategoryRulesApplyOnRead(t *testing.T) {
 		})
 	}
 
-	txs, err := store.ReadTransactions()
+	txs, err := store.ReadTransactions(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "groceries", byID(txs)["groceries"].Filed, "unmatched transactions go where Akahu's category does")
 	assert.Empty(t, byID(txs)["groceries"].FiledBy)
 
 	t.Run("searching finds Akahu's categories too", func(t *testing.T) {
-		txs, err := store.SearchTransactions("supermarkets", "")
+		txs, err := store.SearchTransactions(t.Context(), "supermarkets", "")
 		require.NoError(t, err)
 		assert.Contains(t, byID(txs), "groceries")
 	})
 
 	t.Run("deleting the rules puts Akahu's category back", func(t *testing.T) {
-		require.NoError(t, store.SaveCategorySettings(models.CategorySettings{}))
-		txs, err := store.ReadTransactions()
+		require.NoError(t, store.SaveCategorySettings(t.Context(), models.CategorySettings{}))
+		txs, err := store.ReadTransactions(t.Context())
 		require.NoError(t, err)
 		assert.Equal(t, "loan-interest", byID(txs)["interest"].Filed)
 	})
@@ -122,17 +122,17 @@ func TestRulesFromBeforeBudgeCategories(t *testing.T) {
 
 func TestCategorySettingsMergeOnImport(t *testing.T) {
 	store := tempStore(t)
-	require.NoError(t, store.SaveCategorySettings(models.CategorySettings{
+	require.NoError(t, store.SaveCategorySettings(t.Context(), models.CategorySettings{
 		Categories: []models.CustomCategory{{ID: "c1", Broad: "General", Specific: "Housing"}},
 		Rules:      []models.CategoryRule{{ID: "r1", Contains: "old"}, {ID: "r2", Contains: "keep"}},
 	}))
 
-	require.NoError(t, store.ImportBackup(models.Backup{Categories: &models.CategorySettings{
+	require.NoError(t, store.ImportBackup(t.Context(), models.Backup{Categories: &models.CategorySettings{
 		Categories: []models.CustomCategory{{ID: "c2", Broad: "General", Specific: "Mortgage"}},
 		Rules:      []models.CategoryRule{{ID: "r1", Contains: "new"}, {ID: "r3", Contains: "added"}},
 	}}))
 
-	settings, err := store.GetCategorySettings()
+	settings, err := store.GetCategorySettings(t.Context())
 	require.NoError(t, err)
 	assert.Len(t, settings.Categories, 2)
 	var patterns []string
@@ -439,12 +439,12 @@ func TestBudgetCategoriesAreSavedAndBackedUp(t *testing.T) {
 	require.NoError(t, err)
 	edited, err = edited.DeleteBudgetCategory("parking", "")
 	require.NoError(t, err)
-	require.NoError(t, store.SaveBudgetCategorySettings(edited))
+	require.NoError(t, store.SaveBudgetCategorySettings(t.Context(), edited))
 
 	groceries, _ := models.BudgetCategoryByKey("groceries")
 	assert.Equal(t, "Food shopping", groceries.Label, "a save is in use straight away")
 
-	backup, err := store.ExportBackup()
+	backup, err := store.ExportBackup(t.Context())
 	require.NoError(t, err)
 	require.NotNil(t, backup.BudgetCategories)
 
@@ -453,12 +453,12 @@ func TestBudgetCategoriesAreSavedAndBackedUp(t *testing.T) {
 	groceries, _ = models.BudgetCategoryByKey("groceries")
 	require.Equal(t, "Groceries", groceries.Label, "a new instance starts with budge's own")
 
-	require.NoError(t, other.ImportBackup(backup))
+	require.NoError(t, other.ImportBackup(t.Context(), backup))
 	groceries, _ = models.BudgetCategoryByKey("groceries")
 	assert.Equal(t, "Food shopping", groceries.Label, "an import brings the list and puts it in use")
 	assert.Equal(t, "transport", models.ResolveBudgetCategory("parking"))
 
-	saved, err := other.GetBudgetCategorySettings()
+	saved, err := other.GetBudgetCategorySettings(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "transport", saved.Merged["parking"])
 }
@@ -467,9 +467,9 @@ func TestUnreadableCategorySettingsAreAnError(t *testing.T) {
 	useDefaultCategories(t)
 	store := tempStore(t)
 
-	_, err := store.GetBudgetCategorySettings()
+	_, err := store.GetBudgetCategorySettings(t.Context())
 	assert.NoError(t, err, "nothing saved yet is budge's own list, not an error")
-	_, err = store.GetCategorySettings()
+	_, err = store.GetCategorySettings(t.Context())
 	assert.NoError(t, err)
 
 	require.NoError(t, store.db.Update(func(tx *bolt.Tx) error {
@@ -479,24 +479,24 @@ func TestUnreadableCategorySettingsAreAnError(t *testing.T) {
 			b.Put(models.CategorySettings{}.Key(), []byte("{not json")),
 		)
 	}))
-	_, err = store.GetBudgetCategorySettings()
+	_, err = store.GetBudgetCategorySettings(t.Context())
 	assert.Error(t, err, "a saved list that cannot be read is not quietly replaced by the default, for the next edit to save over")
-	_, err = store.GetCategorySettings()
+	_, err = store.GetCategorySettings(t.Context())
 	assert.Error(t, err)
 }
 
 func TestUnreadableSettingsAreAnError(t *testing.T) {
 	store := tempStore(t)
 
-	salary, err := store.GetBudgetSalary()
+	salary, err := store.GetBudgetSalary(t.Context())
 	require.NoError(t, err, "nothing saved is the usual starting point")
 	assert.Equal(t, "yearly", salary.SalaryFrequency)
-	schedule, err := store.GetScheduleSettings()
+	schedule, err := store.GetScheduleSettings(t.Context())
 	require.NoError(t, err)
 	assert.False(t, schedule.AkahuEnabled, "nothing saved is off")
-	_, err = store.GetTimelinePreferences()
+	_, err = store.GetTimelinePreferences(t.Context())
 	require.NoError(t, err)
-	backup, err := store.ExportBackup()
+	backup, err := store.ExportBackup(t.Context())
 	require.NoError(t, err)
 	assert.Nil(t, backup.BudgetSalary, "a setting never saved is left out of a backup")
 
@@ -505,12 +505,12 @@ func TestUnreadableSettingsAreAnError(t *testing.T) {
 			return tx.Bucket(models.BudgetSalary{}.Bucket()).Put(key, []byte("{not json"))
 		}))
 	}
-	_, err = store.GetBudgetSalary()
+	_, err = store.GetBudgetSalary(t.Context())
 	assert.Error(t, err, "settings that cannot be read are not quietly replaced, for the next change to save over")
-	_, err = store.GetScheduleSettings()
+	_, err = store.GetScheduleSettings(t.Context())
 	assert.Error(t, err)
-	_, err = store.GetTimelinePreferences()
+	_, err = store.GetTimelinePreferences(t.Context())
 	assert.Error(t, err)
-	_, err = store.ExportBackup()
+	_, err = store.ExportBackup(t.Context())
 	assert.Error(t, err, "nor left out of a backup without a word")
 }

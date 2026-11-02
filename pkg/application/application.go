@@ -22,6 +22,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/text/cases"
@@ -106,6 +107,12 @@ func templateFuncs() template.FuncMap {
 			return string(encoded), err
 		},
 	}
+}
+
+// tracer starts the spans budge makes itself, for work that is not a request.
+// It is fetched each time, so it follows telemetry being set up again.
+func tracer() trace.Tracer {
+	return otel.Tracer("github.com/TheQueenIsDead/budge/pkg/application")
 }
 
 type Application struct {

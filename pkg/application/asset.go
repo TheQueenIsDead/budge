@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"log/slog"
 	"math"
 	"net/http"
@@ -253,8 +254,8 @@ func parseAssetAmount(raw string) float64 {
 }
 
 // buildAssetSummaries loads every asset, annotated and ordered by value.
-func (app *Application) buildAssetSummaries() ([]AssetSummary, error) {
-	assets, err := app.store.ReadAssets()
+func (app *Application) buildAssetSummaries(ctx context.Context) ([]AssetSummary, error) {
+	assets, err := app.store.ReadAssets(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -275,6 +276,7 @@ func (app *Application) buildAssetSummaries() ([]AssetSummary, error) {
 }
 
 func (app *Application) AssetCreate(c echo.Context) error {
+	ctx := c.Request().Context()
 
 	name := strings.TrimSpace(c.FormValue("name"))
 	if name == "" {
@@ -315,7 +317,7 @@ func (app *Application) AssetCreate(c echo.Context) error {
 		HomesPropertyID: strings.TrimSpace(c.FormValue("homes_property_id")),
 	}
 
-	if err := app.store.CreateAsset(asset); err != nil {
+	if err := app.store.CreateAsset(ctx, asset); err != nil {
 		app.Toast(c, "Error", "Could not save the asset.")
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -324,8 +326,9 @@ func (app *Application) AssetCreate(c echo.Context) error {
 }
 
 func (app *Application) Asset(c echo.Context) error {
+	ctx := c.Request().Context()
 
-	asset, err := app.store.GetAsset(c.Param("id"))
+	asset, err := app.store.GetAsset(ctx, c.Param("id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "asset not found")
 	}
@@ -346,6 +349,7 @@ func (app *Application) Asset(c echo.Context) error {
 }
 
 func (app *Application) AssetAddValuation(c echo.Context) error {
+	ctx := c.Request().Context()
 
 	id := c.Param("id")
 	value := parseAssetAmount(c.FormValue("value"))
@@ -361,7 +365,7 @@ func (app *Application) AssetAddValuation(c echo.Context) error {
 		Note:  strings.TrimSpace(c.FormValue("note")),
 	}
 
-	if err := app.store.AddAssetValuation(id, valuation); err != nil {
+	if err := app.store.AddAssetValuation(ctx, id, valuation); err != nil {
 		app.Toast(c, "Error", "Could not save the valuation.")
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -373,7 +377,8 @@ func (app *Application) AssetAddValuation(c echo.Context) error {
 // held to the same rules as when it was added, since every gain is measured
 // against them.
 func (app *Application) AssetUpdatePurchase(c echo.Context) error {
-	asset, err := app.store.GetAsset(c.Param("id"))
+	ctx := c.Request().Context()
+	asset, err := app.store.GetAsset(ctx, c.Param("id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "asset not found")
 	}
@@ -391,7 +396,7 @@ func (app *Application) AssetUpdatePurchase(c echo.Context) error {
 
 	asset.PurchasePrice = price
 	asset.PurchaseDate = purchased
-	if err := app.store.UpdateAsset(asset); err != nil {
+	if err := app.store.UpdateAsset(ctx, asset); err != nil {
 		app.Toast(c, "Error", "Could not save the purchase.")
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -399,7 +404,8 @@ func (app *Application) AssetUpdatePurchase(c echo.Context) error {
 }
 
 func (app *Application) AssetDeleteValuation(c echo.Context) error {
-	if err := app.store.DeleteAssetValuation(c.Param("id"), c.Param("valuationId")); err != nil {
+	ctx := c.Request().Context()
+	if err := app.store.DeleteAssetValuation(ctx, c.Param("id"), c.Param("valuationId")); err != nil {
 		app.Toast(c, "Error", "Could not remove the valuation.")
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -407,7 +413,8 @@ func (app *Application) AssetDeleteValuation(c echo.Context) error {
 }
 
 func (app *Application) AssetDelete(c echo.Context) error {
-	if err := app.store.DeleteAsset(c.Param("id")); err != nil {
+	ctx := c.Request().Context()
+	if err := app.store.DeleteAsset(ctx, c.Param("id")); err != nil {
 		app.Toast(c, "Error", "Could not remove the asset.")
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -439,9 +446,10 @@ func (app *Application) AddressSuggest(c echo.Context) error {
 // and records the average as a valuation. Sources that do not answer narrow the
 // average rather than failing the request, and nothing is recorded if none do.
 func (app *Application) AssetRefreshEstimate(c echo.Context) error {
+	ctx := c.Request().Context()
 
 	id := c.Param("id")
-	asset, err := app.store.GetAsset(id)
+	asset, err := app.store.GetAsset(ctx, id)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "asset not found")
 	}
@@ -469,7 +477,7 @@ func (app *Application) AssetRefreshEstimate(c echo.Context) error {
 		Note:  strings.Join(sources, " · "),
 	}
 
-	if err := app.store.AddAssetValuation(id, valuation); err != nil {
+	if err := app.store.AddAssetValuation(ctx, id, valuation); err != nil {
 		app.Toast(c, "Error", "Could not save the estimate.")
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

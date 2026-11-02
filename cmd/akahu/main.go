@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/TheQueenIsDead/budge/pkg/integrations/akahu"
 	log "github.com/sirupsen/logrus"
@@ -21,13 +22,13 @@ func main() {
 		akahu.WithUserToken(userToken),
 	)
 
-	me, err := client.Me()
+	me, err := client.Me(context.Background())
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println(me)
 
-	accounts, err := client.GetAccounts()
+	accounts, err := client.GetAccounts(context.Background())
 	if err != nil {
 		panic(err)
 	}

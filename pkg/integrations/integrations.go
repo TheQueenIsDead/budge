@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"context"
 	"log/slog"
 	"math"
 	"os"
@@ -40,13 +41,14 @@ func NewIntegrations(store *database.Store) *Integrations {
 }
 
 func (i *Integrations) RegisterAkahu() {
+	ctx := context.Background()
 
-	settings, err := i.store.GetAkahuSettings()
+	settings, err := i.store.GetAkahuSettings(ctx)
 	if err != nil {
 		slog.Warn("could not read the akahu settings, falling back to the environment", "error", err)
 		settings.UserToken = os.Getenv("AKAHU_USER_TOKEN")
 		settings.AppToken = os.Getenv("AKAHU_APP_TOKEN")
-		_ = i.store.UpdateAkahuSettings(settings)
+		_ = i.store.UpdateAkahuSettings(ctx, settings)
 	}
 	i.akahu = akahu.NewClient(
 		akahu.WithUserToken(settings.UserToken),
@@ -66,9 +68,9 @@ func (i *Integrations) Config() map[string]interface{} {
 // whole history. progress, which may be nil, is told how many transactions have
 // been fetched as each page arrives. It returns how fresh Akahu's data is now,
 // for the next sync to start from.
-func (i *Integrations) SyncAkahu(dataThrough time.Time, progress func(fetched int)) (time.Time, error) {
+func (i *Integrations) SyncAkahu(ctx context.Context, dataThrough time.Time, progress func(fetched int)) (time.Time, error) {
 
-	accounts, err := i.AkahuAccounts()
+	accounts, err := i.AkahuAccounts(ctx)
 	if err != nil {
 		slog.Error("akahu sync failed", "error", err)
 		return dataThrough, err
@@ -78,7 +80,7 @@ func (i *Integrations) SyncAkahu(dataThrough time.Time, progress func(fetched in
 	if !since.IsZero() {
 		since = since.AddDate(0, 0, -syncOverlapDays)
 	}
-	transactions, err := i.akahu.GetTransactions(since, true, progress)
+	transactions, err := i.akahu.GetTransactions(ctx, since, true, progress)
 	if err != nil {
 		slog.Error("akahu sync failed", "error", err)
 		return dataThrough, err
@@ -133,7 +135,7 @@ func (i *Integrations) SyncAkahu(dataThrough time.Time, progress func(fetched in
 
 	}
 
-	if err := i.store.SaveSynced(saved, txs, merchants); err != nil {
+	if err := i.store.SaveSynced(ctx, saved, txs, merchants); err != nil {
 		slog.Error("akahu sync failed", "error", err)
 		return dataThrough, err
 	}
@@ -231,8 +233,8 @@ func identifyTransfers(transactions []akahu.Transaction) map[string]bool {
 
 }
 
-func (i *Integrations) PutAkahuSettings(settings models.IntegrationAkahuSettings) error {
-	err := i.store.UpdateAkahuSettings(settings)
+func (i *Integrations) PutAkahuSettings(ctx context.Context, settings models.IntegrationAkahuSettings) error {
+	err := i.store.UpdateAkahuSettings(ctx, settings)
 	if err != nil {
 		return err
 	}
@@ -241,8 +243,8 @@ func (i *Integrations) PutAkahuSettings(settings models.IntegrationAkahuSettings
 	return nil
 }
 
-func (i *Integrations) AkahuAccounts() ([]akahu.Account, error) {
-	return i.akahu.GetAccounts()
+func (i *Integrations) AkahuAccounts(ctx context.Context) ([]akahu.Account, error) {
+	return i.akahu.GetAccounts(ctx)
 }
 
 // fromAkahu copies a transaction as Akahu sent it. The model also carries the

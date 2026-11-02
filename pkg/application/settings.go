@@ -37,25 +37,26 @@ func buildScheduleView(schedule models.ScheduleSettings) ScheduleView {
 }
 
 func (app *Application) Settings(c echo.Context) error {
-	accounts, err := app.store.ReadAccounts()
+	ctx := c.Request().Context()
+	accounts, err := app.store.ReadAccounts(ctx)
 	if err != nil {
 		app.Toast(c, "Error", "Could not read accounts.")
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	akahuConfig, err := app.store.GetAkahuSettings()
+	akahuConfig, err := app.store.GetAkahuSettings(ctx)
 	if err != nil {
 		app.Toast(c, "Error", "Could not get Akahu settings.")
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	schedule, err := app.store.GetScheduleSettings()
+	schedule, err := app.store.GetScheduleSettings(ctx)
 	if err != nil {
 		app.Toast(c, "Error", "Could not read the schedule.")
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	categories, err := app.buildCategoriesView("")
+	categories, err := app.buildCategoriesView(ctx, "")
 	if err != nil {
 		app.Toast(c, "Error", "Could not read category rules.")
 		return c.NoContent(http.StatusInternalServerError)
@@ -66,26 +67,28 @@ func (app *Application) Settings(c echo.Context) error {
 		"categories":     categories,
 		"akahuAppToken":  akahuConfig.AppToken,
 		"akahuUserToken": akahuConfig.UserToken,
-		"sync":           app.syncStatus(),
+		"sync":           app.syncStatus(ctx),
 		"schedule":       buildScheduleView(schedule),
 	})
 }
 
 func (app *Application) SettingsDeleteSynced(c echo.Context) error {
+	ctx := c.Request().Context()
 
-	err := app.store.DeleteSynced()
+	err := app.store.DeleteSynced(ctx)
 	if err != nil {
 		return err
 	}
-	_ = app.store.ResetAkahuLastSync()
+	_ = app.store.ResetAkahuLastSync(ctx)
 
 	app.Toast(c, "Success", "All synced data removed.")
 	return nil
 }
 
 func (app *Application) PutAkahuSettings(c echo.Context) error {
+	ctx := c.Request().Context()
 
-	settings, err := app.store.GetAkahuSettings()
+	settings, err := app.store.GetAkahuSettings(ctx)
 	if err != nil {
 		return err
 	}
@@ -96,7 +99,7 @@ func (app *Application) PutAkahuSettings(c echo.Context) error {
 		return err
 	}
 
-	err = app.integrations.PutAkahuSettings(settings)
+	err = app.integrations.PutAkahuSettings(ctx, settings)
 	if err != nil {
 		return err
 	}
@@ -108,8 +111,9 @@ func (app *Application) PutAkahuSettings(c echo.Context) error {
 // carried across rather than reset, so changing a cadence does not fire a job
 // immediately as a side effect of saving.
 func (app *Application) SettingsSaveSchedule(c echo.Context) error {
+	ctx := c.Request().Context()
 
-	schedule, err := app.store.GetScheduleSettings()
+	schedule, err := app.store.GetScheduleSettings(ctx)
 	if err != nil {
 		app.Toast(c, "Error", "Could not read the schedule.")
 		return c.NoContent(http.StatusInternalServerError)
@@ -122,7 +126,7 @@ func (app *Application) SettingsSaveSchedule(c echo.Context) error {
 	schedule.AssetsInterval = models.ResolveInterval(
 		models.AssetIntervals, c.FormValue("assets_interval"), schedule.AssetsEvery()).Key
 
-	if err := app.store.SaveScheduleSettings(schedule); err != nil {
+	if err := app.store.SaveScheduleSettings(ctx, schedule); err != nil {
 		app.Toast(c, "Error", "Could not save the schedule.")
 		return c.NoContent(http.StatusInternalServerError)
 	}

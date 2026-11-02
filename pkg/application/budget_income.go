@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"net/http"
@@ -69,7 +70,8 @@ type BudgetSummary struct {
 
 // BudgetCards returns the summary cards (income / expenses / savings).
 func (app *Application) BudgetCards(c echo.Context) error {
-	data, err := app.buildBudgetCards()
+	ctx := c.Request().Context()
+	data, err := app.buildBudgetCards(ctx)
 	if err != nil {
 		return err
 	}
@@ -79,19 +81,20 @@ func (app *Application) BudgetCards(c echo.Context) error {
 // BudgetAllocation returns the bar showing how much of take-home pay the
 // targets claim.
 func (app *Application) BudgetAllocation(c echo.Context) error {
-	data, err := app.buildBudgetCards()
+	ctx := c.Request().Context()
+	data, err := app.buildBudgetCards(ctx)
 	if err != nil {
 		return err
 	}
 	return c.Render(http.StatusOK, "budget.allocation", data)
 }
 
-func (app *Application) buildBudgetCards() (BudgetCardsData, error) {
-	salary, err := app.store.GetBudgetSalary()
+func (app *Application) buildBudgetCards(ctx context.Context) (BudgetCardsData, error) {
+	salary, err := app.store.GetBudgetSalary(ctx)
 	if err != nil {
 		return BudgetCardsData{}, err
 	}
-	items, err := app.store.ReadBudgetItems()
+	items, err := app.store.ReadBudgetItems(ctx)
 	if err != nil {
 		return BudgetCardsData{}, err
 	}
@@ -117,25 +120,27 @@ func (app *Application) buildBudgetCards() (BudgetCardsData, error) {
 
 // BudgetSaveSavingsGoal persists the weekly savings goal.
 func (app *Application) BudgetSaveSavingsGoal(c echo.Context) error {
+	ctx := c.Request().Context()
 	goal, _ := strconv.ParseFloat(c.FormValue("savings_goal"), 64)
 	freq := c.FormValue("savings_goal_frequency")
 	if freq == "" {
 		freq = "weekly"
 	}
-	existing, err := app.store.GetBudgetSalary()
+	existing, err := app.store.GetBudgetSalary(ctx)
 	if err != nil {
 		return err
 	}
 	existing.SavingsGoal = goal
 	existing.SavingsGoalFrequency = freq
-	return app.store.SaveBudgetSalary(existing)
+	return app.store.SaveBudgetSalary(ctx, existing)
 }
 
 // BudgetSaveSalary persists salary config (called on field change, hx-swap="none").
 func (app *Application) BudgetSaveSalary(c echo.Context) error {
+	ctx := c.Request().Context()
 	salary, _ := strconv.ParseFloat(c.FormValue("salary"), 64)
 	kiwiSaverRate, _ := strconv.ParseFloat(c.FormValue("kiwisaver_rate"), 64)
-	existing, err := app.store.GetBudgetSalary()
+	existing, err := app.store.GetBudgetSalary(ctx)
 	if err != nil {
 		return err
 	}
@@ -146,12 +151,13 @@ func (app *Application) BudgetSaveSalary(c echo.Context) error {
 	existing.IncludePAYE = c.FormValue("include_paye") == "on"
 	existing.KiwiSaverRate = kiwiSaverRate
 	existing.StudentLoan = c.FormValue("student_loan") == "on"
-	return app.store.SaveBudgetSalary(existing)
+	return app.store.SaveBudgetSalary(ctx, existing)
 }
 
 // BudgetSummary reads saved state and returns calculated summary HTML.
 func (app *Application) BudgetSummary(c echo.Context) error {
-	salary, err := app.store.GetBudgetSalary()
+	ctx := c.Request().Context()
+	salary, err := app.store.GetBudgetSalary(ctx)
 	if err != nil {
 		return err
 	}
@@ -182,7 +188,8 @@ func buildIncomeTile(salary models.BudgetSalary) IncomeTileData {
 // BudgetIncome is the page for configuring income, kept off the budget page
 // because it is set once and rarely revisited.
 func (app *Application) BudgetIncome(c echo.Context) error {
-	salary, err := app.store.GetBudgetSalary()
+	ctx := c.Request().Context()
+	salary, err := app.store.GetBudgetSalary(ctx)
 	if err != nil {
 		app.Toast(c, "Error", "Could not load salary config.")
 		return c.NoContent(http.StatusInternalServerError)

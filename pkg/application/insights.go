@@ -27,10 +27,11 @@ type InsightsData struct {
 const insightsHistory = 14
 
 func (app *Application) Insights(c echo.Context) error {
+	ctx := c.Request().Context()
 
 	now := time.Now()
 
-	transactions, err := app.store.ReadTransactionsByDate(now.AddDate(0, -insightsHistory, 0), now)
+	transactions, err := app.store.ReadTransactionsByDate(ctx, now.AddDate(0, -insightsHistory, 0), now)
 	transactions = spendingOnly(transactions)
 	if err != nil {
 		app.Toast(c, "Error", "Could not load spending insights.")

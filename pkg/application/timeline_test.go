@@ -315,7 +315,7 @@ func TestRenderTimeline(t *testing.T) {
 func TestTimelineHandlers(t *testing.T) {
 	app := newTestApp(t)
 	for _, tx := range append(ordinaryYear(), purchase("couch", "Furniture Co", 1400, time.March, 14), purchase("rug", "Rug Shop", 400, time.March, 15)) {
-		require.NoError(t, app.store.CreateTransaction(tx))
+		require.NoError(t, app.store.CreateTransaction(t.Context(), tx))
 	}
 
 	t.Run("grouping purchases saves a memory", func(t *testing.T) {
@@ -323,7 +323,7 @@ func TestTimelineHandlers(t *testing.T) {
 		require.NoError(t, app.TimelineSaveMemory(c))
 		assert.Contains(t, rec.Body.String(), "New lounge")
 
-		memories, err := app.store.ReadMemories()
+		memories, err := app.store.ReadMemories(t.Context())
 		require.NoError(t, err)
 		require.Len(t, memories, 1)
 		assert.Equal(t, []string{"couch", "rug"}, memories[0].TransactionIDs)
@@ -334,7 +334,7 @@ func TestTimelineHandlers(t *testing.T) {
 		c, _ := postForm(t, app, url.Values{"tx": {"rug"}, "title": {"Rug"}})
 		require.NoError(t, app.TimelineSaveMemory(c))
 
-		memories, err := app.store.ReadMemories()
+		memories, err := app.store.ReadMemories(t.Context())
 		require.NoError(t, err)
 		require.Len(t, memories, 2)
 		for _, memory := range memories {
@@ -352,13 +352,13 @@ func TestTimelineHandlers(t *testing.T) {
 	t.Run("hiding and restoring round trips", func(t *testing.T) {
 		c, _ := postForm(t, app, url.Values{"tx": {"couch"}})
 		require.NoError(t, app.TimelineHide(c))
-		prefs, err := app.store.GetTimelinePreferences()
+		prefs, err := app.store.GetTimelinePreferences(t.Context())
 		require.NoError(t, err)
 		assert.Equal(t, []string{"couch"}, prefs.HiddenTransactions)
 
 		c, _ = postForm(t, app, url.Values{"tx": {"couch"}})
 		require.NoError(t, app.TimelineRestore(c))
-		prefs, err = app.store.GetTimelinePreferences()
+		prefs, err = app.store.GetTimelinePreferences(t.Context())
 		require.NoError(t, err)
 		assert.Empty(t, prefs.HiddenTransactions)
 	})
@@ -579,12 +579,12 @@ func TestTimelineMemoryEditing(t *testing.T) {
 		purchase("hotel", "Hotel", 900, time.March, 10),
 		purchase("tour", "Tours", 300, time.March, 11),
 	) {
-		require.NoError(t, app.store.CreateTransaction(tx))
+		require.NoError(t, app.store.CreateTransaction(t.Context(), tx))
 	}
 
 	c, _ := postForm(t, app, url.Values{"tx": {"flights"}, "title": {"Japan"}, "kind": {"trip"}})
 	require.NoError(t, app.TimelineSaveMemory(c))
-	memories, err := app.store.ReadMemories()
+	memories, err := app.store.ReadMemories(t.Context())
 	require.NoError(t, err)
 	require.Len(t, memories, 1)
 	id := memories[0].Id
@@ -593,7 +593,7 @@ func TestTimelineMemoryEditing(t *testing.T) {
 		c, _ := postForm(t, app, url.Values{"tx": {"hotel", "tour"}, "memory": {id}, "title": {"ignored"}})
 		require.NoError(t, app.TimelineSaveMemory(c))
 
-		memory, err := app.store.GetMemory(id)
+		memory, err := app.store.GetMemory(t.Context(), id)
 		require.NoError(t, err)
 		assert.Equal(t, []string{"flights", "hotel", "tour"}, memory.TransactionIDs)
 		assert.Equal(t, "Japan", memory.Title, "adding does not rename")
@@ -605,7 +605,7 @@ func TestTimelineMemoryEditing(t *testing.T) {
 		c.SetParamValues(id)
 		require.NoError(t, app.TimelineUpdateMemory(c))
 
-		memory, err := app.store.GetMemory(id)
+		memory, err := app.store.GetMemory(t.Context(), id)
 		require.NoError(t, err)
 		assert.Equal(t, "Japan 2026", memory.Title)
 		assert.Equal(t, "experience", memory.Kind)
@@ -622,13 +622,13 @@ func TestTimelineMemoryEditing(t *testing.T) {
 		}
 
 		remove("hotel")
-		memory, err := app.store.GetMemory(id)
+		memory, err := app.store.GetMemory(t.Context(), id)
 		require.NoError(t, err)
 		assert.Equal(t, []string{"flights", "tour"}, memory.TransactionIDs)
 
 		remove("flights")
 		remove("tour")
-		memories, err := app.store.ReadMemories()
+		memories, err := app.store.ReadMemories(t.Context())
 		require.NoError(t, err)
 		assert.Empty(t, memories)
 	})

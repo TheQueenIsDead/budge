@@ -60,7 +60,7 @@ func TestBudgetSaveSalaryPreservesSavingsGoal(t *testing.T) {
 	})
 	require.NoError(t, app.BudgetSaveSavingsGoal(goalCtx))
 
-	saved, err := app.store.GetBudgetSalary()
+	saved, err := app.store.GetBudgetSalary(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, 250.0, saved.SavingsGoal)
 
@@ -73,7 +73,7 @@ func TestBudgetSaveSalaryPreservesSavingsGoal(t *testing.T) {
 	})
 	require.NoError(t, app.BudgetSaveSalary(salaryCtx))
 
-	after, err := app.store.GetBudgetSalary()
+	after, err := app.store.GetBudgetSalary(t.Context())
 	require.NoError(t, err)
 
 	assert.Equal(t, 250.0, after.SavingsGoal, "savings goal must survive an income edit")
@@ -101,7 +101,7 @@ func TestBudgetSaveSavingsGoalPreservesSalary(t *testing.T) {
 	goalCtx, _ := postForm(t, app, url.Values{"savings_goal": {"100"}})
 	require.NoError(t, app.BudgetSaveSavingsGoal(goalCtx))
 
-	after, err := app.store.GetBudgetSalary()
+	after, err := app.store.GetBudgetSalary(t.Context())
 	require.NoError(t, err)
 
 	assert.Equal(t, 85_000.0, after.Salary, "salary must survive a savings goal edit")
@@ -113,7 +113,7 @@ func TestBudgetSaveSavingsGoalPreservesSalary(t *testing.T) {
 func TestGetBudgetSalaryDefaults(t *testing.T) {
 	app := newTestApp(t)
 
-	salary, err := app.store.GetBudgetSalary()
+	salary, err := app.store.GetBudgetSalary(t.Context())
 	require.NoError(t, err)
 
 	assert.Equal(t, "yearly", salary.SalaryFrequency)

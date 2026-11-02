@@ -1,9 +1,9 @@
 package application
 
 import (
-	"log/slog"
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"strings"
 	"sync"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/TheQueenIsDead/budge/pkg/integrations/property"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // schedulerTick is how often the scheduler wakes to see whether anything is due.
@@ -82,7 +83,7 @@ func (s *scheduler) runDue(ctx context.Context) {
 	s.running.Lock()
 	defer s.running.Unlock()
 
-	schedule, err := s.app.store.GetScheduleSettings()
+	schedule, err := s.app.store.GetScheduleSettings(ctx)
 	if err != nil {
 		slog.Error("scheduler could not read its settings", "error", err)
 		return
@@ -91,11 +92,11 @@ func (s *scheduler) runDue(ctx context.Context) {
 	now := time.Now()
 
 	if schedule.AkahuEnabled && models.Due(schedule.AkahuLastRun, schedule.AkahuEvery().Every, now) {
-		s.runAkahu()
+		s.runAkahu(ctx)
 	}
 
 	// Re-read: the Akahu run above has written to the same record.
-	if schedule, err = s.app.store.GetScheduleSettings(); err != nil {
+	if schedule, err = s.app.store.GetScheduleSettings(ctx); err != nil {
 		slog.Error("scheduler could not read its settings", "error", err)
 		return
 	}
@@ -108,8 +109,8 @@ func (s *scheduler) runDue(ctx context.Context) {
 // markRun records that a job has run, whether or not it succeeded. A job that
 // fails every time should still back off to its cadence rather than retry on
 // every tick.
-func (s *scheduler) markRun(job string, at time.Time) {
-	schedule, err := s.app.store.GetScheduleSettings()
+func (s *scheduler) markRun(ctx context.Context, job string, at time.Time) {
+	schedule, err := s.app.store.GetScheduleSettings(ctx)
 	if err != nil {
 		slog.Error("scheduler could not record a run", "error", err)
 		return
@@ -120,24 +121,26 @@ func (s *scheduler) markRun(job string, at time.Time) {
 	case "assets":
 		schedule.AssetsLastRun = at
 	}
-	if err := s.app.store.SaveScheduleSettings(schedule); err != nil {
+	if err := s.app.store.SaveScheduleSettings(ctx, schedule); err != nil {
 		slog.Error("scheduler could not record a run", "error", err)
 	}
 }
 
 // runAkahu pulls accounts and transactions. Success is silent: a notification
 // every hour saying nothing happened would bury the one that matters.
-func (s *scheduler) runAkahu() {
-	defer s.markRun("akahu", time.Now())
+func (s *scheduler) runAkahu(ctx context.Context) {
+	ctx, span := tracer().Start(ctx, "scheduled akahu sync", trace.WithNewRoot())
+	defer span.End()
+	defer s.markRun(ctx, "akahu", time.Now())
 
-	settings, err := s.app.store.GetAkahuSettings()
+	settings, err := s.app.store.GetAkahuSettings(ctx)
 	if err != nil {
-		s.app.Notify(models.NotificationError, SourceAkahuSync,
+		s.app.Notify(ctx, models.NotificationError, SourceAkahuSync,
 			"Scheduled sync could not start", "Akahu settings could not be read.")
 		return
 	}
 	if err := settings.Validate(); err != nil {
-		s.app.Notify(models.NotificationError, SourceAkahuSync,
+		s.app.Notify(ctx, models.NotificationError, SourceAkahuSync,
 			"Scheduled sync skipped", "Akahu is not configured: "+err.Error())
 		return
 	}
@@ -147,8 +150,8 @@ func (s *scheduler) runAkahu() {
 	if !s.app.akahuSync.begin() {
 		return
 	}
-	if err := s.app.runAkahuSync(); err != nil {
-		s.app.Notify(models.NotificationError, SourceAkahuSync,
+	if err := s.app.runAkahuSync(ctx); err != nil {
+		s.app.Notify(ctx, models.NotificationError, SourceAkahuSync,
 			"Scheduled sync failed", err.Error())
 	}
 }
@@ -156,11 +159,13 @@ func (s *scheduler) runAkahu() {
 // runAssets refreshes every asset that has a valuation source, and reports the
 // ones whose value moved. A property estimate that has not changed is not news.
 func (s *scheduler) runAssets(ctx context.Context) {
-	defer s.markRun("assets", time.Now())
+	ctx, span := tracer().Start(ctx, "scheduled asset estimates", trace.WithNewRoot())
+	defer span.End()
+	defer s.markRun(ctx, "assets", time.Now())
 
-	assets, err := s.app.store.ReadAssets()
+	assets, err := s.app.store.ReadAssets(ctx)
 	if err != nil {
-		s.app.Notify(models.NotificationError, SourceAssetEstimates,
+		s.app.Notify(ctx, models.NotificationError, SourceAssetEstimates,
 			"Estimate refresh failed", "Assets could not be read.")
 		return
 	}
@@ -188,7 +193,7 @@ func (s *scheduler) refreshAsset(ctx context.Context, client *property.Client, a
 
 	result := client.Estimate(ctx, asset.HomesPropertyID)
 	if len(result.Estimates) == 0 {
-		s.app.Notify(models.NotificationWarning, SourceAssetEstimates,
+		s.app.Notify(ctx, models.NotificationWarning, SourceAssetEstimates,
 			"No estimate for "+asset.Name,
 			"No source answered. Nothing was recorded.")
 		return
@@ -205,8 +210,8 @@ func (s *scheduler) refreshAsset(ctx context.Context, client *property.Client, a
 		Value: result.Average,
 		Note:  joinSources(sources),
 	}
-	if err := s.app.store.AddAssetValuation(asset.Id, valuation); err != nil {
-		s.app.Notify(models.NotificationError, SourceAssetEstimates,
+	if err := s.app.store.AddAssetValuation(ctx, asset.Id, valuation); err != nil {
+		s.app.Notify(ctx, models.NotificationError, SourceAssetEstimates,
 			"Could not record an estimate for "+asset.Name, err.Error())
 		return
 	}
@@ -217,7 +222,7 @@ func (s *scheduler) refreshAsset(ctx context.Context, client *property.Client, a
 		return
 	}
 
-	s.app.Notify(models.NotificationInfo, SourceAssetEstimates,
+	s.app.Notify(ctx, models.NotificationInfo, SourceAssetEstimates,
 		asset.Name+" has been revalued",
 		describeMove(previous, result.Average, sources))
 }

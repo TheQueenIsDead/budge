@@ -30,7 +30,7 @@ func TestCategorisingOneTransaction(t *testing.T) {
 		spendTx("cylinder-2", "PAYMENT", "", "", "", "PAY The Cylinder Guy Limited", -80, recent),
 		spendTx("plumber", "EFTPOS", "Household", "Plumbing and gasfitting supplies and services", "Plumbing World", "", -40, recent),
 	} {
-		require.NoError(t, app.store.CreateTransaction(tx))
+		require.NoError(t, app.store.CreateTransaction(t.Context(), tx))
 	}
 
 	t.Run("the form says where the category came from", func(t *testing.T) {
@@ -50,13 +50,13 @@ func TestCategorisingOneTransaction(t *testing.T) {
 		assert.Contains(t, rec.Body.String(), `id="txcats-d-cylinder" hx-swap-oob="true"`, "the row's badges update in place")
 		assert.Contains(t, rec.Body.String(), "Trades &amp; repairs")
 
-		tx, err := app.store.GetTransaction("cylinder")
+		tx, err := app.store.GetTransaction(t.Context(), "cylinder")
 		require.NoError(t, err)
 		assert.Equal(t, "trades", tx.Filed)
 		assert.Equal(t, models.FiledByOwner, tx.FiledBy)
 		assert.Equal(t, []string{"Maintenance", "Trades & repairs"}, tx.Categories())
 		assert.Empty(t, tx.Category.Groups.PersonalFinance.Name, "Akahu's own category is kept as it came")
-		other, err := app.store.GetTransaction("cylinder-2")
+		other, err := app.store.GetTransaction(t.Context(), "cylinder-2")
 		require.NoError(t, err)
 		assert.Equal(t, models.CategoryUncategorised, other.Filed, "a one-off leaves its look-alikes alone")
 	})
@@ -82,7 +82,7 @@ func TestCategorisingOneTransaction(t *testing.T) {
 
 	t.Run("undo puts it back where Akahu's category goes", func(t *testing.T) {
 		setCategory(t, app, "cylinder", url.Values{"clear": {"1"}})
-		tx, err := app.store.GetTransaction("cylinder")
+		tx, err := app.store.GetTransaction(t.Context(), "cylinder")
 		require.NoError(t, err)
 		assert.Equal(t, models.CategoryUncategorised, tx.Filed)
 	})
@@ -91,14 +91,14 @@ func TestCategorisingOneTransaction(t *testing.T) {
 		rec := setCategory(t, app, "cylinder", url.Values{"category": {"trades"}, "scope": {"like"}})
 		assert.Equal(t, "true", rec.Header().Get("HX-Refresh"), "a rule can change many rows, so the page is redrawn")
 
-		settings, err := app.store.GetCategorySettings()
+		settings, err := app.store.GetCategorySettings(t.Context())
 		require.NoError(t, err)
 		require.Len(t, settings.Rules, 1)
 		assert.Equal(t, "PAY The Cylinder Guy Limited", settings.Rules[0].Contains)
 		assert.Equal(t, "trades", settings.Rules[0].Category)
 		assert.Empty(t, settings.Overrides)
 
-		other, err := app.store.GetTransaction("cylinder-2")
+		other, err := app.store.GetTransaction(t.Context(), "cylinder-2")
 		require.NoError(t, err)
 		assert.Equal(t, "trades", other.Filed)
 	})
@@ -131,7 +131,7 @@ func TestTransactionsWarnAboutUncategorisedSpend(t *testing.T) {
 		spendTx("kiwisaver", "CREDIT", "", "", "", "Employer Contributions", 300, recent),
 		spendTx("cash", "ATM", "", "", "", "ATM W/D The Palms", -200, recent),
 	} {
-		require.NoError(t, app.store.CreateTransaction(tx))
+		require.NoError(t, app.store.CreateTransaction(t.Context(), tx))
 	}
 
 	get := func(query string) string {
@@ -172,9 +172,9 @@ func TestFilingTransactionsInBulk(t *testing.T) {
 		spendTx("cylinder", "PAYMENT", "", "", "", "PAY The Cylinder Guy Limited", -4909, recent),
 		spendTx("pak", "EFTPOS", "Food", "Supermarkets and grocery stores", "PAK'nSAVE", "", -80, recent),
 	} {
-		require.NoError(t, app.store.CreateTransaction(tx))
+		require.NoError(t, app.store.CreateTransaction(t.Context(), tx))
 	}
-	require.NoError(t, app.store.SaveCategorySettings(models.CategorySettings{
+	require.NoError(t, app.store.SaveCategorySettings(t.Context(), models.CategorySettings{
 		Overrides: []models.CategoryOverride{{TransactionID: "cylinder", Category: "hardware"}},
 	}))
 
@@ -184,16 +184,16 @@ func TestFilingTransactionsInBulk(t *testing.T) {
 	assert.Contains(t, rec.Header().Get("Hx-Trigger"), "Filed 2 under Maintenance › Trades")
 
 	for _, id := range []string{"roof", "cylinder"} {
-		tx, err := app.store.GetTransaction(id)
+		tx, err := app.store.GetTransaction(t.Context(), id)
 		require.NoError(t, err)
 		assert.Equal(t, "trades", tx.Filed, id)
 		assert.Equal(t, models.FiledByOwner, tx.FiledBy, "as if filed by hand")
 	}
-	settings, err := app.store.GetCategorySettings()
+	settings, err := app.store.GetCategorySettings(t.Context())
 	require.NoError(t, err)
 	assert.Len(t, settings.Overrides, 2, "an earlier correction is replaced, not added to")
 
-	pak, err := app.store.GetTransaction("pak")
+	pak, err := app.store.GetTransaction(t.Context(), "pak")
 	require.NoError(t, err)
 	assert.Equal(t, "groceries", pak.Filed, "what was not ticked is left alone")
 

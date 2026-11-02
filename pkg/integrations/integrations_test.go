@@ -67,16 +67,16 @@ func TestSyncAkahuFullHistory(t *testing.T) {
 	integrations, store := testIntegrations(t, server.URL)
 
 	began := time.Now()
-	through, err := integrations.SyncAkahu(time.Time{}, nil)
+	through, err := integrations.SyncAkahu(t.Context(), time.Time{}, nil)
 	require.NoError(t, err)
 	took := time.Since(began)
 	assert.Equal(t, time.Date(2026, time.October, 13, 22, 0, 0, 0, time.UTC), through.UTC(),
 		"the account furthest behind sets how fresh the data is")
 
-	count, err := store.CountTransactions()
+	count, err := store.CountTransactions(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, 4000, count)
-	accounts, err := store.ReadAccounts()
+	accounts, err := store.ReadAccounts(t.Context())
 	require.NoError(t, err)
 	assert.Len(t, accounts, 3)
 
@@ -95,7 +95,7 @@ func TestSyncAkahuReadsFromAkahusFreshness(t *testing.T) {
 	integrations, _ := testIntegrations(t, server.URL)
 
 	through := time.Date(2026, time.October, 15, 9, 0, 0, 0, time.UTC)
-	_, err := integrations.SyncAkahu(through, nil)
+	_, err := integrations.SyncAkahu(t.Context(), through, nil)
 	require.NoError(t, err)
 
 	require.NotEmpty(t, starts)
@@ -148,7 +148,7 @@ func TestSyncAkahuReportsAkahuErrors(t *testing.T) {
 	defer server.Close()
 	integrations, _ := testIntegrations(t, server.URL)
 
-	_, err := integrations.SyncAkahu(time.Time{}, nil)
+	_, err := integrations.SyncAkahu(t.Context(), time.Time{}, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "429")
 	assert.Contains(t, err.Error(), "Rate limit exceeded")

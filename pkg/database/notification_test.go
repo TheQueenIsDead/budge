@@ -35,10 +35,10 @@ func notification(id string, age time.Duration) models.Notification {
 func TestNotificationRoundTrip(t *testing.T) {
 	store := tempStore(t)
 
-	require.NoError(t, store.CreateNotification(notification("a", time.Hour)))
-	require.NoError(t, store.CreateNotification(notification("b", time.Minute)))
+	require.NoError(t, store.CreateNotification(t.Context(), notification("a", time.Hour)))
+	require.NoError(t, store.CreateNotification(t.Context(), notification("b", time.Minute)))
 
-	got, err := store.ReadNotifications()
+	got, err := store.ReadNotifications(t.Context())
 	require.NoError(t, err)
 	require.Len(t, got, 2)
 	for _, n := range got {
@@ -48,24 +48,24 @@ func TestNotificationRoundTrip(t *testing.T) {
 
 func TestMarkNotificationsRead(t *testing.T) {
 	store := tempStore(t)
-	require.NoError(t, store.CreateNotification(notification("a", time.Hour)))
-	require.NoError(t, store.CreateNotification(notification("b", time.Minute)))
+	require.NoError(t, store.CreateNotification(t.Context(), notification("a", time.Hour)))
+	require.NoError(t, store.CreateNotification(t.Context(), notification("b", time.Minute)))
 
 	at := time.Now()
-	require.NoError(t, store.MarkNotificationsRead(at))
+	require.NoError(t, store.MarkNotificationsRead(t.Context(), at))
 
-	got, err := store.ReadNotifications()
+	got, err := store.ReadNotifications(t.Context())
 	require.NoError(t, err)
 	for _, n := range got {
 		assert.False(t, n.Unread())
 	}
 
 	t.Run("a later read does not disturb the first", func(t *testing.T) {
-		before, err := store.ReadNotifications()
+		before, err := store.ReadNotifications(t.Context())
 		require.NoError(t, err)
-		require.NoError(t, store.MarkNotificationsRead(time.Now().Add(time.Hour)))
+		require.NoError(t, store.MarkNotificationsRead(t.Context(), time.Now().Add(time.Hour)))
 
-		after, err := store.ReadNotifications()
+		after, err := store.ReadNotifications(t.Context())
 		require.NoError(t, err)
 		assert.Equal(t, before[0].ReadAt, after[0].ReadAt,
 			"already-read entries keep the time they were first read")
@@ -79,10 +79,10 @@ func TestNotificationRetention(t *testing.T) {
 	total := notificationRetention + 25
 	for i := 0; i < total; i++ {
 		age := time.Duration(total-i) * time.Minute
-		require.NoError(t, store.CreateNotification(notification(fmt.Sprintf("n%03d", i), age)))
+		require.NoError(t, store.CreateNotification(t.Context(), notification(fmt.Sprintf("n%03d", i), age)))
 	}
 
-	got, err := store.ReadNotifications()
+	got, err := store.ReadNotifications(t.Context())
 	require.NoError(t, err)
 	assert.Len(t, got, notificationRetention, "the log is capped, not an archive")
 
@@ -96,20 +96,20 @@ func TestNotificationRetention(t *testing.T) {
 
 func TestDeleteNotifications(t *testing.T) {
 	store := tempStore(t)
-	require.NoError(t, store.CreateNotification(notification("a", time.Hour)))
-	require.NoError(t, store.CreateNotification(notification("b", time.Minute)))
+	require.NoError(t, store.CreateNotification(t.Context(), notification("a", time.Hour)))
+	require.NoError(t, store.CreateNotification(t.Context(), notification("b", time.Minute)))
 
 	t.Run("one at a time", func(t *testing.T) {
-		require.NoError(t, store.DeleteNotification("a"))
-		got, err := store.ReadNotifications()
+		require.NoError(t, store.DeleteNotification(t.Context(), "a"))
+		got, err := store.ReadNotifications(t.Context())
 		require.NoError(t, err)
 		require.Len(t, got, 1)
 		assert.Equal(t, "b", got[0].Id)
 	})
 
 	t.Run("all at once", func(t *testing.T) {
-		require.NoError(t, store.DeleteNotifications())
-		got, err := store.ReadNotifications()
+		require.NoError(t, store.DeleteNotifications(t.Context()))
+		got, err := store.ReadNotifications(t.Context())
 		require.NoError(t, err)
 		assert.Empty(t, got)
 	})

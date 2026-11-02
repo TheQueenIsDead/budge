@@ -102,6 +102,7 @@ func GroupTransactionsByDay(transactions []models.Transaction, location *time.Lo
 }
 
 func (app *Application) Transactions(c echo.Context) error {
+	ctx := c.Request().Context()
 
 	account := c.QueryParam("account")
 	search := c.QueryParam("search")
@@ -111,11 +112,11 @@ func (app *Application) Transactions(c echo.Context) error {
 	var err error
 	if account == "" && search == "" {
 		// Default, all transactions
-		transactions, err = app.store.ReadTransactions()
+		transactions, err = app.store.ReadTransactions(ctx)
 	} else {
 		// If were here, either an account or search is specified,
 		// so we need to search the transactions.
-		transactions, err = app.store.SearchTransactions(search, account)
+		transactions, err = app.store.SearchTransactions(ctx, search, account)
 	}
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -134,7 +135,7 @@ func (app *Application) Transactions(c echo.Context) error {
 	// Uncategorised spending is counted across everything recent, whatever the
 	// search, so the warning about it is the same wherever the page is opened.
 	since := uncategorisedSince(time.Now())
-	recent, err := app.store.ReadTransactionsByDate(since, time.Now())
+	recent, err := app.store.ReadTransactionsByDate(ctx, since, time.Now())
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -185,12 +186,12 @@ func (app *Application) Transactions(c echo.Context) error {
 		page = page[:limit]
 	}
 
-	accounts, err := app.store.ReadAccounts()
+	accounts, err := app.store.ReadAccounts(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	held, memories, err := app.memoryIndex()
+	held, memories, err := app.memoryIndex(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

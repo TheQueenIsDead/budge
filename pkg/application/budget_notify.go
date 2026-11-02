@@ -1,8 +1,9 @@
 package application
 
 import (
-	"log/slog"
+	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -29,23 +30,23 @@ const budgetRenotifyAfter = 7 * 24 * time.Hour
 // dismissing one does not bring it back at the next sync. Like Notify, a
 // failure is logged rather than returned: a sync that worked should not
 // report failing because its follow-up did not.
-func (app *Application) notifyBudget(now time.Time) {
-	setup, err := app.buildSetupData()
+func (app *Application) notifyBudget(ctx context.Context, now time.Time) {
+	setup, err := app.buildSetupData(ctx)
 	if err == nil {
 		var raised models.NotificationLog
-		raised, err = app.store.GetNotificationLog()
+		raised, err = app.store.GetNotificationLog(ctx)
 		if err == nil {
 			changed := false
 			for _, n := range budgetNotifications(setup.Tracking) {
 				if last, ok := raised.Raised[n.Title]; ok && now.Sub(last) < budgetRenotifyAfter {
 					continue
 				}
-				app.Notify(n.Level, SourceBudget, n.Title, n.Message)
+				app.Notify(ctx, n.Level, SourceBudget, n.Title, n.Message)
 				raised.Raised[n.Title] = now
 				changed = true
 			}
 			if changed {
-				err = app.store.SaveNotificationLog(raised)
+				err = app.store.SaveNotificationLog(ctx, raised)
 			}
 		}
 	}

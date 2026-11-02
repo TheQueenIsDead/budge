@@ -80,13 +80,13 @@ func TestSuggestedTargets(t *testing.T) {
 	// $100 in each of the last 13 full weeks, then a $1 straggler.
 	for i := 1; i <= 13; i++ {
 		date := weekStart.AddDate(0, 0, -7*i+2)
-		require.NoError(t, app.store.CreateTransaction(spendTx("diy"+string(rune('a'+i)), "EFTPOS", "Household", "Building supplies", "Bunnings", "", -100, date)))
-		require.NoError(t, app.store.CreateTransaction(spendTx("food"+string(rune('a'+i)), "EFTPOS", "Food", "Supermarkets and grocery stores", "", "", -100, date)))
+		require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("diy"+string(rune('a'+i)), "EFTPOS", "Household", "Building supplies", "Bunnings", "", -100, date)))
+		require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("food"+string(rune('a'+i)), "EFTPOS", "Food", "Supermarkets and grocery stores", "", "", -100, date)))
 	}
-	require.NoError(t, app.store.CreateTransaction(spendTx("straggler", "EFTPOS", "Household", "Building supplies", "Bunnings", "", -1, weekStart.AddDate(0, 0, -3))))
-	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "food", BudgetCategory: "groceries", Amount: 120, Frequency: "weekly"}))
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("straggler", "EFTPOS", "Household", "Building supplies", "Bunnings", "", -1, weekStart.AddDate(0, 0, -3))))
+	require.NoError(t, app.store.CreateBudgetItem(t.Context(), models.BudgetItem{ID: "food", BudgetCategory: "groceries", Amount: 120, Frequency: "weekly"}))
 
-	setup, err := app.buildSetupData()
+	setup, err := app.buildSetupData(t.Context())
 	require.NoError(t, err)
 
 	maintenance := rowByKey(t, setup, "maintenance")
@@ -99,8 +99,8 @@ func TestSuggestedTargets(t *testing.T) {
 	assert.Contains(t, renderTemplate(t, "budget.setup.row", maintenance), "Use $101 a week")
 
 	t.Run("a lumpy category is offered a yearly target", func(t *testing.T) {
-		require.NoError(t, app.store.CreateTransaction(spendTx("bike", "PAYMENT", "Transport", "Car, truck, and motorcycle dealers", "Casbolts", "", -5200, weekStart.AddDate(0, 0, -10))))
-		setup, err := app.buildSetupData()
+		require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("bike", "PAYMENT", "Transport", "Car, truck, and motorcycle dealers", "Casbolts", "", -5200, weekStart.AddDate(0, 0, -10))))
+		setup, err := app.buildSetupData(t.Context())
 		require.NoError(t, err)
 		big := rowByKey(t, setup, "big-purchases")
 		assert.Equal(t, 52, big.WindowWeeks, "measured over the year it is judged on")
@@ -117,7 +117,7 @@ func TestSuggestedTargets(t *testing.T) {
 		})
 		require.NoError(t, app.BudgetSaveTarget(c))
 
-		setup, err := app.buildSetupData()
+		setup, err := app.buildSetupData(t.Context())
 		require.NoError(t, err)
 		for _, section := range setup.Sections {
 			for _, row := range section.Rows {
@@ -143,7 +143,7 @@ func TestBudgetSaveTarget(t *testing.T) {
 		save(url.Values{"category": {"groceries"}, "target_amount": {"150"}, "target_frequency": {"weekly"}})
 		save(url.Values{"category": {"groceries"}, "target_amount": {"160"}, "target_frequency": {"weekly"}})
 
-		items, err := app.store.ReadBudgetItems()
+		items, err := app.store.ReadBudgetItems(t.Context())
 		require.NoError(t, err)
 		require.Len(t, items, 1)
 		assert.Equal(t, "groceries", items[0].BudgetCategory)
@@ -172,19 +172,19 @@ func TestTargetsFromBeforeBudgeCategoriesAreLeftOut(t *testing.T) {
 		{ID: "old-savings", Name: "Savings", Amount: 100, Frequency: "weekly"},
 		{ID: "old-fuel", Name: "Fuel stations", Amount: 60, Frequency: "weekly"},
 	} {
-		require.NoError(t, app.store.CreateBudgetItem(item))
+		require.NoError(t, app.store.CreateBudgetItem(t.Context(), item))
 	}
 
-	setup, err := app.buildSetupData()
+	setup, err := app.buildSetupData(t.Context())
 	require.NoError(t, err)
-	cards, err := app.buildBudgetCards()
+	cards, err := app.buildBudgetCards(t.Context())
 	require.NoError(t, err)
 
 	assert.Zero(t, setup.TotalTargetWeekly)
 	assert.Zero(t, cards.TotalWeeklyExpenses)
 	assert.False(t, rowByKey(t, setup, "insurance").HasTarget)
 
-	items, err := app.store.ReadBudgetItems()
+	items, err := app.store.ReadBudgetItems(t.Context())
 	require.NoError(t, err)
 	assert.Len(t, items, 3, "they are kept, only not read")
 }
@@ -201,9 +201,9 @@ func openAttr(html, id string) bool {
 func TestTargetEditsUpdateTheRowInPlace(t *testing.T) {
 	app := newTestApp(t)
 	recent := time.Now().Add(-48 * time.Hour)
-	require.NoError(t, app.store.CreateTransaction(spendTx("diy", "EFTPOS", "Household", "Building supplies", "Bunnings", "", -390, recent)))
-	require.NoError(t, app.store.CreateTransaction(spendTx("fuel", "EFTPOS", "Transport", "Fuel stations", "", "", -40, recent)))
-	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "car", BudgetCategory: "transport", Amount: 60, Frequency: "weekly"}))
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("diy", "EFTPOS", "Household", "Building supplies", "Bunnings", "", -390, recent)))
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("fuel", "EFTPOS", "Transport", "Fuel stations", "", "", -40, recent)))
+	require.NoError(t, app.store.CreateBudgetItem(t.Context(), models.BudgetItem{ID: "car", BudgetCategory: "transport", Amount: 60, Frequency: "weekly"}))
 
 	c, rec := postForm(t, app, url.Values{
 		"category": {"maintenance"}, "target_amount": {"50"}, "target_frequency": {"weekly"},
@@ -245,13 +245,13 @@ func TestQuickActionsOnlyOfferedForUntargetedSpend(t *testing.T) {
 // spent in its category, so it could be neither seen nor changed.
 func TestTargetsWithoutSpendStillHaveARow(t *testing.T) {
 	app := newTestApp(t)
-	require.NoError(t, app.store.CreateTransaction(spendTx("fuel", "EFTPOS", "Transport", "Fuel stations", "", "", -40, time.Now().Add(-48*time.Hour))))
-	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "car", BudgetCategory: "transport", Amount: 60, Frequency: "weekly"}))
-	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "trips", BudgetCategory: "entertainment", Amount: 312, Frequency: "yearly"}))
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("fuel", "EFTPOS", "Transport", "Fuel stations", "", "", -40, time.Now().Add(-48*time.Hour))))
+	require.NoError(t, app.store.CreateBudgetItem(t.Context(), models.BudgetItem{ID: "car", BudgetCategory: "transport", Amount: 60, Frequency: "weekly"}))
+	require.NoError(t, app.store.CreateBudgetItem(t.Context(), models.BudgetItem{ID: "trips", BudgetCategory: "entertainment", Amount: 312, Frequency: "yearly"}))
 
-	setup, err := app.buildSetupData()
+	setup, err := app.buildSetupData(t.Context())
 	require.NoError(t, err)
-	cards, err := app.buildBudgetCards()
+	cards, err := app.buildBudgetCards(t.Context())
 	require.NoError(t, err)
 
 	trips := rowByKey(t, setup, "entertainment")
@@ -334,11 +334,11 @@ func TestBudgetNote(t *testing.T) {
 func TestBuildSetupDataGathersTheNote(t *testing.T) {
 	app := newTestApp(t)
 	recent := time.Now().Add(-48 * time.Hour)
-	require.NoError(t, app.store.CreateTransaction(spendTx("vet", "EFTPOS", "Health", "Veterinary services", "", "", -10, recent)))
-	require.NoError(t, app.store.CreateTransaction(spendTx("pharm", "EFTPOS", "Health", "Pharmacies", "", "", -26, recent)))
-	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "pets", BudgetCategory: "pets", Amount: 150, Frequency: "weekly"}))
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("vet", "EFTPOS", "Health", "Veterinary services", "", "", -10, recent)))
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("pharm", "EFTPOS", "Health", "Pharmacies", "", "", -26, recent)))
+	require.NoError(t, app.store.CreateBudgetItem(t.Context(), models.BudgetItem{ID: "pets", BudgetCategory: "pets", Amount: 150, Frequency: "weekly"}))
 
-	setup, err := app.buildSetupData()
+	setup, err := app.buildSetupData(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, []string{"Pets"}, setup.Generous, "$2.50 a week against $150")
 	assert.Equal(t, []string{"Health"}, setup.Small, "$2 a week, with no target")
@@ -347,10 +347,10 @@ func TestBuildSetupDataGathersTheNote(t *testing.T) {
 func TestSplitCategory(t *testing.T) {
 	app := newTestApp(t)
 	recent := time.Now().Add(-48 * time.Hour)
-	require.NoError(t, app.store.CreateTransaction(spendTx("rates", "DIRECT DEBIT", "Housing", "Local government", "CCC", "", -860, recent)))
-	require.NoError(t, app.store.CreateTransaction(spendTx("mortgage", models.TypeCountedTransfer, "Housing", "Mortgage", "", "AP#1 TO D J KING", -1284, recent)))
-	require.NoError(t, app.store.CreateTransaction(spendTx("other", "DEBIT", "Housing", "Housing", "Body corp", "", -130, recent)))
-	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "home", BudgetCategory: "home", Amount: 700, Frequency: "weekly"}))
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("rates", "DIRECT DEBIT", "Housing", "Local government", "CCC", "", -860, recent)))
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("mortgage", models.TypeCountedTransfer, "Housing", "Mortgage", "", "AP#1 TO D J KING", -1284, recent)))
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("other", "DEBIT", "Housing", "Housing", "Body corp", "", -130, recent)))
+	require.NoError(t, app.store.CreateBudgetItem(t.Context(), models.BudgetItem{ID: "home", BudgetCategory: "home", Amount: 700, Frequency: "weekly"}))
 
 	post := func(handler echo.HandlerFunc, values url.Values) string {
 		t.Helper()
@@ -362,7 +362,7 @@ func TestSplitCategory(t *testing.T) {
 	}
 
 	t.Run("a category with subcategories offers to split", func(t *testing.T) {
-		setup, err := app.buildSetupData()
+		setup, err := app.buildSetupData(t.Context())
 		require.NoError(t, err)
 		home := rowByKey(t, setup, "home")
 		assert.True(t, home.Splittable)
@@ -387,7 +387,7 @@ func TestSplitCategory(t *testing.T) {
 	assert.Contains(t, body, `id="sc-home"`, "an edit to a subcategory redraws its category")
 
 	t.Run("each subcategory is measured against its own period", func(t *testing.T) {
-		setup, err := app.buildSetupData()
+		setup, err := app.buildSetupData(t.Context())
 		require.NoError(t, err)
 		home := rowByKey(t, setup, "home")
 		require.True(t, home.Split)
@@ -409,7 +409,7 @@ func TestSplitCategory(t *testing.T) {
 		assert.Empty(t, home.Merchants, "a split category leaves its merchants to its subcategories")
 		assert.Equal(t, []string{"CCC"}, rates.Merchants)
 
-		cards, err := app.buildBudgetCards()
+		cards, err := app.buildBudgetCards(t.Context())
 		require.NoError(t, err)
 		assert.InDelta(t, home.TargetWeekly, cards.TotalWeeklyExpenses, 0.01, "Home's own $700 is set aside while it is split")
 	})
@@ -418,7 +418,7 @@ func TestSplitCategory(t *testing.T) {
 		body := post(app.BudgetSaveTarget, url.Values{"category": {"home:general"}, "target_amount": {"40"}, "target_frequency": {"monthly"}})
 		assert.Contains(t, body, `id="sg-home"`, "a general row has an id of its own, apart from any category's")
 
-		setup, err := app.buildSetupData()
+		setup, err := app.buildSetupData(t.Context())
 		require.NoError(t, err)
 		home := rowByKey(t, setup, "home")
 		general := home.SubRows[3]
@@ -426,11 +426,11 @@ func TestSplitCategory(t *testing.T) {
 		assert.Equal(t, "a month", general.Per)
 		assert.InDelta(t, 642+860.0/13+40.0*12/52, home.TargetWeekly, 0.01, "and counts towards its category")
 
-		cards, err := app.buildBudgetCards()
+		cards, err := app.buildBudgetCards(t.Context())
 		require.NoError(t, err)
 		assert.InDelta(t, home.TargetWeekly, cards.TotalWeeklyExpenses, 0.01)
 
-		items, err := app.store.ReadBudgetItems()
+		items, err := app.store.ReadBudgetItems(t.Context())
 		require.NoError(t, err)
 		charts := BuildPeriodCharts([]models.Transaction{
 			spendTx("other", "DEBIT", "Housing", "Housing", "Body corp", "", -30, time.Now().Add(-time.Hour)),
@@ -445,7 +445,7 @@ func TestSplitCategory(t *testing.T) {
 	})
 
 	t.Run("each lands in its own period chart", func(t *testing.T) {
-		items, err := app.store.ReadBudgetItems()
+		items, err := app.store.ReadBudgetItems(t.Context())
 		require.NoError(t, err)
 		charts := BuildPeriodCharts([]models.Transaction{
 			spendTx("rates", "DIRECT DEBIT", "Housing", "Local government", "CCC", "", -860, time.Now().Add(-time.Hour)),
@@ -463,14 +463,14 @@ func TestSplitCategory(t *testing.T) {
 
 	t.Run("going back to one target keeps both", func(t *testing.T) {
 		post(app.BudgetSaveSplit, url.Values{"category": {"home"}, "split": {"0"}})
-		setup, err := app.buildSetupData()
+		setup, err := app.buildSetupData(t.Context())
 		require.NoError(t, err)
 		home := rowByKey(t, setup, "home")
 		assert.False(t, home.Split)
 		assert.Equal(t, 700.0, home.Target, "its own target is back")
 
 		post(app.BudgetSaveSplit, url.Values{"category": {"home"}, "split": {"1"}})
-		setup, err = app.buildSetupData()
+		setup, err = app.buildSetupData(t.Context())
 		require.NoError(t, err)
 		home = rowByKey(t, setup, "home")
 		assert.Equal(t, 1284.0, home.SubRows[0].Target, "and so are its subcategories'")
@@ -500,10 +500,10 @@ func TestEveryRowLeadsToItsTrend(t *testing.T) {
 
 func TestSplitCategoryAlwaysHasAGeneralBucket(t *testing.T) {
 	app := newTestApp(t)
-	require.NoError(t, app.store.CreateTransaction(spendTx("rates", "DIRECT DEBIT", "Housing", "Local government", "CCC", "", -860, time.Now().Add(-48*time.Hour))))
-	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "home", BudgetCategory: "home", Split: true}))
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("rates", "DIRECT DEBIT", "Housing", "Local government", "CCC", "", -860, time.Now().Add(-48*time.Hour))))
+	require.NoError(t, app.store.CreateBudgetItem(t.Context(), models.BudgetItem{ID: "home", BudgetCategory: "home", Split: true}))
 
-	setup, err := app.buildSetupData()
+	setup, err := app.buildSetupData(t.Context())
 	require.NoError(t, err)
 	home := rowByKey(t, setup, "home")
 	last := home.SubRows[len(home.SubRows)-1]
@@ -560,22 +560,22 @@ func measureGeneral(t *testing.T, category models.BudgetCategory, weekly float64
 func TestSplitWithNoSubcategoriesLeftIsCombined(t *testing.T) {
 	app := newTestApp(t)
 	t.Cleanup(func() { models.UseBudgetCategories(models.BudgetCategorySettings{}) })
-	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "big", BudgetCategory: "big-purchases", Amount: 5200, Frequency: "yearly", Split: true}))
+	require.NoError(t, app.store.CreateBudgetItem(t.Context(), models.BudgetItem{ID: "big", BudgetCategory: "big-purchases", Amount: 5200, Frequency: "yearly", Split: true}))
 	settings, err := models.BudgetCategorySettings{}.DeleteBudgetCategory("vehicles", "")
 	require.NoError(t, err)
-	require.NoError(t, app.store.SaveBudgetCategorySettings(settings))
+	require.NoError(t, app.store.SaveBudgetCategorySettings(t.Context(), settings))
 
-	setup, err := app.buildSetupData()
+	setup, err := app.buildSetupData(t.Context())
 	require.NoError(t, err)
 	big := rowByKey(t, setup, "big-purchases")
 	assert.False(t, big.Split, "nothing left to split it into")
 	assert.InDelta(t, 100, big.TargetWeekly, 0.001)
 
-	cards, err := app.buildBudgetCards()
+	cards, err := app.buildBudgetCards(t.Context())
 	require.NoError(t, err)
 	assert.InDelta(t, big.TargetWeekly, cards.TotalWeeklyExpenses, 0.001, "the totals agree with the row")
 
-	items, err := app.store.ReadBudgetItems()
+	items, err := app.store.ReadBudgetItems(t.Context())
 	require.NoError(t, err)
 	charts := BuildPeriodCharts(nil, budgetTargets(items), time.Now())
 	require.Len(t, charts, 1)
@@ -588,12 +588,12 @@ func TestSplittingAMergedKeyIsRefused(t *testing.T) {
 	t.Cleanup(func() { models.UseBudgetCategories(models.BudgetCategorySettings{}) })
 	settings, err := models.BudgetCategorySettings{}.DeleteBudgetCategory("home", "bills")
 	require.NoError(t, err)
-	require.NoError(t, app.store.SaveBudgetCategorySettings(settings))
+	require.NoError(t, app.store.SaveBudgetCategorySettings(t.Context(), settings))
 
 	c, rec := postForm(t, app, url.Values{"category": {"home"}, "split": {"1"}})
 	require.NoError(t, app.BudgetSaveSplit(c))
 	assert.Equal(t, 400, rec.Code, "a stale page naming a deleted category does not split the one it went into")
-	items, err := app.store.ReadBudgetItems()
+	items, err := app.store.ReadBudgetItems(t.Context())
 	require.NoError(t, err)
 	assert.Empty(t, items)
 }

@@ -12,16 +12,16 @@ import (
 func TestBudgetNotifications(t *testing.T) {
 	app := newTestApp(t)
 	recent := time.Now().Add(-48 * time.Hour)
-	require.NoError(t, app.store.CreateTransaction(spendTx("cafe", "EFTPOS", "Lifestyle", "Cafes and restaurants", "Valhalla", "", -916, recent)))
-	require.NoError(t, app.store.CreateTransaction(spendTx("diy", "EFTPOS", "Household", "Building supplies", "Bunnings", "", -702, recent)))
-	require.NoError(t, app.store.CreateTransaction(spendTx("pak", "EFTPOS", "Food", "Supermarkets and grocery stores", "", "", -400, recent)))
-	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "out", BudgetCategory: "eating-out", Amount: 120, Frequency: "weekly"}))
-	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "shop", BudgetCategory: "groceries", Amount: 150, Frequency: "weekly"}))
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("cafe", "EFTPOS", "Lifestyle", "Cafes and restaurants", "Valhalla", "", -916, recent)))
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("diy", "EFTPOS", "Household", "Building supplies", "Bunnings", "", -702, recent)))
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("pak", "EFTPOS", "Food", "Supermarkets and grocery stores", "", "", -400, recent)))
+	require.NoError(t, app.store.CreateBudgetItem(t.Context(), models.BudgetItem{ID: "out", BudgetCategory: "eating-out", Amount: 120, Frequency: "weekly"}))
+	require.NoError(t, app.store.CreateBudgetItem(t.Context(), models.BudgetItem{ID: "shop", BudgetCategory: "groceries", Amount: 150, Frequency: "weekly"}))
 
 	now := time.Now()
-	app.notifyBudget(now)
+	app.notifyBudget(t.Context(), now)
 
-	notes, err := app.store.ReadNotifications()
+	notes, err := app.store.ReadNotifications(t.Context())
 	require.NoError(t, err)
 	byTitle := map[string]models.Notification{}
 	for _, n := range notes {
@@ -39,23 +39,23 @@ func TestBudgetNotifications(t *testing.T) {
 	assert.Contains(t, untargeted.Message, "Maintenance ($54)")
 
 	t.Run("the same is not raised again within the week", func(t *testing.T) {
-		app.notifyBudget(now.Add(time.Hour))
-		notes, err := app.store.ReadNotifications()
+		app.notifyBudget(t.Context(), now.Add(time.Hour))
+		notes, err := app.store.ReadNotifications(t.Context())
 		require.NoError(t, err)
 		assert.Len(t, notes, 2)
 	})
 
 	t.Run("nor once it has been dismissed", func(t *testing.T) {
-		require.NoError(t, app.store.DeleteNotifications())
-		app.notifyBudget(now.Add(2 * time.Hour))
-		notes, err := app.store.ReadNotifications()
+		require.NoError(t, app.store.DeleteNotifications(t.Context()))
+		app.notifyBudget(t.Context(), now.Add(2*time.Hour))
+		notes, err := app.store.ReadNotifications(t.Context())
 		require.NoError(t, err)
 		assert.Empty(t, notes, "dismissing a notification does not make it due again")
 	})
 
 	t.Run("but is once a week has passed", func(t *testing.T) {
-		app.notifyBudget(now.Add(budgetRenotifyAfter + time.Hour))
-		notes, err := app.store.ReadNotifications()
+		app.notifyBudget(t.Context(), now.Add(budgetRenotifyAfter+time.Hour))
+		notes, err := app.store.ReadNotifications(t.Context())
 		require.NoError(t, err)
 		assert.Len(t, notes, 2)
 	})

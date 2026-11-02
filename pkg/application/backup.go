@@ -19,7 +19,8 @@ const backupMaxBytes = 10 << 20
 // SettingsExport downloads everything set up by hand as a JSON file, for
 // importing into another instance.
 func (app *Application) SettingsExport(c echo.Context) error {
-	backup, err := app.store.ExportBackup()
+	ctx := c.Request().Context()
+	backup, err := app.store.ExportBackup(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -32,6 +33,7 @@ func (app *Application) SettingsExport(c echo.Context) error {
 // SettingsImport reads a backup into this instance and shows the settings page
 // as it now stands.
 func (app *Application) SettingsImport(c echo.Context) error {
+	ctx := c.Request().Context()
 	file, err := c.FormFile("backup")
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Choose a backup file to import.")
@@ -47,7 +49,7 @@ func (app *Application) SettingsImport(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "That file could not be imported: "+err.Error()+".")
 	}
 
-	if err := app.store.ImportBackup(backup); err != nil {
+	if err := app.store.ImportBackup(ctx, backup); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 

@@ -13,6 +13,7 @@ import (
 // a subcategory of one that is split, and returns the re-rendered row: the
 // category's, which a subcategory's target adds up into.
 func (app *Application) BudgetSaveTarget(c echo.Context) error {
+	ctx := c.Request().Context()
 	if key, general := strings.CutSuffix(c.FormValue("category"), generalSuffix); general {
 		return app.saveGeneralTarget(c, key)
 	}
@@ -27,19 +28,19 @@ func (app *Application) BudgetSaveTarget(c echo.Context) error {
 		frequency = "weekly"
 	}
 
-	items, err := app.store.ReadBudgetItems()
+	items, err := app.store.ReadBudgetItems(ctx)
 	if err != nil {
 		return err
 	}
 	if item, saved := budgetTargets(items)[category.Key]; saved {
 		item.Amount = target
 		item.Frequency = frequency
-		if err := app.store.UpdateBudgetItem(item); err != nil {
+		if err := app.store.UpdateBudgetItem(ctx, item); err != nil {
 			return err
 		}
 		return app.renderTargetRow(c, rowID)
 	}
-	if err := app.store.CreateBudgetItem(models.BudgetItem{
+	if err := app.store.CreateBudgetItem(ctx, models.BudgetItem{
 		ID:             newID(),
 		Name:           category.Label,
 		Amount:         target,
@@ -54,6 +55,7 @@ func (app *Application) BudgetSaveTarget(c echo.Context) error {
 // saveGeneralTarget sets the target for what is filed under a split
 // category itself, kept beside its own.
 func (app *Application) saveGeneralTarget(c echo.Context, key string) error {
+	ctx := c.Request().Context()
 	category, ok := models.BudgetCategoryByKey(key)
 	if !ok || category.Key != key || category.IsSub() || !category.Budgeted() {
 		return c.NoContent(http.StatusBadRequest)
@@ -63,7 +65,7 @@ func (app *Application) saveGeneralTarget(c echo.Context, key string) error {
 	if frequency == "" {
 		frequency = "weekly"
 	}
-	items, err := app.store.ReadBudgetItems()
+	items, err := app.store.ReadBudgetItems(ctx)
 	if err != nil {
 		return err
 	}
@@ -74,9 +76,9 @@ func (app *Application) saveGeneralTarget(c echo.Context, key string) error {
 	item.GeneralAmount = target
 	item.GeneralFrequency = frequency
 	if saved {
-		err = app.store.UpdateBudgetItem(item)
+		err = app.store.UpdateBudgetItem(ctx, item)
 	} else {
-		err = app.store.CreateBudgetItem(item)
+		err = app.store.CreateBudgetItem(ctx, item)
 	}
 	if err != nil {
 		return err
@@ -88,22 +90,23 @@ func (app *Application) saveGeneralTarget(c echo.Context, key string) error {
 // again. Both sets of targets are kept, so switching back and forth loses
 // neither.
 func (app *Application) BudgetSaveSplit(c echo.Context) error {
+	ctx := c.Request().Context()
 	category, ok := models.BudgetCategoryByKey(c.FormValue("category"))
 	if !ok || category.Key != c.FormValue("category") || category.IsSub() || !category.Budgeted() || len(models.BudgetSubcategories(category.Key)) == 0 {
 		return c.NoContent(http.StatusBadRequest)
 	}
 	split := c.FormValue("split") == "1"
 
-	items, err := app.store.ReadBudgetItems()
+	items, err := app.store.ReadBudgetItems(ctx)
 	if err != nil {
 		return err
 	}
 	if item, saved := budgetTargets(items)[category.Key]; saved {
 		item.Split = split
-		if err := app.store.UpdateBudgetItem(item); err != nil {
+		if err := app.store.UpdateBudgetItem(ctx, item); err != nil {
 			return err
 		}
-	} else if err := app.store.CreateBudgetItem(models.BudgetItem{
+	} else if err := app.store.CreateBudgetItem(ctx, models.BudgetItem{
 		ID:             newID(),
 		Name:           category.Label,
 		Frequency:      category.Frequency,
@@ -126,7 +129,8 @@ type TargetRowUpdate struct {
 // and the totals of the group it sits in. Re-rendering the list instead
 // closed groups opened by hand and moved the page under the pointer.
 func (app *Application) renderTargetRow(c echo.Context, rowID string) error {
-	setup, err := app.buildSetupData()
+	ctx := c.Request().Context()
+	setup, err := app.buildSetupData(ctx)
 	if err != nil {
 		return err
 	}

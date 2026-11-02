@@ -83,7 +83,8 @@ func categorySource(tx models.Transaction) (string, bool) {
 
 // TransactionCategoryForm loads the categorise popover's form.
 func (app *Application) TransactionCategoryForm(c echo.Context) error {
-	tx, err := app.store.GetTransaction(c.Param("id"))
+	ctx := c.Request().Context()
+	tx, err := app.store.GetTransaction(ctx, c.Param("id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "Transaction not found.")
 	}
@@ -104,11 +105,12 @@ func (app *Application) TransactionCategoryForm(c echo.Context) error {
 // for the one transaction, or with scope "like", a rule for every transaction
 // with the same text. "clear" removes the override instead.
 func (app *Application) TransactionSetCategory(c echo.Context) error {
-	tx, err := app.store.GetTransaction(c.Param("id"))
+	ctx := c.Request().Context()
+	tx, err := app.store.GetTransaction(ctx, c.Param("id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "Transaction not found.")
 	}
-	settings, err := app.store.GetCategorySettings()
+	settings, err := app.store.GetCategorySettings(ctx)
 	if err != nil {
 		return err
 	}
@@ -148,7 +150,7 @@ func (app *Application) TransactionSetCategory(c echo.Context) error {
 			})
 		}
 	}
-	if err := app.store.SaveCategorySettings(settings); err != nil {
+	if err := app.store.SaveCategorySettings(ctx, settings); err != nil {
 		return err
 	}
 
@@ -160,7 +162,7 @@ func (app *Application) TransactionSetCategory(c echo.Context) error {
 		return c.NoContent(http.StatusOK)
 	}
 
-	updated, err := app.store.GetTransaction(tx.Id)
+	updated, err := app.store.GetTransaction(ctx, tx.Id)
 	if err != nil {
 		return err
 	}
@@ -176,6 +178,7 @@ func (app *Application) TransactionSetCategory(c echo.Context) error {
 // changes can be anywhere on the page, and under the uncategorised filter
 // they leave it, so the page is drawn again.
 func (app *Application) TransactionsSetCategory(c echo.Context) error {
+	ctx := c.Request().Context()
 	ids, err := selectedTransactions(c)
 	if err != nil {
 		return err
@@ -185,7 +188,7 @@ func (app *Application) TransactionsSetCategory(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Pick a category to file them under.")
 	}
 
-	settings, err := app.store.GetCategorySettings()
+	settings, err := app.store.GetCategorySettings(ctx)
 	if err != nil {
 		return err
 	}
@@ -203,7 +206,7 @@ func (app *Application) TransactionsSetCategory(c echo.Context) error {
 	for _, id := range ids {
 		settings.Overrides = append(settings.Overrides, models.CategoryOverride{TransactionID: id, Category: target.Key})
 	}
-	if err := app.store.SaveCategorySettings(settings); err != nil {
+	if err := app.store.SaveCategorySettings(ctx, settings); err != nil {
 		return err
 	}
 

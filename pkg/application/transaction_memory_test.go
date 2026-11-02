@@ -16,9 +16,9 @@ import (
 
 func TestTransactionAddToMemory(t *testing.T) {
 	app := newTestApp(t)
-	require.NoError(t, app.store.SaveMemory(models.Memory{Id: "wgtn", Title: "Wellington weekend", Kind: "trip", TransactionIDs: []string{"hotel"}}))
-	require.NoError(t, app.store.SaveMemory(models.Memory{Id: "ferries", Title: "Ferry rides", TransactionIDs: []string{"bluebridge"}}))
-	require.NoError(t, app.store.SaveTimelinePreferences(models.TimelinePreferences{HiddenTransactions: []string{"museum"}}))
+	require.NoError(t, app.store.SaveMemory(t.Context(), models.Memory{Id: "wgtn", Title: "Wellington weekend", Kind: "trip", TransactionIDs: []string{"hotel"}}))
+	require.NoError(t, app.store.SaveMemory(t.Context(), models.Memory{Id: "ferries", Title: "Ferry rides", TransactionIDs: []string{"bluebridge"}}))
+	require.NoError(t, app.store.SaveTimelinePreferences(t.Context(), models.TimelinePreferences{HiddenTransactions: []string{"museum"}}))
 
 	add := func(tx string, values url.Values) (string, error) {
 		t.Helper()
@@ -33,7 +33,7 @@ func TestTransactionAddToMemory(t *testing.T) {
 		body, err := add("museum", url.Values{"memory": {"wgtn"}, "layout": {"d"}})
 		require.NoError(t, err)
 
-		memory, err := app.store.GetMemory("wgtn")
+		memory, err := app.store.GetMemory(t.Context(), "wgtn")
 		require.NoError(t, err)
 		assert.Equal(t, []string{"hotel", "museum"}, memory.TransactionIDs)
 
@@ -43,7 +43,7 @@ func TestTransactionAddToMemory(t *testing.T) {
 		assert.NotContains(t, body, `id="txmem-d-museum" hx-swap-oob`)
 		assert.Contains(t, body, "bi-bookmark-check-fill")
 
-		prefs, err := app.store.GetTimelinePreferences()
+		prefs, err := app.store.GetTimelinePreferences(t.Context())
 		require.NoError(t, err)
 		assert.Empty(t, prefs.HiddenTransactions, "a remembered purchase is no longer hidden")
 	})
@@ -52,7 +52,7 @@ func TestTransactionAddToMemory(t *testing.T) {
 		_, err := add("museum", url.Values{"memory": {"ferries"}})
 		require.NoError(t, err)
 
-		memory, err := app.store.GetMemory("wgtn")
+		memory, err := app.store.GetMemory(t.Context(), "wgtn")
 		require.NoError(t, err)
 		assert.Equal(t, []string{"hotel"}, memory.TransactionIDs)
 	})
@@ -61,7 +61,7 @@ func TestTransactionAddToMemory(t *testing.T) {
 		_, err := add("coffee", url.Values{"title": {"Coffee"}, "kind": {"other"}})
 		assert.Error(t, err)
 
-		memories, err := app.store.ReadMemories()
+		memories, err := app.store.ReadMemories(t.Context())
 		require.NoError(t, err)
 		assert.Len(t, memories, 2)
 	})
@@ -82,7 +82,7 @@ func deleteQuery(app *Application, values url.Values) (echo.Context, *httptest.R
 
 func TestTransactionRemoveFromMemory(t *testing.T) {
 	app := newTestApp(t)
-	require.NoError(t, app.store.SaveMemory(models.Memory{Id: "wgtn", Title: "Wellington weekend", TransactionIDs: []string{"museum", "ferry"}}))
+	require.NoError(t, app.store.SaveMemory(t.Context(), models.Memory{Id: "wgtn", Title: "Wellington weekend", TransactionIDs: []string{"museum", "ferry"}}))
 
 	remove := func(tx string) string {
 		t.Helper()
@@ -96,7 +96,7 @@ func TestTransactionRemoveFromMemory(t *testing.T) {
 	t.Run("takes one transaction out, leaving the rest", func(t *testing.T) {
 		body := remove("ferry")
 
-		memory, err := app.store.GetMemory("wgtn")
+		memory, err := app.store.GetMemory(t.Context(), "wgtn")
 		require.NoError(t, err)
 		assert.Equal(t, []string{"museum"}, memory.TransactionIDs)
 
@@ -109,7 +109,7 @@ func TestTransactionRemoveFromMemory(t *testing.T) {
 	t.Run("taking out the last one removes the memory", func(t *testing.T) {
 		remove("museum")
 
-		memories, err := app.store.ReadMemories()
+		memories, err := app.store.ReadMemories(t.Context())
 		require.NoError(t, err)
 		assert.Empty(t, memories)
 	})
@@ -117,8 +117,8 @@ func TestTransactionRemoveFromMemory(t *testing.T) {
 
 func TestTransactionsMemoryInBulk(t *testing.T) {
 	app := newTestApp(t)
-	require.NoError(t, app.store.SaveMemory(models.Memory{Id: "bach", Title: "Bach", TransactionIDs: []string{"groceries"}}))
-	require.NoError(t, app.store.SaveMemory(models.Memory{Id: "wgtn", Title: "Wellington weekend", Kind: "trip", TransactionIDs: []string{"hotel"}}))
+	require.NoError(t, app.store.SaveMemory(t.Context(), models.Memory{Id: "bach", Title: "Bach", TransactionIDs: []string{"groceries"}}))
+	require.NoError(t, app.store.SaveMemory(t.Context(), models.Memory{Id: "wgtn", Title: "Wellington weekend", Kind: "trip", TransactionIDs: []string{"hotel"}}))
 
 	t.Run("adds every ticked transaction to the memory picked", func(t *testing.T) {
 		c, rec := postForm(t, app, url.Values{
@@ -127,7 +127,7 @@ func TestTransactionsMemoryInBulk(t *testing.T) {
 		})
 		require.NoError(t, app.TransactionsAddToMemory(c))
 
-		memories, err := app.store.ReadMemories()
+		memories, err := app.store.ReadMemories(t.Context())
 		require.NoError(t, err)
 		require.Len(t, memories, 1, "the bach lost its only transaction to Wellington")
 		assert.Equal(t, []string{"hotel", "museum", "ferry", "groceries"}, memories[0].TransactionIDs)
@@ -145,7 +145,7 @@ func TestTransactionsMemoryInBulk(t *testing.T) {
 		c, _ := deleteQuery(app, url.Values{"tx": {"museum", "ferry"}})
 		require.NoError(t, app.TransactionsRemoveFromMemory(c))
 
-		memory, err := app.store.GetMemory("wgtn")
+		memory, err := app.store.GetMemory(t.Context(), "wgtn")
 		require.NoError(t, err)
 		assert.Equal(t, []string{"hotel", "groceries"}, memory.TransactionIDs)
 	})

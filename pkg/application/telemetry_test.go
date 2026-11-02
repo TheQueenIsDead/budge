@@ -88,3 +88,36 @@ func TestRequestsAreTracedAndTimed(t *testing.T) {
 	}
 	assert.Contains(t, timed, "/4XX")
 }
+
+func TestQueriesSitUnderTheirRequest(t *testing.T) {
+	app, tel := instrumentedApp(t)
+	rec := httptest.NewRecorder()
+	app.http.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/notifications", nil))
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	requests := tel.Spans.Requests()
+	require.Len(t, requests, 1)
+	request := requests[0]
+
+	var queries []telemetry.Span
+	for _, span := range tel.Spans.Trace(request.TraceID) {
+		if span.Attrs["db.system.name"] == "bbolt" {
+			queries = append(queries, span)
+		}
+	}
+	require.NotEmpty(t, queries, "the notifications are read within the request's trace")
+	query := queries[0]
+	assert.Equal(t, request.SpanID, query.ParentID, "the query is a child of the request")
+	assert.Equal(t, "ReadNotifications", query.Attrs["db.operation.name"], "named by the Store method, not the generic helper")
+	assert.Equal(t, "notifications", query.Attrs["db.collection.name"])
+	assert.Equal(t, "view", query.Attrs["bbolt.transaction"])
+	assert.Equal(t, "application.(*Application).sortedNotifications", query.Attrs["code.function.name"], "the caller is the code outside the store")
+	assert.Contains(t, query.Attrs["code.file.path"], "notification.go")
+
+	require.NoError(t, tel.Metrics.Collect(context.Background()))
+	var timed []string
+	for _, h := range tel.Metrics.Histograms("db.client.operation.duration") {
+		timed = append(timed, h.Attrs["db.operation.name"])
+	}
+	assert.Contains(t, timed, "ReadNotifications")
+}

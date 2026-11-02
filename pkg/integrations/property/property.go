@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // SourceHomes is where an estimate comes from. There is one source: OneRoof
@@ -52,7 +54,7 @@ func New() *Client {
 	return &Client{
 		// The lookup sits in front of someone waiting on a form, so it gets a
 		// short leash rather than the default of none at all.
-		http: &http.Client{Timeout: 8 * time.Second},
+		http: &http.Client{Timeout: 8 * time.Second, Transport: otelhttp.NewTransport(http.DefaultTransport)},
 	}
 }
 

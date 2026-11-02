@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"math"
@@ -154,12 +155,13 @@ func wordFor(n int, one, many string) string {
 // by week, so a fortnightly mortgage or a monthly power bill reads as on
 // track instead of spiking in the week it is paid.
 func (app *Application) Budget(c echo.Context) error {
-	salary, err := app.store.GetBudgetSalary()
+	ctx := c.Request().Context()
+	salary, err := app.store.GetBudgetSalary(ctx)
 	if err != nil {
 		app.Toast(c, "Error", "Could not load salary config.")
 		return c.NoContent(http.StatusInternalServerError)
 	}
-	setupData, err := app.buildSetupData()
+	setupData, err := app.buildSetupData(ctx)
 	if err != nil {
 		app.Toast(c, "Error", "Could not load category data.")
 		return c.NoContent(http.StatusInternalServerError)
@@ -173,19 +175,19 @@ func (app *Application) Budget(c echo.Context) error {
 // buildSetupData measures 13 months of money leaving against the targets,
 // one row for every budge category, so a target can be set for a category
 // before anything has been spent in it.
-func (app *Application) buildSetupData() (CategorySetupData, error) {
-	salary, err := app.store.GetBudgetSalary()
+func (app *Application) buildSetupData(ctx context.Context) (CategorySetupData, error) {
+	salary, err := app.store.GetBudgetSalary(ctx)
 	if err != nil {
 		return CategorySetupData{}, err
 	}
 	netWeekly := computeNetWeekly(salary)
 
-	txs, err := app.store.ReadTransactionsByDate(time.Now().AddDate(0, -13, 0), time.Now())
+	txs, err := app.store.ReadTransactionsByDate(ctx, time.Now().AddDate(0, -13, 0), time.Now())
 	if err != nil {
 		return CategorySetupData{}, err
 	}
 
-	items, err := app.store.ReadBudgetItems()
+	items, err := app.store.ReadBudgetItems(ctx)
 	if err != nil {
 		return CategorySetupData{}, err
 	}

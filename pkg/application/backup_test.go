@@ -33,8 +33,8 @@ func uploadBackup(t *testing.T, app *Application, contents []byte) (echo.Context
 
 func TestSettingsExportAndImport(t *testing.T) {
 	source := newTestApp(t)
-	require.NoError(t, source.store.SaveMemory(models.Memory{Id: "japan", Title: "Japan", TransactionIDs: []string{"trans_1"}}))
-	require.NoError(t, source.store.UpdateAkahuSettings(models.IntegrationAkahuSettings{AppToken: "app_x", UserToken: "user_y"}))
+	require.NoError(t, source.store.SaveMemory(t.Context(), models.Memory{Id: "japan", Title: "Japan", TransactionIDs: []string{"trans_1"}}))
+	require.NoError(t, source.store.UpdateAkahuSettings(t.Context(), models.IntegrationAkahuSettings{AppToken: "app_x", UserToken: "user_y"}))
 
 	req := httptest.NewRequest(http.MethodGet, "/settings/backup", nil)
 	rec := httptest.NewRecorder()
@@ -49,25 +49,25 @@ func TestSettingsExportAndImport(t *testing.T) {
 	// A real instance saves its Akahu settings at startup, and the settings
 	// page this answers with expects them.
 	target := newTestApp(t)
-	require.NoError(t, target.store.UpdateAkahuSettings(models.IntegrationAkahuSettings{}))
+	require.NoError(t, target.store.UpdateAkahuSettings(t.Context(), models.IntegrationAkahuSettings{}))
 	c, rec := uploadBackup(t, target, exported)
 	require.NoError(t, target.SettingsImport(c))
 
 	assert.Contains(t, rec.Header().Get("Hx-Trigger"), "Imported 1 memories")
 	assert.Contains(t, rec.Body.String(), `id="backup"`, "answers with the settings page as it now stands")
-	memory, err := target.store.GetMemory("japan")
+	memory, err := target.store.GetMemory(t.Context(), "japan")
 	require.NoError(t, err)
 	assert.Equal(t, "Japan", memory.Title)
 }
 
 func TestSettingsImportIgnoresTokensInOlderBackups(t *testing.T) {
 	app := newTestApp(t)
-	require.NoError(t, app.store.UpdateAkahuSettings(models.IntegrationAkahuSettings{AppToken: "app_mine", UserToken: "user_mine"}))
+	require.NoError(t, app.store.UpdateAkahuSettings(t.Context(), models.IntegrationAkahuSettings{AppToken: "app_mine", UserToken: "user_mine"}))
 
 	c, _ := uploadBackup(t, app, []byte(`{"version": 1, "akahu": {"app_token": "app_x", "user_token": "user_y"}}`))
 	require.NoError(t, app.SettingsImport(c))
 
-	akahu, err := app.store.GetAkahuSettings()
+	akahu, err := app.store.GetAkahuSettings(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "user_mine", akahu.UserToken)
 }

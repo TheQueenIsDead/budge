@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"sync"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v4"
+	"go.opentelemetry.io/otel/codes"
 )
 
 // A sync runs in the background rather than inside the request that asked for
@@ -82,30 +84,36 @@ func (r *syncRunner) status() SyncStatus {
 
 // runAkahuSync syncs and records when it last succeeded. The runner must
 // already be claimed; it is released here.
-func (app *Application) runAkahuSync() error {
+func (app *Application) runAkahuSync(ctx context.Context) error {
+	ctx, span := tracer().Start(ctx, "akahu sync")
+	defer span.End()
 	err := func() error {
-		settings, err := app.store.GetAkahuSettings()
+		settings, err := app.store.GetAkahuSettings(ctx)
 		if err != nil {
 			return err
 		}
-		through, err := app.integrations.SyncAkahu(settings.DataThrough, app.akahuSync.progress)
+		through, err := app.integrations.SyncAkahu(ctx, settings.DataThrough, app.akahuSync.progress)
 		if err != nil {
 			return err
 		}
-		return app.store.RecordAkahuSync(through)
+		return app.store.RecordAkahuSync(ctx, through)
 	}()
 	app.akahuSync.end(err)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
 	if err == nil {
 		// New spending has landed, so this is when a category tips over.
-		app.notifyBudget(time.Now())
+		app.notifyBudget(ctx, time.Now())
 	}
 	return err
 }
 
 // syncStatus is the runner's state alongside when the last sync landed.
-func (app *Application) syncStatus() SyncStatus {
+func (app *Application) syncStatus(ctx context.Context) SyncStatus {
 	status := app.akahuSync.status()
-	if settings, err := app.store.GetAkahuSettings(); err == nil {
+	if settings, err := app.store.GetAkahuSettings(ctx); err == nil {
 		status.LastSync = settings.LastSync
 	}
 	return status
@@ -115,16 +123,20 @@ func (app *Application) syncStatus() SyncStatus {
 // progress view, which polls until the sync is done. Asking while one is
 // already running joins it rather than starting another.
 func (app *Application) SyncAkahu(c echo.Context) error {
+	ctx := c.Request().Context()
 	if app.akahuSync.begin() {
+		// The sync outlives the request, so it keeps the request's trace but
+		// not its cancellation.
+		background := context.WithoutCancel(ctx)
 		go func() {
-			if err := app.runAkahuSync(); err != nil {
+			if err := app.runAkahuSync(background); err != nil {
 				// Recorded as well as shown: the page that started this may be
 				// long closed by the time it fails.
-				app.Notify(models.NotificationError, SourceAkahuSync, "Sync failed", err.Error())
+				app.Notify(background, models.NotificationError, SourceAkahuSync, "Sync failed", err.Error())
 			}
 		}()
 	}
-	return c.Render(http.StatusOK, "settings.integrations.sync", app.syncStatus())
+	return c.Render(http.StatusOK, "settings.integrations.sync", app.syncStatus(ctx))
 }
 
 // ResyncAkahu re-reads the whole history rather than the days since the last
@@ -133,26 +145,29 @@ func (app *Application) SyncAkahu(c echo.Context) error {
 // first, so memories and hidden purchases, which are keyed by Akahu's own
 // transaction IDs, are untouched.
 func (app *Application) ResyncAkahu(c echo.Context) error {
+	ctx := c.Request().Context()
 	if app.akahuSync.begin() {
+		background := context.WithoutCancel(ctx)
 		go func() {
-			err := app.store.ResetAkahuLastSync()
+			err := app.store.ResetAkahuLastSync(background)
 			if err != nil {
 				app.akahuSync.end(err)
 			} else {
-				err = app.runAkahuSync()
+				err = app.runAkahuSync(background)
 			}
 			if err != nil {
-				app.Notify(models.NotificationError, SourceAkahuSync, "Full resync failed", err.Error())
+				app.Notify(background, models.NotificationError, SourceAkahuSync, "Full resync failed", err.Error())
 			}
 		}()
 	}
-	return c.Render(http.StatusOK, "settings.integrations.sync", app.syncStatus())
+	return c.Render(http.StatusOK, "settings.integrations.sync", app.syncStatus(ctx))
 }
 
 // SyncAkahuStatus answers the progress view's poll. When the run it was
 // watching has finished, it says how that went, once.
 func (app *Application) SyncAkahuStatus(c echo.Context) error {
-	status := app.syncStatus()
+	ctx := c.Request().Context()
+	status := app.syncStatus(ctx)
 
 	watching := c.QueryParam("started")
 	if !status.Running && watching != "" && watching == status.StartedKey() {

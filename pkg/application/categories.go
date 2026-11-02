@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"sort"
@@ -125,12 +126,12 @@ func ruleSuggestions(txs []models.Transaction, settings models.CategorySettings)
 
 // buildCategoriesView lays out every budge category with the rules that file
 // into it. open names a category to draw expanded, the one just changed.
-func (app *Application) buildCategoriesView(open string) (CategoriesView, error) {
-	settings, err := app.store.GetCategorySettings()
+func (app *Application) buildCategoriesView(ctx context.Context, open string) (CategoriesView, error) {
+	settings, err := app.store.GetCategorySettings(ctx)
 	if err != nil {
 		return CategoriesView{}, err
 	}
-	txs, err := app.store.ReadTransactions()
+	txs, err := app.store.ReadTransactions(ctx)
 	if err != nil {
 		return CategoriesView{}, err
 	}
@@ -214,7 +215,8 @@ func (app *Application) buildCategoriesView(open string) (CategoriesView, error)
 // rule counts always reflect the change. A message explains an action that
 // was refused; open keeps the category being worked on expanded.
 func (app *Application) renderCategories(c echo.Context, message, open string) error {
-	view, err := app.buildCategoriesView(open)
+	ctx := c.Request().Context()
+	view, err := app.buildCategoriesView(ctx, open)
 	if err != nil {
 		return err
 	}
@@ -234,7 +236,8 @@ func (app *Application) editBudgetCategories(c echo.Context, edit func(models.Bu
 // redrawing the card would take the field being typed in away. A refused
 // quiet save still redraws the card, putting back what was there.
 func (app *Application) saveBudgetCategories(c echo.Context, quiet bool, edit func(models.BudgetCategorySettings) (models.BudgetCategorySettings, string, error)) error {
-	settings, err := app.store.GetBudgetCategorySettings()
+	ctx := c.Request().Context()
+	settings, err := app.store.GetBudgetCategorySettings(ctx)
 	if err != nil {
 		return err
 	}
@@ -250,7 +253,7 @@ func (app *Application) saveBudgetCategories(c echo.Context, quiet bool, edit fu
 	if err != nil {
 		return err
 	}
-	if err := app.store.SaveBudgetCategorySettings(next); err != nil {
+	if err := app.store.SaveBudgetCategorySettings(ctx, next); err != nil {
 		return err
 	}
 	if quiet {
@@ -312,6 +315,7 @@ func (app *Application) SettingsDeleteBudgetCategory(c echo.Context) error {
 // or subcategory. A new rule goes last, so it never takes transactions an
 // earlier rule already files.
 func (app *Application) SettingsAddRule(c echo.Context) error {
+	ctx := c.Request().Context()
 	target, ok := models.BudgetCategoryByKey(c.FormValue("category"))
 	if !ok {
 		return app.renderCategories(c, "Pick a category for the rule to file transactions under.", "")
@@ -323,7 +327,7 @@ func (app *Application) SettingsAddRule(c echo.Context) error {
 		return app.renderCategories(c, "A rule needs some text to match.", open)
 	}
 
-	settings, err := app.store.GetCategorySettings()
+	settings, err := app.store.GetCategorySettings(ctx)
 	if err != nil {
 		return err
 	}
@@ -334,7 +338,7 @@ func (app *Application) SettingsAddRule(c echo.Context) error {
 		Category:         target.Key,
 		IncludeTransfers: c.FormValue("include_transfers") != "",
 	})
-	if err := app.store.SaveCategorySettings(settings); err != nil {
+	if err := app.store.SaveCategorySettings(ctx, settings); err != nil {
 		return err
 	}
 	return app.renderCategories(c, "", open)
@@ -397,6 +401,7 @@ func buildRulePreview(rule models.CategoryRule, txs []models.Transaction, settin
 
 // SettingsPreviewRule answers the rule form as it is typed into.
 func (app *Application) SettingsPreviewRule(c echo.Context) error {
+	ctx := c.Request().Context()
 	rule := models.CategoryRule{
 		Contains:         strings.TrimSpace(c.QueryParam("contains")),
 		Type:             c.QueryParam("type"),
@@ -405,11 +410,11 @@ func (app *Application) SettingsPreviewRule(c echo.Context) error {
 	if rule.Contains == "" {
 		return c.Render(http.StatusOK, "settings.rules.preview", RulePreview{})
 	}
-	settings, err := app.store.GetCategorySettings()
+	settings, err := app.store.GetCategorySettings(ctx)
 	if err != nil {
 		return err
 	}
-	txs, err := app.store.ReadTransactions()
+	txs, err := app.store.ReadTransactions(ctx)
 	if err != nil {
 		return err
 	}
@@ -417,7 +422,8 @@ func (app *Application) SettingsPreviewRule(c echo.Context) error {
 }
 
 func (app *Application) SettingsDeleteRule(c echo.Context) error {
-	settings, err := app.store.GetCategorySettings()
+	ctx := c.Request().Context()
+	settings, err := app.store.GetCategorySettings(ctx)
 	if err != nil {
 		return err
 	}
@@ -432,7 +438,7 @@ func (app *Application) SettingsDeleteRule(c echo.Context) error {
 		}
 	}
 	settings.Rules = kept
-	if err := app.store.SaveCategorySettings(settings); err != nil {
+	if err := app.store.SaveCategorySettings(ctx, settings); err != nil {
 		return err
 	}
 	return app.renderCategories(c, "", open)

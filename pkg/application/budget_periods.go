@@ -226,12 +226,13 @@ func frequencyOrWeekly(frequency string) string {
 // BudgetPeriods answers with the period charts, redrawn after a target
 // changes.
 func (app *Application) BudgetPeriods(c echo.Context) error {
+	ctx := c.Request().Context()
 	now := time.Now()
-	txs, err := app.store.ReadTransactionsByDate(now.AddDate(-1, 0, -1), now)
+	txs, err := app.store.ReadTransactionsByDate(ctx, now.AddDate(-1, 0, -1), now)
 	if err != nil {
 		return err
 	}
-	items, err := app.store.ReadBudgetItems()
+	items, err := app.store.ReadBudgetItems(ctx)
 	if err != nil {
 		return err
 	}

@@ -65,10 +65,10 @@ func TestBudgetCountsUncategorisedSpend(t *testing.T) {
 		spendTx("salary", "CREDIT", "", "", "", "SALARY", 3000, recent),
 		spendTx("sweep", "TRANSFER", "", "", "", "TO SAVINGS", -1000, recent),
 	} {
-		require.NoError(t, app.store.CreateTransaction(tx))
+		require.NoError(t, app.store.CreateTransaction(t.Context(), tx))
 	}
 
-	setup, err := app.buildSetupData()
+	setup, err := app.buildSetupData(t.Context())
 	require.NoError(t, err)
 
 	uncategorised := rowByKey(t, setup, "uncategorised")
@@ -85,9 +85,9 @@ func TestBudgetCountsUncategorisedSpend(t *testing.T) {
 
 func TestEveryCategoryHasARow(t *testing.T) {
 	app := newTestApp(t)
-	require.NoError(t, app.store.CreateTransaction(spendTx("groceries", "EFTPOS", "Food", "Supermarkets and grocery stores", "", "", -50, time.Now())))
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("groceries", "EFTPOS", "Food", "Supermarkets and grocery stores", "", "", -50, time.Now())))
 
-	setup, err := app.buildSetupData()
+	setup, err := app.buildSetupData(t.Context())
 	require.NoError(t, err)
 	assert.Len(t, setup.Rows, len(models.TopBudgetCategories()), "a target can be set before anything is spent")
 	assert.Equal(t, "home", setup.Rows[0].Key, "rows follow the registry")
@@ -121,10 +121,10 @@ func TestSubcategorySpend(t *testing.T) {
 		spendTx("net", "DIRECT DEBIT", "Utilities", "Internet services", "Voyager", "", -65, recent),
 		spendTx("water", "DIRECT DEBIT", "Utilities", "Water", "Water Co", "", -26, recent),
 	} {
-		require.NoError(t, app.store.CreateTransaction(tx))
+		require.NoError(t, app.store.CreateTransaction(t.Context(), tx))
 	}
 
-	setup, err := app.buildSetupData()
+	setup, err := app.buildSetupData(t.Context())
 	require.NoError(t, err)
 	bills := rowByKey(t, setup, "bills")
 	weeks := float64(bills.WindowWeeks)
@@ -143,7 +143,7 @@ func TestSubcategorySpend(t *testing.T) {
 // every window, so it adds back up to the raw amounts.
 func countedTotal(t *testing.T, app *Application) float64 {
 	t.Helper()
-	setup, err := app.buildSetupData()
+	setup, err := app.buildSetupData(t.Context())
 	require.NoError(t, err)
 	var total float64
 	for _, row := range setup.Rows {

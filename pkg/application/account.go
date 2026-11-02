@@ -1,8 +1,8 @@
 package application
 
 import (
-	"log/slog"
 	"cmp"
+	"log/slog"
 	"maps"
 	"math"
 	"net/http"
@@ -264,10 +264,11 @@ func OldestRefresh(accounts []models.Account) (time.Time, bool) {
 }
 
 func (app *Application) Portfolio(c echo.Context) error {
+	ctx := c.Request().Context()
 
-	accounts, err := app.store.ReadAccounts()
+	accounts, err := app.store.ReadAccounts(ctx)
 	if err != nil {
-		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
+		slog.ErrorContext(ctx, "request failed", "error", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to fetch accounts")
 	}
 
@@ -275,9 +276,9 @@ func (app *Application) Portfolio(c echo.Context) error {
 	// failure here costs us the deltas but not the balances, so carry on without them.
 	// One read serves both questions: which accounts moved recently, and which have
 	// any history at all.
-	transactions, err := app.store.ReadTransactions()
+	transactions, err := app.store.ReadTransactions(ctx)
 	if err != nil {
-		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
+		slog.ErrorContext(ctx, "request failed", "error", err)
 	}
 
 	cutoff := time.Now().AddDate(0, 0, -30)
@@ -292,9 +293,9 @@ func (app *Application) Portfolio(c echo.Context) error {
 
 	// Assets are tracked by hand rather than synced, so a failure here should not
 	// take the bank balances down with it.
-	assets, err := app.buildAssetSummaries()
+	assets, err := app.buildAssetSummaries(ctx)
 	if err != nil {
-		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
+		slog.ErrorContext(ctx, "request failed", "error", err)
 	}
 
 	refreshed, hasRefreshed := OldestRefresh(accounts)
@@ -312,11 +313,12 @@ func (app *Application) Portfolio(c echo.Context) error {
 }
 
 func (app *Application) Account(c echo.Context) error {
+	ctx := c.Request().Context()
 
 	accountId := c.Param("id")
-	account, err := app.store.GetAccount([]byte(accountId))
+	account, err := app.store.GetAccount(ctx, []byte(accountId))
 	if err != nil {
-		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
+		slog.ErrorContext(ctx, "request failed", "error", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to fetch accounts")
 	}
 
@@ -335,7 +337,7 @@ func (app *Application) Account(c echo.Context) error {
 
 	graphData, statistics, err := app.accountBalance(c, account, viewDate)
 	if err != nil {
-		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
+		slog.ErrorContext(ctx, "request failed", "error", err)
 		// Continue, maybe graph is not essential
 	}
 
@@ -354,11 +356,12 @@ func (app *Application) Account(c echo.Context) error {
 }
 
 func (app *Application) accountBalance(c echo.Context, account models.Account, viewDate time.Time) (AccountTimeseriesData, AccountStatistics, error) {
+	ctx := c.Request().Context()
 
 	// Retrieve all transactions for an account
-	transactions, err := app.store.ReadTransactionsByAccount(account.Id)
+	transactions, err := app.store.ReadTransactionsByAccount(ctx, account.Id)
 	if err != nil {
-		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
+		slog.ErrorContext(ctx, "request failed", "error", err)
 		return AccountTimeseriesData{}, AccountStatistics{}, err
 	}
 

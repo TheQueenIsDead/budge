@@ -372,13 +372,14 @@ func dashboardMonthsStart(now time.Time) time.Time {
 }
 
 func (app *Application) Dashboard(c echo.Context) error {
+	ctx := c.Request().Context()
 
 	now := time.Now()
 
 	// The spend highlights compare a year of months, so the dashboard reads
 	// further back than the six months its own charts cover.
-	accounts, accountErr := app.store.ReadAccounts()
-	transactions, transactionErr := app.store.ReadTransactionsByDate(now.AddDate(0, -insightsHistory, 0), now)
+	accounts, accountErr := app.store.ReadAccounts(ctx)
+	transactions, transactionErr := app.store.ReadTransactionsByDate(ctx, now.AddDate(0, -insightsHistory, 0), now)
 	if err := cmp.Or(accountErr, transactionErr); err != nil {
 		app.Toast(c, "Error", "Could not load dashboard data.")
 		return c.NoContent(http.StatusInternalServerError)
