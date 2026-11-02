@@ -579,8 +579,12 @@ func (s *Store) SaveScheduleSettings(ctx context.Context, schedule models.Schedu
 
 /* Settings */
 
+// GetAkahuSettings reads the tokens and how far the last sync reached.
+// Nothing saved yet means none, as on a fresh instance; a saved document that
+// cannot be read is an error.
 func (s *Store) GetAkahuSettings(ctx context.Context) (models.IntegrationAkahuSettings, error) {
-	return Get[models.IntegrationAkahuSettings](ctx, s.db, models.IntegrationAkahuSettings{}.Key())
+	settings, _, err := GetOptional[models.IntegrationAkahuSettings](ctx, s.db, models.IntegrationAkahuSettings{}.Key())
+	return settings, err
 }
 func (s *Store) UpdateAkahuSettings(ctx context.Context, settings models.IntegrationAkahuSettings) error {
 	return Update[models.IntegrationAkahuSettings](ctx, s.db, settings)
@@ -589,7 +593,7 @@ func (s *Store) UpdateAkahuSettings(ctx context.Context, settings models.Integra
 // RecordAkahuSync notes a successful sync, and how fresh Akahu's data was at
 // the time, which is where the next sync starts reading.
 func (s *Store) RecordAkahuSync(ctx context.Context, dataThrough time.Time) error {
-	settings, err := Get[models.IntegrationAkahuSettings](ctx, s.db, models.IntegrationAkahuSettings{}.Key())
+	settings, err := s.GetAkahuSettings(ctx)
 	if err != nil {
 		return err
 	}
@@ -601,7 +605,7 @@ func (s *Store) RecordAkahuSync(ctx context.Context, dataThrough time.Time) erro
 // ResetAkahuLastSync forgets how far the synced data reaches, so the next
 // sync reads the whole history again.
 func (s *Store) ResetAkahuLastSync(ctx context.Context) error {
-	settings, err := Get[models.IntegrationAkahuSettings](ctx, s.db, models.IntegrationAkahuSettings{}.Key())
+	settings, err := s.GetAkahuSettings(ctx)
 	if err != nil {
 		return err
 	}
