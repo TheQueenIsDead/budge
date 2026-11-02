@@ -16,8 +16,8 @@ import (
 const transactionPageSize = 100
 
 // TransactionRow is a transaction prepared for display. It carries the name the
-// row should be listed under and the spend group it belongs to, so a row can
-// wear the same accent colour that category uses everywhere else in the app.
+// row should be listed under and the colour and icon of the category it is
+// filed under, the same ones that category wears everywhere else in the app.
 type TransactionRow struct {
 	models.Transaction
 
@@ -56,19 +56,19 @@ func BuildTransactionRow(tx models.Transaction) TransactionRow {
 		row.Title = "Transaction"
 	}
 
-	// Money coming in is not classified as spend, so give it its own mark
+	// Money coming in is not filed under a category, so give it its own mark
 	// rather than leaving it to fall through to the neutral default.
 	if tx.Amount > 0 {
 		row.Icon = "bi-arrow-down-left"
 		row.Accent = "sage"
 		return row
 	}
-	if key, ok := ClassifySpend(tx); ok {
-		if group, found := SpendGroupByKey(key); found {
-			row.Accent = group.Accent
-			row.Icon = group.Icon
-		}
+	if tx.Type == "TRANSFER" {
+		return row
 	}
+	category := models.TopBudgetCategory(tx.BudgetCategory())
+	row.Accent = category.Accent
+	row.Icon = category.Icon
 	return row
 }
 
@@ -138,23 +138,20 @@ func (app *Application) Transactions(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	budgetItems, err := app.store.ReadBudgetItems()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	items := budgetItemsByCategory(budgetItems)
 	var uncategorisedCount int
 	var uncategorisedTotal float64
 	for _, t := range recent {
-		if isUncategorisedSpend(t, since, items) {
+		if isUncategorisedSpend(t, since) {
 			uncategorisedCount++
 			uncategorisedTotal -= t.Amount
 		}
 	}
+	// The filter shows every uncategorised payment, however old, so all of
+	// them can be found and filed; the warning above counts recent ones only.
 	uncategorisedOnly := c.QueryParam("uncategorised") != ""
 	if uncategorisedOnly {
 		transactions = slices.DeleteFunc(transactions, func(t models.Transaction) bool {
-			return !isUncategorisedSpend(t, since, items)
+			return !isUncategorisedSpend(t, time.Time{})
 		})
 	}
 
@@ -209,23 +206,24 @@ func (app *Application) Transactions(c echo.Context) error {
 	}
 
 	return c.Render(http.StatusOK, "transactions", map[string]interface{}{
-		"accounts":  accounts,
-		"series":    series,
-		"days":      days,
-		"memories":  memories,
-		"search":    search,
-		"account":   account,
-		"from":      c.QueryParam("from"),
-		"to":        c.QueryParam("to"),
-		"dated":     dated,
-		"dateRange": transactionDateLabel(c.QueryParam("from"), c.QueryParam("to"), from, to),
-		"took":      took,
-		"in":        in,
-		"out":       out,
-		"total":     total,
-		"showing":   len(page),
-		"hasMore":   total > len(page),
-		"nextLimit": limit + transactionPageSize,
+		"accounts":   accounts,
+		"series":     series,
+		"days":       days,
+		"memories":   memories,
+		"categories": categoryPicker(),
+		"search":     search,
+		"account":    account,
+		"from":       c.QueryParam("from"),
+		"to":         c.QueryParam("to"),
+		"dated":      dated,
+		"dateRange":  transactionDateLabel(c.QueryParam("from"), c.QueryParam("to"), from, to),
+		"took":       took,
+		"in":         in,
+		"out":        out,
+		"total":      total,
+		"showing":    len(page),
+		"hasMore":    total > len(page),
+		"nextLimit":  limit + transactionPageSize,
 
 		"uncategorisedCount": uncategorisedCount,
 		"uncategorisedTotal": uncategorisedTotal,
@@ -242,12 +240,11 @@ func uncategorisedSince(now time.Time) time.Time {
 }
 
 // isUncategorisedSpend reports whether a transaction is recent spending that
-// neither Akahu, a rule nor the owner has categorised: what lands in the
-// budget's Uncategorised group. Rows there the owner has marked as savings or
-// ignored are a decision already made, so they are not counted.
-func isUncategorisedSpend(tx models.Transaction, since time.Time, items map[string]models.BudgetItem) bool {
-	broad, _, ok := countedSpend(tx, items)
-	return ok && broad == uncategorisedGroup && !tx.Date.Before(since)
+// neither Akahu, a rule nor the owner has filed: what the budget can only
+// lump together under Uncategorised.
+func isUncategorisedSpend(tx models.Transaction, since time.Time) bool {
+	return tx.Amount < 0 && tx.Type != "TRANSFER" &&
+		tx.BudgetCategory() == models.CategoryUncategorised && !tx.Date.Before(since)
 }
 
 // transactionDateRange reads an inclusive range of local dates into the times
@@ -317,15 +314,13 @@ type TransactionSeries struct {
 	Total float64
 }
 
-// unclassifiedSpendLabel names spend that matches no tracked category.
-const unclassifiedSpendLabel = "Other"
-
 // BuildTransactionSeries totals spend by month and category for a result set.
 //
 // Transfers are excluded. They are money moving between the owner's own
 // accounts, so counting them would swamp every real category and describe
 // nothing. Income is excluded too: this answers "what did this cost", and a
-// salary credit in the same bar would net away the thing being looked at.
+// salary credit in the same bar would net away the thing being looked at. So
+// are savings and loan interest, which leave without being spent.
 func BuildTransactionSeries(transactions []models.Transaction, months int, now time.Time) TransactionSeries {
 	if months <= 0 {
 		return TransactionSeries{}
@@ -342,50 +337,37 @@ func BuildTransactionSeries(transactions []models.Transaction, months int, now t
 		index[start] = i
 	}
 
-	// Bands are keyed by group so the ordering stays the registry's, which is
-	// the same order the pills use on the insights page.
-	groups := SpendGroups()
-	totals := make(map[string][]float64, len(groups)+1)
-	for _, group := range groups {
-		totals[group.Key] = make([]float64, months)
+	// Bands are keyed by category so the ordering stays the registry's, the
+	// same order the budget lists them in.
+	categories := models.TopBudgetCategories()
+	totals := make(map[string][]float64, len(categories))
+	for _, category := range categories {
+		totals[category.Key] = make([]float64, months)
 	}
-	totals[unclassifiedSpendLabel] = make([]float64, months)
 
 	series := TransactionSeries{Labels: labels}
 
 	for _, tx := range transactions {
-		if tx.Type == "TRANSFER" || tx.Amount >= 0 {
+		category, ok := spendCategory(tx)
+		if !ok {
 			continue
 		}
 		i, ok := index[periodStart(tx.Date.In(location), CadenceMonthly)]
 		if !ok {
 			continue
 		}
-
-		key := unclassifiedSpendLabel
-		if matched, ok := ClassifySpend(tx); ok {
-			key = matched
-		}
-		totals[key][i] += -tx.Amount
+		totals[category.Key][i] += -tx.Amount
 		series.Total += -tx.Amount
 	}
 
-	for _, group := range groups {
-		if band, ok := nonEmptyBand(totals[group.Key]); ok {
+	for _, category := range categories {
+		if band, ok := nonEmptyBand(totals[category.Key]); ok {
 			series.Groups = append(series.Groups, TransactionSeriesGroup{
-				Label:  group.Label,
-				Accent: group.Accent,
+				Label:  category.Label,
+				Accent: category.Accent,
 				Data:   band,
 			})
 		}
-	}
-	// Unclassified spend sits last, so the named categories read first.
-	if band, ok := nonEmptyBand(totals[unclassifiedSpendLabel]); ok {
-		series.Groups = append(series.Groups, TransactionSeriesGroup{
-			Label:  unclassifiedSpendLabel,
-			Accent: "muted",
-			Data:   band,
-		})
 	}
 
 	series.HasData = len(series.Groups) > 0

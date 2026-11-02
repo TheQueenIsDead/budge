@@ -7,19 +7,18 @@
 
     <!-- Filters. Sticky, so search stays reachable well down a long list. -->
     <div class="b-filters">
-        {{/* The listeners name the two filters by id. A bare "from:select"
-             would match every select on the page, so picking a memory or a
-             category further down would reload the list underneath it. */}}
+        {{/* The listeners name the filters by id. A bare "from:select" would
+             match every select on the page, so picking a memory or a category
+             further down would reload the list underneath it. */}}
         <form hx-get="/transactions"
-              hx-trigger="input delay:400ms from:#search, change from:#account"
+              hx-trigger="input delay:400ms from:#search, change from:#account, change from:#uncategorised"
               hx-target="#main"
               hx-push-url="true">
             <input type="hidden" name="from" value="{{ .from }}">
             <input type="hidden" name="to" value="{{ .to }}">
-            {{ if .uncategorisedOnly }}<input type="hidden" name="uncategorised" value="1">{{ end }}
 
             <div class="row g-2">
-                <div class="col-12 col-sm-7">
+                <div class="col-12 col-sm-6">
                     <div class="position-relative">
                         <i class="bi bi-search position-absolute text-muted"
                            style="left: 0.75rem; top: 50%; transform: translateY(-50%);"></i>
@@ -30,13 +29,23 @@
                                value="{{ .search }}">
                     </div>
                 </div>
-                <div class="col-12 col-sm-5">
+                <div class="col-7 col-sm-4">
                     <select id="account" name="account" class="form-select">
                         <option value="">All accounts</option>
                         {{ range .accounts }}
                             <option value="{{ .Id }}" {{ if eq $.account .Id }}selected{{ end }}>{{ .Name }}</option>
                         {{ end }}
                     </select>
+                </div>
+                {{/* Only what nothing has filed yet, however old, alongside the
+                     other filters. */}}
+                <div class="col-5 col-sm-2">
+                    <input type="checkbox" class="btn-check" id="uncategorised" name="uncategorised" value="1"
+                           autocomplete="off"{{ if .uncategorisedOnly }} checked{{ end }}>
+                    <label class="btn btn-outline-secondary w-100 b-filter-toggle" for="uncategorised"
+                           title="Show only transactions with no category">
+                        <i class="bi bi-question-circle"></i>Uncategorised
+                    </label>
                 </div>
             </div>
         </form>
@@ -68,9 +77,10 @@
         <div class="alert alert-warning d-flex align-items-start gap-2 mb-3" role="status">
             <i class="bi bi-funnel" aria-hidden="true"></i>
             <div class="flex-grow-1">
-                Showing only spending from the last {{ .uncategorisedWeeks }} weeks with no category.
-                Use <i class="bi bi-tag" aria-hidden="true"></i><span class="visually-hidden">the tag button</span>
-                on each to file it, or tick the rule box to file everything like it.
+                Showing only spending with no category.
+                Tap the icons of several to file them together, or use
+                <i class="bi bi-tag" aria-hidden="true"></i><span class="visually-hidden">the tag button</span>
+                on one to file everything like it with a rule.
             </div>
             <a class="text-nowrap" href="/transactions" hx-boost="true" hx-target="#main">Show everything</a>
         </div>
@@ -95,7 +105,7 @@
                     <h3 class="b-card-title">Spend over time</h3>
                     <p class="b-card-sub">
                         Last 12 months of these results{{ if .series.Split }} by category{{ end }}.
-                        Transfers and money in are left out.
+                        Transfers, money in and savings are left out.
                     </p>
                 </div>
                 <div class="text-end flex-shrink-0">
@@ -210,7 +220,7 @@
         <form id="tx-group" class="b-tl-form b-tl-groupbar" hx-post="/transactions/memory" hx-trigger="change" hx-swap="none"
               hx-on::after-request="if (event.detail.successful) document.querySelectorAll('[form=tx-group]:checked').forEach(b => b.checked = false)">
             <span class="b-tl-count"></span>
-            {{ template "transactions.groupbar" (dict "Options" .memories) }}
+            {{ template "transactions.groupbar" (dict "Options" .memories "Categories" .categories) }}
         </form>
 
         </div>
@@ -395,14 +405,18 @@
 {{ define "transactions.category.form" }}
 <form class="d-flex flex-wrap gap-2" hx-post="/transactions/{{ .ID }}/category" hx-target="this" hx-swap="none">
     <div class="b-txmem-head">
-        {{ if .Specific }}{{ .Broad }} / {{ .Specific }}<span class="fw-normal text-muted"> · from {{ .Source }}</span>{{ else }}Uncategorised{{ end }}
+        {{ .Current }}{{ if .Source }}<span class="fw-normal text-muted"> · from {{ .Source }}</span>{{ end }}
     </div>
     <select class="form-select form-select-sm" name="category" aria-label="File under">
         <option value="">File under…</option>
         {{ range .Groups }}
-        <optgroup label="{{ .Broad }}">
-            {{ range .Options }}<option value="{{ .Specific }}">{{ .Specific }}</option>{{ end }}
-        </optgroup>
+            {{ if .Options }}
+            <optgroup label="{{ .Label }}">
+                {{ range .Options }}<option value="{{ .Key }}">{{ .Label }}</option>{{ end }}
+            </optgroup>
+            {{ else }}
+            <option value="{{ .Key }}">{{ .Label }}</option>
+            {{ end }}
         {{ end }}
     </select>
     {{ if .RuleText }}
@@ -433,7 +447,7 @@
 
 {{ define "transactions.memory.swap" }}
 {{ range .Controls }}{{ template "transactions.memory" . }}{{ end }}
-{{ if .Bar }}{{ template "transactions.groupbar" (dict "Options" .Options "OOB" true) }}{{ end }}
+{{ if .Bar }}{{ template "transactions.groupbar" (dict "Options" .Options "Categories" .Categories "OOB" true) }}{{ end }}
 {{ end }}
 
 {{/* The selection bar's fields, redrawn after it is used so the memory just
@@ -441,6 +455,22 @@
      that belong to it are not orphaned. */}}
 {{ define "transactions.groupbar" }}
 <span id="tx-group-fields" class="b-tl-new-wrap"{{ if .OOB }} hx-swap-oob="true"{{ end }}>
+    {{/* Filing every ticked transaction at once, as if each were filed by
+         hand. It posts on its own: "consume" keeps the bar's memory form from
+         taking the change too. */}}
+    <select class="form-select form-select-sm" name="category" aria-label="File the ticked transactions under"
+            hx-post="/transactions/category" hx-trigger="change consume" hx-include="closest form" hx-swap="none">
+        <option value="" selected disabled>File under&hellip;</option>
+        {{ range .Categories }}
+            {{ if .Options }}
+            <optgroup label="{{ .Label }}">
+                {{ range .Options }}<option value="{{ .Key }}">{{ .Label }}</option>{{ end }}
+            </optgroup>
+            {{ else }}
+            <option value="{{ .Key }}">{{ .Label }}</option>
+            {{ end }}
+        {{ end }}
+    </select>
     {{ template "transactions.memory.pick" . }}
     <button type="button" class="btn btn-sm btn-outline-secondary" hx-delete="/transactions/memory"
             title="Take the ticked transactions out of their memories">
