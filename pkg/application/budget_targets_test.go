@@ -166,10 +166,11 @@ func TestBudgetSaveTarget(t *testing.T) {
 // counting. Two of them share a name with a budge category.
 func TestTargetsFromBeforeBudgeCategoriesAreLeftOut(t *testing.T) {
 	app := newTestApp(t)
+	// Targets saved against Akahu's categories name no budge category.
 	for _, item := range []models.BudgetItem{
-		{ID: "old-insurance", Category: "Insurance", BroadCategory: "Household", Amount: 28, Frequency: "weekly"},
-		{ID: "old-savings", Category: "Savings", BroadCategory: "General", Amount: 100, Frequency: "weekly"},
-		{ID: "old-fuel", Category: "Fuel stations", BroadCategory: "Transport", Amount: 60, Frequency: "weekly"},
+		{ID: "old-insurance", Name: "Insurance", Amount: 28, Frequency: "weekly"},
+		{ID: "old-savings", Name: "Savings", Amount: 100, Frequency: "weekly"},
+		{ID: "old-fuel", Name: "Fuel stations", Amount: 60, Frequency: "weekly"},
 	} {
 		require.NoError(t, app.store.CreateBudgetItem(item))
 	}

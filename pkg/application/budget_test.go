@@ -202,16 +202,6 @@ func TestWeeklyTarget(t *testing.T) {
 			models.BudgetItem{Amount: 520, Frequency: "yearly"},
 			10,
 		},
-		{
-			"savings items are not a spending target",
-			models.BudgetItem{Amount: 385, Frequency: "weekly", Kind: models.BudgetKindSavings},
-			0,
-		},
-		{
-			"ignored items are not a spending target",
-			models.BudgetItem{Amount: 52, Frequency: "yearly", Kind: models.BudgetKindIgnore},
-			0,
-		},
 	}
 
 	for _, test := range tests {
@@ -385,7 +375,7 @@ func TestBuildSetupRowData(t *testing.T) {
 	const netWeekly = 1_000
 
 	t.Run("spend with no target is flagged as needing one", func(t *testing.T) {
-		row := buildSetupRowData(groceriesCategory, models.BudgetItem{Category: "Groceries"}, 120, netWeekly)
+		row := buildSetupRowData(groceriesCategory, models.BudgetItem{}, 120, netWeekly)
 
 		assert.False(t, row.HasTarget)
 		assert.True(t, row.NeedsTarget)
@@ -396,14 +386,14 @@ func TestBuildSetupRowData(t *testing.T) {
 	})
 
 	t.Run("no spend and no target needs nothing", func(t *testing.T) {
-		row := buildSetupRowData(groceriesCategory, models.BudgetItem{Category: "Groceries"}, 0, netWeekly)
+		row := buildSetupRowData(groceriesCategory, models.BudgetItem{}, 0, netWeekly)
 
 		assert.False(t, row.HasTarget)
 		assert.False(t, row.NeedsTarget)
 	})
 
 	t.Run("under a weekly target", func(t *testing.T) {
-		item := models.BudgetItem{Category: "Groceries", Amount: 200, Frequency: "weekly"}
+		item := models.BudgetItem{Amount: 200, Frequency: "weekly"}
 		row := buildSetupRowData(groceriesCategory, item, 150, netWeekly)
 
 		assert.True(t, row.HasTarget)
@@ -414,7 +404,7 @@ func TestBuildSetupRowData(t *testing.T) {
 	})
 
 	t.Run("over a weekly target", func(t *testing.T) {
-		item := models.BudgetItem{Category: "Groceries", Amount: 100, Frequency: "weekly"}
+		item := models.BudgetItem{Amount: 100, Frequency: "weekly"}
 		row := buildSetupRowData(groceriesCategory, item, 150, netWeekly)
 
 		assert.True(t, row.IsOver)
@@ -422,7 +412,7 @@ func TestBuildSetupRowData(t *testing.T) {
 	})
 
 	t.Run("monthly target displays actuals in monthly units", func(t *testing.T) {
-		item := models.BudgetItem{Category: "Power", Amount: 260, Frequency: "monthly"}
+		item := models.BudgetItem{Amount: 260, Frequency: "monthly"}
 		row := buildSetupRowData(groceriesCategory, item, 50, netWeekly)
 
 		assert.Equal(t, "a month", row.Per)
@@ -433,20 +423,20 @@ func TestBuildSetupRowData(t *testing.T) {
 	})
 
 	t.Run("zero income leaves share of income at zero", func(t *testing.T) {
-		item := models.BudgetItem{Category: "Groceries", Amount: 200, Frequency: "weekly"}
+		item := models.BudgetItem{Amount: 200, Frequency: "weekly"}
 		row := buildSetupRowData(groceriesCategory, item, 150, 0)
 
 		assert.Zero(t, row.PctOfIncome, "must not divide by zero income")
 	})
 
 	t.Run("a few cents over a target set to the dollar is not over", func(t *testing.T) {
-		item := models.BudgetItem{Category: "Mortgage", Amount: 592, Frequency: "weekly"}
+		item := models.BudgetItem{Amount: 592, Frequency: "weekly"}
 		assert.False(t, buildSetupRowData(groceriesCategory, item, 592.10, netWeekly).IsOver)
 		assert.True(t, buildSetupRowData(groceriesCategory, item, 593.50, netWeekly).IsOver)
 	})
 
 	t.Run("the bar is capped at full however far over", func(t *testing.T) {
-		item := models.BudgetItem{Category: "Groceries", Amount: 100, Frequency: "weekly"}
+		item := models.BudgetItem{Amount: 100, Frequency: "weekly"}
 		assert.InDelta(t, 100, buildSetupRowData(groceriesCategory, item, 250, netWeekly).BarWidth(), 0.0001)
 		assert.InDelta(t, 40, buildSetupRowData(groceriesCategory, item, 40, netWeekly).BarWidth(), 0.0001)
 	})

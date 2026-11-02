@@ -1073,10 +1073,9 @@ func buildBudgetSummary(salary models.BudgetSalary) BudgetSummary {
 }
 
 // budgetTargets indexes the targets set against budge categories and
-// subcategories by key.
-// Targets from before budge had its own categories name none, and are left
-// out, as are the targets of deleted categories: the category their
-// transactions went to keeps its own target.
+// subcategories by key, with each category's general target beside it. A
+// target naming no category, from before budge had its own, is left out, as
+// is a deleted category's: the one its transactions went to keeps its own.
 func budgetTargets(items []models.BudgetItem) map[string]models.BudgetItem {
 	targets := make(map[string]models.BudgetItem, len(items))
 	for _, item := range items {
@@ -1151,13 +1150,8 @@ func isoWeekStart(t time.Time) time.Time {
 
 // ---- pure functions ----
 
-// weeklyTarget returns the weekly-normalised budget target for an item.
-// Savings and ignored items are not spending, so they contribute nothing
-// even if an amount was saved before the switch.
+// weeklyTarget is a target as an amount a week.
 func weeklyTarget(item models.BudgetItem) float64 {
-	if !item.IsSpending() {
-		return 0
-	}
 	return toWeeklyAmount(item.Amount, item.Frequency)
 }
 
