@@ -71,7 +71,6 @@
                     <a class="b-nav-link" data-nav href="/timeline">Timeline</a>
                     <a class="b-nav-link" data-nav href="/portfolio">Portfolio</a>
                     <a class="b-nav-link" data-nav href="/budget">Budget</a>
-                    <a class="b-nav-link" data-nav href="/settings">Settings</a>
                 </div>
 
                 <div class="d-flex align-items-center">
@@ -91,15 +90,23 @@
                               hx-swap="innerHTML"></span>
                     </a>
 
-                    <!-- Neither the timeline nor settings earns a tab slot, so on
-                         mobile they live up here. -->
+                    <!-- The timeline does not earn a tab slot, so on mobile it
+                         lives up here. -->
                     <a class="b-nav-link d-md-none px-2" data-nav href="/timeline"
                        aria-label="Timeline" hx-boost="true" hx-target="#main">
                         <i class="bi bi-clock-history fs-5"></i>
                     </a>
 
-                    <a class="b-nav-link d-md-none px-2" data-nav href="/settings"
-                       aria-label="Settings" hx-boost="true" hx-target="#main">
+                    <!-- How budge itself is running, and how it is set up, sit
+                         beside the bell at every size: they are about budge,
+                         not about the money. -->
+                    <a class="b-nav-link px-2" data-nav href="/admin"
+                       aria-label="Admin" title="Admin" hx-boost="true" hx-target="#main">
+                        <i class="bi bi-activity fs-5"></i>
+                    </a>
+
+                    <a class="b-nav-link px-2" data-nav href="/settings"
+                       aria-label="Settings" title="Settings" hx-boost="true" hx-target="#main">
                         <i class="bi bi-gear fs-5"></i>
                     </a>
                 </div>
