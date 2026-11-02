@@ -515,9 +515,10 @@ var defaultIndex = func() map[string]bool {
 	return index
 }()
 
-// AddBudgetCategory adds a category, off budget until it is put on, before
-// Uncategorised; or, given a parent, a subcategory at the end of its
-// parent's. It returns the new key.
+// AddBudgetCategory adds a category, on budget, after the last that is; or,
+// given a parent, a subcategory at the end of its parent's. It returns the
+// new key. A new category is on budget so its spending counts from the
+// start, rather than vanishing from every total until it is put on.
 func (bs BudgetCategorySettings) AddBudgetCategory(label, parent string) (BudgetCategorySettings, string, error) {
 	label = strings.TrimSpace(label)
 	if label == "" {
@@ -535,11 +536,12 @@ func (bs BudgetCategorySettings) AddBudgetCategory(label, parent string) (Budget
 		category.Parent = parent
 		_, at = next.block(p)
 	} else {
-		category.OffBudget = true
 		category.Icon = "bi-three-dots"
 		category.Accent = "muted"
-		if u := next.find(CategoryUncategorised); u >= 0 {
-			at = u
+		for i, existing := range next.Categories {
+			if existing.Parent == "" && !existing.OffBudget && existing.Key != CategoryUncategorised {
+				_, at = next.block(i)
+			}
 		}
 	}
 	next.Categories = append(next.Categories[:at], append([]BudgetCategory{category}, next.Categories[at:]...)...)

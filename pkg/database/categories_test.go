@@ -304,11 +304,12 @@ func TestAddBudgetCategory(t *testing.T) {
 	models.UseBudgetCategories(settings)
 
 	top := keys(models.TopBudgetCategories())
-	assert.Equal(t, []string{"kids-school", "uncategorised"}, top[len(top)-2:], "a new category goes last, before Uncategorised")
+	assert.Equal(t, "kids-school", top[indexOfKey(top, "other")+1], "a new category goes after the last on budget")
+	assert.Equal(t, "savings", top[indexOfKey(top, "kids-school")+1], "and before those off it")
 	kids, ok := models.BudgetCategoryByKey("kids-school")
 	require.True(t, ok)
-	assert.False(t, kids.Budgeted(), "off budget until it is put on")
-	assert.True(t, kids.NotSpending)
+	assert.True(t, kids.Budgeted(), "on budget, so its spending counts from the start")
+	assert.False(t, kids.NotSpending)
 
 	t.Run("a name already used gets a key of its own", func(t *testing.T) {
 		_, key, err := settings.AddBudgetCategory("Kids & school", "")

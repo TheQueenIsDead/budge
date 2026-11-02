@@ -393,9 +393,9 @@
         </div>
     {{ end }}
 
-    {{/* A new category starts unbudgeted under a placeholder name, and opens
-         ready to be named, dressed and moved into its group, brought into
-         view since it lands above the button. */}}
+    {{/* A new category starts on budget under a placeholder name, and opens
+         ready to be named and dressed, brought into view since it lands
+         above the button. */}}
     <button type="button" class="btn btn-outline-secondary btn-sm mt-3"
             hx-post="/settings/budget-categories" hx-vals='{"label": "New category"}'
             hx-target="#categories" hx-swap="outerHTML show:details.b-pv-cat[open]:top">

@@ -259,9 +259,8 @@ func (app *Application) saveBudgetCategories(c echo.Context, quiet bool, edit fu
 	return app.renderCategories(c, "", open)
 }
 
-// SettingsAddBudgetCategory adds a category, off budget until it is put on,
-// or a subcategory to a category. A new category is drawn open, ready to be
-// dressed.
+// SettingsAddBudgetCategory adds a category, on budget, or a subcategory to
+// a category. A new category is drawn open, ready to be dressed.
 func (app *Application) SettingsAddBudgetCategory(c echo.Context) error {
 	return app.editBudgetCategories(c, func(settings models.BudgetCategorySettings) (models.BudgetCategorySettings, string, error) {
 		parent := c.FormValue("parent")
