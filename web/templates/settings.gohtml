@@ -62,7 +62,7 @@
     <div id="schedule">{{ template "settings.schedule" .schedule }}</div>
 
     <!-- Categories, and the rules that file transactions under them -->
-    <div id="categories">{{ template "settings.categories" .categories }}</div>
+    {{ template "settings.categories" .categories }}
 
     <!-- Connected accounts -->
     <div class="b-card mb-3" id="accounts">
@@ -230,8 +230,11 @@
 {{ end }}
 
 {{ define "settings.categories" }}
-{{/* One swap target for both cards: a new category has to appear in the
-     rule picker straight away. */}}
+{{/* One swap target for every category and rule, so a rule's counts and the
+     category it lands in are always current after a change. It is swapped
+     whole: emptying it first shortened the page for a moment, and the browser
+     scrolled to its new bottom. */}}
+<div id="categories">
 {{ if .Error }}
 <div class="alert alert-warning py-2 small mb-3" role="alert">{{ .Error }}</div>
 {{ end }}
@@ -243,152 +246,268 @@
             <div>
                 <h3 class="b-card-title">Categories</h3>
                 <p class="b-card-sub">
-                Your own categories, alongside the ones Akahu assigns, for rules to file
-                transactions under. Marked ★ in the rule picker.
+                    Every transaction is filed under one of these. Akahu's categories file most of
+                    it automatically, and rules catch what they miss: the first rule that matches
+                    wins. Open a category to see its rules, or to add one.
                 </p>
             </div>
         </div>
     </div>
 
-    {{ if .Custom }}
-    <ul class="list-unstyled mb-3">
-        {{ range .Custom }}
-        <li class="d-flex align-items-center justify-content-between gap-2 py-1 border-bottom">
-            <span>{{ .Broad }} / <span class="fw-semibold">{{ .Specific }}</span></span>
-            <button type="button" class="btn btn-link btn-sm p-0 text-danger"
-                    hx-delete="/settings/categories/{{ .ID }}"
-                    hx-target="#categories" hx-swap="innerHTML"
-                    title="Delete category" aria-label="Delete {{ .Specific }}">
-                <i class="bi bi-x-circle" aria-hidden="true"></i>
-            </button>
-        </li>
-        {{ end }}
-    </ul>
-    {{ else }}
-    <p class="text-muted small mb-3">No categories yet.</p>
+    <datalist id="rule-suggestions">
+        {{ range .Suggestions }}<option value="{{ . }}"></option>{{ end }}
+    </datalist>
+
+    {{ $types := .Types }}
+    {{ $root := . }}
+    {{ range .Groups }}
+        <div class="b-field-label mt-3">{{ .Label }}</div>
+        <div class="b-pv-list">
+            {{ range .Categories }}
+                {{ $key := .Key }}
+                {{/* The heading follows the fields below as they change, before the
+                     change is saved, so an edit shows the moment it is made. The
+                     colour is swapped rather than added to: the accent classes
+                     all set the same variables, so two at once left whichever
+                     came later in the stylesheet, and muted, a new category's
+                     colour, comes last. */}}
+                <details class="b-pv-cat b-accent-{{ .Accent }}" id="category-{{ .Key }}"{{ if .Open }} open{{ end }}
+                         x-data='{{ .State | toJSON }}'
+                         x-effect="[...$el.classList].filter(c => c.startsWith('b-accent-')).forEach(c => $el.classList.remove(c)); $el.classList.add('b-accent-' + accent)">
+                    <summary class="b-pv-row">
+                        <span class="b-chip b-chip-sm"><i class="bi {{ .Icon }}" x-effect="$el.className = 'bi ' + icon"></i></span>
+                        <div class="b-pv-body">
+                            <div class="fw-semibold" x-text="label">{{ .Label }}</div>
+                            <div class="b-delta-note text-truncate" x-text="subs.length ? subs.join(' · ') : blurb">
+                                {{ if .Subs }}{{ range $i, $sub := .Subs }}{{ if $i }} · {{ end }}{{ $sub.Label }}{{ end }}{{ else }}{{ .Blurb }}{{ end }}
+                            </div>
+                        </div>
+                        <div class="b-pv-figures b-delta-note">
+                            {{ if .Rules }}<div>{{ len .Rules }} rule{{ if ne (len .Rules) 1 }}s{{ end }}</div>{{ end }}
+                            <div>{{ .Count }} transaction{{ if ne .Count 1 }}s{{ end }}</div>
+                        </div>
+                        <i class="bi bi-chevron-down b-target-chev"></i>
+                    </summary>
+
+                    <div class="b-cat-body">
+                        {{ template "settings.category.details" (dict "Category" . "Root" $root) }}
+                        {{ template "settings.category.subs" . }}
+
+                        <div class="b-cat-section">
+                        <div class="b-cat-section-title">Rules</div>
+                        {{ if .Rules }}
+                            <ol class="list-unstyled mb-3">
+                                {{ range .Rules }}
+                                <li class="d-flex align-items-start justify-content-between gap-2 py-2 border-bottom">
+                                    <div class="min-width-0">
+                                        <div>
+                                            Contains <span class="font-monospace">“{{ .Contains }}”</span>
+                                            {{ if .Type }}<span class="text-muted">and type is</span> <span class="badge-category">{{ .Type }}</span>{{ end }}
+                                            {{ if .IncludeTransfers }}<span class="badge-category" title="Counts money leaving by transfer as spending">incl. transfers</span>{{ end }}
+                                        </div>
+                                        <div class="small">
+                                            {{ if .Into }}<i class="bi bi-arrow-return-right text-muted" aria-hidden="true"></i> {{ .Into }}{{ end }}
+                                            <span class="{{ if .Matches }}text-muted{{ else }}text-warning{{ end }}{{ if .Into }} ms-1{{ end }}">
+                                                {{ if .Into }}· {{ end }}{{ .Matches }} transaction{{ if ne .Matches 1 }}s{{ end }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-link btn-sm p-0 text-danger flex-shrink-0"
+                                            hx-delete="/settings/rules/{{ .ID }}"
+                                            hx-target="#categories" hx-swap="outerHTML"
+                                            title="Delete rule" aria-label="Delete the rule for {{ .Contains }}">
+                                        <i class="bi bi-x-circle" aria-hidden="true"></i>
+                                    </button>
+                                </li>
+                                {{ end }}
+                            </ol>
+                        {{ end }}
+
+                        {{ if eq .Key "uncategorised" }}
+                            <p class="b-card-sub mb-0">
+                                Anything nothing else files lands here.
+                                <a href="/transactions?uncategorised=1" hx-boost="true" hx-target="#main">File the recent ones</a>,
+                                or add a rule to the category they belong in.
+                            </p>
+                        {{ else }}
+                            <form hx-post="/settings/rules" hx-target="#categories" hx-swap="outerHTML" class="row g-2 align-items-end">
+                                <div class="col-12 col-md-5">
+                                    <label class="b-field-label" for="rule-contains-{{ .Key }}">Description or merchant contains</label>
+                                    <input class="form-control form-control-sm" id="rule-contains-{{ .Key }}" name="contains"
+                                           list="rule-suggestions" autocomplete="off"
+                                           placeholder="e.g. LOAN INTEREST" required>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <label class="b-field-label" for="rule-type-{{ .Key }}">Type</label>
+                                    <select class="form-select form-select-sm" id="rule-type-{{ .Key }}" name="type">
+                                        <option value="">Any</option>
+                                        {{ range $types }}<option value="{{ . }}">{{ . | fmtTitle }}</option>{{ end }}
+                                    </select>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    {{ if gt (len .Options) 1 }}
+                                        <label class="b-field-label" for="rule-category-{{ .Key }}">File under</label>
+                                        <select class="form-select form-select-sm" id="rule-category-{{ .Key }}" name="category">
+                                            {{ range .Options }}<option value="{{ .Key }}">{{ .Label }}</option>{{ end }}
+                                        </select>
+                                    {{ else }}
+                                        {{/* One place to file: the category, or its only
+                                             subcategory, said rather than picked. */}}
+                                        {{ $only := index .Options 0 }}
+                                        <input type="hidden" name="category" value="{{ $only.Key }}">
+                                        {{ if ne $only.Key .Key }}<div class="b-delta-note pb-1">Files under {{ $only.Label }}</div>{{ end }}
+                                    {{ end }}
+                                </div>
+                                {{/* Re-rendered with the card, so its "from:" listeners always
+                                     bind to the current inputs. hx-target is set here because it
+                                     would otherwise inherit the form's, and replace the card. */}}
+                                <div class="col-12" aria-live="polite"
+                                     hx-get="/settings/rules/preview"
+                                     hx-trigger="input changed delay:300ms from:#rule-contains-{{ .Key }}, change from:#rule-type-{{ .Key }}, change from:#rule-transfers-{{ .Key }}"
+                                     hx-include="#rule-contains-{{ .Key }}, #rule-type-{{ .Key }}, #rule-transfers-{{ .Key }}"
+                                     hx-target="this"
+                                     hx-swap="innerHTML"></div>
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="rule-transfers-{{ .Key }}" name="include_transfers" value="1">
+                                        <label class="form-check-label" for="rule-transfers-{{ .Key }}">
+                                            Include transfers between your accounts
+                                            <span class="d-block b-card-sub">
+                                                For payments like a mortgage repayment into a loan account. Only the money
+                                                leaving is counted as spending; where it arrives stays a transfer.
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg"></i>Add rule</button>
+                                </div>
+                            </form>
+                        {{ end }}
+                        </div>
+
+                        {{ template "settings.category.delete" . }}
+                    </div>
+                </details>
+            {{ end }}
+        </div>
     {{ end }}
 
-    <form hx-post="/settings/categories" hx-target="#categories" hx-swap="innerHTML" class="row g-2 align-items-end">
-        <div class="col-6 col-md-4">
-            <label class="b-field-label" for="category-broad">Group</label>
-            <input class="form-control form-control-sm" id="category-broad" name="broad"
-                   list="category-broads" placeholder="e.g. General" required>
-            <datalist id="category-broads">
-                {{ range .Groups }}<option value="{{ .Broad }}"></option>{{ end }}
-            </datalist>
-        </div>
-        <div class="col-6 col-md-4">
-            <label class="b-field-label" for="category-specific">Name</label>
-            <input class="form-control form-control-sm" id="category-specific" name="specific"
-                   placeholder="e.g. Housing" required>
-        </div>
+    {{/* A new category starts unbudgeted under a placeholder name, and opens
+         ready to be named, dressed and moved into its group, brought into
+         view since it lands above the button. */}}
+    <button type="button" class="btn btn-outline-secondary btn-sm mt-3"
+            hx-post="/settings/budget-categories" hx-vals='{"label": "New category"}'
+            hx-target="#categories" hx-swap="outerHTML show:details.b-pv-cat[open]:top">
+        <i class="bi bi-plus-lg"></i>New category
+    </button>
+</div>
+</div>
+{{ end }}
+
+{{/* A category's name and look, each saved as it is changed: a field when it
+     is left, a colour or icon when it is picked. Colour and icon are rows of
+     choices, the chosen one ringed. */}}
+{{ define "settings.category.details" }}
+{{ $c := .Category }}
+{{ $root := .Root }}
+<form class="b-cat-section b-cat-details" hx-post="/settings/budget-categories/{{ $c.Key }}" hx-trigger="change" hx-swap="none">
+    <div class="b-cat-section-title">Details</div>
+    <div class="row g-2">
         <div class="col-12 col-md-4">
-            <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg"></i>Add category</button>
+            <label class="b-field-label" for="cat-label-{{ $c.Key }}">Name</label>
+            <input class="form-control form-control-sm" id="cat-label-{{ $c.Key }}" name="label" value="{{ $c.Label }}" x-model="label" required>
         </div>
-    </form>
-</div>
-
-<div class="b-card b-card-pad mb-3 b-accent-clay">
-    <div class="b-card-head">
-        <div class="d-flex align-items-center gap-2">
-            <span class="b-chip"><i class="bi bi-signpost-split"></i></span>
-            <div>
-                <h3 class="b-card-title">Rules</h3>
-                <p class="b-card-sub">
-                File transactions under a category when Akahu leaves them uncategorised or gets
-                them wrong. Rules apply to every transaction, including ones already synced, and
-                are tried top to bottom; the first that matches wins. Deleting a rule puts
-                Akahu's category back.
-                </p>
+        <div class="col-12 {{ if $c.Fixed }}col-md-8{{ else }}col-md-5{{ end }}">
+            <label class="b-field-label" for="cat-blurb-{{ $c.Key }}">Description</label>
+            <input class="form-control form-control-sm" id="cat-blurb-{{ $c.Key }}" name="blurb" value="{{ $c.Blurb }}" x-model="blurb">
+        </div>
+        {{ if not $c.Fixed }}
+        {{/* Moving on or off budget moves the category to the other list, so
+             this redraws the card. Each button posts its own value. */}}
+        <div class="col-12 col-md-3">
+            <span class="b-field-label">Budget</span>
+            <div class="btn-group btn-group-sm w-100" role="group" aria-label="Whether {{ $c.Label }} is on budget">
+                <button type="button" class="btn btn-outline-secondary{{ if $c.Budgeted }} active{{ end }}"
+                        aria-pressed="{{ if $c.Budgeted }}true{{ else }}false{{ end }}"
+                        hx-post="/settings/budget-categories/{{ $c.Key }}" hx-include="closest form"
+                        hx-vals='{"budget": "on", "render": "card"}' hx-target="#categories" hx-swap="outerHTML">On</button>
+                <button type="button" class="btn btn-outline-secondary{{ if not $c.Budgeted }} active{{ end }}"
+                        aria-pressed="{{ if $c.Budgeted }}false{{ else }}true{{ end }}"
+                        hx-post="/settings/budget-categories/{{ $c.Key }}" hx-include="closest form"
+                        hx-vals='{"budget": "off", "render": "card"}' hx-target="#categories" hx-swap="outerHTML">Off</button>
+            </div>
+        </div>
+        {{ end }}
+        <div class="col-12 col-md-auto">
+            <span class="b-field-label">Colour</span>
+            <div class="b-pick-row">
+                {{ range $root.Accents }}
+                <label class="b-accent-pick b-accent-{{ . }}" title="{{ . }}">
+                    <input type="radio" class="visually-hidden" name="accent" value="{{ . }}"{{ if eq . $c.Accent }} checked{{ end }} x-model="accent">
+                    <span class="b-swatch"></span><span class="visually-hidden">{{ . }}</span>
+                </label>
+                {{ end }}
+            </div>
+        </div>
+        <div class="col-12 col-md">
+            <span class="b-field-label">Icon</span>
+            <div class="b-pick-row">
+                {{ range $root.Icons }}
+                <label class="b-icon-pick" title="{{ . }}">
+                    <input type="radio" class="visually-hidden" name="icon" value="{{ . }}"{{ if eq . $c.Icon }} checked{{ end }} x-model="icon">
+                    <span class="b-chip b-chip-sm"><i class="bi {{ . }}"></i></span><span class="visually-hidden">{{ . }}</span>
+                </label>
+                {{ end }}
             </div>
         </div>
     </div>
+</form>
+{{ end }}
 
-    {{ if .Rules }}
-    <ol class="list-unstyled mb-3">
-        {{ range .Rules }}
-        <li class="d-flex align-items-start justify-content-between gap-2 py-2 border-bottom">
-            <div class="min-width-0">
-                <div>
-                    Contains <span class="font-monospace">“{{ .Contains }}”</span>
-                    {{ if .Type }}<span class="text-muted">and type is</span> <span class="badge-category">{{ .Type }}</span>{{ end }}
-                    {{ if .IncludeTransfers }}<span class="badge-category" title="Counts money leaving by transfer as spending">incl. transfers</span>{{ end }}
-                </div>
-                <div class="small">
-                    <i class="bi bi-arrow-return-right text-muted" aria-hidden="true"></i>
-                    {{ .Broad }} / <span class="fw-semibold">{{ .Specific }}</span>
-                    <span class="{{ if .Matches }}text-muted{{ else }}text-warning{{ end }} ms-1">
-                        · {{ .Matches }} transaction{{ if ne .Matches 1 }}s{{ end }}
-                    </span>
-                </div>
-            </div>
-            <button type="button" class="btn btn-link btn-sm p-0 text-danger flex-shrink-0"
-                    hx-delete="/settings/rules/{{ .ID }}"
-                    hx-target="#categories" hx-swap="innerHTML"
-                    title="Delete rule" aria-label="Delete the rule for {{ .Contains }}">
-                <i class="bi bi-x-circle" aria-hidden="true"></i>
+{{/* Subcategories, each renamed as it is typed or deleted in place, and a
+     new one added. */}}
+{{ define "settings.category.subs" }}
+{{ $c := . }}
+<div class="b-cat-section">
+    <div class="b-cat-section-title">Subcategories</div>
+    <div class="b-cat-subs">
+        {{ range $i, $sub := $c.Subs }}
+        <form class="input-group input-group-sm" hx-post="/settings/budget-categories/{{ .Key }}" hx-trigger="change" hx-swap="none">
+            <input class="form-control" name="label" value="{{ .Label }}" aria-label="Name of {{ .Label }}" x-model="subs[{{ $i }}]" required>
+            <input type="hidden" name="blurb" value="{{ .Blurb }}">
+            <button type="button" class="btn btn-outline-secondary text-danger"
+                    hx-delete="/settings/budget-categories/{{ .Key }}" hx-target="#categories" hx-swap="outerHTML"
+                    hx-confirm="Delete {{ .Label }}? Anything filed under it moves to {{ $c.Label }}."
+                    title="Delete {{ .Label }}" aria-label="Delete {{ .Label }}">
+                <i class="bi bi-trash" aria-hidden="true"></i>
             </button>
-        </li>
+        </form>
         {{ end }}
-    </ol>
-    {{ else }}
-    <p class="text-muted small mb-3">No rules yet.</p>
-    {{ end }}
-
-    <form hx-post="/settings/rules" hx-target="#categories" hx-swap="innerHTML" class="row g-2 align-items-end">
-        <div class="col-12 col-md-5">
-            <label class="b-field-label" for="rule-contains">Description or merchant contains</label>
-            <input class="form-control form-control-sm" id="rule-contains" name="contains"
-                   list="rule-suggestions" autocomplete="off"
-                   placeholder="e.g. LOAN INTEREST" required>
-            <datalist id="rule-suggestions">
-                {{ range .Suggestions }}<option value="{{ . }}"></option>{{ end }}
-            </datalist>
-        </div>
-        <div class="col-6 col-md-3">
-            <label class="b-field-label" for="rule-type">Type</label>
-            <select class="form-select form-select-sm" id="rule-type" name="type">
-                <option value="">Any</option>
-                {{ range .Types }}<option value="{{ . }}">{{ . | fmtTitle }}</option>{{ end }}
-            </select>
-        </div>
-        <div class="col-6 col-md-4">
-            <label class="b-field-label" for="rule-category">File under</label>
-            <select class="form-select form-select-sm" id="rule-category" name="category" required>
-                <option value="">Choose…</option>
-                {{ range .Groups }}
-                <optgroup label="{{ .Broad }}">
-                    {{ range .Options }}<option value="{{ .Specific }}">{{ .Specific }}{{ if .Custom }} ★{{ end }}</option>{{ end }}
-                </optgroup>
-                {{ end }}
-            </select>
-        </div>
-        {{/* Re-rendered with the card, so its "from:" listeners always bind
-             to the current inputs. hx-target is set here because it would
-             otherwise inherit the form's, and replace the whole card. */}}
-        <div class="col-12" id="rule-preview" aria-live="polite"
-             hx-get="/settings/rules/preview"
-             hx-trigger="input changed delay:300ms from:#rule-contains, change from:#rule-type, change from:#rule-transfers"
-             hx-include="#rule-contains, #rule-type, #rule-transfers"
-             hx-target="this"
-             hx-swap="innerHTML"></div>
-        <div class="col-12">
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="rule-transfers" name="include_transfers" value="1">
-                <label class="form-check-label" for="rule-transfers">
-                    Include transfers between your accounts
-                    <span class="d-block b-card-sub">
-                        For payments like a mortgage repayment into a loan account. Only the money
-                        leaving is counted as spending; where it arrives stays a transfer.
-                    </span>
-                </label>
-            </div>
-        </div>
-        <div class="col-12">
-            <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg"></i>Add rule</button>
-        </div>
-    </form>
+        <form class="input-group input-group-sm" hx-post="/settings/budget-categories" hx-target="#categories" hx-swap="outerHTML">
+            <input type="hidden" name="parent" value="{{ $c.Key }}">
+            <input class="form-control" name="label" placeholder="New subcategory" aria-label="Name of a new subcategory of {{ $c.Label }}" required>
+            <button class="btn btn-outline-secondary"><i class="bi bi-plus-lg"></i>Add</button>
+        </form>
+    </div>
 </div>
+{{ end }}
+
+{{/* Deleting a category, last and set apart, naming where its transactions
+     go. */}}
+{{ define "settings.category.delete" }}
+{{ $c := . }}
+{{ if not $c.Fixed }}
+<form class="b-cat-section b-cat-danger d-flex flex-wrap align-items-center gap-2" hx-delete="/settings/budget-categories/{{ $c.Key }}"
+      hx-target="#categories" hx-swap="outerHTML"
+      hx-confirm="Delete {{ $c.Label }} and its subcategories? Its rules, and everything filed under it, move to the category you picked.">
+    <label class="b-field-label mb-0" for="cat-into-{{ $c.Key }}">Delete {{ $c.Label }}, moving everything to</label>
+    <select class="form-select form-select-sm w-auto" id="cat-into-{{ $c.Key }}" name="into">
+        {{ range $c.MoveTo }}<option value="{{ .Key }}"{{ if eq .Key "uncategorised" }} selected{{ end }}>{{ .Label }}</option>{{ end }}
+    </select>
+    <button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i>Delete</button>
+</form>
+{{ end }}
 {{ end }}
 
 {{ define "settings.rules.preview" }}

@@ -27,92 +27,130 @@ func TestCategoryRulesEndToEnd(t *testing.T) {
 		return rec.Body.String()
 	}
 
-	body := post(app.SettingsAddCategory, url.Values{"broad": {"General"}, "specific": {"Housing"}})
-	assert.Contains(t, body, "General / <span class=\"fw-semibold\">Housing</span>")
-
-	body = post(app.SettingsAddRule, url.Values{"contains": {"loan interest"}, "type": {"LOAN"}, "category": {"housing"}})
-	assert.Contains(t, body, "· 1 transaction\n", "the rule reports what it matched")
+	body := post(app.SettingsAddRule, url.Values{"contains": {"loan interest"}, "type": {"LOAN"}, "category": {"mortgage"}})
+	assert.Contains(t, body, "1 transaction\n", "the rule reports what it matched")
+	assert.Regexp(t, `id="category-home" open`, body, "the category the rule went into stays open")
 
 	settings, err := app.store.GetCategorySettings()
 	require.NoError(t, err)
 	require.Len(t, settings.Rules, 1)
-	assert.Equal(t, "General", settings.Rules[0].Broad, "the group comes from the chosen category")
-	assert.Equal(t, "Housing", settings.Rules[0].Specific)
+	assert.Equal(t, "mortgage", settings.Rules[0].Category)
 
 	setup, err := app.buildSetupData()
 	require.NoError(t, err)
-	general := rowsIn(t, setup, "General")
-	require.Len(t, general, 1)
-	assert.Equal(t, "Housing", general[0].SubCategory)
-	assert.InDelta(t, 400.0/untargetedWindowWeeks, general[0].ActualWeekly, 0.001)
-	for _, row := range setup.Rows {
-		assert.NotEqual(t, uncategorisedGroup, row.BroadCategory, "the rule empties the uncategorised group")
-	}
+	assert.InDelta(t, 1260.0/untargetedWindowWeeks, rowByKey(t, setup, "home").ActualWeekly, 0.001, "the interest joins the rates under Home")
+	assert.Zero(t, rowByKey(t, setup, "loan-interest").ActualWeekly)
 
-	t.Run("deleting the rule sends the spend back to uncategorised", func(t *testing.T) {
+	t.Run("deleting the rule puts it back where Akahu's category goes", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodDelete, "/", nil)
 		rec := httptest.NewRecorder()
 		c := app.http.NewContext(req, rec)
 		c.SetParamNames("id")
 		c.SetParamValues(settings.Rules[0].ID)
 		require.NoError(t, app.SettingsDeleteRule(c))
+		assert.Regexp(t, `id="category-home" open`, rec.Body.String())
 
 		setup, err := app.buildSetupData()
 		require.NoError(t, err)
-		rowsIn(t, setup, uncategorisedGroup)
+		assert.InDelta(t, 400.0/untargetedWindowWeeks, rowByKey(t, setup, "loan-interest").ActualWeekly, 0.001)
 	})
 }
 
-func TestSettingsAddCategoryRefusals(t *testing.T) {
+func TestSettingsAddRuleRefusals(t *testing.T) {
 	app := newTestApp(t)
-	require.NoError(t, app.store.CreateTransaction(spendTx("rates", "DEBIT", "Housing", "Local government", "CCC", "", -860, time.Now().Add(-time.Hour))))
-
 	tests := []struct {
 		name     string
 		values   url.Values
 		expected string
 	}{
-		{"both parts are required", url.Values{"broad": {"General"}}, "needs both a group and a name"},
-		{"a name Akahu already uses is refused", url.Values{"broad": {"General"}, "specific": {"local government"}}, "already exists under Housing"},
+		{"a category is required", url.Values{"contains": {"LOAN INTEREST"}, "category": {"Nowhere"}}, "Pick a category"},
+		{"text to match is required", url.Values{"contains": {"  "}, "category": {"fuel"}}, "needs some text"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			c, rec := postForm(t, app, test.values)
-			require.NoError(t, app.SettingsAddCategory(c))
+			require.NoError(t, app.SettingsAddRule(c))
 			assert.Contains(t, rec.Body.String(), test.expected)
 
 			settings, err := app.store.GetCategorySettings()
 			require.NoError(t, err)
-			assert.Empty(t, settings.Categories)
+			assert.Empty(t, settings.Rules)
 		})
 	}
 }
 
-func TestSettingsAddRuleNeedsAKnownCategory(t *testing.T) {
-	app := newTestApp(t)
-	c, rec := postForm(t, app, url.Values{"contains": {"LOAN INTEREST"}, "category": {"Nowhere"}})
-	require.NoError(t, app.SettingsAddRule(c))
-
-	assert.Contains(t, rec.Body.String(), "Pick a category")
-	settings, err := app.store.GetCategorySettings()
-	require.NoError(t, err)
-	assert.Empty(t, settings.Rules)
-}
-
 func TestSettingsCategoriesRenders(t *testing.T) {
-	html := renderTemplate(t, "settings.categories", CategoriesView{
-		Custom: []models.CustomCategory{{ID: "c1", Broad: "General", Specific: "Housing"}},
-		Rules:  []RuleView{{CategoryRule: models.CategoryRule{ID: "r1", Contains: "LOAN INTEREST", Type: "LOAN", Broad: "General", Specific: "Housing"}}},
-		Groups: []CategoryOptionGroup{{Broad: "General", Options: []CategoryOption{{Broad: "General", Specific: "Housing", Custom: true}}}},
-		Types:  []string{"LOAN"},
-		Error:  "Something was refused.",
-	})
+	app := newTestApp(t)
+	require.NoError(t, app.store.CreateTransaction(spendTx("bp", "EFTPOS", "Transport", "Fuel stations", "BP", "", -80, time.Now().Add(-time.Hour))))
+	require.NoError(t, app.store.SaveCategorySettings(models.CategorySettings{Rules: []models.CategoryRule{
+		{ID: "r1", Contains: "LOAN INTEREST", Type: "LOAN", Category: "mortgage"},
+		{ID: "r2", Contains: "Holland Suzuk", Category: "servicing"},
+	}}))
+	view, err := app.buildCategoriesView("transport")
+	require.NoError(t, err)
+	view.Error = "Something was refused."
+	html := renderTemplate(t, "settings.categories", view)
+
+	// A category's markup runs to the next category, or the end of the card.
+	section := func(key string) string {
+		t.Helper()
+		start := indexOf(t, html, `id="category-`+key+`"`)
+		rest := html[start+1:]
+		if end := strings.Index(rest, `<details class="b-pv-cat`); end >= 0 {
+			return html[start : start+1+end]
+		}
+		return html[start:]
+	}
 
 	assert.Contains(t, html, "Something was refused.")
-	assert.Contains(t, html, `hx-delete="/settings/rules/r1"`)
-	assert.Contains(t, html, `class="text-warning ms-1"`, "a rule matching nothing is flagged")
-	assert.Contains(t, html, "Housing ★")
-	assert.Contains(t, html, `hx-target="this"`, "the preview must not inherit the form's target and replace the card")
+	assert.True(t, strings.HasPrefix(strings.TrimSpace(html), `<div id="categories">`), "the card is its own swap target")
+	assert.NotContains(t, html, `hx-target="#categories" hx-swap="innerHTML"`,
+		"emptying the card before refilling it shortened the page, and the browser scrolled to the bottom")
+	assert.Contains(t, section("home"), `hx-delete="/settings/rules/r1"`, "a rule is listed under the category it files into")
+	assert.Contains(t, section("home"), "Mortgage", "and says which subcategory")
+	assert.Contains(t, section("home"), "text-warning", "a rule matching nothing is flagged")
+	assert.Contains(t, section("transport"), `hx-delete="/settings/rules/r2"`)
+	assert.Contains(t, section("transport"), "1 transaction", "what is filed under it is counted")
+	assert.Regexp(t, `id="category-transport" open`, html, "the category being worked on stays open")
+
+	t.Run("each category adds rules into itself", func(t *testing.T) {
+		transport := section("transport")
+		assert.Contains(t, transport, `id="rule-contains-transport"`)
+		assert.Contains(t, transport, `<option value="fuel">Fuel</option>`, "or one of its subcategories")
+		assert.Contains(t, transport, `from:#rule-contains-transport`)
+		assert.Contains(t, transport, `hx-target="this"`, "the preview must not inherit the form's target and replace the card")
+		assert.Contains(t, section("groceries"), `<input type="hidden" name="category" value="groceries">`, "with nothing finer, no picker")
+	})
+
+	t.Run("uncategorised takes no rules of its own", func(t *testing.T) {
+		assert.NotContains(t, section("uncategorised"), `hx-post="/settings/rules"`)
+		assert.NotContains(t, section("uncategorised"), `hx-delete="/settings/budget-categories/uncategorised"`, "nor can it be deleted")
+		assert.NotContains(t, section("uncategorised"), `id="cat-group-uncategorised"`, "or moved")
+		assert.Contains(t, section("uncategorised"), "/transactions?uncategorised=1")
+	})
+
+	assert.NotContains(t, html, `/settings/categories`, "the old categories of your own are gone")
+
+	t.Run("each category can be edited and deleted", func(t *testing.T) {
+		transport := section("transport")
+		assert.Contains(t, transport, `hx-post="/settings/budget-categories/transport" hx-trigger="change" hx-swap="none"`, "saved as it is changed")
+		assert.Contains(t, transport, `x-model="label"`, "the heading follows the name as it is typed")
+		assert.Contains(t, transport, `x-text="label"`)
+		assert.Contains(t, transport, `$el.classList.add('b-accent-' + accent)`, "the colour is swapped, not added to")
+		assert.NotContains(t, transport, `:class="'b-accent-' + accent"`)
+		assert.Contains(t, transport, `x-model="subs[0]"`)
+		assert.NotContains(t, transport, "Save details")
+		assert.Contains(t, transport, `value="bi-car-front" checked`, "its icon is picked")
+		assert.Contains(t, transport, `value="clay" checked`, "and its colour")
+		assert.Contains(t, transport, `hx-delete="/settings/budget-categories/fuel"`, "subcategories can be deleted")
+		assert.Contains(t, transport, `hx-delete="/settings/budget-categories/transport"`)
+		assert.Contains(t, transport, `<input type="hidden" name="parent" value="transport">`, "and added to")
+		assert.Equal(t, 1, strings.Count(html, `hx-post="/settings/budget-categories" hx-vals`), "one button adds a category")
+		assert.Contains(t, html, `hx-swap="outerHTML show:details.b-pv-cat[open]:top"`, "and shows the new one, which opens above it")
+		assert.Contains(t, html, `hx-vals='{"label": "New category"}'`, "named for you, to change after")
+		assert.Contains(t, transport, `hx-vals='{"budget": "off", "render": "card"}'`, "each category can be taken off budget")
+		assert.NotContains(t, section("uncategorised"), `"budget": "on"`, "but not Uncategorised")
+	})
 }
 
 func TestRuleSuggestions(t *testing.T) {
@@ -132,7 +170,7 @@ func TestRuleSuggestions(t *testing.T) {
 
 	got := ruleSuggestions(txs, settings)
 
-	assert.Equal(t, []string{"LOAN INTEREST", "Holland Suzuk", "Countdown", "AP#19781426 TO D J KING"}, got,
+	assert.Equal(t, []string{"Holland Suzuk", "Countdown", "LOAN INTEREST", "AP#19781426 TO D J KING"}, got,
 		"uncategorised first, then by how often; money arriving by transfer and already-ruled text are left out")
 	for _, text := range got {
 		matched := false
@@ -160,7 +198,7 @@ func TestBuildRulePreview(t *testing.T) {
 	assert.Equal(t, 1, preview.Taken, "the fee is already filed by an earlier rule")
 	require.Len(t, preview.Samples, rulePreviewSamples)
 	assert.True(t, preview.Samples[0].Date.After(preview.Samples[1].Date), "most recent first")
-	assert.Contains(t, renderTemplate(t, "settings.rules.preview", preview), "· uncategorised")
+	assert.Contains(t, renderTemplate(t, "settings.rules.preview", preview), "· Loan interest", "samples say where each is filed now")
 
 	none := buildRulePreview(models.CategoryRule{Contains: "nothing like this"}, txs, settings)
 	assert.Contains(t, renderTemplate(t, "settings.rules.preview", none), "Matches nothing yet")
@@ -193,11 +231,6 @@ func TestTransferRuleBudgetsMortgageRepayments(t *testing.T) {
 	} {
 		require.NoError(t, app.store.CreateTransaction(tx))
 	}
-	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "loan", Category: "Loan", Kind: models.BudgetKindIgnore}))
-	require.NoError(t, app.store.SaveCategorySettings(models.CategorySettings{
-		Categories: []models.CustomCategory{{ID: "m", Broad: "General", Specific: "Mortgage"}},
-	}))
-
 	preview := func(query string) string {
 		req := httptest.NewRequest(http.MethodGet, "/settings/rules/preview?"+query, nil)
 		req.Header.Set("HX-Request", "true")
@@ -210,14 +243,119 @@ func TestTransferRuleBudgetsMortgageRepayments(t *testing.T) {
 	assert.Contains(t, preview("contains=AP%2319781426&include_transfers=1"), "Would file <span class=\"fw-semibold\">1 transaction<",
 		"only the leg where money leaves is filed")
 
-	c, _ := postForm(t, app, url.Values{"contains": {"AP#19781426"}, "category": {"Mortgage"}, "include_transfers": {"1"}})
+	c, _ := postForm(t, app, url.Values{"contains": {"AP#19781426"}, "category": {"mortgage"}, "include_transfers": {"1"}})
 	require.NoError(t, app.SettingsAddRule(c))
 
 	setup, err := app.buildSetupData()
 	require.NoError(t, err)
-	general := rowsIn(t, setup, "General")
-	require.Len(t, general, 1)
-	assert.Equal(t, "Mortgage", general[0].SubCategory)
-	assert.InDelta(t, 641.0/untargetedWindowWeeks, general[0].ActualWeekly, 0.001, "the repayment is counted once")
-	assert.InDelta(t, 641, countedTotal(t, app), 0.001, "the ignored interest is gone and the repayment counted once")
+	assert.InDelta(t, 641.0/untargetedWindowWeeks, rowByKey(t, setup, "home").ActualWeekly, 0.001, "the repayment is counted once")
+	assert.InDelta(t, 641, countedTotal(t, app), 0.001, "interest is not spending, and the repayment is counted once")
+}
+
+func TestEditingBudgetCategories(t *testing.T) {
+	app := newTestApp(t)
+	t.Cleanup(func() { models.UseBudgetCategories(models.BudgetCategorySettings{}) })
+	recent := time.Now().Add(-48 * time.Hour)
+	require.NoError(t, app.store.CreateTransaction(spendTx("cafe", "EFTPOS", "Lifestyle", "Cafes and restaurants", "Fat Sallys", "", -30, recent)))
+	require.NoError(t, app.store.CreateTransaction(spendTx("pak", "EFTPOS", "Food", "Supermarkets and grocery stores", "PAK'nSAVE", "", -120, recent)))
+	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "out", BudgetCategory: "eating-out", Amount: 50, Frequency: "weekly"}))
+	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "shop", BudgetCategory: "groceries", Amount: 150, Frequency: "weekly"}))
+
+	sendFor := func(method string, handler echo.HandlerFunc, key string, values url.Values) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest(method, "/?"+values.Encode(), strings.NewReader(values.Encode()))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+		rec := httptest.NewRecorder()
+		c := app.http.NewContext(req, rec)
+		if key != "" {
+			c.SetParamNames("key")
+			c.SetParamValues(key)
+		}
+		require.NoError(t, handler(c))
+		return rec
+	}
+	send := func(method, path string, handler echo.HandlerFunc, key string, values url.Values) string {
+		t.Helper()
+		rec := sendFor(method, handler, key, values)
+		require.Equal(t, http.StatusOK, rec.Code)
+		return rec.Body.String()
+	}
+
+	t.Run("renaming keeps its target and transactions", func(t *testing.T) {
+		rec := sendFor(http.MethodPost, app.SettingsUpdateBudgetCategory, "groceries", url.Values{"label": {"Food shopping"}, "icon": {"bi-bag"}, "accent": {"plum"}})
+		assert.Equal(t, http.StatusNoContent, rec.Code, "saved quietly: the page already shows it, and a redraw would take the field away")
+		assert.Empty(t, rec.Body.String())
+
+		setup, err := app.buildSetupData()
+		require.NoError(t, err)
+		row := rowByKey(t, setup, "groceries")
+		assert.Equal(t, "Food shopping", row.Label)
+		assert.True(t, row.HasTarget)
+		assert.InDelta(t, 120.0/4, row.ActualWeekly, 0.001)
+
+		tile, ok := SpendGroupByKey("groceries")
+		require.True(t, ok)
+		assert.Equal(t, "Food shopping", tile.Label, "the dashboard tile follows the new name")
+	})
+
+	t.Run("a new category can be added and filed into", func(t *testing.T) {
+		body := send(http.MethodPost, "/", app.SettingsAddBudgetCategory, "", url.Values{"label": {"New category"}})
+		assert.Regexp(t, `id="category-new-category" open`, body, "drawn open, ready to be named")
+		kids, _ := models.BudgetCategoryByKey("new-category")
+		assert.False(t, kids.Budgeted(), "off budget until it is put on")
+		send(http.MethodPost, "/", app.SettingsUpdateBudgetCategory, "new-category", url.Values{"label": {"Kids"}, "budget": {"on"}, "render": {"card"}})
+		kids, ok := models.BudgetCategoryByKey("new-category")
+		require.True(t, ok)
+		assert.Equal(t, "Kids", kids.Label)
+		assert.True(t, kids.Budgeted(), "put on budget")
+
+		send(http.MethodPost, "/", app.SettingsAddRule, "", url.Values{"contains": {"Fat Sallys"}, "category": {"new-category"}})
+		setup, err := app.buildSetupData()
+		require.NoError(t, err)
+		assert.InDelta(t, 30.0/13, rowByKey(t, setup, "new-category").ActualWeekly, 0.001)
+	})
+
+	t.Run("taking it off budget redraws the card", func(t *testing.T) {
+		body := send(http.MethodPost, "/", app.SettingsUpdateBudgetCategory, "groceries", url.Values{"label": {"Food shopping"}, "budget": {"off"}, "render": {"card"}})
+		assert.Regexp(t, `id="category-groceries" open`, body)
+		groceries, _ := models.BudgetCategoryByKey("groceries")
+		assert.False(t, groceries.Budgeted())
+		send(http.MethodPost, "/", app.SettingsUpdateBudgetCategory, "groceries", url.Values{"label": {"Food shopping"}, "budget": {"on"}, "render": {"card"}})
+	})
+
+	t.Run("a refused quiet save redraws the card to put the name back", func(t *testing.T) {
+		rec := sendFor(http.MethodPost, app.SettingsUpdateBudgetCategory, "groceries", url.Values{"label": {"  "}})
+		assert.Equal(t, "#categories", rec.Header().Get("HX-Retarget"))
+		assert.Equal(t, "outerHTML", rec.Header().Get("HX-Reswap"))
+		assert.Contains(t, rec.Body.String(), "A category needs a name.")
+		assert.Contains(t, rec.Body.String(), `value="Food shopping"`)
+	})
+
+	t.Run("a refused edit says why and changes nothing", func(t *testing.T) {
+		body := send(http.MethodPost, "/", app.SettingsAddBudgetCategory, "", url.Values{"label": {" "}, "group": {"everyday"}})
+		assert.Contains(t, body, "A category needs a name.")
+		body = send(http.MethodDelete, "/", app.SettingsDeleteBudgetCategory, "uncategorised", url.Values{"into": {"other"}})
+		assert.Contains(t, body, "so it stays")
+	})
+
+	t.Run("deleting moves its transactions, and its target goes with it", func(t *testing.T) {
+		send(http.MethodPost, "/", app.SettingsAddRule, "", url.Values{"contains": {"Fat Sallys"}, "category": {"eating-out"}})
+		send(http.MethodDelete, "/", app.SettingsDeleteBudgetCategory, "eating-out", url.Values{"into": {"groceries"}})
+
+		setup, err := app.buildSetupData()
+		require.NoError(t, err)
+		for _, row := range setup.Rows {
+			assert.NotEqual(t, "eating-out", row.Key)
+		}
+		groceries := rowByKey(t, setup, "groceries")
+		assert.InDelta(t, 150, groceries.Target, 0.001, "the target it went into keeps its own, not the deleted one's")
+
+		tx, err := app.store.GetTransaction("cafe")
+		require.NoError(t, err)
+		assert.Equal(t, "new-category", tx.BudgetCategory(), "the first rule still wins")
+
+		settings, err := app.store.GetCategorySettings()
+		require.NoError(t, err)
+		assert.Equal(t, "groceries", settings.Rules[1].Target(), "a rule naming the deleted category follows its transactions")
+	})
 }

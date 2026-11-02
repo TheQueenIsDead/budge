@@ -1,6 +1,7 @@
 package application
 
 import (
+	"errors"
 	"net/http"
 	"sort"
 	"strings"
@@ -10,33 +11,55 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// CategoryOption is one category a rule can file transactions under.
-type CategoryOption struct {
-	Broad    string
-	Specific string
-	Custom   bool
-}
-
-// CategoryOptionGroup is the options under one broad category, for an
-// <optgroup> in the rule form.
-type CategoryOptionGroup struct {
-	Broad   string
-	Options []CategoryOption
-}
-
 // RuleView is a rule with how many transactions it currently files, so a
 // rule that matches nothing stands out as a typo.
 type RuleView struct {
 	models.CategoryRule
 	Matches int
+	// Into names where it files, when that is a subcategory.
+	Into string
+}
+
+// SettingsCategoryView is one budge category in settings: its subcategories,
+// how much is filed under it, and the rules that file things there.
+type SettingsCategoryView struct {
+	models.BudgetCategory
+	Subs  []models.BudgetCategory
+	Count int // transactions filed under it or its subcategories
+	Rules []RuleView
+	// Options are where a new rule from here can file: the category and
+	// each of its subcategories.
+	Options []CategoryPickerOption
+	// MoveTo are the categories its transactions can go to if it is deleted.
+	MoveTo []CategoryPickerOption
+	Fixed  bool // Uncategorised, which can be neither moved nor deleted
+	Open   bool
+}
+
+// State is what the page keeps of the category while it is edited, so its
+// heading follows the fields as they change.
+func (v SettingsCategoryView) State() map[string]any {
+	subs := make([]string, 0, len(v.Subs))
+	for _, sub := range v.Subs {
+		subs = append(subs, sub.Label)
+	}
+	return map[string]any{"label": v.Label, "blurb": v.Blurb, "icon": v.Icon, "accent": v.Accent, "subs": subs}
+}
+
+// SettingsCategoryGroupView is the categories on budget, or those off it, in
+// settings.
+type SettingsCategoryGroupView struct {
+	Label      string
+	Categories []SettingsCategoryView
 }
 
 // CategoriesView is the view-model for the settings.categories partial.
 type CategoriesView struct {
-	Custom []models.CustomCategory
-	Rules  []RuleView
-	Groups []CategoryOptionGroup
-	Types  []string // transaction types seen, for narrowing a rule
+	Groups []SettingsCategoryGroupView
+	// What a category can be dressed in.
+	Icons   []string
+	Accents []string
+	Types   []string // transaction types seen, for narrowing a rule
 	// Suggestions autofill the rule's match text, uncategorised first.
 	Suggestions []string
 	Error       string
@@ -73,7 +96,7 @@ func ruleSuggestions(txs []models.Transaction, settings models.CategorySettings)
 			byText[key] = &suggestion{text: text}
 		}
 		byText[key].count++
-		if tx.Category.Groups.PersonalFinance.Name == "" {
+		if tx.BudgetCategory() == models.CategoryUncategorised {
 			byText[key].uncategorised = true
 		}
 	}
@@ -100,32 +123,9 @@ func ruleSuggestions(txs []models.Transaction, settings models.CategorySettings)
 	return texts
 }
 
-// categoryCatalogue lists every category a rule can target: the custom ones
-// first, then each pair Akahu has used. Transfers are left out since no rule
-// applies to them. Specific names are the key budget items match on, so the
-// catalogue is keyed by them, lower-cased.
-func categoryCatalogue(custom []models.CustomCategory, txs []models.Transaction) map[string]CategoryOption {
-	catalogue := make(map[string]CategoryOption)
-	for _, category := range custom {
-		catalogue[strings.ToLower(category.Specific)] = CategoryOption{Broad: category.Broad, Specific: category.Specific, Custom: true}
-	}
-	for _, tx := range txs {
-		broad := tx.Category.Groups.PersonalFinance.Name
-		if broad == "" || tx.IsTransfer() {
-			continue
-		}
-		specific := tx.Category.Name
-		if specific == "" {
-			specific = broad
-		}
-		if _, seen := catalogue[strings.ToLower(specific)]; !seen {
-			catalogue[strings.ToLower(specific)] = CategoryOption{Broad: broad, Specific: specific}
-		}
-	}
-	return catalogue
-}
-
-func (app *Application) buildCategoriesView() (CategoriesView, error) {
+// buildCategoriesView lays out every budge category with the rules that file
+// into it. open names a category to draw expanded, the one just changed.
+func (app *Application) buildCategoriesView(open string) (CategoriesView, error) {
 	settings, err := app.store.GetCategorySettings()
 	if err != nil {
 		return CategoriesView{}, err
@@ -135,53 +135,86 @@ func (app *Application) buildCategoriesView() (CategoriesView, error) {
 		return CategoriesView{}, err
 	}
 
-	view := CategoriesView{Custom: settings.Categories, Suggestions: ruleSuggestions(txs, settings)}
+	view := CategoriesView{
+		Suggestions: ruleSuggestions(txs, settings),
+		Icons:       models.BudgetCategoryIcons,
+		Accents:     models.BudgetCategoryAccents,
+	}
+	top := models.TopBudgetCategories()
 
 	// Rules match on description, merchant and type, none of which a rule
-	// changes, so matching the already-categorised copies counts correctly.
+	// changes, so matching the already-filed copies counts correctly.
 	matches := make([]int, len(settings.Rules))
+	filed := make(map[string]int)
 	types := make(map[string]bool)
 	for _, tx := range txs {
 		if n := settings.MatchingRule(tx); n >= 0 {
 			matches[n]++
 		}
+		if category, ok := debitCategory(tx); ok {
+			filed[category.Key]++
+		}
 		if tx.Type != "" && !tx.IsTransfer() {
 			types[tx.Type] = true
 		}
-	}
-	for i, rule := range settings.Rules {
-		view.Rules = append(view.Rules, RuleView{CategoryRule: rule, Matches: matches[i]})
 	}
 	for t := range types {
 		view.Types = append(view.Types, t)
 	}
 	sort.Strings(view.Types)
 
-	view.Groups = categoryOptionGroups(categoryCatalogue(settings.Categories, txs))
+	rules := make(map[string][]RuleView)
+	for i, rule := range settings.Rules {
+		target := rule.Target()
+		top := models.TopBudgetCategory(target)
+		ruleView := RuleView{CategoryRule: rule, Matches: matches[i]}
+		if sub, ok := models.BudgetCategoryByKey(target); ok && sub.IsSub() {
+			ruleView.Into = sub.Label
+		}
+		rules[top.Key] = append(rules[top.Key], ruleView)
+	}
+
+	for _, onBudget := range []bool{true, false} {
+		section := SettingsCategoryGroupView{Label: "On budget"}
+		if !onBudget {
+			section.Label = "Off budget"
+		}
+		for _, category := range top {
+			if category.Budgeted() != onBudget {
+				continue
+			}
+			var moveTo []CategoryPickerOption
+			for _, other := range top {
+				if other.Key != category.Key {
+					moveTo = append(moveTo, CategoryPickerOption{Key: other.Key, Label: other.Label})
+				}
+			}
+			subs := models.BudgetSubcategories(category.Key)
+			options := []CategoryPickerOption{{Key: category.Key, Label: category.Label}}
+			for _, sub := range subs {
+				options = append(options, CategoryPickerOption{Key: sub.Key, Label: sub.Label})
+			}
+			section.Categories = append(section.Categories, SettingsCategoryView{
+				BudgetCategory: category,
+				Subs:           subs,
+				Count:          filed[category.Key],
+				Rules:          rules[category.Key],
+				Options:        options,
+				MoveTo:         moveTo,
+				Fixed:          category.Key == models.CategoryUncategorised,
+				Open:           category.Key == open,
+			})
+		}
+		view.Groups = append(view.Groups, section)
+	}
 	return view, nil
 }
 
-// categoryOptionGroups lays a catalogue out for a category picker: grouped by
-// broad category, each group and its options in alphabetical order.
-func categoryOptionGroups(catalogue map[string]CategoryOption) []CategoryOptionGroup {
-	byBroad := make(map[string][]CategoryOption)
-	for _, option := range catalogue {
-		byBroad[option.Broad] = append(byBroad[option.Broad], option)
-	}
-	var groups []CategoryOptionGroup
-	for broad, options := range byBroad {
-		sort.Slice(options, func(i, j int) bool { return options[i].Specific < options[j].Specific })
-		groups = append(groups, CategoryOptionGroup{Broad: broad, Options: options})
-	}
-	sort.Slice(groups, func(i, j int) bool { return groups[i].Broad < groups[j].Broad })
-	return groups
-}
-
 // renderCategories answers every categories action with the whole card, so
-// rule counts and the category picker always reflect the change. A message
-// explains an action that was refused.
-func (app *Application) renderCategories(c echo.Context, message string) error {
-	view, err := app.buildCategoriesView()
+// rule counts always reflect the change. A message explains an action that
+// was refused; open keeps the category being worked on expanded.
+func (app *Application) renderCategories(c echo.Context, message, open string) error {
+	view, err := app.buildCategoriesView(open)
 	if err != nil {
 		return err
 	}
@@ -189,87 +222,123 @@ func (app *Application) renderCategories(c echo.Context, message string) error {
 	return c.Render(http.StatusOK, "settings.categories", view)
 }
 
-func (app *Application) SettingsAddCategory(c echo.Context) error {
-	broad := strings.TrimSpace(c.FormValue("broad"))
-	specific := strings.TrimSpace(c.FormValue("specific"))
-	if broad == "" || specific == "" {
-		return app.renderCategories(c, "A category needs both a group and a name.")
-	}
-
-	settings, err := app.store.GetCategorySettings()
-	if err != nil {
-		return err
-	}
-	txs, err := app.store.ReadTransactions()
-	if err != nil {
-		return err
-	}
-	// Budget targets are keyed by the specific name alone, so two categories
-	// sharing one would share a target.
-	if existing, taken := categoryCatalogue(settings.Categories, txs)[strings.ToLower(specific)]; taken {
-		return app.renderCategories(c, "“"+specific+"” already exists under "+existing.Broad+".")
-	}
-
-	settings.Categories = append(settings.Categories, models.CustomCategory{ID: newID(), Broad: broad, Specific: specific})
-	if err := app.store.SaveCategorySettings(settings); err != nil {
-		return err
-	}
-	return app.renderCategories(c, "")
+// editBudgetCategories applies an edit to the category list and saves it,
+// answering with the card and the category the edit names kept open. A
+// refused edit is explained and changes nothing.
+func (app *Application) editBudgetCategories(c echo.Context, edit func(models.BudgetCategorySettings) (models.BudgetCategorySettings, string, error)) error {
+	return app.saveBudgetCategories(c, false, edit)
 }
 
-// SettingsDeleteCategory removes a custom category from the picker. Rules
-// carry their own copy of the category, so any already filing under it keep
-// working until they are deleted too.
-func (app *Application) SettingsDeleteCategory(c echo.Context) error {
-	settings, err := app.store.GetCategorySettings()
+// saveBudgetCategories is editBudgetCategories, but a quiet save answers
+// with nothing: the page already shows the change, made as it was typed, and
+// redrawing the card would take the field being typed in away. A refused
+// quiet save still redraws the card, putting back what was there.
+func (app *Application) saveBudgetCategories(c echo.Context, quiet bool, edit func(models.BudgetCategorySettings) (models.BudgetCategorySettings, string, error)) error {
+	settings, err := app.store.GetBudgetCategorySettings()
 	if err != nil {
 		return err
 	}
-	id := c.Param("id")
-	kept := settings.Categories[:0]
-	for _, category := range settings.Categories {
-		if category.ID != id {
-			kept = append(kept, category)
+	next, open, err := edit(settings)
+	var refused models.BudgetCategoryError
+	if errors.As(err, &refused) {
+		if quiet {
+			c.Response().Header().Set("HX-Retarget", "#categories")
+			c.Response().Header().Set("HX-Reswap", "outerHTML")
 		}
+		return app.renderCategories(c, refused.Error(), open)
 	}
-	settings.Categories = kept
-	if err := app.store.SaveCategorySettings(settings); err != nil {
+	if err != nil {
 		return err
 	}
-	return app.renderCategories(c, "")
+	if err := app.store.SaveBudgetCategorySettings(next); err != nil {
+		return err
+	}
+	if quiet {
+		return c.NoContent(http.StatusNoContent)
+	}
+	return app.renderCategories(c, "", open)
 }
 
+// SettingsAddBudgetCategory adds a category, off budget until it is put on,
+// or a subcategory to a category. A new category is drawn open, ready to be
+// dressed.
+func (app *Application) SettingsAddBudgetCategory(c echo.Context) error {
+	return app.editBudgetCategories(c, func(settings models.BudgetCategorySettings) (models.BudgetCategorySettings, string, error) {
+		parent := c.FormValue("parent")
+		next, key, err := settings.AddBudgetCategory(c.FormValue("label"), parent)
+		if parent != "" {
+			return next, parent, err
+		}
+		return next, key, err
+	})
+}
+
+// SettingsUpdateBudgetCategory renames a category or changes its look, as
+// each field is changed. Only putting it on or off budget redraws the card,
+// asked for by "render", since the category moves to the other list.
+func (app *Application) SettingsUpdateBudgetCategory(c echo.Context) error {
+	key := c.Param("key")
+	return app.saveBudgetCategories(c, c.FormValue("render") != "card", func(settings models.BudgetCategorySettings) (models.BudgetCategorySettings, string, error) {
+		change := models.BudgetCategoryChange{
+			Label:  c.FormValue("label"),
+			Blurb:  c.FormValue("blurb"),
+			Icon:   c.FormValue("icon"),
+			Accent: c.FormValue("accent"),
+		}
+		if budget := c.FormValue("budget"); budget != "" {
+			off := budget == "off"
+			change.OffBudget = &off
+		}
+		next, err := settings.UpdateBudgetCategory(key, change)
+		return next, models.TopBudgetCategory(key).Key, err
+	})
+}
+
+// SettingsDeleteBudgetCategory deletes a category, sending everything filed
+// under it to the category named by "into". Deleting a subcategory keeps its
+// category open; deleting a category opens the one its transactions went to.
+func (app *Application) SettingsDeleteBudgetCategory(c echo.Context) error {
+	key := c.Param("key")
+	return app.editBudgetCategories(c, func(settings models.BudgetCategorySettings) (models.BudgetCategorySettings, string, error) {
+		category, _ := models.BudgetCategoryByKey(key)
+		next, err := settings.DeleteBudgetCategory(key, c.FormValue("into"))
+		if category.Parent != "" {
+			return next, category.Parent, err
+		}
+		return next, c.FormValue("into"), err
+	})
+}
+
+// SettingsAddRule adds a rule filing matching transactions under a category
+// or subcategory. A new rule goes last, so it never takes transactions an
+// earlier rule already files.
 func (app *Application) SettingsAddRule(c echo.Context) error {
+	target, ok := models.BudgetCategoryByKey(c.FormValue("category"))
+	if !ok {
+		return app.renderCategories(c, "Pick a category for the rule to file transactions under.", "")
+	}
+	open := models.TopBudgetCategory(target.Key).Key
+
 	contains := strings.TrimSpace(c.FormValue("contains"))
 	if contains == "" {
-		return app.renderCategories(c, "A rule needs some text to match.")
+		return app.renderCategories(c, "A rule needs some text to match.", open)
 	}
 
 	settings, err := app.store.GetCategorySettings()
 	if err != nil {
 		return err
 	}
-	txs, err := app.store.ReadTransactions()
-	if err != nil {
-		return err
-	}
-	target, ok := categoryCatalogue(settings.Categories, txs)[strings.ToLower(c.FormValue("category"))]
-	if !ok {
-		return app.renderCategories(c, "Pick a category for the rule to file transactions under.")
-	}
-
 	settings.Rules = append(settings.Rules, models.CategoryRule{
 		ID:               newID(),
 		Contains:         contains,
 		Type:             c.FormValue("type"),
-		Broad:            target.Broad,
-		Specific:         target.Specific,
+		Category:         target.Key,
 		IncludeTransfers: c.FormValue("include_transfers") != "",
 	})
 	if err := app.store.SaveCategorySettings(settings); err != nil {
 		return err
 	}
-	return app.renderCategories(c, "")
+	return app.renderCategories(c, "", open)
 }
 
 // rulePreviewSamples is how many matching transactions the preview lists.
@@ -320,12 +389,8 @@ func buildRulePreview(rule models.CategoryRule, txs []models.Transaction, settin
 		if i == rulePreviewSamples {
 			break
 		}
-		category := tx.Category.Name
-		if category == "" {
-			category = tx.Category.Groups.PersonalFinance.Name
-		}
 		preview.Samples = append(preview.Samples, RuleSample{
-			Date: tx.Date, Title: tx.Description, Category: category, Amount: tx.Amount,
+			Date: tx.Date, Title: tx.Description, Category: strings.Join(tx.Categories(), " › "), Amount: tx.Amount,
 		})
 	}
 	return preview
@@ -358,15 +423,18 @@ func (app *Application) SettingsDeleteRule(c echo.Context) error {
 		return err
 	}
 	id := c.Param("id")
+	var open string
 	kept := settings.Rules[:0]
 	for _, rule := range settings.Rules {
 		if rule.ID != id {
 			kept = append(kept, rule)
+		} else {
+			open = models.TopBudgetCategory(rule.Target()).Key
 		}
 	}
 	settings.Rules = kept
 	if err := app.store.SaveCategorySettings(settings); err != nil {
 		return err
 	}
-	return app.renderCategories(c, "")
+	return app.renderCategories(c, "", open)
 }
