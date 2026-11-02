@@ -27,7 +27,7 @@ func day(offset int) time.Time {
 	return now.AddDate(0, 0, offset)
 }
 
-func TestClassifySpend(t *testing.T) {
+func TestSpendGroupMatches(t *testing.T) {
 	tests := []struct {
 		name     string
 		tx       models.Transaction
@@ -47,9 +47,9 @@ func TestClassifySpend(t *testing.T) {
 			matched:  true,
 		},
 		{
-			name:     "fuel station is petrol",
+			name:     "fuel station is fuel",
 			tx:       spendTransaction("Fuel stations", "Z Energy", -90, now),
-			expected: "petrol",
+			expected: "fuel",
 			matched:  true,
 		},
 		{
@@ -59,15 +59,15 @@ func TestClassifySpend(t *testing.T) {
 			matched:  true,
 		},
 		{
-			name:     "broadband is connectivity",
+			name:     "broadband is internet and mobile",
 			tx:       spendTransaction("Internet services", "Voyager Internet", -89, now),
-			expected: "connectivity",
+			expected: "internet-mobile",
 			matched:  true,
 		},
 		{
 			name:     "category casing does not matter",
 			tx:       spendTransaction("FUEL STATIONS", "BP", -70, now),
-			expected: "petrol",
+			expected: "fuel",
 			matched:  true,
 		},
 		{
@@ -93,10 +93,16 @@ func TestClassifySpend(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			key, ok := ClassifySpend(test.tx)
-			assert.Equal(t, test.matched, ok)
+			var matched []string
+			for _, group := range SpendGroups() {
+				if group.Matches(test.tx) {
+					matched = append(matched, group.Key)
+				}
+			}
 			if test.matched {
-				assert.Equal(t, test.expected, key)
+				assert.Equal(t, []string{test.expected}, matched)
+			} else {
+				assert.Empty(t, matched)
 			}
 		})
 	}
@@ -516,7 +522,7 @@ func TestSpendSummaryBarsHeadline(t *testing.T) {
 	})
 
 	t.Run("exactly one bar is emphasised", func(t *testing.T) {
-		petrol, ok := SpendGroupByKey("petrol")
+		petrol, ok := SpendGroupByKey("fuel")
 		require.True(t, ok)
 
 		summary := BuildRollingSummary([]models.Transaction{

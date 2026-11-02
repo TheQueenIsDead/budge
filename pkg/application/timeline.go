@@ -279,20 +279,18 @@ func timelineSpend(tx models.Transaction) bool {
 var billCategories = []string{"local government", "insurance", "government services", "tax"}
 
 // billPayment reports whether a transaction is a household bill rather than a
-// purchase. The utility spend groups count too, so power and broadband are
-// bills here for the same reason they are utilities on the insights page.
+// purchase. Anything filed under a bill category counts too, so power and
+// broadband are bills here for the same reason the budget calls them bills.
 func billPayment(tx models.Transaction) bool {
+	if models.TopBudgetCategory(tx.BudgetCategory()).Bill {
+		return true
+	}
 	category := strings.ToLower(tx.Category.Name)
 	if category == "" {
 		return false
 	}
 	for _, bill := range billCategories {
 		if strings.Contains(category, bill) {
-			return true
-		}
-	}
-	if key, ok := ClassifySpend(tx); ok {
-		if group, found := SpendGroupByKey(key); found && group.Utility {
 			return true
 		}
 	}

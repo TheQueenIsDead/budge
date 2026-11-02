@@ -295,17 +295,17 @@ func dashboardTransactions() []models.Transaction {
 
 func TestRenderDashboardHighlights(t *testing.T) {
 	page := renderTemplate(t, "dashboard", DashboardData{
-		SpendHighlights: BuildSpendSummaries(dashboardTransactions(), []string{"groceries", "petrol", "power"}, now),
+		SpendHighlights: BuildSpendSummaries(dashboardTransactions(), []string{"groceries", "fuel", "power"}, now),
 	})
 
 	t.Run("leads with the recurring questions", func(t *testing.T) {
-		for _, label := range []string{"Groceries", "Petrol", "Power"} {
+		for _, label := range []string{"Groceries", "Fuel", "Power"} {
 			assert.Contains(t, page, label)
 		}
 	})
 
 	t.Run("each tile links through to its own insights view", func(t *testing.T) {
-		for _, key := range []string{"groceries", "petrol", "power"} {
+		for _, key := range []string{"groceries", "fuel", "power"} {
 			assert.Contains(t, page, "/insights?group="+key)
 		}
 	})
@@ -383,10 +383,16 @@ func TestBuildTransactionRow(t *testing.T) {
 			accent: "sage",
 		},
 		{
-			name:   "an untracked category has no accent",
+			name:   "every category has its accent, not only the tracked ones",
 			tx:     spendTransaction("Building supplies", "Bunnings Warehouse", -240, now),
 			title:  "Bunnings Warehouse",
-			accent: "",
+			accent: "clay",
+		},
+		{
+			name:   "anything unfiled is muted, to stand out as needing a category",
+			tx:     spendTransaction("", "Someone", -40, now),
+			title:  "Someone",
+			accent: "muted",
 		},
 	}
 
@@ -487,13 +493,13 @@ func TestBuildTransactionSeries(t *testing.T) {
 			bands[group.Label] = group.Data
 		}
 		require.Contains(t, bands, "Groceries")
-		require.Contains(t, bands, "Petrol")
-		require.Contains(t, bands, "Other")
+		require.Contains(t, bands, "Transport")
+		require.Contains(t, bands, "Maintenance")
 
 		assert.Equal(t, 140.0, bands["Groceries"][11])
 		assert.Equal(t, 60.0, bands["Groceries"][10])
-		assert.Equal(t, 90.0, bands["Petrol"][11])
-		assert.Equal(t, 240.0, bands["Other"][11])
+		assert.Equal(t, 90.0, bands["Transport"][11], "fuel is banded with the rest of transport")
+		assert.Equal(t, 240.0, bands["Maintenance"][11])
 	})
 
 	t.Run("excludes transfers, income and anything outside the window", func(t *testing.T) {
@@ -504,13 +510,16 @@ func TestBuildTransactionSeries(t *testing.T) {
 
 	t.Run("drops categories that never appear", func(t *testing.T) {
 		for _, group := range series.Groups {
-			assert.NotContains(t, []string{"Power", "Internet & Mobile", "Eating out"}, group.Label)
+			assert.NotContains(t, []string{"Bills & subscriptions", "Eating & drinking out"}, group.Label)
 		}
 	})
 
-	t.Run("keeps the catch-all band last", func(t *testing.T) {
-		require.NotEmpty(t, series.Groups)
-		assert.Equal(t, "Other", series.Groups[len(series.Groups)-1].Label)
+	t.Run("bands follow the category list", func(t *testing.T) {
+		var labels []string
+		for _, group := range series.Groups {
+			labels = append(labels, group.Label)
+		}
+		assert.Equal(t, []string{"Groceries", "Transport", "Maintenance"}, labels)
 	})
 
 	t.Run("bands carry an accent token, not a colour", func(t *testing.T) {

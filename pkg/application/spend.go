@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
@@ -43,10 +42,10 @@ func (c Cadence) Periods() int {
 	return 12
 }
 
-// SpendGroup is a bundle of Akahu categories that answers a recurring question
-// ("how much petrol did I buy?"). Akahu's category names are specific enough to
-// classify on directly, so a group is defined by the exact category strings the
-// feed uses rather than by pattern matching merchant names, which change.
+// SpendGroup is a budge category or subcategory tracked on the dashboard and
+// insights pages, answering a recurring question ("how much fuel did I
+// buy?"). Its name, icon and colour are the category's own, so a tile and the
+// transactions behind it look the same.
 type SpendGroup struct {
 	Key     string
 	Label   string
@@ -55,125 +54,97 @@ type SpendGroup struct {
 	Accent  string
 	Cadence Cadence
 
-	// Utility marks a group as a household running cost, so the insights page
-	// can total power, internet and mobile as one "utilities" figure.
-	Utility bool
-
 	// RollingDays makes the dashboard tile read a trailing window rather than a
 	// calendar one. A calendar week shows $0 every Monday morning, which answers
 	// nothing and compares a part period against a whole one. Groups spent in
 	// many small amounts get a rolling window; groups billed once a period keep
 	// the calendar, because a trailing window would catch zero bills or two.
 	RollingDays int
-
-	Categories []string
 }
 
-// spendGroups is the ordered registry. Order is display order: the questions
-// asked most often come first.
-var spendGroups = []SpendGroup{
-	{
-		Key:         "groceries",
-		Label:       "Groceries",
-		Blurb:       "Supermarkets, dairies and food shops",
-		Icon:        "bi-basket",
-		Accent:      "sage",
-		Cadence:     CadenceWeekly,
-		RollingDays: 7,
-		Categories: []string{
-			"Supermarkets and grocery stores",
-			"Convenience stores",
-			"Specialty food stores",
-			"Bakeries",
-			"Meat supplies",
-		},
-	},
-	{
-		Key:         "petrol",
-		Label:       "Petrol",
-		Blurb:       "Fuel stations",
-		Icon:        "bi-fuel-pump",
-		Accent:      "clay",
-		Cadence:     CadenceMonthly,
-		RollingDays: 30,
-		Categories:  []string{"Fuel stations"},
-	},
-	{
-		Key:        "power",
-		Label:      "Power",
-		Blurb:      "Electricity and gas retailers",
-		Icon:       "bi-lightning-charge",
-		Accent:     "plum",
-		Cadence:    CadenceMonthly,
-		Utility:    true,
-		Categories: []string{"Electricity services", "Gas services"},
-	},
-	{
-		Key:        "connectivity",
-		Label:      "Internet & Mobile",
-		Blurb:      "Broadband and phone plans",
-		Icon:       "bi-wifi",
-		Accent:     "slate",
-		Cadence:    CadenceMonthly,
-		Utility:    true,
-		Categories: []string{"Internet services", "Telecommunication services"},
-	},
-	{
-		Key:         "eating-out",
-		Label:       "Eating out",
-		Blurb:       "Cafes, takeaways and bars",
-		Icon:        "bi-cup-hot",
-		Accent:      "brick",
-		Cadence:     CadenceWeekly,
-		RollingDays: 7,
-		Categories: []string{
-			"Cafes and restaurants",
-			"Fast food stores",
-			"Bars, pubs, nightclubs",
-			"Caterers",
-			"Ice cream, gelato, nut, and confectionary stores",
-		},
-	},
+// Billed reports whether the group is a bill, which arrives once a period
+// rather than being bought as needed.
+func (g SpendGroup) Billed() bool {
+	category, _ := models.BudgetCategoryByKey(g.Key)
+	return category.Bill
 }
 
-// categoryToGroup indexes every category string to its group key. Categories
-// are lower cased on both sides so a change of casing upstream cannot silently
-// drop a category out of its group.
-var categoryToGroup = func() map[string]string {
-	index := make(map[string]string)
-	for _, group := range spendGroups {
-		for _, category := range group.Categories {
-			index[strings.ToLower(category)] = group.Key
-		}
+// Matches reports whether a transaction is spending in the group: filed
+// under it, or under one of its subcategories.
+func (g SpendGroup) Matches(tx models.Transaction) bool {
+	if tx.Type == "TRANSFER" || tx.Amount >= 0 {
+		return false
 	}
-	return index
-}()
+	key := tx.BudgetCategory()
+	return key == g.Key || models.TopBudgetCategory(key).Key == g.Key
+}
 
-// SpendGroups returns the tracked groups in display order.
+// trackedSpend is what the dashboard and insights pages track, by category
+// key. Order is display order: the questions asked most often come first.
+var trackedSpend = []SpendGroup{
+	{Key: "groceries", Cadence: CadenceWeekly, RollingDays: 7},
+	{Key: "fuel", Cadence: CadenceMonthly, RollingDays: 30},
+	{Key: "power", Cadence: CadenceMonthly},
+	{Key: "internet-mobile", Cadence: CadenceMonthly},
+	{Key: "eating-out", Cadence: CadenceWeekly, RollingDays: 7},
+}
+
+// SpendGroups returns the tracked groups in display order, named and dressed
+// as their categories are now. A deleted category is tracked as the one its
+// transactions went to, and only once.
 func SpendGroups() []SpendGroup {
-	out := make([]SpendGroup, len(spendGroups))
-	copy(out, spendGroups)
-	return out
+	var groups []SpendGroup
+	seen := map[string]bool{}
+	for _, group := range trackedSpend {
+		category, ok := models.BudgetCategoryByKey(group.Key)
+		if !ok || category.Key == models.CategoryUncategorised || seen[category.Key] {
+			continue
+		}
+		seen[category.Key] = true
+		group.Key = category.Key
+		group.Label = category.Label
+		group.Blurb = category.Blurb
+		group.Icon = category.Icon
+		group.Accent = category.Accent
+		groups = append(groups, group)
+	}
+	return groups
+}
+
+// SpendGroupFor is a category or subcategory as insights tracks it: as one
+// of the tracked groups when it is one, otherwise weekly if it is bought as
+// needed and monthly if it is a bill or budgeted less often than weekly.
+func SpendGroupFor(key string) (SpendGroup, bool) {
+	if group, ok := SpendGroupByKey(key); ok {
+		return group, true
+	}
+	category, ok := models.BudgetCategoryByKey(key)
+	if !ok {
+		return SpendGroup{}, false
+	}
+	group := SpendGroup{
+		Key:     category.Key,
+		Label:   category.Label,
+		Blurb:   category.Blurb,
+		Icon:    category.Icon,
+		Accent:  category.Accent,
+		Cadence: CadenceMonthly,
+	}
+	if !category.Bill && (category.Frequency == "" || category.Frequency == "weekly") {
+		group.Cadence = CadenceWeekly
+	}
+	return group, true
 }
 
 // SpendGroupByKey looks up a single group, reporting whether it exists.
 func SpendGroupByKey(key string) (SpendGroup, bool) {
-	for _, group := range spendGroups {
-		if group.Key == key {
+	resolved := models.ResolveBudgetCategory(key)
+	for _, group := range SpendGroups() {
+		if group.Key == resolved {
 			return group, true
 		}
 	}
 	return SpendGroup{}, false
-}
-
-// ClassifySpend returns the spend group a transaction belongs to. Transfers and
-// money coming in are never spend, so they match nothing.
-func ClassifySpend(tx models.Transaction) (string, bool) {
-	if tx.Type == "TRANSFER" || tx.Amount >= 0 {
-		return "", false
-	}
-	key, ok := categoryToGroup[strings.ToLower(tx.Category.Name)]
-	return key, ok
 }
 
 // SpendBucket is one period of a group's spend. Total is a positive magnitude:
@@ -350,8 +321,7 @@ func BuildSpendBuckets(transactions []models.Transaction, group SpendGroup, cade
 	}
 
 	for _, tx := range transactions {
-		key, ok := ClassifySpend(tx)
-		if !ok || key != group.Key {
+		if !group.Matches(tx) {
 			continue
 		}
 		start := periodStart(tx.Date.In(location), cadence)
@@ -455,7 +425,7 @@ func (s SpendSummary) Awaiting() bool {
 // AwaitingLabel words the empty-period chip for the kind of spending it is.
 // A power bill has not been billed yet; petrol simply has not been bought.
 func (s SpendSummary) AwaitingLabel() string {
-	if s.Group.Utility {
+	if s.Group.Billed() {
 		return "Not billed yet"
 	}
 	return "No spend yet"
@@ -524,8 +494,7 @@ func (s SpendSummary) Window() (start, end time.Time) {
 func BuildSpendMerchants(transactions []models.Transaction, group SpendGroup, start, end time.Time, n int) []models.MerchantTotal {
 	totals := make(map[string]float64)
 	for _, tx := range transactions {
-		key, ok := ClassifySpend(tx)
-		if !ok || key != group.Key {
+		if !group.Matches(tx) {
 			continue
 		}
 		if tx.Date.Before(start) || !tx.Date.Before(end) {
@@ -591,8 +560,7 @@ func BuildRollingSummary(transactions []models.Transaction, group SpendGroup, da
 	}
 
 	for _, tx := range transactions {
-		key, ok := ClassifySpend(tx)
-		if !ok || key != group.Key {
+		if !group.Matches(tx) {
 			continue
 		}
 		when := tx.Date.In(location)

@@ -31,21 +31,27 @@ func (app *Application) Insights(c echo.Context) error {
 	now := time.Now()
 
 	transactions, err := app.store.ReadTransactionsByDate(now.AddDate(0, -insightsHistory, 0), now)
-	if err == nil {
-		transactions, err = app.withoutUncounted(transactions)
-	}
+	transactions = spendingOnly(transactions)
 	if err != nil {
 		app.Toast(c, "Error", "Could not load spending insights.")
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	groups := SpendGroups()
+	if len(groups) == 0 {
+		return echo.NewHTTPError(http.StatusNotFound, "Every tracked category has been deleted.")
+	}
 
 	// An unknown or missing group falls back to the first tracked one rather
 	// than erroring, so a stale bookmark still lands somewhere useful.
 	selected := groups[0]
-	if group, ok := SpendGroupByKey(c.QueryParam("group")); ok {
+	if group, ok := SpendGroupFor(c.QueryParam("group")); ok {
 		selected = group
+		// A category opened from the budget joins the tracked ones while it
+		// is looked at, so the pills say what is shown.
+		if _, tracked := SpendGroupByKey(group.Key); !tracked {
+			groups = append(groups, group)
+		}
 	}
 
 	cadence := Cadence(c.QueryParam("cadence"))

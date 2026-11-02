@@ -243,10 +243,11 @@ func BuildDoughnutData(transactions []models.Transaction) DoughnutData {
 	totalSpend := 0.0
 	categoryMap := map[string]float64{}
 	for _, tx := range transactions {
-		if tx.Amount >= 0 || tx.Category.Groups.PersonalFinance.Name == "" || tx.Type == "TRANSFER" {
+		spent, ok := spendCategory(tx)
+		if !ok {
 			continue
 		}
-		category := tx.Category.Groups.PersonalFinance.Name
+		category := spent.Label
 		if _, ok := categoryMap[category]; !ok {
 			categoryMap[category] = tx.Amount
 		} else {
@@ -382,11 +383,7 @@ func (app *Application) Dashboard(c echo.Context) error {
 		app.Toast(c, "Error", "Could not load dashboard data.")
 		return c.NoContent(http.StatusInternalServerError)
 	}
-	transactions, err := app.withoutUncounted(transactions)
-	if err != nil {
-		app.Toast(c, "Error", "Could not load dashboard data.")
-		return c.NoContent(http.StatusInternalServerError)
-	}
+	transactions = spendingOnly(transactions)
 
 	// Transfers move money between the owner's own accounts, so counting them
 	// as spend would double up every dollar that passes through.
@@ -419,7 +416,7 @@ func (app *Application) Dashboard(c echo.Context) error {
 		// Scoped to the same 30 days as the merchants beside it, so the two
 		// lists describe the same period rather than silently differing.
 		HighestOutgoingTransactions: BuildHighestOutgoingTransactions(recentTransactions, 6),
-		SpendHighlights:             BuildSpendSummaries(nonTransfer, []string{"groceries", "petrol", "power"}, now),
+		SpendHighlights:             BuildSpendSummaries(nonTransfer, []string{"groceries", "fuel", "power"}, now),
 	})
 }
 func (app *Application) _4XX(c echo.Context) error {
