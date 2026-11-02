@@ -95,6 +95,10 @@ func (app *Application) runAkahuSync() error {
 		return app.store.RecordAkahuSync(through)
 	}()
 	app.akahuSync.end(err)
+	if err == nil {
+		// New spending has landed, so this is when a category tips over.
+		app.notifyBudget(time.Now())
+	}
 	return err
 }
 
