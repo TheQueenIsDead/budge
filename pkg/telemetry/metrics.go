@@ -61,19 +61,44 @@ func (h Histogram) Quantile(q float64) float64 {
 			if i > 0 {
 				lower = h.Bounds[i-1]
 			}
+			// Nothing recorded exceeds the max, so a bucket runs no further.
 			upper := h.Max
 			if i < len(h.Bounds) {
-				upper = h.Bounds[i]
+				upper = min(h.Bounds[i], h.Max)
 			}
-			if upper < lower {
-				upper = lower
-			}
+			lower = min(lower, upper)
 			return lower + (upper-lower)*(rank-seen)/float64(n)
 		}
 		seen += float64(n)
 	}
 	return h.Max
 }
+
+// Merge adds histograms with the same buckets together, as one.
+func Merge(hs ...Histogram) Histogram {
+	var out Histogram
+	for _, h := range hs {
+		if out.Counts == nil {
+			out.Bounds = h.Bounds
+			out.Counts = make([]uint64, len(h.Counts))
+		}
+		if len(h.Counts) != len(out.Counts) {
+			continue
+		}
+		out.Count += h.Count
+		out.Sum += h.Sum
+		out.Max = max(out.Max, h.Max)
+		for i, n := range h.Counts {
+			out.Counts[i] += n
+		}
+	}
+	return out
+}
+
+// CountSuffix names the series kept of how many values a histogram has
+// recorded, so throughput can be charted over time: the request durations'
+// is "http.server.request.duration.count".
+const CountSuffix = ".count"
 
 // MetricStore samples the SDK's metrics on an interval, keeping each counter
 // and gauge as a series over a window, and each histogram's latest totals.
@@ -82,6 +107,7 @@ type MetricStore struct {
 	points int
 
 	mu         sync.RWMutex
+	sampling   bool
 	series     map[string]map[string]*seriesBuffer
 	histograms map[string][]Histogram
 }
@@ -102,6 +128,17 @@ func newMetricStore(reader *sdkmetric.ManualReader, window, every time.Duration)
 
 // Collect samples every metric once.
 func (m *MetricStore) Collect(ctx context.Context) error {
+	return m.collect(ctx, true)
+}
+
+// Refresh brings the histograms' totals up to date without taking a sample
+// of the series, so looking at the page does not crowd the charts with
+// points out of step with the rest.
+func (m *MetricStore) Refresh(ctx context.Context) error {
+	return m.collect(ctx, false)
+}
+
+func (m *MetricStore) collect(ctx context.Context, sample bool) error {
 	var rm metricdata.ResourceMetrics
 	if err := m.reader.Collect(ctx, &rm); err != nil {
 		return err
@@ -110,6 +147,7 @@ func (m *MetricStore) Collect(ctx context.Context) error {
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.sampling = sample
 	for _, scope := range rm.ScopeMetrics {
 		for _, metric := range scope.Metrics {
 			switch data := metric.Data.(type) {
@@ -132,6 +170,7 @@ func (m *MetricStore) Collect(ctx context.Context) error {
 			case metricdata.Histogram[float64]:
 				var hs []Histogram
 				for _, p := range data.DataPoints {
+					m.record(metric.Name+CountSuffix, p.Attributes, now, float64(p.Count))
 					max, _ := p.Max.Value()
 					hs = append(hs, Histogram{
 						Attrs: attrMap(p.Attributes), Count: p.Count, Sum: p.Sum, Max: max,
@@ -142,6 +181,7 @@ func (m *MetricStore) Collect(ctx context.Context) error {
 			case metricdata.Histogram[int64]:
 				var hs []Histogram
 				for _, p := range data.DataPoints {
+					m.record(metric.Name+CountSuffix, p.Attributes, now, float64(p.Count))
 					max, _ := p.Max.Value()
 					hs = append(hs, Histogram{
 						Attrs: attrMap(p.Attributes), Count: p.Count, Sum: float64(p.Sum), Max: float64(max),
@@ -156,6 +196,9 @@ func (m *MetricStore) Collect(ctx context.Context) error {
 }
 
 func (m *MetricStore) record(name string, attrs attribute.Set, at time.Time, value float64) {
+	if !m.sampling {
+		return
+	}
 	byAttrs := m.series[name]
 	if byAttrs == nil {
 		byAttrs = map[string]*seriesBuffer{}
@@ -184,6 +227,40 @@ func (m *MetricStore) Series(name string) []Series {
 		out = append(out, Series{Attrs: buffer.attrs, Points: points})
 	}
 	sort.Slice(out, func(i, j int) bool { return attrKey(out[i].Attrs) < attrKey(out[j].Attrs) })
+	return out
+}
+
+// Total sums a metric's series across their attributes at each sample.
+func (m *MetricStore) Total(name string) []Point {
+	byTime := map[time.Time]float64{}
+	for _, series := range m.Series(name) {
+		for _, p := range series.Points {
+			byTime[p.Time] += p.Value
+		}
+	}
+	out := make([]Point, 0, len(byTime))
+	for at, value := range byTime {
+		out = append(out, Point{Time: at, Value: value})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Time.Before(out[j].Time) })
+	return out
+}
+
+// Rate turns a running total into how fast it grew, per second, between each
+// sample and the one before. A total that went backwards, as one does when it
+// gains a new set of attributes partway, counts as no growth.
+func Rate(points []Point) []Point {
+	if len(points) < 2 {
+		return nil
+	}
+	out := make([]Point, 0, len(points)-1)
+	for i := 1; i < len(points); i++ {
+		elapsed := points[i].Time.Sub(points[i-1].Time).Seconds()
+		if elapsed <= 0 {
+			continue
+		}
+		out = append(out, Point{Time: points[i].Time, Value: max(0, points[i].Value-points[i-1].Value) / elapsed})
+	}
 	return out
 }
 

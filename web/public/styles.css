@@ -2245,3 +2245,226 @@ a.b-acct:focus-visible {
     border-color: var(--b-primary);
     color: var(--b-primary-ink);
 }
+
+/* ==========================================================================
+   Admin
+   ========================================================================== */
+
+.b-admin-table {
+    font-size: 0.8125rem;
+}
+
+.b-admin-table th {
+    color: var(--b-muted);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.b-admin-table td {
+    vertical-align: middle;
+}
+
+.b-admin-method {
+    display: inline-block;
+    padding: 0 0.35rem;
+    border-radius: 0.25rem;
+    background: var(--b-surface-3);
+    color: var(--b-ink-2);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.b-admin-meta {
+    color: var(--b-muted);
+    font-size: 0.75rem;
+}
+
+/* A row per request, query or span: what it was, a line of detail, and how
+   long it took on the right. */
+.b-admin-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.b-admin-list li + li {
+    border-top: 1px solid var(--b-border);
+}
+
+.b-admin-list a {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "name time" "meta time";
+    column-gap: 0.75rem;
+    padding: 0.5rem 0;
+    color: var(--b-ink);
+    text-decoration: none;
+    font-size: 0.8125rem;
+}
+
+.b-admin-list a:hover {
+    background: var(--b-surface-2);
+}
+
+.b-admin-list .b-admin-name {
+    grid-area: name;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.b-admin-list .b-admin-meta {
+    grid-area: meta;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.b-admin-list .b-num {
+    grid-area: time;
+    align-self: center;
+}
+
+.b-admin-logs {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.8125rem;
+}
+
+.b-admin-log {
+    padding: 0.4rem 0 0.4rem 0.6rem;
+    border-left: 3px solid var(--b-border);
+}
+
+.b-admin-log + .b-admin-log {
+    margin-top: 0.25rem;
+}
+
+.b-admin-log-warn {
+    border-left-color: var(--b-warning);
+}
+
+.b-admin-log-error {
+    border-left-color: var(--b-negative);
+    background: var(--b-negative-soft);
+}
+
+.b-admin-log-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+}
+
+.b-admin-level {
+    flex: 0 0 auto;
+    width: 3rem;
+    color: var(--b-muted);
+    font-size: 0.6875rem;
+    font-weight: 600;
+}
+
+.b-admin-log-message {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.b-admin-attrs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.75rem;
+    margin: 0.15rem 0 0 3.5rem;
+    color: var(--b-muted);
+    font-family: var(--bs-font-monospace);
+    font-size: 0.6875rem;
+    overflow-wrap: anywhere;
+}
+
+.b-admin-attrs b {
+    color: var(--b-ink-2);
+    font-weight: 500;
+}
+
+.b-admin-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    color: var(--b-muted);
+    font-size: 0.8125rem;
+    text-decoration: none;
+}
+
+/* A trace: labels on the left, each span's bar placed along the trace's
+   timeline, and its duration on the right. On a phone the label takes its
+   own line above the bar. */
+.b-waterfall {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.75rem;
+}
+
+.b-waterfall li {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) 4.5rem;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.3rem 0;
+}
+
+.b-waterfall li + li {
+    border-top: 1px solid var(--b-border);
+}
+
+@media (max-width: 767.98px) {
+    .b-waterfall li {
+        grid-template-columns: minmax(0, 1fr) 4.5rem;
+        grid-template-areas: "label label" "track time";
+    }
+
+    .b-waterfall-label {
+        grid-area: label;
+    }
+}
+
+.b-waterfall-label {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.b-waterfall-track {
+    position: relative;
+    height: 0.75rem;
+    background: var(--b-surface-2);
+    border-radius: 0.2rem;
+}
+
+.b-waterfall-bar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    min-width: 2px;
+    border-radius: 0.2rem;
+    background: var(--b-slate);
+}
+
+.b-waterfall-client {
+    background: var(--b-plum);
+}
+
+.b-waterfall-internal {
+    background: var(--b-clay);
+}
+
+.b-waterfall-error .b-waterfall-bar {
+    background: var(--b-negative);
+}
+
+.b-waterfall-time {
+    text-align: right;
+}

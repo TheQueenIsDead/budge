@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"io"
 	"log/slog"
@@ -80,6 +81,12 @@ func templateFuncs() template.FuncMap {
 				return "shortly"
 			}
 			return "in " + strings.TrimSpace(humanize.RelTime(time.Now(), date, "", ""))
+		},
+		// fmtDuration words a timing at the precision it deserves: a bolt read
+		// in microseconds, a request in milliseconds, a sync in seconds.
+		"fmtDuration": fmtDuration,
+		"fmtBytes": func(bytes float64) string {
+			return humanize.IBytes(uint64(max(0, bytes)))
 		},
 		"fmtLower": func(text string) string {
 			return strings.ToLower(text)
@@ -229,6 +236,8 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	// Settings
 	app.http.GET("/settings", app.Settings)
+	app.http.GET("/admin", app.Admin)
+	app.http.GET("/admin/traces/:id", app.AdminTrace)
 	app.http.POST("/settings/schedule", app.SettingsSaveSchedule)
 	app.http.POST("/settings/budget-categories", app.SettingsAddBudgetCategory)
 	app.http.POST("/settings/budget-categories/:key", app.SettingsUpdateBudgetCategory)
@@ -305,6 +314,21 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.Group("/static", StaticCaching()).StaticFS("/", staticFiles)
 
 	return app, nil
+}
+
+func fmtDuration(d time.Duration) string {
+	switch {
+	case d < time.Millisecond:
+		return fmt.Sprintf("%.0fµs", float64(d)/float64(time.Microsecond))
+	case d < 10*time.Millisecond:
+		return fmt.Sprintf("%.2fms", float64(d)/float64(time.Millisecond))
+	case d < time.Second:
+		return fmt.Sprintf("%.0fms", float64(d)/float64(time.Millisecond))
+	case d < time.Minute:
+		return fmt.Sprintf("%.2fs", d.Seconds())
+	default:
+		return d.Round(time.Second).String()
+	}
 }
 
 // untraced reports requests not worth a trace of their own: static files,

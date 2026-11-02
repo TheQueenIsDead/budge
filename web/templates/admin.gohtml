@@ -1,0 +1,530 @@
+{{ define "admin" }}
+
+    <!-- Tabs swap only #admin-panel, the way the insights categories do, so the
+         header stays put. -->
+    <div hx-boost="true"
+         hx-target="#admin-panel"
+         hx-select="#admin-panel"
+         hx-swap="outerHTML show:none">
+
+        <div class="b-page-head">
+            <h2>Admin</h2>
+            <p class="b-page-sub">
+                What budge has recorded about itself since it started
+                {{ .Process.Started | fmtRelative }}: up {{ .Process.Uptime }},
+                {{ .Process.GoVersion }}{{ with .Process.Revision }} at <span class="font-monospace">{{ . }}</span>{{ end }},
+                {{ .Process.CPUs }} CPUs.
+                {{ if .Process.Exporting }}
+                    <span class="b-delta b-delta-good"><i class="bi bi-broadcast"></i>Exporting over OTLP</span>
+                {{ else }}
+                    <span class="b-delta b-delta-flat" data-bs-toggle="tooltip"
+                          title="Set OTEL_EXPORTER_OTLP_ENDPOINT to send this to a collector as well">
+                        <i class="bi bi-hdd"></i>Kept in memory only</span>
+                {{ end }}
+            </p>
+        </div>
+
+        <div id="admin-panel">
+            <div class="b-pills">
+                {{ range .Tabs }}
+                    <a class="b-pill{{ if eq .Key $.Tab }} b-pill-active{{ end }}" href="/admin?tab={{ .Key }}">
+                        <i class="bi {{ .Icon }}"></i>{{ .Label }}
+                    </a>
+                {{ end }}
+            </div>
+
+            {{ if eq .Tab "overview" }}{{ template "admin.overview" .Overview }}{{ end }}
+            {{ if eq .Tab "requests" }}{{ template "admin.requests" .Requests }}{{ end }}
+            {{ if eq .Tab "database" }}{{ template "admin.database" .Database }}{{ end }}
+            {{ if eq .Tab "logs" }}{{ template "admin.logs" .Logs }}{{ end }}
+            {{ if eq .Tab "errors" }}{{ template "admin.errors" .Errors }}{{ end }}
+        </div>
+    </div>
+
+{{ end }}
+
+{{/* The process at a glance, refreshed as each sample is taken. */}}
+{{ define "admin.overview" }}
+    <div hx-get="/admin?tab=overview" hx-trigger="every {{ .SampleEvery }}"
+         hx-target="#admin-panel" hx-select="#admin-panel" hx-swap="outerHTML show:none">
+
+        <div class="row g-2 g-md-3 mb-3">
+            <div class="col-6 col-lg-3">
+                <div class="b-stat b-accent-slate">
+                    <div class="b-stat-label"><span>Requests</span><i class="bi bi-arrow-left-right"></i></div>
+                    <div class="b-stat-value">{{ .Requests }}</div>
+                    <span class="b-delta {{ if gt .ErrorRate 0.0 }}b-delta-bad{{ else }}b-delta-flat{{ end }}">
+                        {{ .ErrorRate | fmtPercent }} failed</span>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="b-stat b-accent-plum">
+                    <div class="b-stat-label"><span>Queries</span><i class="bi bi-database"></i></div>
+                    <div class="b-stat-value">{{ .Queries }}</div>
+                    <span class="b-delta b-delta-flat">{{ .QueryTime | fmtDuration }} in all</span>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="b-stat b-accent-sage">
+                    <div class="b-stat-label"><span>Memory</span><i class="bi bi-memory"></i></div>
+                    <div class="b-stat-value">{{ .Memory | fmtBytes }}</div>
+                    <span class="b-delta b-delta-flat">{{ printf "%.0f" .Goroutines }} goroutines</span>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="b-stat b-accent-brick">
+                    <div class="b-stat-label"><span>Errors logged</span><i class="bi bi-exclamation-triangle"></i></div>
+                    <div class="b-stat-value">{{ .Errors }}</div>
+                    <span class="b-delta b-delta-flat">CPU {{ printf "%.1f" .CPU }}%</span>
+                </div>
+            </div>
+        </div>
+
+        {{ if .AwaitingSamples }}
+            <p class="b-card-sub mb-3"><i class="bi bi-hourglass"></i>
+                Metrics are sampled every {{ .SampleEvery }}; the charts fill in after the first two.</p>
+        {{ end }}
+
+        <div class="row g-3 mb-3">
+            {{ template "admin.chart" (dict "id" "adminCpu" "title" "CPU" "sub" "100% is one core busy" "accent" "brick" "unit" "percent" "chart" .CPUChart) }}
+            {{ template "admin.chart" (dict "id" "adminMemory" "title" "Memory" "sub" "Go heap and stacks in use, against the next GC's goal" "accent" "sage" "unit" "bytes" "chart" .MemoryChart "goal" .GCGoalChart) }}
+            {{ template "admin.chart" (dict "id" "adminRequests" "title" "Requests" "sub" "Per minute" "accent" "slate" "unit" "rate" "chart" .RequestChart) }}
+            {{ template "admin.chart" (dict "id" "adminQueries" "title" "Queries" "sub" "Bolt transactions per minute" "accent" "plum" "unit" "rate" "chart" .QueryChart) }}
+            {{ template "admin.chart" (dict "id" "adminGoroutines" "title" "Goroutines" "sub" "Running at each sample" "accent" "clay" "unit" "count" "chart" .GoroutineChart) }}
+        </div>
+    </div>
+{{ end }}
+
+{{/* One line chart in a card. hx-preserve keeps the canvas across the
+     overview's refresh, so the chart is updated in place rather than redrawn
+     from blank. */}}
+{{ define "admin.chart" }}
+    <div class="col-12 col-lg-6">
+        <div class="b-card b-card-pad b-accent-{{ .accent }}">
+            <div class="b-card-head">
+                <div>
+                    <h3 class="b-card-title">{{ .title }}</h3>
+                    <p class="b-card-sub">{{ .sub }}</p>
+                </div>
+            </div>
+            <div class="b-chart b-chart-short">
+                <canvas id="{{ .id }}" hx-preserve="true"></canvas>
+            </div>
+            <script>
+                (function () {
+                    const canvas = document.getElementById({{ .id }});
+                    if (!canvas || typeof Chart === "undefined" || !window.budge) {
+                        return;
+                    }
+                    const data = {{ .chart }};
+                    const goal = {{ with .goal }}{{ . }}{{ else }}null{{ end }};
+                    const unit = {{ .unit }};
+                    const accent = window.budge.colour({{ .accent }});
+                    const format = function (v) {
+                        if (unit === "bytes") {
+                            return (v / 1048576).toFixed(v < 10485760 ? 1 : 0) + " MiB";
+                        }
+                        if (unit === "percent") {
+                            return v.toFixed(1) + "%";
+                        }
+                        if (unit === "rate") {
+                            return v.toFixed(v < 10 ? 1 : 0);
+                        }
+                        return Math.round(v).toString();
+                    };
+                    const datasets = [{
+                        label: {{ .title }},
+                        data: data.values,
+                        borderColor: accent,
+                        backgroundColor: window.budge.mix({{ .accent }}, 0.25),
+                        fill: true,
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        tension: 0.25
+                    }];
+                    if (goal) {
+                        datasets.push({
+                            label: "GC goal",
+                            data: goal.values,
+                            borderColor: window.budge.ink,
+                            borderDash: [4, 4],
+                            borderWidth: 1,
+                            pointRadius: 0,
+                            fill: false
+                        });
+                    }
+
+                    const existing = Chart.getChart(canvas);
+                    if (existing) {
+                        existing.data.labels = data.labels;
+                        datasets.forEach(function (d, i) {
+                            existing.data.datasets[i].data = d.data;
+                        });
+                        existing.update("none");
+                        return;
+                    }
+
+                    const ink = window.budge.ink;
+                    new Chart(canvas, {
+                        type: "line",
+                        data: {labels: data.labels, datasets: datasets},
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: false,
+                            interaction: {mode: "index", intersect: false},
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    border: {display: false},
+                                    grid: {color: window.budge.grid},
+                                    ticks: {color: ink, callback: format, maxTicksLimit: 5}
+                                },
+                                x: {
+                                    border: {display: false},
+                                    grid: {display: false},
+                                    ticks: {color: ink, maxRotation: 0, autoSkipPadding: 16}
+                                }
+                            },
+                            plugins: {
+                                legend: {display: false},
+                                tooltip: {callbacks: {label: c => c.dataset.label + ": " + format(c.parsed.y)}}
+                            }
+                        }
+                    });
+                })();
+            </script>
+        </div>
+    </div>
+{{ end }}
+
+{{ define "admin.requests" }}
+    <div class="b-card b-card-pad mb-3 b-accent-slate">
+        <div class="b-card-head">
+            <div>
+                <h3 class="b-card-title">Routes</h3>
+                <p class="b-card-sub">Every request since start, costliest in all first.</p>
+            </div>
+        </div>
+        {{ if .Routes }}
+            <div class="table-responsive">
+                <table class="table table-sm b-admin-table mb-0">
+                    <thead>
+                    <tr><th>Route</th><th class="text-end">Count</th><th class="text-end">5xx</th>
+                        <th class="text-end">p50</th><th class="text-end">p95</th><th class="text-end">Max</th><th class="text-end">Total</th></tr>
+                    </thead>
+                    <tbody>
+                    {{ range .Routes }}
+                        <tr>
+                            <td><span class="b-admin-method">{{ .Method }}</span> <span class="font-monospace">{{ .Route }}</span></td>
+                            <td class="text-end b-num">{{ .Count }}</td>
+                            <td class="text-end b-num {{ if gt .Errors 0 }}text-danger{{ end }}">{{ .Errors }}</td>
+                            <td class="text-end b-num">{{ .P50 | fmtDuration }}</td>
+                            <td class="text-end b-num">{{ .P95 | fmtDuration }}</td>
+                            <td class="text-end b-num">{{ .Max | fmtDuration }}</td>
+                            <td class="text-end b-num">{{ .Total | fmtDuration }}</td>
+                        </tr>
+                    {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        {{ else }}
+            {{ template "admin.empty" "No requests yet" }}
+        {{ end }}
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-xl-6">
+            {{ template "admin.request.list" (dict "title" "Slowest" "sub" "The slowest requests still kept." "requests" .Slow) }}
+        </div>
+        <div class="col-12 col-xl-6">
+            {{ template "admin.request.list" (dict "title" "Recent" "sub" "The latest requests, with what their queries cost." "requests" .Recent) }}
+        </div>
+    </div>
+
+    {{ if .Jobs }}
+        <div class="b-card b-card-pad mb-3 b-accent-clay">
+            <div class="b-card-head">
+                <div>
+                    <h3 class="b-card-title">Background jobs</h3>
+                    <p class="b-card-sub">Syncs and scheduled work, which run outside any request.</p>
+                </div>
+            </div>
+            <ul class="b-admin-list">
+                {{ range .Jobs }}
+                    <li>
+                        <a href="/admin/traces/{{ .TraceID }}" hx-target="#main" hx-select="unset" hx-swap="innerHTML">
+                            <span class="b-admin-name">{{ .Name }}</span>
+                            <span class="b-admin-meta">{{ .Start | fmtRelative }}</span>
+                            <span class="b-num {{ if .Error }}text-danger{{ end }}">{{ .Duration | fmtDuration }}</span>
+                        </a>
+                    </li>
+                {{ end }}
+            </ul>
+        </div>
+    {{ end }}
+{{ end }}
+
+{{ define "admin.request.list" }}
+    <div class="b-card b-card-pad h-100">
+        <div class="b-card-head">
+            <div>
+                <h3 class="b-card-title">{{ .title }}</h3>
+                <p class="b-card-sub">{{ .sub }}</p>
+            </div>
+        </div>
+        {{ if .requests }}
+            <ul class="b-admin-list">
+                {{ range .requests }}
+                    <li>
+                        <a href="/admin/traces/{{ .TraceID }}" hx-target="#main" hx-select="unset" hx-swap="innerHTML">
+                            <span class="b-admin-name">
+                                <span class="b-admin-method">{{ .Method }}</span>
+                                <span class="font-monospace">{{ .Route }}</span>
+                            </span>
+                            <span class="b-admin-meta">
+                                <span class="{{ if .Error }}text-danger{{ end }}">{{ .Status }}</span>
+                                · {{ .Start | fmtRelative }}
+                                {{ if .Queries }}· {{ .Queries }} {{ if eq .Queries 1 }}query{{ else }}queries{{ end }}, {{ .QueryTime | fmtDuration }}{{ end }}
+                            </span>
+                            <span class="b-num">{{ .Duration | fmtDuration }}</span>
+                        </a>
+                    </li>
+                {{ end }}
+            </ul>
+        {{ else }}
+            {{ template "admin.empty" "No requests yet" }}
+        {{ end }}
+    </div>
+{{ end }}
+
+{{ define "admin.database" }}
+    <div class="b-card b-card-pad mb-3 b-accent-plum">
+        <div class="b-card-head">
+            <div>
+                <h3 class="b-card-title">Operations</h3>
+                <p class="b-card-sub">Each store method and the bucket it reads or writes, costliest in all first.</p>
+            </div>
+        </div>
+        {{ if .Operations }}
+            <div class="table-responsive">
+                <table class="table table-sm b-admin-table mb-0">
+                    <thead>
+                    <tr><th>Operation</th><th>Bucket</th><th class="text-end">Count</th>
+                        <th class="text-end">p50</th><th class="text-end">p95</th><th class="text-end">Max</th><th class="text-end">Total</th></tr>
+                    </thead>
+                    <tbody>
+                    {{ range .Operations }}
+                        <tr>
+                            <td class="font-monospace">{{ .Operation }}
+                                {{ if eq .Kind "update" }}<span class="b-admin-method">write</span>{{ end }}</td>
+                            <td class="font-monospace">{{ .Collection }}</td>
+                            <td class="text-end b-num">{{ .Count }}</td>
+                            <td class="text-end b-num">{{ .P50 | fmtDuration }}</td>
+                            <td class="text-end b-num">{{ .P95 | fmtDuration }}</td>
+                            <td class="text-end b-num">{{ .Max | fmtDuration }}</td>
+                            <td class="text-end b-num">{{ .Total | fmtDuration }}</td>
+                        </tr>
+                    {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        {{ else }}
+            {{ template "admin.empty" "No queries yet" }}
+        {{ end }}
+    </div>
+
+    <div class="b-card b-card-pad mb-3 b-accent-slate">
+        <div class="b-card-head">
+            <div>
+                <h3 class="b-card-title">Where queries come from</h3>
+                <p class="b-card-sub">The code outside the store that asked, and what it asked for.</p>
+            </div>
+        </div>
+        {{ if .Callers }}
+            <div class="table-responsive">
+                <table class="table table-sm b-admin-table mb-0">
+                    <thead>
+                    <tr><th>Caller</th><th>Operations</th><th class="text-end">Count</th>
+                        <th class="text-end">p95</th><th class="text-end">Total</th></tr>
+                    </thead>
+                    <tbody>
+                    {{ range .Callers }}
+                        <tr>
+                            <td class="font-monospace">{{ .Caller }}</td>
+                            <td class="b-admin-meta">{{ range $i, $op := .Operations }}{{ if $i }}, {{ end }}{{ $op }}{{ end }}</td>
+                            <td class="text-end b-num">{{ .Count }}</td>
+                            <td class="text-end b-num">{{ .P95 | fmtDuration }}</td>
+                            <td class="text-end b-num">{{ .Total | fmtDuration }}</td>
+                        </tr>
+                    {{ end }}
+                    </tbody>
+                </table>
+            </div>
+        {{ else }}
+            {{ template "admin.empty" "No queries yet" }}
+        {{ end }}
+    </div>
+
+    <div class="b-card b-card-pad mb-3 b-accent-brick">
+        <div class="b-card-head">
+            <div>
+                <h3 class="b-card-title">Slowest queries</h3>
+                <p class="b-card-sub">Of those still kept, with the line that asked. Open one to see its request.</p>
+            </div>
+        </div>
+        {{ if .Slow }}
+            <ul class="b-admin-list">
+                {{ range .Slow }}
+                    <li>
+                        <a href="/admin/traces/{{ .TraceID }}" hx-target="#main" hx-select="unset" hx-swap="innerHTML">
+                            <span class="b-admin-name font-monospace">{{ .Operation }} <span class="b-admin-meta">{{ .Collection }}</span></span>
+                            <span class="b-admin-meta font-monospace">{{ .Caller }} · {{ .Location }}</span>
+                            <span class="b-num {{ if .Error }}text-danger{{ end }}">{{ .Duration | fmtDuration }}</span>
+                        </a>
+                    </li>
+                {{ end }}
+            </ul>
+        {{ else }}
+            {{ template "admin.empty" "No queries yet" }}
+        {{ end }}
+    </div>
+{{ end }}
+
+{{ define "admin.logs" }}
+    <div class="b-card b-card-pad mb-3 b-accent-slate">
+        <div class="b-card-head flex-wrap gap-2">
+            <div>
+                <h3 class="b-card-title">Logs</h3>
+                <p class="b-card-sub">
+                    {{ if gt .Total (len .Records) }}The latest {{ len .Records }} of {{ .Total }}{{ else }}{{ .Total }}{{ end }}
+                    at {{ .Level }} or above{{ with .Search }} matching “{{ . }}”{{ end }}.
+                </p>
+            </div>
+            <div class="b-segment">
+                {{ range .Levels }}
+                    <a href="/admin?tab=logs&level={{ . }}&q={{ $.Search }}" class="{{ if eq . $.Level }}active{{ end }}">{{ . | fmtTitle }}</a>
+                {{ end }}
+            </div>
+        </div>
+        <form class="mb-3" hx-get="/admin" hx-trigger="input changed delay:300ms from:input, submit"
+              hx-target="#admin-panel" hx-select="#admin-panel" hx-swap="outerHTML show:none" hx-push-url="true">
+            <input type="hidden" name="tab" value="logs">
+            <input type="hidden" name="level" value="{{ .Level }}">
+            <input class="form-control form-control-sm" type="search" name="q" value="{{ .Search }}"
+                   placeholder="Search messages and attributes" aria-label="Search logs">
+        </form>
+        {{ template "admin.log.list" .Records }}
+    </div>
+{{ end }}
+
+{{ define "admin.log.list" }}
+    {{ if . }}
+        <ul class="b-admin-logs">
+            {{ range . }}
+                <li class="b-admin-log b-admin-log-{{ .Level | fmtLower }}">
+                    <div class="b-admin-log-head">
+                        <span class="b-admin-level">{{ .Level }}</span>
+                        <span class="b-admin-log-message">{{ .Message }}</span>
+                        <span class="b-admin-meta ms-auto" title="{{ .Time.Local.Format "2006-01-02 15:04:05.000" }}">{{ .Time.Local.Format "15:04:05" }}</span>
+                    </div>
+                    {{ if or .Attrs .TraceID }}
+                        <div class="b-admin-attrs">
+                            {{ range $k, $v := .Attrs }}<span><b>{{ $k }}</b>={{ $v }}</span>{{ end }}
+                            {{ with .TraceID }}<a href="/admin/traces/{{ . }}" hx-target="#main" hx-select="unset" hx-swap="innerHTML"><i class="bi bi-diagram-3"></i>trace</a>{{ end }}
+                        </div>
+                    {{ end }}
+                </li>
+            {{ end }}
+        </ul>
+    {{ else }}
+        {{ template "admin.empty" "Nothing logged" }}
+    {{ end }}
+{{ end }}
+
+{{ define "admin.errors" }}
+    <div class="b-card b-card-pad mb-3 b-accent-brick">
+        <div class="b-card-head">
+            <div>
+                <h3 class="b-card-title">Errors logged</h3>
+                <p class="b-card-sub">Failed requests, recovered panics and jobs that went wrong, latest first.</p>
+            </div>
+        </div>
+        {{ template "admin.log.list" .Logs }}
+    </div>
+
+    <div class="b-card b-card-pad mb-3 b-accent-clay">
+        <div class="b-card-head">
+            <div>
+                <h3 class="b-card-title">Failed spans</h3>
+                <p class="b-card-sub">Requests, queries and calls out that ended in an error.</p>
+            </div>
+        </div>
+        {{ if .Failures }}
+            <ul class="b-admin-list">
+                {{ range .Failures }}
+                    <li>
+                        <a href="/admin/traces/{{ .TraceID }}" hx-target="#main" hx-select="unset" hx-swap="innerHTML">
+                            <span class="b-admin-name font-monospace">{{ .Name }}</span>
+                            <span class="b-admin-meta">{{ .Status }} · {{ .Start | fmtRelative }}</span>
+                            <span class="b-num text-danger">{{ .Duration | fmtDuration }}</span>
+                        </a>
+                    </li>
+                {{ end }}
+            </ul>
+        {{ else }}
+            {{ template "admin.empty" "Nothing has failed" }}
+        {{ end }}
+    </div>
+{{ end }}
+
+{{/* A trace as a waterfall: each span on its own row, indented under its
+     parent and placed along the trace's timeline. */}}
+{{ define "admin.trace" }}
+    <div class="b-page-head">
+        <a class="b-admin-back" href="/admin?tab=requests" hx-boost="true" hx-target="#main"><i class="bi bi-chevron-left"></i>Admin</a>
+        <h2 class="font-monospace">{{ .Root.Name }}</h2>
+        <p class="b-page-sub">
+            {{ .Duration | fmtDuration }} · {{ len .Rows }} spans · {{ .Root.Start.Local.Format "2 Jan 15:04:05" }}
+            · <span class="font-monospace">{{ .ID }}</span>
+        </p>
+    </div>
+
+    <div class="b-card b-card-pad mb-3 b-accent-slate">
+        <ul class="b-waterfall">
+            {{ range .Rows }}
+                <li class="{{ if .Error }}b-waterfall-error{{ end }}">
+                    <div class="b-waterfall-label" style="padding-left: {{ .Depth }}rem">
+                        <span class="font-monospace">{{ .Name }}</span>
+                        {{ with .Caller }}<span class="b-admin-meta font-monospace">{{ . }}</span>{{ end }}
+                        {{ with .Location }}<span class="b-admin-meta font-monospace">{{ . }}</span>{{ end }}
+                        {{ with .Status }}<span class="text-danger small">{{ . }}</span>{{ end }}
+                    </div>
+                    <div class="b-waterfall-track">
+                        <div class="b-waterfall-bar b-waterfall-{{ .Kind }}"
+                             style="left: {{ printf "%.2f" .Offset }}%; width: {{ printf "%.2f" .Width }}%"></div>
+                    </div>
+                    <div class="b-waterfall-time b-num">{{ .Duration | fmtDuration }}</div>
+                </li>
+            {{ end }}
+        </ul>
+    </div>
+
+    {{ if .Logs }}
+        <div class="b-card b-card-pad mb-3">
+            <div class="b-card-head">
+                <div>
+                    <h3 class="b-card-title">Logged along the way</h3>
+                </div>
+            </div>
+            {{ template "admin.log.list" .Logs }}
+        </div>
+    {{ end }}
+{{ end }}
+
+{{ define "admin.empty" }}
+    <div class="b-empty">
+        <i class="bi bi-inbox"></i>
+        <h4>{{ . }}</h4>
+    </div>
+{{ end }}

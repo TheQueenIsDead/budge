@@ -73,6 +73,9 @@ type Telemetry struct {
 	// Exporting is whether the same data is also sent to a collector.
 	Exporting bool
 
+	// SampleEvery is how often metrics are sampled.
+	SampleEvery time.Duration
+
 	stop     context.CancelFunc
 	shutdown []func(context.Context) error
 }
@@ -94,6 +97,8 @@ func Setup(ctx context.Context, opts Options) (*Telemetry, error) {
 		Spans:     newSpanStore(opts.Spans),
 		Logs:      newLogStore(opts.Logs),
 		Exporting: otlpConfigured(),
+
+		SampleEvery: opts.SampleEvery,
 	}
 
 	tracerOpts := []sdktrace.TracerProviderOption{

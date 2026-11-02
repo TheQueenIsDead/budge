@@ -10,8 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	otellog "go.opentelemetry.io/otel/log"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func setup(t *testing.T, runtime bool) *Telemetry {
@@ -116,4 +119,71 @@ func TestHistogramQuantile(t *testing.T) {
 	assert.InDelta(t, 9.375, h.Quantile(0.85), 0.001, "35 of the second bucket's 40, interpolated within it")
 	assert.InDelta(t, 50, h.Quantile(1), 0.001, "the last bucket runs to the max")
 	assert.Zero(t, Histogram{}.Quantile(0.5))
+
+	quick := Histogram{Count: 2, Sum: 0.6, Max: 0.4, Bounds: []float64{5, 10}, Counts: []uint64{2, 0, 0}}
+	assert.LessOrEqual(t, quick.Quantile(0.95), 0.4, "no estimate runs past the slowest recorded")
+}
+
+func TestMergeAddsHistogramsTogether(t *testing.T) {
+	bounds := []float64{1, 10}
+	merged := Merge(
+		Histogram{Count: 2, Sum: 3, Max: 2, Bounds: bounds, Counts: []uint64{1, 1, 0}},
+		Histogram{Count: 1, Sum: 20, Max: 20, Bounds: bounds, Counts: []uint64{0, 0, 1}},
+	)
+	assert.Equal(t, uint64(3), merged.Count)
+	assert.Equal(t, 23.0, merged.Sum)
+	assert.Equal(t, 20.0, merged.Max)
+	assert.Equal(t, []uint64{1, 1, 1}, merged.Counts)
+	assert.Zero(t, Merge().Count)
+}
+
+func TestRateIsGrowthPerSecond(t *testing.T) {
+	at := time.Unix(0, 0)
+	rate := Rate([]Point{{at, 10}, {at.Add(10 * time.Second), 30}, {at.Add(20 * time.Second), 5}})
+	require.Len(t, rate, 2)
+	assert.Equal(t, 2.0, rate[0].Value)
+	assert.Zero(t, rate[1].Value, "a total that went backwards is no growth")
+	assert.Nil(t, Rate([]Point{{at, 1}}))
+}
+
+func TestTotalSumsAcrossAttributes(t *testing.T) {
+	tel := setup(t, false)
+	counter, err := otel.Meter("test").Int64Counter("budge.test.split")
+	require.NoError(t, err)
+	counter.Add(context.Background(), 2, metric.WithAttributes(attribute.String("kind", "a")))
+	counter.Add(context.Background(), 3, metric.WithAttributes(attribute.String("kind", "b")))
+	require.NoError(t, tel.Metrics.Collect(context.Background()))
+
+	total := tel.Metrics.Total("budge.test.split")
+	require.Len(t, total, 1)
+	assert.Equal(t, 5.0, total[0].Value)
+}
+
+func TestRefreshUpdatesHistogramsWithoutSampling(t *testing.T) {
+	tel := setup(t, false)
+	histogram, err := otel.Meter("test").Float64Histogram("budge.test.refresh")
+	require.NoError(t, err)
+	histogram.Record(context.Background(), 1)
+	require.NoError(t, tel.Metrics.Refresh(context.Background()))
+
+	require.Len(t, tel.Metrics.Histograms("budge.test.refresh"), 1)
+	assert.Empty(t, tel.Metrics.Series("budge.test.refresh"+CountSuffix), "a refresh takes no sample")
+
+	require.NoError(t, tel.Metrics.Collect(context.Background()))
+	assert.Len(t, tel.Metrics.Series("budge.test.refresh"+CountSuffix), 1, "a sample keeps the histogram's count over time")
+}
+
+func TestRequestsOutlastTheirQueries(t *testing.T) {
+	tel := setup(t, false) // keeps 10 roots, 40 children
+	tracer := otel.Tracer("test")
+	for range 3 {
+		ctx, request := tracer.Start(context.Background(), "GET /", trace.WithSpanKind(trace.SpanKindServer))
+		for range 30 {
+			_, query := tracer.Start(ctx, "query")
+			query.End()
+		}
+		request.End()
+	}
+	assert.Len(t, tel.Spans.Requests(), 3, "ninety queries do not push three requests out")
+	assert.Len(t, tel.Spans.Recent(nil), 43)
 }

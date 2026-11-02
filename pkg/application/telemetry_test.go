@@ -121,3 +121,60 @@ func TestQueriesSitUnderTheirRequest(t *testing.T) {
 	}
 	assert.Contains(t, timed, "ReadNotifications")
 }
+
+func TestAdminPageShowsWhatWasRecorded(t *testing.T) {
+	app, tel := instrumentedApp(t)
+	app.http.GET("/boom", func(echo.Context) error { return echo.NewHTTPError(http.StatusInternalServerError, "it broke") })
+	get := func(target string, htmx bool) (int, string) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, target, nil)
+		if htmx {
+			req.Header.Set("HX-Request", "true")
+		}
+		app.http.ServeHTTP(rec, req)
+		return rec.Code, rec.Body.String()
+	}
+	get("/notifications", false)
+	get("/boom", false)
+	require.NoError(t, tel.Metrics.Collect(context.Background()))
+
+	for tab, want := range map[string][]string{
+		"overview": {"Requests", "adminCpu", "Kept in memory only"},
+		"requests": {"/notifications", "/boom", "Slowest"},
+		"database": {"ReadNotifications", "notifications", "application.(*Application).sortedNotifications", "pkg/application/notification.go:"},
+		"logs":     {"request failed", "it broke"},
+		"errors":   {"request failed", "GET /boom"},
+	} {
+		for _, htmx := range []bool{false, true} {
+			code, body := get("/admin?tab="+tab, htmx)
+			require.Equal(t, http.StatusOK, code, "%s, htmx %v", tab, htmx)
+			for _, text := range want {
+				assert.Contains(t, body, text, "the %s tab", tab)
+			}
+		}
+	}
+
+	get("/notifications", false)
+	require.NoError(t, tel.Metrics.Collect(context.Background()))
+	overview := adminOverview(tel)
+	require.Len(t, overview.RequestChart.Values, 1, "two samples make one rate")
+	assert.Positive(t, overview.RequestChart.Values[0], "a request landed between them")
+	assert.NotEmpty(t, overview.QueryChart.Values)
+
+	_, body := get("/admin?tab=logs&level=error&q=nothing-matches-this", true)
+	assert.NotContains(t, body, "it broke", "a search narrows the logs")
+
+	var notifications telemetry.Span
+	for _, span := range tel.Spans.Requests() {
+		if span.Attrs["http.route"] == "/notifications" {
+			notifications = span
+		}
+	}
+	code, body := get("/admin/traces/"+notifications.TraceID, false)
+	require.Equal(t, http.StatusOK, code)
+	assert.Contains(t, body, "GET /notifications")
+	assert.Contains(t, body, "ReadNotifications notifications", "the query sits in its request's waterfall")
+
+	code, _ = get("/admin/traces/0123456789abcdef0123456789abcdef", false)
+	assert.Equal(t, http.StatusTemporaryRedirect, code, "a trace no longer kept is not found, like any missing page")
+}
