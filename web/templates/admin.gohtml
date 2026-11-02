@@ -145,7 +145,7 @@
 
 {{/* How much is kept, and where. */}}
 {{ define "admin.storage" }}
-    <div class="col-12 col-lg-6">
+    <div class="col-12 col-lg-6" id="admin-storage">
         <div class="b-card b-card-pad h-100 b-accent-muted">
             <div class="b-card-head">
                 <div>
@@ -169,10 +169,32 @@
                     <dd class="b-num">{{ .Points }}</dd>
                     <dt>Logs</dt>
                     <dd class="b-num">{{ .Logs }}</dd>
+                    <dt>Spans</dt>
+                    <dd class="b-num">{{ .Spans }}</dd>
+                    <dt>Reclaimable</dt>
+                    <dd class="b-num" title="Space pruning freed, which bolt reuses but keeps until the file is compacted">
+                        {{ .Reclaimable | fmtBytes64 }}</dd>
+                    <dt>Compacted</dt>
+                    <dd class="b-num">
+                        {{ if .Compacted.At.IsZero }}
+                            Not since starting
+                        {{ else }}
+                            {{ .Compacted.At | fmtRelative }}, gave back {{ .Compacted.Freed | fmtBytes64 }} in {{ .Compacted.Took | fmtDuration }}
+                        {{ end }}
+                    </dd>
                 {{ end }}
                 <dt>In memory</dt>
                 <dd class="b-num">{{ .MemorySpans }} spans, {{ .MemoryLogs }} logs, {{ .MemoryPoints }} samples of {{ .MemorySeries }} series over {{ .Window }}</dd>
             </dl>
+            {{ if .Path }}
+                <p class="b-card-sub mt-3 mb-2">
+                    Compacted by itself once a third of the file is free; pruning runs hourly.
+                </p>
+                <button class="btn btn-outline-secondary btn-sm" hx-post="/admin/compact"
+                        hx-target="#admin-storage" hx-select="unset" hx-swap="outerHTML" hx-disabled-elt="this">
+                    <i class="bi bi-arrows-collapse"></i>Compact now
+                </button>
+            {{ end }}
         </div>
     </div>
 {{ end }}

@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -18,11 +19,17 @@ import (
 
 // instrumentedApp is the real application with telemetry set up, as it runs.
 func instrumentedApp(t *testing.T) (*Application, *telemetry.Telemetry) {
+	return instrumentedAppKeeping(t, "")
+}
+
+// instrumentedAppKeeping is instrumentedApp keeping its telemetry in a file.
+func instrumentedAppKeeping(t *testing.T, path string) (*Application, *telemetry.Telemetry) {
 	t.Helper()
 	opts := telemetry.DefaultOptions()
 	opts.Stdout = io.Discard
 	opts.Runtime = false
 	opts.SampleEvery = time.Hour
+	opts.Path = path
 	tel, err := telemetry.Setup(context.Background(), opts)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = tel.Shutdown(context.Background()) })
@@ -177,4 +184,19 @@ func TestAdminPageShowsWhatWasRecorded(t *testing.T) {
 
 	code, _ = get("/admin/traces/0123456789abcdef0123456789abcdef", false)
 	assert.Equal(t, http.StatusTemporaryRedirect, code, "a trace no longer kept is not found, like any missing page")
+}
+
+func TestAdminCompactsTheTelemetryFile(t *testing.T) {
+	app, tel := instrumentedAppKeeping(t, filepath.Join(t.TempDir(), "telemetry.db"))
+	rec := httptest.NewRecorder()
+	app.http.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/notifications", nil))
+
+	rec = httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/admin/compact", nil)
+	req.Header.Set("HX-Request", "true")
+	app.http.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), "gave back", "the card shows what the compaction did")
+	assert.Contains(t, rec.Header().Get("HX-Trigger"), "Compacted")
+	assert.False(t, tel.Storage().Compacted.At.IsZero())
 }

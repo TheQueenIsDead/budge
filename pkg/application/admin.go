@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/telemetry"
+	"github.com/dustin/go-humanize"
 	"github.com/labstack/echo/v4"
 	otellog "go.opentelemetry.io/otel/log"
 )
@@ -316,6 +317,21 @@ func (app *Application) Admin(c echo.Context) error {
 	return c.Render(http.StatusOK, "admin", page)
 }
 
+// AdminCompact packs the telemetry file down now, rather than waiting for
+// enough of it to be free.
+func (app *Application) AdminCompact(c echo.Context) error {
+	if app.telemetry == nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "telemetry is not running")
+	}
+	result, err := app.telemetry.Compact()
+	if err != nil {
+		app.Toast(c, "Error", "Could not compact: "+err.Error())
+	} else {
+		app.Toast(c, "Success", "Compacted, giving back "+humanize.IBytes(uint64(result.Freed()))+".")
+	}
+	return c.Render(http.StatusOK, "admin.storage", app.telemetry.Storage())
+}
+
 // AdminTrace shows one trace as a waterfall.
 func (app *Application) AdminTrace(c echo.Context) error {
 	if app.telemetry == nil {
@@ -561,38 +577,52 @@ func adminRequests(tel *telemetry.Telemetry) AdminRequests {
 		return cmp.Or(cmp.Compare(b.Total, a.Total), strings.Compare(a.Route, b.Route))
 	})
 
-	// What each trace's queries came to, to set beside its request.
-	type cost struct {
-		count int
-		time  time.Duration
-	}
-	costs := map[string]cost{}
-	for _, span := range tel.Spans.Recent(isQuery) {
-		c := costs[span.TraceID]
-		costs[span.TraceID] = cost{c.count + 1, c.time + span.Duration}
-	}
-	var all []AdminRequest
-	for _, span := range tel.Spans.Roots() {
+	// Every request and job kept, back across restarts. Only the slowest few
+	// are held on to while walking, so a week of requests costs little.
+	var slow []AdminRequest
+	tel.Spans.History(func(span telemetry.Span) bool {
 		if span.Kind != "server" {
-			out.Jobs = append(out.Jobs, span)
-			continue
+			if len(out.Jobs) < 10 {
+				out.Jobs = append(out.Jobs, span)
+			}
+			return true
 		}
-		c := costs[span.TraceID]
-		all = append(all, AdminRequest{
-			Span:      span,
-			Method:    span.Attrs["http.request.method"],
-			Route:     cmp.Or(span.Attrs["http.route"], span.Attrs["url.path"]),
-			Status:    span.Attrs["http.response.status_code"],
-			Queries:   c.count,
-			QueryTime: c.time,
-		})
+		request := AdminRequest{
+			Span:   span,
+			Method: span.Attrs["http.request.method"],
+			Route:  cmp.Or(span.Attrs["http.route"], span.Attrs["url.path"]),
+			Status: span.Attrs["http.response.status_code"],
+		}
+		if len(out.Recent) < adminListLimit {
+			out.Recent = append(out.Recent, request)
+		}
+		slow = keepSlowest(slow, request, 10)
+		return true
+	})
+	out.Slow = slow
+	// What each listed request's queries came to, from its trace.
+	for _, list := range [][]AdminRequest{out.Recent, out.Slow} {
+		for i := range list {
+			for _, span := range tel.Spans.Trace(list[i].TraceID) {
+				if isQuery(span) {
+					list[i].Queries++
+					list[i].QueryTime += span.Duration
+				}
+			}
+		}
 	}
-	out.Recent = all[:min(len(all), adminListLimit)]
-	slow := slices.Clone(all)
-	slices.SortStableFunc(slow, func(a, b AdminRequest) int { return cmp.Compare(b.Duration, a.Duration) })
-	out.Slow = slow[:min(len(slow), 10)]
-	out.Jobs = out.Jobs[:min(len(out.Jobs), 10)]
 	return out
+}
+
+// keepSlowest adds a request to the slowest seen, keeping only n, slowest
+// first.
+func keepSlowest(slow []AdminRequest, request AdminRequest, n int) []AdminRequest {
+	if len(slow) == n && request.Duration <= slow[n-1].Duration {
+		return slow
+	}
+	i, _ := slices.BinarySearchFunc(slow, request, func(a, b AdminRequest) int { return cmp.Compare(b.Duration, a.Duration) })
+	slow = slices.Insert(slow, i, request)
+	return slow[:min(len(slow), n)]
 }
 
 func isQuery(span telemetry.Span) bool { return span.Attrs["db.system.name"] == "bbolt" }
@@ -693,7 +723,20 @@ func matchesLog(record telemetry.LogRecord, needle string) bool {
 
 func adminErrors(tel *telemetry.Telemetry) AdminErrors {
 	logs, _ := tel.Logs.Search(otellog.SeverityError, nil, adminListLimit)
+	// Anything that failed and is still in memory, and every request or job
+	// that failed back across the retention.
 	failures := tel.Spans.Recent(func(span telemetry.Span) bool { return span.Error })
+	seen := map[string]bool{}
+	for _, span := range failures {
+		seen[span.SpanID] = true
+	}
+	tel.Spans.History(func(span telemetry.Span) bool {
+		if span.Error && !seen[span.SpanID] {
+			failures = append(failures, span)
+		}
+		return len(failures) < adminListLimit
+	})
+	slices.SortStableFunc(failures, func(a, b telemetry.Span) int { return b.End().Compare(a.End()) })
 	return AdminErrors{
 		Logs:     logs,
 		Failures: failures[:min(len(failures), adminListLimit)],

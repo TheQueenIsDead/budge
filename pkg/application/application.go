@@ -241,6 +241,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.GET("/settings", app.Settings)
 	app.http.GET("/admin", app.Admin)
 	app.http.GET("/admin/traces/:id", app.AdminTrace)
+	app.http.POST("/admin/compact", app.AdminCompact)
 	app.http.POST("/settings/schedule", app.SettingsSaveSchedule)
 	app.http.POST("/settings/budget-categories", app.SettingsAddBudgetCategory)
 	app.http.POST("/settings/budget-categories/:key", app.SettingsUpdateBudgetCategory)

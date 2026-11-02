@@ -2,7 +2,9 @@ package telemetry
 
 import (
 	"context"
+	"log/slog"
 	"sort"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel/codes"
@@ -36,6 +38,11 @@ func (s Span) End() time.Time { return s.Start.Add(s.Duration) }
 type SpanStore struct {
 	roots    *ring[Span]
 	children *ring[Span]
+	disk     *disk
+
+	// pending is what has finished since the last write to disk.
+	mu      sync.Mutex
+	pending []Span
 }
 
 // childrenPerRoot is how many spans beneath a root are kept for each root.
@@ -77,7 +84,52 @@ func (s *SpanStore) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpan
 	}
 	s.roots.add(roots...)
 	s.children.add(children...)
+	if s.disk != nil {
+		s.mu.Lock()
+		s.pending = append(append(s.pending, roots...), children...)
+		s.mu.Unlock()
+	}
 	return nil
+}
+
+// takePending hands over what is waiting to be written to disk.
+func (s *SpanStore) takePending() []Span {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	pending := s.pending
+	s.pending = nil
+	return pending
+}
+
+// requeue puts back spans a write to disk failed to keep.
+func (s *SpanStore) requeue(spans []Span) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.pending = append(spans, s.pending...)
+}
+
+// History walks the roots kept, newest first, through memory and then the
+// disk from before the oldest in memory, until visit returns false: every
+// request and job across the retention.
+func (s *SpanStore) History(visit func(Span) bool) {
+	recent := s.roots.all()
+	for _, span := range recent {
+		if !visit(span) {
+			return
+		}
+	}
+	if s.disk == nil {
+		return
+	}
+	// The disk is keyed by when a root ended, and what is in memory has
+	// mostly been written there too.
+	before := time.Now().Add(time.Hour)
+	if len(recent) > 0 {
+		before = recent[len(recent)-1].End()
+	}
+	if err := s.disk.roots(before, visit); err != nil {
+		slog.Warn("could not read traces from disk", "error", err)
+	}
 }
 
 // Shutdown has nothing to release.
@@ -121,6 +173,22 @@ func filter(spans []Span, match func(Span) bool) []Span {
 // everything it did read as a waterfall.
 func (s *SpanStore) Trace(traceID string) []Span {
 	spans := s.Recent(func(span Span) bool { return span.TraceID == traceID })
+	// A trace's spans may since have left memory, in part or whole.
+	if s.disk != nil {
+		kept, err := s.disk.trace(traceID)
+		if err != nil {
+			slog.Warn("could not read a trace from disk", "trace", traceID, "error", err)
+		}
+		seen := map[string]bool{}
+		for _, span := range spans {
+			seen[span.SpanID] = true
+		}
+		for _, span := range kept {
+			if !seen[span.SpanID] {
+				spans = append(spans, span)
+			}
+		}
+	}
 	sort.Slice(spans, func(i, j int) bool { return spans[i].Start.Before(spans[j].Start) })
 	return spans
 }

@@ -202,7 +202,7 @@ func Setup(ctx context.Context, opts Options) (*Telemetry, error) {
 			slog.Warn("telemetry is kept in memory only: could not open its file", "path", opts.Path, "error", err)
 		} else {
 			t.disk, t.Retention, t.Path, t.PersistEvery = d, opts.Retention, opts.Path, opts.PersistEvery
-			t.Metrics.disk, t.Logs.disk = d, d
+			t.Metrics.disk, t.Logs.disk, t.Spans.disk = d, d, d
 			if err := d.mark(t.Run); err != nil {
 				slog.Warn("could not mark the start of this run", "error", err)
 			}
@@ -247,6 +247,11 @@ func (t *Telemetry) sample(ctx context.Context, every, persistEvery time.Duratio
 					slog.Warn("could not prune telemetry", "error", err)
 				}
 				pruned = now
+				// Pruning frees pages bolt keeps for itself; once enough of
+				// the file is free, it is packed down to give them back.
+				if t.disk.worthCompacting() {
+					_, _ = t.Compact()
+				}
 			}
 		}
 	}
@@ -255,13 +260,28 @@ func (t *Telemetry) sample(ctx context.Context, every, persistEvery time.Duratio
 // persist writes the newest samples and the logs since the last write to
 // disk. Logs a write failed to keep are tried again next time.
 func (t *Telemetry) persist() {
-	samples, records := t.Metrics.unpersisted(), t.Logs.takePending()
-	if err := t.disk.write(samples, records); err != nil {
+	samples, records, spans := t.Metrics.unpersisted(), t.Logs.takePending(), t.Spans.takePending()
+	if err := t.disk.write(samples, records, spans); err != nil {
 		t.Logs.requeue(records)
+		t.Spans.requeue(spans)
 		slog.Warn("could not write telemetry to disk", "error", err)
 		return
 	}
 	t.Metrics.markPersisted(samples)
+}
+
+// Compact packs the telemetry file down, giving back the room pruning made.
+func (t *Telemetry) Compact() (Compaction, error) {
+	if t.disk == nil {
+		return Compaction{}, errors.New("telemetry is kept in memory only")
+	}
+	result, err := t.disk.compact()
+	if err != nil {
+		slog.Error("could not compact telemetry", "error", err)
+		return result, err
+	}
+	slog.Info("compacted telemetry", "before", result.Before, "after", result.After, "took", result.Took)
+	return result, nil
 }
 
 // Uptime is how long the process has been running.
@@ -277,10 +297,10 @@ func (t *Telemetry) Shutdown(ctx context.Context) error {
 		errs = append(errs, shutdown(ctx))
 	}
 	if t.disk != nil {
-		samples, records := t.Metrics.unpersisted(), t.Logs.takePending()
+		samples, records, spans := t.Metrics.unpersisted(), t.Logs.takePending(), t.Spans.takePending()
 		stop := t.Run
 		stop.Time, stop.Kind, stop.Reason = time.Now(), EventStop, t.stopReason
-		errs = append(errs, t.disk.write(samples, records), t.disk.mark(stop), t.disk.close())
+		errs = append(errs, t.disk.write(samples, records, spans), t.disk.mark(stop), t.disk.close())
 	}
 	return errors.Join(errs...)
 }
@@ -367,6 +387,12 @@ type Storage struct {
 	Series    int
 	Points    int
 	Logs      int
+	Spans     int
+
+	// Reclaimable is free space in the file a compaction would give back,
+	// and Compacted the last time one did.
+	Reclaimable int64
+	Compacted   Compaction
 
 	Window       time.Duration
 	MemorySpans  int
