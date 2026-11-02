@@ -27,6 +27,8 @@ type Backup struct {
 	Schedule *ScheduleSettings `json:"schedule,omitempty"`
 
 	Categories *CategorySettings `json:"categories,omitempty"`
+
+	BudgetCategories *BudgetCategorySettings `json:"budget_categories,omitempty"`
 }
 
 // BackupCounts says what a backup holds, for telling the owner what an import

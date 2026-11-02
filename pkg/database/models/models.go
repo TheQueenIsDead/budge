@@ -3,7 +3,6 @@ package models
 import (
 	"encoding/json"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
@@ -132,6 +131,14 @@ type Transaction struct {
 			Rate     float64 `json:"rate"`
 		} `json:"conversion"`
 	} `json:"meta"`
+
+	// Filed is the budge category the transaction is filed under, and FiledBy
+	// what filed it: FiledByOwner, FiledByRule, or empty for Akahu. Both are
+	// worked out each time the transaction is read and never stored, so Akahu's
+	// own category above is kept as it came, and changing a rule refiles
+	// everything at once.
+	Filed   string `json:"-"`
+	FiledBy string `json:"-"`
 }
 
 func (t Transaction) Key() []byte {
@@ -158,14 +165,20 @@ func (t *Transaction) Add(tx *Transaction) float64 {
 	return t.Amount + tx.Amount
 }
 
+// Categories names where the transaction is filed, for its badges: the
+// category, then the subcategory when it has one. Money coming in and moving
+// between the owner's accounts is not filed anywhere.
 func (t *Transaction) Categories() (labels []string) {
-	if t.Category.Groups.PersonalFinance.Id != "" && !slices.Contains(labels, t.Category.Groups.PersonalFinance.Name) {
-		labels = append(labels, t.Category.Groups.PersonalFinance.Name)
+	if t.Amount >= 0 || t.Type == "TRANSFER" {
+		return nil
 	}
-	if t.Category.Name != "" && !slices.Contains(labels, t.Category.Name) {
-		labels = append(labels, t.Category.Name)
+	key := t.BudgetCategory()
+	top := TopBudgetCategory(key)
+	labels = append(labels, top.Label)
+	if category, ok := BudgetCategoryByKey(key); ok && category.IsSub() {
+		labels = append(labels, category.Label)
 	}
-	return
+	return labels
 }
 
 type Inventory struct {

@@ -254,6 +254,9 @@ func (s *Store) ExportBackup() (models.Backup, error) {
 	if categories, err := Get[models.CategorySettings](s.db, models.CategorySettings{}.Key()); err == nil {
 		backup.Categories = &categories
 	}
+	if list, err := Get[models.BudgetCategorySettings](s.db, models.BudgetCategorySettings{}.Key()); err == nil {
+		backup.BudgetCategories = &list
+	}
 	return backup, nil
 }
 
@@ -290,7 +293,14 @@ func (s *Store) ImportBackup(backup models.Backup) error {
 		categories = append(categories, mergeCategorySettings(current, *backup.Categories))
 	}
 
-	return s.db.Update(func(tx *bolt.Tx) error {
+	// The category list is one whole, its order and merges depending on each
+	// other, so a backup's replaces this one's rather than merging into it.
+	var list []models.BudgetCategorySettings
+	if backup.BudgetCategories != nil {
+		list = append(list, *backup.BudgetCategories)
+	}
+
+	err = s.db.Update(func(tx *bolt.Tx) error {
 		return errors.Join(
 			putAll(tx, backup.Memories),
 			putAll(tx, backup.Assets),
@@ -299,8 +309,13 @@ func (s *Store) ImportBackup(backup models.Backup) error {
 			putAll(tx, salary),
 			putAll(tx, schedule),
 			putAll(tx, categories),
+			putAll(tx, list),
 		)
 	})
+	if err == nil && len(list) > 0 {
+		models.UseBudgetCategories(list[0])
+	}
+	return err
 }
 
 // mergeCategorySettings folds imported categories and rules into the current
@@ -447,9 +462,13 @@ func (s *Store) SearchTransactions(search string, account string) ([]models.Tran
 		metadata := strings.Builder{}
 		metadata.WriteString(transaction.Description)
 		metadata.WriteString(transaction.Merchant.Name)
+		// Budge's categories are what is shown, but Akahu's still say what a
+		// shop is, so searching "bakeries" finds bakeries.
 		for _, c := range transaction.Categories() {
 			metadata.WriteString(c)
 		}
+		metadata.WriteString(transaction.Category.Name)
+		metadata.WriteString(transaction.Category.Groups.PersonalFinance.Name)
 
 		reg := regexp.MustCompile(`[^a-zA-Z]+`)
 		needle := strings.ToLower(search)
@@ -579,4 +598,24 @@ func (s *Store) GetCategorySettings() (models.CategorySettings, error) {
 
 func (s *Store) SaveCategorySettings(settings models.CategorySettings) error {
 	return Update[models.CategorySettings](s.db, settings)
+}
+
+// GetBudgetCategorySettings reads the owner's category list. Nothing saved
+// yet means budge's own list.
+func (s *Store) GetBudgetCategorySettings() (models.BudgetCategorySettings, error) {
+	settings, err := Get[models.BudgetCategorySettings](s.db, models.BudgetCategorySettings{}.Key())
+	if err != nil {
+		return models.BudgetCategorySettings{}, nil
+	}
+	return settings, nil
+}
+
+// SaveBudgetCategorySettings saves the owner's category list and puts it in
+// use straight away.
+func (s *Store) SaveBudgetCategorySettings(settings models.BudgetCategorySettings) error {
+	if err := Update[models.BudgetCategorySettings](s.db, settings); err != nil {
+		return err
+	}
+	models.UseBudgetCategories(settings)
+	return nil
 }

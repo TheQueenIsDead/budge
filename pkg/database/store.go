@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
+	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	bolt "go.etcd.io/bbolt"
 	"os"
 	"time"
@@ -44,9 +45,17 @@ func NewStore() (*Store, error) {
 		}
 	}
 
-	return &Store{
-		db: db,
-	}, nil
+	store := &Store{db: db}
+
+	// The category list is read on every transaction, so the owner's is put
+	// in use once here rather than read each time.
+	categories, err := store.GetBudgetCategorySettings()
+	if err != nil {
+		return nil, err
+	}
+	models.UseBudgetCategories(categories)
+
+	return store, nil
 }
 
 func (s *Store) Close() error {

@@ -98,7 +98,7 @@ func (i *Integrations) SyncAkahu(logger echo.Logger, dataThrough time.Time, prog
 
 	for _, transaction := range transactions {
 
-		tx := models.Transaction(transaction)
+		tx := fromAkahu(transaction)
 
 		if _, ok := transfers[tx.Id]; ok {
 			tx.Type = "TRANSFER"
@@ -244,4 +244,25 @@ func (i *Integrations) PutAkahuSettings(settings models.IntegrationAkahuSettings
 
 func (i *Integrations) AkahuAccounts() ([]akahu.Account, error) {
 	return i.akahu.GetAccounts()
+}
+
+// fromAkahu copies a transaction as Akahu sent it. The model also carries the
+// category budge files it under, worked out when it is read, so the two types
+// no longer convert directly; their nested parts still do.
+func fromAkahu(t akahu.Transaction) models.Transaction {
+	return models.Transaction{
+		Id:          t.Id,
+		Account:     t.Account,
+		Connection:  t.Connection,
+		Category:    t.Category,
+		Merchant:    t.Merchant,
+		CreatedAt:   t.CreatedAt,
+		UpdatedAt:   t.UpdatedAt,
+		Date:        t.Date,
+		Description: t.Description,
+		Amount:      t.Amount,
+		Balance:     t.Balance,
+		Type:        t.Type,
+		Meta:        t.Meta,
+	}
 }

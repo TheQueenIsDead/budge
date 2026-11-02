@@ -6,8 +6,9 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 )
 
-// CustomCategory is a category of the owner's own, alongside the ones Akahu
-// assigns, for rules to file transactions under.
+// CustomCategory is a category of the owner's own, from before budge had its
+// own categories. Rules named them; they are only read now, so a rule or an
+// older backup that names one still lands somewhere.
 type CustomCategory struct {
 	ID       string
 	Broad    string
@@ -23,7 +24,11 @@ type CategoryRule struct {
 	Contains string
 	// Type narrows the rule to one transaction type, such as LOAN. Empty
 	// matches any type.
-	Type     string
+	Type string
+	// Category is the budge category or subcategory the rule files under.
+	Category string
+	// Broad and Specific are what the rule filed under before budge had its
+	// own categories, read by Target when Category is empty.
 	Broad    string
 	Specific string
 	// IncludeTransfers lets the rule match money moved between the owner's
@@ -64,24 +69,50 @@ func (r CategoryRule) Matches(tx Transaction) bool {
 		strings.Contains(strings.ToLower(tx.Merchant.Name), needle)
 }
 
-// RuleCategoryPrefix starts the category id of a transaction a rule filed.
-const RuleCategoryPrefix = "rule:"
-
-// OverrideCategoryPrefix marks the category id of a transaction the owner
-// filed by hand.
-const OverrideCategoryPrefix = "override:"
+// What filed a transaction, when it was not Akahu.
+const (
+	FiledByOwner = "owner"
+	FiledByRule  = "rule"
+)
 
 // CategoryOverride files one transaction under a category, for the one-off
 // payment no rule would describe, such as a plumber fixing the hot water
 // cylinder. It wins over rules and over Akahu.
 type CategoryOverride struct {
 	TransactionID string
-	Broad         string
-	Specific      string
+	Category      string
+	// Broad and Specific are from before budge had its own categories.
+	Broad    string
+	Specific string
 }
 
-// CategorySettings holds the custom categories, the rules in the order they
-// are tried, and the per-transaction overrides.
+// Target is the budge category the rule files under. A rule saved before
+// budge had its own categories names one of Akahu's, which is placed the
+// way Akahu's own category would be.
+func (r CategoryRule) Target() string {
+	return target(r.Category, r.Broad, r.Specific)
+}
+
+// Target is the budge category the override files under.
+func (o CategoryOverride) Target() string {
+	return target(o.Category, o.Broad, o.Specific)
+}
+
+// target is where a rule or override files today: its category, or the one
+// that category's transactions went to if it was deleted.
+func target(category, broad, specific string) string {
+	if found, ok := BudgetCategoryByKey(category); ok {
+		return found.Key
+	}
+	if broad == "" {
+		broad = specific
+	}
+	return ResolveBudgetCategory(AkahuBudgetCategory(broad, specific, ""))
+}
+
+// CategorySettings holds the rules in the order they are tried, the
+// per-transaction overrides, and any custom categories from before budge
+// had its own.
 type CategorySettings struct {
 	Categories []CustomCategory
 	Rules      []CategoryRule
@@ -111,39 +142,35 @@ func (cs CategorySettings) MatchingRule(tx Transaction) int {
 	return -1
 }
 
-// Apply recategorises transactions in place. An override for the
-// transaction wins; otherwise the first matching rule does. Only the copy
-// being read is changed: Akahu's own category stays in the database, so
-// removing an override or a rule restores it straight away.
+// Apply files each transaction under a budge category: an override for it
+// wins, then the first matching rule, then Akahu's category. Akahu's own
+// category is left as it came, so removing an override or a rule puts it back
+// straight away.
 func (cs CategorySettings) Apply(txs []Transaction) {
-	if len(cs.Rules) == 0 && len(cs.Overrides) == 0 {
-		return
-	}
 	overrides := make(map[string]CategoryOverride, len(cs.Overrides))
 	for _, o := range cs.Overrides {
 		overrides[o.TransactionID] = o
 	}
 	for i := range txs {
 		if o, ok := overrides[txs[i].Id]; ok {
-			file(&txs[i], OverrideCategoryPrefix+o.TransactionID, o.Broad, o.Specific)
+			file(&txs[i], o.Target(), FiledByOwner)
 			continue
 		}
 		if n := cs.MatchingRule(txs[i]); n >= 0 {
-			rule := cs.Rules[n]
-			file(&txs[i], RuleCategoryPrefix+rule.ID, rule.Broad, rule.Specific)
+			file(&txs[i], cs.Rules[n].Target(), FiledByRule)
+			continue
 		}
+		txs[i].Filed = txs[i].BudgetCategory()
+		txs[i].FiledBy = ""
 	}
 }
 
-// file puts a transaction under a category. The ids mark where the category
-// came from, and the group id is what Transaction.Categories checks before
-// showing the group. Money leaving by transfer that is filed somewhere is
-// counted as spending; the leg where it arrives stays a transfer.
-func file(tx *Transaction, id, broad, specific string) {
-	tx.Category.Id = id
-	tx.Category.Name = specific
-	tx.Category.Groups.PersonalFinance.Id = id
-	tx.Category.Groups.PersonalFinance.Name = broad
+// file puts a transaction under a category. Money leaving by transfer that is
+// filed somewhere is counted as spending; the leg where it arrives stays a
+// transfer.
+func file(tx *Transaction, category, by string) {
+	tx.Filed = category
+	tx.FiledBy = by
 	if tx.IsTransfer() && tx.Amount < 0 {
 		tx.Type = TypeCountedTransfer
 	}

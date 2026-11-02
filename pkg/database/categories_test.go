@@ -40,14 +40,14 @@ func TestCategoryRulesApplyOnRead(t *testing.T) {
 	store := tempStore(t)
 	akahu := categorisedTx("interest", "LOAN", "LOAN INTEREST", "")
 	groceries := categorisedTx("groceries", "EFTPOS", "COUNTDOWN", "Countdown")
-	groceries.Category.Name = "Supermarkets"
+	groceries.Category.Name = "Supermarkets and grocery stores"
 	groceries.Category.Groups.PersonalFinance.Name = "Food"
 	require.NoError(t, store.CreateTransaction(akahu))
 	require.NoError(t, store.CreateTransaction(groceries))
 
 	require.NoError(t, store.SaveCategorySettings(models.CategorySettings{Rules: []models.CategoryRule{
-		{ID: "first", Contains: "loan interest", Broad: "General", Specific: "Housing"},
-		{ID: "second", Contains: "interest", Broad: "Ignored", Specific: "Never"},
+		{ID: "first", Contains: "loan interest", Category: "mortgage"},
+		{ID: "second", Contains: "interest", Category: "charity"},
 	}}))
 
 	byID := func(txs []models.Transaction) map[string]models.Transaction {
@@ -62,29 +62,60 @@ func TestCategoryRulesApplyOnRead(t *testing.T) {
 		"by date": func() ([]models.Transaction, error) {
 			return store.ReadTransactionsByDate(time.Now().AddDate(0, 0, -1), time.Now())
 		},
-		"search": func() ([]models.Transaction, error) { return store.SearchTransactions("housing", "") },
+		"search": func() ([]models.Transaction, error) { return store.SearchTransactions("mortgage", "") },
 	}
 	for name, read := range reads {
 		t.Run(name, func(t *testing.T) {
 			txs, err := read()
 			require.NoError(t, err)
 			tx := byID(txs)["interest"]
-			assert.Equal(t, "Housing", tx.Category.Name, "the first matching rule wins")
-			assert.Equal(t, "General", tx.Category.Groups.PersonalFinance.Name)
-			assert.Equal(t, []string{"General", "Housing"}, tx.Categories())
+			assert.Equal(t, "mortgage", tx.Filed, "the first matching rule wins")
+			assert.Equal(t, models.FiledByRule, tx.FiledBy)
+			assert.Equal(t, []string{"Home", "Mortgage"}, tx.Categories())
+			assert.Empty(t, tx.Category.Name, "Akahu's own category is left as it came")
 		})
 	}
 
 	txs, err := store.ReadTransactions()
 	require.NoError(t, err)
-	assert.Equal(t, "Supermarkets", byID(txs)["groceries"].Category.Name, "unmatched transactions keep Akahu's category")
+	assert.Equal(t, "groceries", byID(txs)["groceries"].Filed, "unmatched transactions go where Akahu's category does")
+	assert.Empty(t, byID(txs)["groceries"].FiledBy)
 
-	t.Run("deleting the rules restores Akahu's category", func(t *testing.T) {
+	t.Run("searching finds Akahu's categories too", func(t *testing.T) {
+		txs, err := store.SearchTransactions("supermarkets", "")
+		require.NoError(t, err)
+		assert.Contains(t, byID(txs), "groceries")
+	})
+
+	t.Run("deleting the rules puts Akahu's category back", func(t *testing.T) {
 		require.NoError(t, store.SaveCategorySettings(models.CategorySettings{}))
 		txs, err := store.ReadTransactions()
 		require.NoError(t, err)
-		assert.Empty(t, byID(txs)["interest"].Category.Name)
+		assert.Equal(t, "loan-interest", byID(txs)["interest"].Filed)
 	})
+}
+
+func TestRulesFromBeforeBudgeCategories(t *testing.T) {
+	// Rules and overrides saved before budge had its own categories name
+	// Akahu's, or the owner's own; they land where those would.
+	tests := []struct {
+		broad, specific, want string
+	}{
+		{"Housing", "Mortgage", "mortgage"},
+		{"General", "Savings", "savings"},
+		{"Lifestyle", "Hotels, motels, and other temporary accommodation", "travel"},
+		{"Transport", "Automotive repair and servicing", "servicing"},
+		{"Household", "Pets and related supplies, accommodation, and services", "pet-care"},
+		{"General", "Payments", "other"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.specific, func(t *testing.T) {
+			assert.Equal(t, tt.want, models.CategoryRule{Broad: tt.broad, Specific: tt.specific}.Target())
+			assert.Equal(t, tt.want, models.CategoryOverride{Broad: tt.broad, Specific: tt.specific}.Target())
+		})
+	}
+	assert.Equal(t, "fuel", models.CategoryRule{Category: "fuel", Broad: "Housing", Specific: "Mortgage"}.Target(),
+		"a budge category wins over an old one")
 }
 
 func TestCategorySettingsMergeOnImport(t *testing.T) {
@@ -114,7 +145,7 @@ func TestTransferRules(t *testing.T) {
 	out.Amount = -641
 	in := categorisedTx("in", "TRANSFER", "AP#19781426 FROM D J KING", "")
 	in.Amount = 641
-	plain := models.CategoryRule{ID: "plain", Contains: "AP#19781426", Broad: "General", Specific: "Mortgage"}
+	plain := models.CategoryRule{ID: "plain", Contains: "AP#19781426", Category: "mortgage"}
 	counted := plain
 	counted.IncludeTransfers = true
 
@@ -126,11 +157,11 @@ func TestTransferRules(t *testing.T) {
 	models.CategorySettings{Rules: []models.CategoryRule{counted}}.Apply(txs)
 
 	assert.Equal(t, models.TypeCountedTransfer, txs[0].Type)
-	assert.Equal(t, "Mortgage", txs[0].Category.Name)
+	assert.Equal(t, "mortgage", txs[0].Filed)
 	assert.True(t, txs[0].IsTransfer(), "it is still a transfer, just one that is counted")
 	assert.True(t, counted.Matches(txs[0]), "a counted leg still matches its rule, so match counts stay right")
 	assert.Equal(t, "TRANSFER", txs[1].Type, "the arriving leg is untouched")
-	assert.Empty(t, txs[1].Category.Name)
+	assert.Empty(t, txs[1].Categories(), "money arriving is not filed anywhere")
 }
 
 func TestOverridesWinOverRulesAndAkahu(t *testing.T) {
@@ -140,23 +171,291 @@ func TestOverridesWinOverRulesAndAkahu(t *testing.T) {
 	moved := categorisedTx("out", "TRANSFER", "TO D J KING", "")
 	moved.Amount = -300
 	settings := models.CategorySettings{
-		Rules: []models.CategoryRule{{ID: "pay", Contains: "PAY ", Broad: "General", Specific: "Payments"}},
+		Rules: []models.CategoryRule{{ID: "pay", Contains: "PAY ", Category: "trades"}},
 		Overrides: []models.CategoryOverride{
-			{TransactionID: "cyl", Broad: "Household", Specific: "Plumbing"},
-			{TransactionID: "out", Broad: "General", Specific: "Mortgage"},
+			{TransactionID: "cyl", Category: "hardware"},
+			{TransactionID: "out", Category: "mortgage"},
 		},
 	}
 	txs := []models.Transaction{cylinder, roofer, moved}
 
 	settings.Apply(txs)
 
-	assert.Equal(t, "Plumbing", txs[0].Category.Name, "the override wins over the rule")
-	assert.Equal(t, models.OverrideCategoryPrefix+"cyl", txs[0].Category.Id)
-	assert.Equal(t, "Payments", txs[1].Category.Name, "other transactions still follow the rule")
+	assert.Equal(t, "hardware", txs[0].Filed, "the override wins over the rule")
+	assert.Equal(t, models.FiledByOwner, txs[0].FiledBy)
+	assert.Equal(t, "trades", txs[1].Filed, "other transactions still follow the rule")
 	assert.Equal(t, models.TypeCountedTransfer, txs[2].Type, "money leaving by transfer that is filed by hand is counted")
 
 	_, ok := settings.Override("cyl")
 	assert.True(t, ok)
 	_, ok = settings.Override("roof")
 	assert.False(t, ok)
+}
+
+func TestAkahuBudgetCategory(t *testing.T) {
+	tests := []struct {
+		broad, specific, txType, want string
+	}{
+		{"Food", "Supermarkets and grocery stores", "EFTPOS", "groceries"},
+		{"Food", "Bakeries", "EFTPOS", "groceries"},
+		{"Lifestyle", "Cafes and restaurants", "EFTPOS", "eating-out"},
+		{"Lifestyle", "Liquor stores", "EFTPOS", "liquor"},
+		{"Lifestyle", "Steampunk HQ", "EFTPOS", "entertainment"},
+		{"Utilities", "Electricity services", "DIRECT DEBIT", "power"},
+		{"Utilities", "Water", "DIRECT DEBIT", "bills"},
+		{"Transport", "Fuel stations", "EFTPOS", "fuel"},
+		{"Transport", "Car, truck, and motorcycle dealers", "PAYMENT", "vehicles"},
+		{"Health", "Veterinary services", "EFTPOS", "vets"},
+		{"Household", "Insurance", "DIRECT DEBIT", "insurance"},
+		{"Professional Services", "Accounting", "PAYMENT", "other"},
+		{"", "", "LOAN", "loan-interest"},
+		{"", "", "ATM", "cash"},
+		{"", "", "PAYMENT", "uncategorised"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.specific+tt.txType, func(t *testing.T) {
+			assert.Equal(t, tt.want, models.AkahuBudgetCategory(tt.broad, tt.specific, tt.txType))
+		})
+	}
+}
+
+func TestBudgetCategoryRegistry(t *testing.T) {
+	for _, top := range models.TopBudgetCategories() {
+		assert.Equal(t, top, models.TopBudgetCategory(top.Key))
+		for _, sub := range models.BudgetSubcategories(top.Key) {
+			assert.Equal(t, top.Key, models.TopBudgetCategory(sub.Key).Key)
+			assert.Equal(t, top.OffBudget, sub.OffBudget, "a subcategory is on or off budget with its parent")
+			assert.Equal(t, top.Bill, sub.Bill)
+			assert.Equal(t, top.Accent, sub.Accent)
+			assert.NotEmpty(t, sub.Icon, "a subcategory without its own icon takes its parent's")
+		}
+	}
+	for _, key := range []string{"power", "fuel", "groceries", "eating-out", "internet-mobile"} {
+		_, ok := models.BudgetCategoryByKey(key)
+		assert.True(t, ok, key)
+	}
+	assert.Equal(t, "uncategorised", models.TopBudgetCategory("nonsense").Key)
+
+	savings, _ := models.BudgetCategoryByKey("savings")
+	assert.True(t, savings.NotSpending)
+	assert.False(t, savings.Budgeted())
+	groceries, _ := models.BudgetCategoryByKey("groceries")
+	assert.True(t, groceries.Budgeted())
+	uncategorised, _ := models.BudgetCategoryByKey("uncategorised")
+	assert.False(t, uncategorised.Budgeted(), "nothing is filed there on purpose, so it takes no target")
+	assert.False(t, uncategorised.NotSpending, "but it is spending all the same")
+	power, _ := models.BudgetCategoryByKey("power")
+	assert.True(t, power.Bill, "a bill's subcategories are bills too")
+	assert.False(t, groceries.Bill)
+}
+
+func TestCategoriesFromBeforeOnAndOffBudget(t *testing.T) {
+	useDefaultCategories(t)
+	// A list saved when categories sat under groups: Not budgeted is off
+	// budget now, and Bills still marks a bill.
+	models.UseBudgetCategories(models.BudgetCategorySettings{Categories: []models.BudgetCategory{
+		{Key: "home", Label: "Home", Group: "bills"},
+		{Key: "mortgage", Label: "Mortgage", Parent: "home"},
+		{Key: "groceries", Label: "Groceries", Group: "everyday"},
+		{Key: "savings", Label: "Savings", Group: "unbudgeted"},
+		{Key: "uncategorised", Label: "Uncategorised", Group: "unbudgeted"},
+	}})
+
+	home, _ := models.BudgetCategoryByKey("home")
+	assert.True(t, home.Bill)
+	assert.True(t, home.Budgeted())
+	mortgage, _ := models.BudgetCategoryByKey("mortgage")
+	assert.True(t, mortgage.Bill)
+	savings, _ := models.BudgetCategoryByKey("savings")
+	assert.True(t, savings.OffBudget)
+	assert.True(t, savings.NotSpending)
+	groceries, _ := models.BudgetCategoryByKey("groceries")
+	assert.True(t, groceries.Budgeted())
+
+	t.Run("an edit saves it in the new shape", func(t *testing.T) {
+		saved := models.BudgetCategorySettings{Categories: []models.BudgetCategory{{Key: "savings", Label: "Savings", Group: "unbudgeted"}}}
+		next, err := saved.UpdateBudgetCategory("savings", models.BudgetCategoryChange{Label: "Savings & investments"})
+		require.NoError(t, err)
+		assert.True(t, next.Categories[0].OffBudget)
+		assert.Empty(t, next.Categories[0].Group)
+	})
+}
+
+// useDefaultCategories puts budge's own list back after a test changes it.
+func useDefaultCategories(t *testing.T) {
+	t.Cleanup(func() { models.UseBudgetCategories(models.BudgetCategorySettings{}) })
+}
+
+func keys(categories []models.BudgetCategory) []string {
+	var out []string
+	for _, category := range categories {
+		out = append(out, category.Key)
+	}
+	return out
+}
+
+func TestAddBudgetCategory(t *testing.T) {
+	useDefaultCategories(t)
+	settings, key, err := models.BudgetCategorySettings{}.AddBudgetCategory("Kids & school", "")
+	require.NoError(t, err)
+	assert.Equal(t, "kids-school", key)
+	models.UseBudgetCategories(settings)
+
+	top := keys(models.TopBudgetCategories())
+	assert.Equal(t, []string{"kids-school", "uncategorised"}, top[len(top)-2:], "a new category goes last, before Uncategorised")
+	kids, ok := models.BudgetCategoryByKey("kids-school")
+	require.True(t, ok)
+	assert.False(t, kids.Budgeted(), "off budget until it is put on")
+	assert.True(t, kids.NotSpending)
+
+	t.Run("a name already used gets a key of its own", func(t *testing.T) {
+		_, key, err := settings.AddBudgetCategory("Kids & school", "")
+		require.NoError(t, err)
+		assert.Equal(t, "kids-school-2", key)
+	})
+
+	t.Run("a subcategory goes after its category's others", func(t *testing.T) {
+		next, key, err := settings.AddBudgetCategory("Tolls", "transport")
+		require.NoError(t, err)
+		models.UseBudgetCategories(next)
+		subs := keys(models.BudgetSubcategories("transport"))
+		assert.Equal(t, key, subs[len(subs)-1])
+		tolls, _ := models.BudgetCategoryByKey(key)
+		assert.Equal(t, "clay", tolls.Accent, "it takes its category's colour")
+		assert.True(t, tolls.Budgeted(), "and is on budget with it")
+	})
+
+	for name, add := range map[string][2]string{
+		"a name is needed":          {"  ", ""},
+		"the parent must exist":     {"Kids", "nowhere"},
+		"subcategories go one deep": {"Kids", "fuel"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, _, err := settings.AddBudgetCategory(add[0], add[1])
+			var refused models.BudgetCategoryError
+			assert.ErrorAs(t, err, &refused)
+		})
+	}
+}
+
+func indexOfKey(keys []string, key string) int {
+	for i, k := range keys {
+		if k == key {
+			return i
+		}
+	}
+	return -1
+}
+
+func TestUpdateBudgetCategory(t *testing.T) {
+	useDefaultCategories(t)
+	settings, err := models.BudgetCategorySettings{}.UpdateBudgetCategory("groceries", models.BudgetCategoryChange{
+		Label: "Food shopping", Blurb: "The weekly shop", Icon: "bi-bag", Accent: "plum",
+	})
+	require.NoError(t, err)
+	models.UseBudgetCategories(settings)
+
+	groceries, ok := models.BudgetCategoryByKey("groceries")
+	require.True(t, ok, "the key stays, so rules and targets stay with it")
+	assert.Equal(t, "Food shopping", groceries.Label)
+	assert.Equal(t, "The weekly shop", groceries.Blurb)
+	assert.Equal(t, "bi-bag", groceries.Icon)
+	assert.Equal(t, "plum", groceries.Accent)
+	assert.Equal(t, "groceries", models.AkahuBudgetCategory("Food", "Bakeries", "EFTPOS"), "Akahu's categories still land in it")
+
+	t.Run("taking it off budget takes its subcategories along", func(t *testing.T) {
+		off := true
+		next, err := settings.UpdateBudgetCategory("transport", models.BudgetCategoryChange{Label: "Transport", OffBudget: &off})
+		require.NoError(t, err)
+		models.UseBudgetCategories(next)
+		transport, _ := models.BudgetCategoryByKey("transport")
+		assert.False(t, transport.Budgeted())
+		fuel, _ := models.BudgetCategoryByKey("fuel")
+		assert.False(t, fuel.Budgeted())
+		top := keys(models.TopBudgetCategories())
+		assert.Equal(t, "transport", top[indexOfKey(top, "groceries")+1], "it keeps its place in the list")
+	})
+
+	t.Run("Uncategorised cannot go on budget", func(t *testing.T) {
+		on := false
+		_, err := settings.UpdateBudgetCategory("uncategorised", models.BudgetCategoryChange{Label: "Unfiled", OffBudget: &on})
+		var refused models.BudgetCategoryError
+		assert.ErrorAs(t, err, &refused)
+		_, err = settings.UpdateBudgetCategory("uncategorised", models.BudgetCategoryChange{Label: "Unfiled"})
+		assert.NoError(t, err, "but can be renamed")
+	})
+}
+
+func TestDeleteBudgetCategory(t *testing.T) {
+	useDefaultCategories(t)
+	settings, err := models.BudgetCategorySettings{}.DeleteBudgetCategory("fuel", "")
+	require.NoError(t, err)
+	models.UseBudgetCategories(settings)
+
+	_, gone := models.BudgetCategoryByKey("fuel")
+	assert.True(t, gone, "a deleted key is still found, as where it went")
+	assert.Equal(t, "transport", models.ResolveBudgetCategory("fuel"), "a subcategory's transactions go to its category")
+	assert.Equal(t, "transport", models.ResolveBudgetCategory(models.AkahuBudgetCategory("Transport", "Fuel stations", "EFTPOS")),
+		"Akahu's category for it follows")
+	assert.Equal(t, "transport", models.CategoryRule{Category: "fuel"}.Target())
+
+	t.Run("deleting a category takes its subcategories with it", func(t *testing.T) {
+		next, err := settings.DeleteBudgetCategory("transport", "other")
+		require.NoError(t, err)
+		models.UseBudgetCategories(next)
+		assert.NotContains(t, keys(models.TopBudgetCategories()), "transport")
+		for _, key := range []string{"transport", "fuel", "rego", "parking"} {
+			assert.Equal(t, "other", models.ResolveBudgetCategory(key), key)
+		}
+	})
+
+	t.Run("a new category never takes a deleted one's key", func(t *testing.T) {
+		_, key, err := settings.AddBudgetCategory("Fuel", "")
+		require.NoError(t, err)
+		assert.Equal(t, "fuel-2", key)
+	})
+
+	for name, del := range map[string][2]string{
+		"Uncategorised stays":        {"uncategorised", "other"},
+		"it cannot go into itself":   {"transport", "transport"},
+		"nor into its subcategories": {"transport", "rego"},
+		"it must go somewhere real":  {"transport", "nowhere"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := settings.DeleteBudgetCategory(del[0], del[1])
+			var refused models.BudgetCategoryError
+			assert.ErrorAs(t, err, &refused)
+		})
+	}
+}
+
+func TestBudgetCategoriesAreSavedAndBackedUp(t *testing.T) {
+	useDefaultCategories(t)
+	store := tempStore(t)
+	edited, err := models.BudgetCategorySettings{}.UpdateBudgetCategory("groceries", models.BudgetCategoryChange{Label: "Food shopping"})
+	require.NoError(t, err)
+	edited, err = edited.DeleteBudgetCategory("parking", "")
+	require.NoError(t, err)
+	require.NoError(t, store.SaveBudgetCategorySettings(edited))
+
+	groceries, _ := models.BudgetCategoryByKey("groceries")
+	assert.Equal(t, "Food shopping", groceries.Label, "a save is in use straight away")
+
+	backup, err := store.ExportBackup()
+	require.NoError(t, err)
+	require.NotNil(t, backup.BudgetCategories)
+
+	models.UseBudgetCategories(models.BudgetCategorySettings{})
+	other := tempStore(t)
+	groceries, _ = models.BudgetCategoryByKey("groceries")
+	require.Equal(t, "Groceries", groceries.Label, "a new instance starts with budge's own")
+
+	require.NoError(t, other.ImportBackup(backup))
+	groceries, _ = models.BudgetCategoryByKey("groceries")
+	assert.Equal(t, "Food shopping", groceries.Label, "an import brings the list and puts it in use")
+	assert.Equal(t, "transport", models.ResolveBudgetCategory("parking"))
+
+	saved, err := other.GetBudgetCategorySettings()
+	require.NoError(t, err)
+	assert.Equal(t, "transport", saved.Merged["parking"])
 }
