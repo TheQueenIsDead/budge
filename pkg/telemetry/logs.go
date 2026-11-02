@@ -2,6 +2,8 @@ package telemetry
 
 import (
 	"context"
+	"log/slog"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -26,6 +28,11 @@ func (r LogRecord) IsError() bool { return r.Severity >= log.SeverityError }
 // SDK hands it every record as it is logged.
 type LogStore struct {
 	records *ring[LogRecord]
+	disk    *disk
+
+	// pending is what has been logged since the last write to disk.
+	mu      sync.Mutex
+	pending []LogRecord
 }
 
 func newLogStore(capacity int) *LogStore {
@@ -59,7 +66,64 @@ func (s *LogStore) Export(_ context.Context, records []sdklog.Record) error {
 		})
 	}
 	s.records.add(kept...)
+	if s.disk != nil {
+		s.mu.Lock()
+		s.pending = append(s.pending, kept...)
+		s.mu.Unlock()
+	}
 	return nil
+}
+
+// takePending hands over what is waiting to be written to disk.
+func (s *LogStore) takePending() []LogRecord {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	pending := s.pending
+	s.pending = nil
+	return pending
+}
+
+// requeue puts back records a write to disk failed to keep, ahead of any
+// logged since, so the next write tries them again.
+func (s *LogStore) requeue(records []LogRecord) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.pending = append(records, s.pending...)
+}
+
+// Search finds records at or above a severity that match, newest first,
+// across the whole retention: those in memory, then those on disk from
+// before them. It returns up to limit of them, and how many match in all.
+func (s *LogStore) Search(min log.Severity, match func(LogRecord) bool, limit int) ([]LogRecord, int) {
+	var out []LogRecord
+	total := 0
+	visit := func(record LogRecord) bool {
+		if record.Severity < min || (match != nil && !match(record)) {
+			return true
+		}
+		total++
+		if len(out) < limit {
+			out = append(out, record)
+		}
+		return true
+	}
+	recent := s.records.all()
+	for _, record := range recent {
+		visit(record)
+	}
+	if s.disk == nil {
+		return out, total
+	}
+	// What is in memory has mostly been written to disk too, so the disk is
+	// read only from before the oldest record still in memory.
+	before := time.Now().Add(time.Hour)
+	if len(recent) > 0 {
+		before = recent[len(recent)-1].Time
+	}
+	if err := s.disk.logs(before, visit); err != nil {
+		slog.Warn("could not read logs from disk", "error", err)
+	}
+	return out, total
 }
 
 // Shutdown has nothing to release.

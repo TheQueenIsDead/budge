@@ -42,3 +42,13 @@ func (r *ring[T]) all() []T {
 	}
 	return out
 }
+
+// len is how many items are kept.
+func (r *ring[T]) len() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.full {
+		return len(r.items)
+	}
+	return r.next
+}

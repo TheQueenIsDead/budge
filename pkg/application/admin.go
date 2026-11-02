@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"net/http"
 	"runtime"
-	"runtime/debug"
 	"slices"
 	"strconv"
 	"strings"
@@ -58,25 +57,34 @@ type AdminPage struct {
 type AdminProcess struct {
 	Started   time.Time
 	Uptime    time.Duration
+	Version   string
 	GoVersion string
 	Revision  string
 	CPUs      int
 	Exporting bool
+	Retention time.Duration
 }
 
 // AdminChart is a series ready for Chart.js: labels and values side by side.
 type AdminChart struct {
-	Labels []string  `json:"labels"`
-	Values []float64 `json:"values"`
+	Labels   []string  `json:"labels"`
+	Values   []float64 `json:"values"`
+	Restarts []int     `json:"restarts"`
 }
 
 type AdminOverview struct {
-	Requests   uint64
-	ErrorRate  float64
-	Queries    uint64
-	QueryTime  time.Duration
-	Errors     int
-	Memory     float64
+	Requests  uint64
+	ErrorRate float64
+	Queries   uint64
+	QueryTime time.Duration
+	Errors    int
+	Memory    float64
+
+	Ranges  []AdminRange
+	Range   AdminRange
+	Runs    []telemetry.Run
+	Storage telemetry.Storage
+
 	Goroutines float64
 	CPU        float64
 
@@ -279,7 +287,7 @@ func (app *Application) Admin(c echo.Context) error {
 		page.Errors = adminErrors(tel)
 	default:
 		page.Tab = "overview"
-		page.Overview = adminOverview(tel)
+		page.Overview = adminOverview(tel, c.QueryParam("range"))
 	}
 	return c.Render(http.StatusOK, "admin", page)
 }
@@ -297,24 +305,59 @@ func (app *Application) AdminTrace(c echo.Context) error {
 }
 
 func process(tel *telemetry.Telemetry) AdminProcess {
-	p := AdminProcess{
+	return AdminProcess{
 		Started:   tel.Started,
 		Uptime:    tel.Uptime().Round(time.Second),
+		Version:   tel.Run.Version,
 		GoVersion: runtime.Version(),
+		Revision:  tel.Run.Revision,
 		CPUs:      runtime.NumCPU(),
 		Exporting: tel.Exporting,
+		Retention: tel.Retention,
 	}
-	if info, ok := debug.ReadBuildInfo(); ok {
-		for _, setting := range info.Settings {
-			if setting.Key == "vcs.revision" && len(setting.Value) >= 7 {
-				p.Revision = setting.Value[:7]
-			}
-		}
-	}
-	return p
 }
 
-func adminOverview(tel *telemetry.Telemetry) AdminOverview {
+// AdminRange is a span of time the charts can show.
+type AdminRange struct {
+	Key   string
+	Label string
+	Span  time.Duration
+}
+
+var adminRanges = []AdminRange{
+	{"1h", "1 hour", time.Hour},
+	{"6h", "6 hours", 6 * time.Hour},
+	{"24h", "24 hours", 24 * time.Hour},
+	{"7d", "7 days", 7 * 24 * time.Hour},
+	{"30d", "30 days", 30 * 24 * time.Hour},
+}
+
+// chartPoints is as many points as a chart draws legibly.
+const chartPoints = 360
+
+// ranges are the spans of time there is something kept for: what memory
+// holds, and what the file holds besides. The one asked for is chosen, or six
+// hours.
+func ranges(tel *telemetry.Telemetry, key string) ([]AdminRange, AdminRange) {
+	keeps := max(tel.Window, tel.Retention)
+	var out []AdminRange
+	for _, r := range adminRanges {
+		// The first range past what is kept still shows all of it.
+		out = append(out, r)
+		if r.Span >= keeps {
+			break
+		}
+	}
+	chosen := out[min(1, len(out)-1)]
+	for _, r := range out {
+		if r.Key == key {
+			chosen = r
+		}
+	}
+	return out, chosen
+}
+
+func adminOverview(tel *telemetry.Telemetry, rangeKey string) AdminOverview {
 	requests := telemetry.Merge(tel.Metrics.Histograms(requestDuration)...)
 	queries := telemetry.Merge(tel.Metrics.Histograms(queryDuration)...)
 	var failed uint64
@@ -324,49 +367,77 @@ func adminOverview(tel *telemetry.Telemetry) AdminOverview {
 		}
 	}
 
-	// process.cpu.time is seconds of CPU spent, so its rate is how many cores
-	// were busy; as a percentage, 100% is one core, the way top reads.
-	cpu := telemetry.Rate(tel.Metrics.Total("process.cpu.time"))
-	for i := range cpu {
-		cpu[i].Value *= 100
-	}
-	perMinute := func(points []telemetry.Point) []telemetry.Point {
-		for i := range points {
-			points[i].Value *= 60
-		}
-		return points
-	}
-
-	memory := tel.Metrics.Total("go.memory.used")
-	goroutines := tel.Metrics.Total("go.goroutine.count")
 	o := AdminOverview{
-		Requests:       requests.Count,
-		Queries:        queries.Count,
-		QueryTime:      seconds(queries.Sum),
-		Errors:         len(tel.Logs.Recent(otellog.SeverityError)),
-		CPUChart:       chart(cpu),
-		MemoryChart:    chart(memory),
-		GCGoalChart:    chart(tel.Metrics.Total("go.memory.gc.goal")),
-		GoroutineChart: chart(goroutines),
-		RequestChart:   chart(perMinute(telemetry.Rate(tel.Metrics.Total(requestDuration + telemetry.CountSuffix)))),
-		QueryChart:     chart(perMinute(telemetry.Rate(tel.Metrics.Total(queryDuration + telemetry.CountSuffix)))),
-		SampleEvery:    tel.SampleEvery.String(),
+		Requests:    requests.Count,
+		Queries:     queries.Count,
+		QueryTime:   seconds(queries.Sum),
+		SampleEvery: tel.SampleEvery.String(),
+		Runs:        tel.Runs(),
+		Storage:     tel.Storage(),
 	}
+	o.Ranges, o.Range = ranges(tel, rangeKey)
+	_, o.Errors = tel.Logs.Search(otellog.SeverityError, nil, 0)
 	if requests.Count > 0 {
 		o.ErrorRate = float64(failed) / float64(requests.Count)
 	}
+
+	since := time.Now().Add(-o.Range.Span)
+	var starts []time.Time
+	for _, run := range o.Runs {
+		starts = append(starts, run.Start.Time)
+	}
+	history := func(name string) []telemetry.Point {
+		return telemetry.Resample(tel.Metrics.History(name, since), chartPoints)
+	}
+	// Rates are taken after thinning, across each stretch, so a week's
+	// chart is as smooth as an hour's.
+	rate := func(name string, scale float64) []telemetry.Point {
+		points := telemetry.Rate(history(name))
+		for i := range points {
+			points[i].Value *= scale
+		}
+		return points
+	}
+	draw := func(points []telemetry.Point) AdminChart { return chart(points, o.Range.Span, starts) }
+
+	// process.cpu.time is seconds of CPU spent, so its rate is how many cores
+	// were busy; as a percentage, 100% is one core, the way top reads.
+	cpu := rate("process.cpu.time", 100)
+	memory := history("go.memory.used")
+	goroutines := history("go.goroutine.count")
+	o.CPUChart = draw(cpu)
+	o.MemoryChart = draw(memory)
+	o.GCGoalChart = draw(history("go.memory.gc.goal"))
+	o.GoroutineChart = draw(goroutines)
+	o.RequestChart = draw(rate(requestDuration+telemetry.CountSuffix, 60))
+	o.QueryChart = draw(rate(queryDuration+telemetry.CountSuffix, 60))
+
 	o.Memory = last(memory)
 	o.Goroutines = last(goroutines)
 	o.CPU = last(cpu)
 	o.AwaitingSamples = len(cpu) == 0
+	o.Runs = o.Runs[:min(len(o.Runs), 10)]
 	return o
 }
 
-func chart(points []telemetry.Point) AdminChart {
-	c := AdminChart{Labels: make([]string, len(points)), Values: make([]float64, len(points))}
+// chart lays points out for Chart.js, labelled to suit the span shown, and
+// marks where budge started again so a gap or a drop can be read for what
+// it is.
+func chart(points []telemetry.Point, span time.Duration, starts []time.Time) AdminChart {
+	layout := "15:04"
+	if span > 24*time.Hour {
+		layout = "Mon 15:04"
+	}
+	c := AdminChart{Labels: make([]string, len(points)), Values: make([]float64, len(points)), Restarts: []int{}}
 	for i, p := range points {
-		c.Labels[i] = p.Time.Local().Format("15:04")
+		c.Labels[i] = p.Time.Local().Format(layout)
 		c.Values[i] = p.Value
+		for _, start := range starts {
+			if i > 0 && start.After(points[i-1].Time) && !start.After(p.Time) {
+				c.Restarts = append(c.Restarts, i)
+				break
+			}
+		}
 	}
 	return c
 }
@@ -514,16 +585,11 @@ func adminLogs(tel *telemetry.Telemetry, level, search string) AdminLogs {
 		level = "info"
 	}
 	out := AdminLogs{Level: level, Search: search, Levels: []string{"debug", "info", "warn", "error"}}
-	needle := strings.ToLower(strings.TrimSpace(search))
-	for _, record := range tel.Logs.Recent(logLevels[level]) {
-		if needle != "" && !matchesLog(record, needle) {
-			continue
-		}
-		out.Total++
-		if len(out.Records) < adminLogLimit {
-			out.Records = append(out.Records, record)
-		}
+	var match func(telemetry.LogRecord) bool
+	if needle := strings.ToLower(strings.TrimSpace(search)); needle != "" {
+		match = func(record telemetry.LogRecord) bool { return matchesLog(record, needle) }
 	}
+	out.Records, out.Total = tel.Logs.Search(logLevels[level], match, adminLogLimit)
 	return out
 }
 
@@ -540,10 +606,10 @@ func matchesLog(record telemetry.LogRecord, needle string) bool {
 }
 
 func adminErrors(tel *telemetry.Telemetry) AdminErrors {
-	logs := tel.Logs.Recent(otellog.SeverityError)
+	logs, _ := tel.Logs.Search(otellog.SeverityError, nil, adminListLimit)
 	failures := tel.Spans.Recent(func(span telemetry.Span) bool { return span.Error })
 	return AdminErrors{
-		Logs:     logs[:min(len(logs), adminListLimit)],
+		Logs:     logs,
 		Failures: failures[:min(len(failures), adminListLimit)],
 	}
 }

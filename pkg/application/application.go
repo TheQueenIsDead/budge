@@ -88,6 +88,9 @@ func templateFuncs() template.FuncMap {
 		"fmtBytes": func(bytes float64) string {
 			return humanize.IBytes(uint64(max(0, bytes)))
 		},
+		"fmtBytes64": func(bytes int64) string {
+			return humanize.IBytes(uint64(max(0, bytes)))
+		},
 		"fmtLower": func(text string) string {
 			return strings.ToLower(text)
 		},
@@ -376,8 +379,11 @@ func (app *Application) Close() error {
 	// Stop the scheduler first and wait for any job in flight, so shutdown does
 	// not cut a sync off midway through writing.
 	app.scheduler.stop()
-	// TODO: Change this to close down gracefully
-	return app.http.Close()
+	// Requests under way are let finish, for a while, before the server
+	// closes.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return app.http.Shutdown(ctx)
 }
 
 type Template struct {

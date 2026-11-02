@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"context"
+	"log/slog"
 	"sort"
 	"strings"
 	"sync"
@@ -105,6 +106,10 @@ const CountSuffix = ".count"
 type MetricStore struct {
 	reader *sdkmetric.ManualReader
 	points int
+	disk   *disk
+
+	// persisted is the newest sample written to disk.
+	persisted time.Time
 
 	mu         sync.RWMutex
 	sampling   bool
@@ -230,7 +235,84 @@ func (m *MetricStore) Series(name string) []Series {
 	return out
 }
 
-// Total sums a metric's series across their attributes at each sample.
+// History sums a metric's series across their attributes at each sample
+// since a time: from memory for as far back as it reaches, and from disk
+// before that.
+func (m *MetricStore) History(name string, since time.Time) []Point {
+	recent := m.Total(name)
+	if m.disk == nil {
+		return after(recent, since)
+	}
+	before := time.Now()
+	if len(recent) > 0 {
+		before = recent[0].Time
+	}
+	if !since.Before(before) {
+		return after(recent, since)
+	}
+	older, err := m.disk.total(name, since, before)
+	if err != nil {
+		slog.Warn("could not read metrics from disk", "metric", name, "error", err)
+	}
+	return append(older, after(recent, since)...)
+}
+
+func after(points []Point, since time.Time) []Point {
+	for i, p := range points {
+		if !p.Time.Before(since) {
+			return points[i:]
+		}
+	}
+	return nil
+}
+
+// counts is how many series and points are kept in memory.
+func (m *MetricStore) counts() (series, points int) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, byAttrs := range m.series {
+		for _, buffer := range byAttrs {
+			series++
+			points += buffer.points.len()
+		}
+	}
+	return series, points
+}
+
+// unpersisted gathers each series' newest sample not yet on disk.
+func (m *MetricStore) unpersisted() []sample {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var out []sample
+	var newest time.Time
+	for name, byAttrs := range m.series {
+		for key, buffer := range byAttrs {
+			points := buffer.points.all()
+			if len(points) == 0 || !points[0].Time.After(m.persisted) {
+				continue
+			}
+			out = append(out, sample{name: name, key: key, attrs: buffer.attrs, point: points[0]})
+			if points[0].Time.After(newest) {
+				newest = points[0].Time
+			}
+		}
+	}
+	return out
+}
+
+// markPersisted notes the newest sample written to disk.
+func (m *MetricStore) markPersisted(samples []sample) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, s := range samples {
+		if s.point.Time.After(m.persisted) {
+			m.persisted = s.point.Time
+		}
+	}
+}
+
+// Total sums a metric's series across their attributes at each sample kept
+// in memory.
 func (m *MetricStore) Total(name string) []Point {
 	byTime := map[time.Time]float64{}
 	for _, series := range m.Series(name) {
@@ -242,7 +324,35 @@ func (m *MetricStore) Total(name string) []Point {
 	for at, value := range byTime {
 		out = append(out, Point{Time: at, Value: value})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Time.Before(out[j].Time) })
+	sortPoints(out)
+	return out
+}
+
+func sortPoints(points []Point) {
+	sort.Slice(points, func(i, j int) bool { return points[i].Time.Before(points[j].Time) })
+}
+
+// Resample thins points to at most n, keeping the last of each stretch of
+// time, so a week of samples draws as a chart rather than as noise. The last
+// is right for a running total, whose rate is then taken across stretches,
+// and near enough for a gauge.
+func Resample(points []Point, n int) []Point {
+	if len(points) <= n || n < 2 {
+		return points
+	}
+	// n-1 stretches from the first to the last, which falls in one more.
+	first, last := points[0].Time, points[len(points)-1].Time
+	width := last.Sub(first) / time.Duration(n-1)
+	if width <= 0 {
+		return points[len(points)-n:]
+	}
+	stretch := func(p Point) time.Duration { return p.Time.Sub(first) / width }
+	out := make([]Point, 0, n)
+	for i, p := range points {
+		if i+1 == len(points) || stretch(points[i+1]) != stretch(p) {
+			out = append(out, p)
+		}
+	}
 	return out
 }
 

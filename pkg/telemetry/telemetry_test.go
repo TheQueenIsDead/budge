@@ -61,7 +61,8 @@ func TestLogsAreKeptAndWrittenOut(t *testing.T) {
 	span.End()
 
 	all := tel.Logs.Recent(otellog.SeverityDebug)
-	require.Len(t, all, 2)
+	require.Len(t, all, 3)
+	assert.Equal(t, "budge started", all[2].Message, "starting is logged first")
 	assert.Equal(t, "sync failed", all[0].Message)
 	assert.Equal(t, "ERROR", all[0].Level)
 	assert.True(t, all[0].IsError())

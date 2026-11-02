@@ -2522,3 +2522,43 @@ a.b-acct:focus-visible {
 .b-spent-own {
     background: var(--b-slate);
 }
+
+.b-admin-run {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "name end" "meta end";
+    column-gap: 0.75rem;
+    padding: 0.5rem 0;
+    font-size: 0.8125rem;
+}
+
+.b-admin-run .b-admin-name {
+    grid-area: name;
+}
+
+.b-admin-run .b-admin-meta {
+    grid-area: meta;
+}
+
+.b-admin-run > span:last-child {
+    grid-area: end;
+    align-self: center;
+}
+
+.b-admin-storage {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.35rem 1rem;
+    margin: 0;
+    font-size: 0.8125rem;
+}
+
+.b-admin-storage dt {
+    color: var(--b-muted);
+    font-weight: 500;
+}
+
+.b-admin-storage dd {
+    margin: 0;
+    text-align: right;
+}

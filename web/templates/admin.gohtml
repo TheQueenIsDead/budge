@@ -10,10 +10,9 @@
         <div class="b-page-head">
             <h2>Admin</h2>
             <p class="b-page-sub">
-                What budge has recorded about itself since it started
-                {{ .Process.Started | fmtRelative }}: up {{ .Process.Uptime }},
-                {{ .Process.GoVersion }}{{ with .Process.Revision }} at <span class="font-monospace">{{ . }}</span>{{ end }},
-                {{ .Process.CPUs }} CPUs.
+                What budge has recorded about itself. Version
+                <span class="font-monospace">{{ .Process.Version }}</span>{{ with .Process.Revision }} at <span class="font-monospace">{{ . }}</span>{{ end }},
+                up {{ .Process.Uptime }} since {{ .Process.Started | fmtRelative }}, on {{ .Process.GoVersion }} with {{ .Process.CPUs }} CPUs.
                 {{ if .Process.Exporting }}
                     <span class="b-delta b-delta-good"><i class="bi bi-broadcast"></i>Exporting over OTLP</span>
                 {{ else }}
@@ -45,8 +44,16 @@
 
 {{/* The process at a glance, refreshed as each sample is taken. */}}
 {{ define "admin.overview" }}
-    <div hx-get="/admin?tab=overview" hx-trigger="every {{ .SampleEvery }}"
+    <div hx-get="/admin?tab=overview&range={{ .Range.Key }}" hx-trigger="every {{ .SampleEvery }}"
          hx-target="#admin-panel" hx-select="#admin-panel" hx-swap="outerHTML show:none">
+
+        <div class="d-flex justify-content-end mb-2">
+            <div class="b-segment">
+                {{ range .Ranges }}
+                    <a href="/admin?tab=overview&range={{ .Key }}" class="{{ if eq .Key $.Range.Key }}active{{ end }}">{{ .Key }}</a>
+                {{ end }}
+            </div>
+        </div>
 
         <div class="row g-2 g-md-3 mb-3">
             <div class="col-6 col-lg-3">
@@ -73,7 +80,7 @@
             </div>
             <div class="col-6 col-lg-3">
                 <div class="b-stat b-accent-brick">
-                    <div class="b-stat-label"><span>Errors logged</span><i class="bi bi-exclamation-triangle"></i></div>
+                    <div class="b-stat-label"><span>Errors kept</span><i class="bi bi-exclamation-triangle"></i></div>
                     <div class="b-stat-value">{{ .Errors }}</div>
                     <span class="b-delta b-delta-flat">CPU {{ printf "%.1f" .CPU }}%</span>
                 </div>
@@ -91,6 +98,81 @@
             {{ template "admin.chart" (dict "id" "adminRequests" "title" "Requests" "sub" "Per minute" "accent" "slate" "unit" "rate" "chart" .RequestChart) }}
             {{ template "admin.chart" (dict "id" "adminQueries" "title" "Queries" "sub" "Bolt transactions per minute" "accent" "plum" "unit" "rate" "chart" .QueryChart) }}
             {{ template "admin.chart" (dict "id" "adminGoroutines" "title" "Goroutines" "sub" "Running at each sample" "accent" "clay" "unit" "count" "chart" .GoroutineChart) }}
+            {{ template "admin.storage" .Storage }}
+        </div>
+
+        {{ template "admin.runs" .Runs }}
+    </div>
+{{ end }}
+
+{{/* Each start and stop budge has marked, newest first. */}}
+{{ define "admin.runs" }}
+    <div class="b-card b-card-pad mb-3 b-accent-slate">
+        <div class="b-card-head">
+            <div>
+                <h3 class="b-card-title">Runs</h3>
+                <p class="b-card-sub">Each start, the version it ran and how it ended. A dashed line on the charts marks each start.</p>
+            </div>
+        </div>
+        <ul class="b-admin-list">
+            {{ range . }}
+                <li>
+                    <div class="b-admin-run">
+                        <span class="b-admin-name">
+                            <span class="font-monospace">{{ .Start.Version }}</span>
+                            {{ with .Start.Revision }}<span class="b-admin-meta font-monospace">{{ . }}</span>{{ end }}
+                        </span>
+                        <span class="b-admin-meta">
+                            started {{ .Start.Time.Local.Format "Mon 2 Jan 15:04:05" }} · {{ .Start.Host }} · pid {{ .Start.PID }}
+                        </span>
+                        <span>
+                            {{ if .Current }}
+                                <span class="b-delta b-delta-good"><i class="bi bi-play-fill"></i>Running</span>
+                            {{ else if .Stopped }}
+                                <span class="b-delta b-delta-flat" title="{{ .Stop.Time.Local.Format "Mon 2 Jan 15:04:05" }}">
+                                    <i class="bi bi-stop-fill"></i>{{ .Stop.Reason }}</span>
+                            {{ else }}
+                                <span class="b-delta b-delta-bad" title="It never marked a stop: it crashed, was killed, or the machine went away">
+                                    <i class="bi bi-lightning-fill"></i>Ended without stopping</span>
+                            {{ end }}
+                        </span>
+                    </div>
+                </li>
+            {{ end }}
+        </ul>
+    </div>
+{{ end }}
+
+{{/* How much is kept, and where. */}}
+{{ define "admin.storage" }}
+    <div class="col-12 col-lg-6">
+        <div class="b-card b-card-pad h-100 b-accent-muted">
+            <div class="b-card-head">
+                <div>
+                    <h3 class="b-card-title">Storage</h3>
+                    <p class="b-card-sub">
+                        {{ if .Path }}
+                            Kept for {{ .Retention }} in <span class="font-monospace">{{ .Path }}</span>.
+                        {{ else }}
+                            Kept in memory only, so a restart starts afresh. Set BUDGE_TELEMETRY_RETENTION to keep it.
+                        {{ end }}
+                    </p>
+                </div>
+            </div>
+            <dl class="b-admin-storage">
+                {{ if .Path }}
+                    <dt>On disk</dt>
+                    <dd class="b-num">{{ .FileBytes | fmtBytes64 }}</dd>
+                    <dt>Series</dt>
+                    <dd class="b-num">{{ .Series }}</dd>
+                    <dt>Samples</dt>
+                    <dd class="b-num">{{ .Points }}</dd>
+                    <dt>Logs</dt>
+                    <dd class="b-num">{{ .Logs }}</dd>
+                {{ end }}
+                <dt>In memory</dt>
+                <dd class="b-num">{{ .MemorySpans }} spans, {{ .MemoryLogs }} logs, {{ .MemoryPoints }} samples of {{ .MemorySeries }} series over {{ .Window }}</dd>
+            </dl>
         </div>
     </div>
 {{ end }}
@@ -154,19 +236,44 @@
                         });
                     }
 
+                    // Dashed lines where budge started again, drawn by hand
+                    // rather than with a plugin for so little.
+                    const restarts = {
+                        id: "restarts",
+                        afterDatasetsDraw: function (chart) {
+                            const marks = chart.$restarts || [];
+                            const x = chart.scales.x, area = chart.chartArea, ctx = chart.ctx;
+                            ctx.save();
+                            ctx.strokeStyle = window.budge.ink;
+                            ctx.setLineDash([3, 3]);
+                            marks.forEach(function (i) {
+                                const at = x.getPixelForValue(i);
+                                ctx.beginPath();
+                                ctx.moveTo(at, area.top);
+                                ctx.lineTo(at, area.bottom);
+                                ctx.stroke();
+                            });
+                            ctx.restore();
+                        }
+                    };
+
                     const existing = Chart.getChart(canvas);
                     if (existing) {
+                        existing.$restarts = data.restarts;
                         existing.data.labels = data.labels;
                         datasets.forEach(function (d, i) {
-                            existing.data.datasets[i].data = d.data;
+                            if (existing.data.datasets[i]) {
+                                existing.data.datasets[i].data = d.data;
+                            }
                         });
                         existing.update("none");
                         return;
                     }
 
                     const ink = window.budge.ink;
-                    new Chart(canvas, {
+                    const made = new Chart(canvas, {
                         type: "line",
+                        plugins: [restarts],
                         data: {labels: data.labels, datasets: datasets},
                         options: {
                             responsive: true,
@@ -192,6 +299,8 @@
                             }
                         }
                     });
+                    made.$restarts = data.restarts;
+                    made.draw();
                 })();
             </script>
         </div>
@@ -398,7 +507,7 @@
                 <h3 class="b-card-title">Logs</h3>
                 <p class="b-card-sub">
                     {{ if gt .Total (len .Records) }}The latest {{ len .Records }} of {{ .Total }}{{ else }}{{ .Total }}{{ end }}
-                    at {{ .Level }} or above{{ with .Search }} matching “{{ . }}”{{ end }}.
+                    at {{ .Level }} or above{{ with .Search }} matching “{{ . }}”{{ end }}, across everything kept.
                 </p>
             </div>
             <div class="b-segment">

@@ -139,7 +139,7 @@ func TestAdminPageShowsWhatWasRecorded(t *testing.T) {
 	require.NoError(t, tel.Metrics.Collect(context.Background()))
 
 	for tab, want := range map[string][]string{
-		"overview": {"Requests", "adminCpu", "Kept in memory only"},
+		"overview": {"Requests", "adminCpu", "Kept in memory only", "Runs", "Running", "Storage", "In memory"},
 		"requests": {"/notifications", "/boom", "Slowest"},
 		"database": {"ReadNotifications", "notifications", "application.(*Application).sortedNotifications", "pkg/application/notification.go:"},
 		"logs":     {"request failed", "it broke"},
@@ -156,7 +156,7 @@ func TestAdminPageShowsWhatWasRecorded(t *testing.T) {
 
 	get("/notifications", false)
 	require.NoError(t, tel.Metrics.Collect(context.Background()))
-	overview := adminOverview(tel)
+	overview := adminOverview(tel, "1h")
 	require.Len(t, overview.RequestChart.Values, 1, "two samples make one rate")
 	assert.Positive(t, overview.RequestChart.Values[0], "a request landed between them")
 	assert.NotEmpty(t, overview.QueryChart.Values)
