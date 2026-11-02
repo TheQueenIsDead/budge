@@ -1,8 +1,10 @@
 package integrations
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -10,8 +12,10 @@ import (
 
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/integrations/akahu"
+	"github.com/TheQueenIsDead/budge/pkg/telemetry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
 )
 
 // fakeAkahu serves a full history of transactions across two pages, and
@@ -188,4 +192,40 @@ func TestIdentifyTransfers(t *testing.T) {
 		})
 		assert.Empty(t, transfers)
 	})
+}
+
+func TestSyncAkahuTracesEachPhase(t *testing.T) {
+	opts := telemetry.DefaultOptions()
+	opts.Stdout, opts.Runtime, opts.SampleEvery = io.Discard, false, time.Hour
+	tel, err := telemetry.Setup(context.Background(), opts)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = tel.Shutdown(context.Background()) })
+
+	var starts []string
+	server := fakeAkahu(t, 20, &starts)
+	defer server.Close()
+	integrations, _ := testIntegrations(t, server.URL)
+
+	ctx, sync := otel.Tracer("test").Start(t.Context(), "akahu sync")
+	_, err = integrations.SyncAkahu(ctx, time.Time{}, nil)
+	require.NoError(t, err)
+	sync.End()
+
+	byName := map[string]telemetry.Span{}
+	var calls []telemetry.Span
+	for _, span := range tel.Spans.Trace(sync.SpanContext().TraceID().String()) {
+		byName[span.Name] = span
+		if span.Kind == "client" && span.Attrs["http.request.method"] != "" {
+			calls = append(calls, span)
+		}
+	}
+	for _, phase := range []string{"fetch accounts", "fetch transactions", "classify transactions", "SaveSynced synced"} {
+		assert.Contains(t, byName, phase)
+	}
+	assert.Equal(t, "20", byName["fetch transactions"].Attrs["akahu.transactions"])
+	assert.Len(t, calls, 3, "one call for the accounts and one for each page of transactions")
+	for _, call := range calls {
+		assert.Contains(t, []string{byName["fetch accounts"].SpanID, byName["fetch transactions"].SpanID}, call.ParentID,
+			"each call out sits under the phase that made it")
+	}
 }

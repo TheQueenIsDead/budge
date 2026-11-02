@@ -186,10 +186,70 @@ type AdminTrace struct {
 	Duration time.Duration
 	Rows     []AdminTraceRow
 	Logs     []telemetry.LogRecord
+	Spent    []AdminShare
+}
+
+// AdminShare is part of a trace's time and what it went on.
+type AdminShare struct {
+	Kind     string
+	Label    string
+	Detail   string
+	Duration time.Duration
+	Share    float64
+}
+
+// spent splits a trace's time between the store, each service called out
+// to, and budge's own work, which is whatever is left. Queries and calls out
+// never nest inside one another, so their times add up without counting
+// anything twice.
+func spent(rows []AdminTraceRow, total time.Duration) []AdminShare {
+	var queries time.Duration
+	var count int
+	calls := map[string]time.Duration{}
+	callCounts := map[string]int{}
+	for _, row := range rows {
+		switch {
+		case isQuery(row.Span):
+			queries += row.Duration
+			count++
+		case row.Kind == "client" && row.Attrs["http.request.method"] != "":
+			host := cmp.Or(row.Attrs["server.address"], "elsewhere")
+			calls[host] += row.Duration
+			callCounts[host]++
+		}
+	}
+	var shares []AdminShare
+	own := total
+	if count > 0 {
+		shares = append(shares, AdminShare{Kind: "database", Label: "Database", Detail: counted(count, "query", "queries"), Duration: queries})
+		own -= queries
+	}
+	for host, d := range calls {
+		shares = append(shares, AdminShare{Kind: "call", Label: host, Detail: counted(callCounts[host], "call", "calls"), Duration: d})
+		own -= d
+	}
+	slices.SortFunc(shares, func(a, b AdminShare) int { return cmp.Compare(b.Duration, a.Duration) })
+	shares = append(shares, AdminShare{Kind: "own", Label: "Budge", Detail: "its own work", Duration: max(0, own)})
+	for i := range shares {
+		if total > 0 {
+			shares[i].Share = float64(shares[i].Duration) / float64(total)
+		}
+	}
+	return shares
+}
+
+func counted(n int, one, many string) string {
+	if n == 1 {
+		return "1 " + one
+	}
+	return strconv.Itoa(n) + " " + many
 }
 
 type AdminTraceRow struct {
 	telemetry.Span
+	// Bar is the kind of work, which colours its bar: a query, a call out
+	// ("client"), a request ("server") or budge's own ("internal").
+	Bar      string
 	Depth    int
 	Offset   float64
 	Width    float64
@@ -521,11 +581,14 @@ func buildTrace(tel *telemetry.Telemetry, id string) (AdminTrace, bool) {
 	trace := AdminTrace{ID: id, Root: roots[0], Duration: total}
 	var walk func(span telemetry.Span, depth int)
 	walk = func(span telemetry.Span, depth int) {
-		row := AdminTraceRow{Span: span, Depth: depth, Width: 100, Caller: span.Attrs["code.function.name"], Location: location(span)}
+		row := AdminTraceRow{Span: span, Bar: span.Kind, Depth: depth, Width: 100, Caller: span.Attrs["code.function.name"], Location: location(span)}
 		if total > 0 {
 			row.Offset = 100 * float64(span.Start.Sub(start)) / float64(total)
 			// Wide enough to see, however quick.
 			row.Width = max(0.5, 100*float64(span.Duration)/float64(total))
+		}
+		if isQuery(span) {
+			row.Bar = "query"
 		}
 		trace.Rows = append(trace.Rows, row)
 		for _, child := range children[span.SpanID] {
@@ -535,6 +598,7 @@ func buildTrace(tel *telemetry.Telemetry, id string) (AdminTrace, bool) {
 	for _, root := range roots {
 		walk(root, 0)
 	}
+	trace.Spent = spent(trace.Rows, total)
 	for _, record := range tel.Logs.Recent(otellog.SeverityDebug) {
 		if record.TraceID == id {
 			trace.Logs = append(trace.Logs, record)

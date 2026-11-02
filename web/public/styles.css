@@ -2454,11 +2454,15 @@ a.b-acct:focus-visible {
 }
 
 .b-waterfall-client {
+    background: var(--b-clay);
+}
+
+.b-waterfall-query {
     background: var(--b-plum);
 }
 
 .b-waterfall-internal {
-    background: var(--b-clay);
+    background: var(--b-muted-accent);
 }
 
 .b-waterfall-error .b-waterfall-bar {
@@ -2467,4 +2471,54 @@ a.b-acct:focus-visible {
 
 .b-waterfall-time {
     text-align: right;
+}
+
+/* A trace's time, split between the store, calls out and budge itself. The
+   colours match the waterfall's bars for the same kinds of span. */
+.b-spent-bar {
+    display: flex;
+    gap: 2px;
+    height: 0.75rem;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+    border-radius: 0.2rem;
+    background: var(--b-surface-2);
+}
+
+.b-spent-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.8125rem;
+}
+
+.b-spent-list li {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.2rem 0;
+}
+
+.b-spent-key {
+    flex: 0 0 auto;
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 0.15rem;
+}
+
+.b-spent-share {
+    width: 3.5rem;
+    text-align: right;
+}
+
+.b-spent-database {
+    background: var(--b-plum);
+}
+
+.b-spent-call {
+    background: var(--b-clay);
+}
+
+.b-spent-own {
+    background: var(--b-slate);
 }

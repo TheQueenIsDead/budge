@@ -11,6 +11,10 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/TheQueenIsDead/budge/pkg/integrations/akahu"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // syncOverlapDays is how far before Akahu's last known refresh each sync starts
@@ -70,9 +74,13 @@ func (i *Integrations) Config() map[string]interface{} {
 // for the next sync to start from.
 func (i *Integrations) SyncAkahu(ctx context.Context, dataThrough time.Time, progress func(fetched int)) (time.Time, error) {
 
-	accounts, err := i.AkahuAccounts(ctx)
+	// Each phase is its own span, so a slow sync shows whether the time went
+	// waiting on Akahu or writing it down.
+	phase, span := tracer().Start(ctx, "fetch accounts")
+	accounts, err := i.AkahuAccounts(phase)
+	end(span, err, attribute.Int("akahu.accounts", len(accounts)))
 	if err != nil {
-		slog.Error("akahu sync failed", "error", err)
+		slog.ErrorContext(ctx, "akahu sync failed", "error", err)
 		return dataThrough, err
 	}
 
@@ -80,11 +88,15 @@ func (i *Integrations) SyncAkahu(ctx context.Context, dataThrough time.Time, pro
 	if !since.IsZero() {
 		since = since.AddDate(0, 0, -syncOverlapDays)
 	}
-	transactions, err := i.akahu.GetTransactions(ctx, since, true, progress)
+	phase, span = tracer().Start(ctx, "fetch transactions", trace.WithAttributes(attribute.String("akahu.since", since.Format(time.RFC3339))))
+	transactions, err := i.akahu.GetTransactions(phase, since, true, progress)
+	end(span, err, attribute.Int("akahu.transactions", len(transactions)))
 	if err != nil {
-		slog.Error("akahu sync failed", "error", err)
+		slog.ErrorContext(ctx, "akahu sync failed", "error", err)
 		return dataThrough, err
 	}
+
+	_, span = tracer().Start(ctx, "classify transactions")
 
 	transfers := identifyTransfers(transactions)
 
@@ -135,12 +147,30 @@ func (i *Integrations) SyncAkahu(ctx context.Context, dataThrough time.Time, pro
 
 	}
 
+	span.End()
+
 	if err := i.store.SaveSynced(ctx, saved, txs, merchants); err != nil {
-		slog.Error("akahu sync failed", "error", err)
+		slog.ErrorContext(ctx, "akahu sync failed", "error", err)
 		return dataThrough, err
 	}
 
 	return freshness(accounts, transactions, dataThrough), nil
+}
+
+// tracer starts the sync's spans. It is fetched each time, so it follows
+// telemetry being set up again.
+func tracer() trace.Tracer {
+	return otel.Tracer("github.com/TheQueenIsDead/budge/pkg/integrations")
+}
+
+// end finishes a phase's span with what it came to, and its error if any.
+func end(span trace.Span, err error, attrs ...attribute.KeyValue) {
+	span.SetAttributes(attrs...)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
+	span.End()
 }
 
 // isMatchingTransfer reports whether two transactions look like the two legs

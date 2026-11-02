@@ -16,9 +16,6 @@ import (
 // stalls holds the sync open forever, and a scheduled sync never reports back.
 const requestTimeout = 30 * time.Second
 
-// client is shared by every call, and traces each one as a child of the
-// context it was made in.
-var client = &http.Client{Timeout: requestTimeout, Transport: otelhttp.NewTransport(http.DefaultTransport)}
 
 type AkahuClient struct {
 	BaseURL   string `json:"baseURL"`
@@ -93,6 +90,9 @@ func (a *AkahuClient) get(ctx context.Context, path string, query map[string]str
 		req.URL.RawQuery = q.Encode()
 	}
 
+	// Made for each call, so the trace it joins comes from the telemetry
+	// running now rather than whatever was set up first.
+	client := &http.Client{Timeout: requestTimeout, Transport: otelhttp.NewTransport(http.DefaultTransport)}
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, err

@@ -490,6 +490,30 @@
         </p>
     </div>
 
+    <div class="b-card b-card-pad mb-3 b-accent-plum">
+        <div class="b-card-head">
+            <div>
+                <h3 class="b-card-title">Where the time went</h3>
+            </div>
+        </div>
+        <div class="b-spent-bar" role="img" aria-label="How the trace's time was split">
+            {{ range $s := .Spent }}
+                <span class="b-spent-{{ $s.Kind }}" style="width: {{ printf "%.2f" (pctOf $s.Share 1.0) }}%"></span>
+            {{ end }}
+        </div>
+        <ul class="b-spent-list">
+            {{ range $s := .Spent }}
+                <li>
+                    <span class="b-spent-key b-spent-{{ $s.Kind }}"></span>
+                    <span class="font-monospace">{{ $s.Label }}</span>
+                    <span class="b-admin-meta">{{ $s.Detail }}</span>
+                    <span class="ms-auto b-num">{{ $s.Duration | fmtDuration }}</span>
+                    <span class="b-admin-meta b-num b-spent-share">{{ $s.Share | fmtPercent }}</span>
+                </li>
+            {{ end }}
+        </ul>
+    </div>
+
     <div class="b-card b-card-pad mb-3 b-accent-slate">
         <ul class="b-waterfall">
             {{ range .Rows }}
@@ -501,7 +525,7 @@
                         {{ with .Status }}<span class="text-danger small">{{ . }}</span>{{ end }}
                     </div>
                     <div class="b-waterfall-track">
-                        <div class="b-waterfall-bar b-waterfall-{{ .Kind }}"
+                        <div class="b-waterfall-bar b-waterfall-{{ .Bar }}"
                              style="left: {{ printf "%.2f" .Offset }}%; width: {{ printf "%.2f" .Width }}%"></div>
                     </div>
                     <div class="b-waterfall-time b-num">{{ .Duration | fmtDuration }}</div>
