@@ -36,3 +36,31 @@ func TestTelemetryKeptBesideTheDatabase(t *testing.T) {
 	assert.Equal(t, 14*24*time.Hour, opts.Retention)
 	assert.Equal(t, "1.19.0", opts.Version)
 }
+
+func TestTelemetryToggle(t *testing.T) {
+	for _, c := range []struct {
+		budge, sdkDisabled string
+		want               bool
+	}{
+		{"", "", true},
+		{"true", "", true},
+		{"on", "", true},
+		{"false", "", false},
+		{"off", "", false},
+		{"0", "", false},
+		{"", "true", false},
+		{"true", "true", false},
+		{"", "false", true},
+	} {
+		t.Setenv("BUDGE_TELEMETRY", c.budge)
+		t.Setenv("OTEL_SDK_DISABLED", c.sdkDisabled)
+		got, err := telemetryEnabled()
+		require.NoError(t, err)
+		assert.Equal(t, c.want, got, "BUDGE_TELEMETRY=%q OTEL_SDK_DISABLED=%q", c.budge, c.sdkDisabled)
+	}
+
+	t.Setenv("BUDGE_TELEMETRY", "maybe")
+	t.Setenv("OTEL_SDK_DISABLED", "")
+	_, err := telemetryEnabled()
+	assert.Error(t, err, "a value that is neither is a mistake worth stopping for")
+}

@@ -165,7 +165,8 @@
         </div>
     </div>
 
-    <!-- Admin -->
+    <!-- Admin, when telemetry is running to fill it -->
+    {{ if .admin }}
     <a class="b-card b-card-pad mb-3 b-accent-plum d-block text-reset text-decoration-none" id="admin"
        href="/admin" hx-boost="true" hx-target="#main">
         <div class="b-card-head mb-0">
@@ -182,6 +183,7 @@
             <i class="bi bi-chevron-right text-muted"></i>
         </div>
     </a>
+    {{ end }}
 
     <!-- Danger -->
     <div class="b-card b-card-pad mb-3 b-accent-brick" id="danger">

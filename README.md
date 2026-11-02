@@ -29,6 +29,18 @@ docker pull ghcr.io/thequeenisdead/budge:1.12.0
 Images are tagged with the full version (`1.12.0`), the major and minor version
 (`1.12`), the major version (`1`), and `latest`.
 
+### Configuration
+
+Budge is configured with environment variables, all optional.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `BUDGE_BOLT_PATH` | `.` | The directory Budge keeps its database, and its telemetry, in. |
+| `BUDGE_TELEMETRY` | `true` | Set to `false` to turn telemetry off: nothing is traced or kept, and the admin page is gone. OpenTelemetry's own `OTEL_SDK_DISABLED=true` does the same. |
+| `BUDGE_TELEMETRY_RETENTION` | `7d` | How long metrics, logs and traces are kept in `budge.telemetry.db`, such as `36h` or `14d`. `0` keeps them in memory only, until a restart. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | | Also sends telemetry to an OpenTelemetry collector, along with the other standard `OTEL_*` variables. |
+| `AKAHU_USER_TOKEN`, `AKAHU_APP_TOKEN` | | Akahu tokens to use until some are saved in settings. |
+
 > **Note:** Budge was previously published to Docker Hub. That repository is no
 > longer updated, so please switch to `ghcr.io/thequeenisdead/budge`.
 

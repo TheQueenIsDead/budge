@@ -69,6 +69,7 @@ func (app *Application) Settings(c echo.Context) error {
 		"akahuUserToken": akahuConfig.UserToken,
 		"sync":           app.syncStatus(ctx),
 		"schedule":       buildScheduleView(schedule),
+		"admin":          app.telemetry != nil,
 	})
 }
 

@@ -33,14 +33,25 @@ type Budge struct {
 func NewBudge(version string) (*Budge, error) {
 
 	// Telemetry first, so everything after it is traced, measured and logged
-	// through it; slog is the default logger from here on.
-	opts, err := telemetryOptions(version)
+	// through it; slog is the default logger from here on. Turned off, logs
+	// still go to stdout, and nothing else is kept.
+	enabled, err := telemetryEnabled()
 	if err != nil {
 		return nil, err
 	}
-	tel, err := telemetry.Setup(context.Background(), opts)
-	if err != nil {
-		return nil, err
+	var tel *telemetry.Telemetry
+	if enabled {
+		opts, err := telemetryOptions(version)
+		if err != nil {
+			return nil, err
+		}
+		if tel, err = telemetry.Setup(context.Background(), opts); err != nil {
+			return nil, err
+		}
+	} else {
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
+		version, revision := telemetry.BuildVersion(version)
+		slog.Info("budge started", "version", version, "revision", revision, "telemetry", "off")
 	}
 	logger := slog.Default()
 
@@ -79,6 +90,10 @@ func (b *Budge) Start() error {
 // noting why. Every component is closed even if one fails to, and what
 // failed is reported together.
 func (b *Budge) Teardown(reason string) error {
+	if b.Telemetry == nil {
+		slog.Info("budge stopping", "reason", reason)
+		return errors.Join(b.Application.Close(), b.Store.Close())
+	}
 	b.Telemetry.StoppingBecause(reason)
 
 	// Telemetry last, so what the others do while closing is still recorded,
@@ -94,7 +109,33 @@ func (b *Budge) Teardown(reason string) error {
 	)
 }
 
-// telemetryOptions keeps samples and logs beside the database for
+// telemetryEnabled reads whether telemetry runs: unless BUDGE_TELEMETRY
+// says false, or OpenTelemetry's own OTEL_SDK_DISABLED says true.
+func telemetryEnabled() (bool, error) {
+	if disabled, err := envBool("OTEL_SDK_DISABLED"); err != nil || disabled {
+		return false, err
+	}
+	if value, ok := os.LookupEnv("BUDGE_TELEMETRY"); ok && strings.TrimSpace(value) != "" {
+		enabled, err := envBool("BUDGE_TELEMETRY")
+		return enabled, err
+	}
+	return true, nil
+}
+
+// envBool reads a variable as true or false, taking on and off as well. An
+// unset variable is false.
+func envBool(name string) (bool, error) {
+	value := strings.ToLower(strings.TrimSpace(os.Getenv(name)))
+	switch value {
+	case "", "false", "0", "off", "no":
+		return false, nil
+	case "true", "1", "on", "yes":
+		return true, nil
+	}
+	return false, fmt.Errorf("%s: %q is not true or false", name, value)
+}
+
+// telemetryOptions keeps samples, logs and traces beside the database for
 // BUDGE_TELEMETRY_RETENTION, a week unless that says otherwise: "36h", "14d",
 // or "0" to keep nothing past a restart.
 func telemetryOptions(version string) (telemetry.Options, error) {

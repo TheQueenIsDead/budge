@@ -153,6 +153,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	t := &Template{
 		templates: tpl,
+		admin:     tel != nil,
 	}
 
 	// Echo's own logging, from starting the server and the like, goes to
@@ -265,9 +266,12 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	// Settings
 	app.http.GET("/settings", app.Settings)
-	app.http.GET("/admin", app.Admin)
-	app.http.GET("/admin/traces/:id", app.AdminTrace)
-	app.http.POST("/admin/compact", app.AdminCompact)
+	// Admin is what telemetry has recorded, so without it there is no page.
+	if tel != nil {
+		app.http.GET("/admin", app.Admin)
+		app.http.GET("/admin/traces/:id", app.AdminTrace)
+		app.http.POST("/admin/compact", app.AdminCompact)
+	}
 	app.http.POST("/settings/schedule", app.SettingsSaveSchedule)
 	app.http.POST("/settings/budget-categories", app.SettingsAddBudgetCategory)
 	app.http.POST("/settings/budget-categories/:key", app.SettingsUpdateBudgetCategory)
@@ -423,6 +427,8 @@ func (app *Application) Close() error {
 
 type Template struct {
 	templates *template.Template
+	// admin is whether the admin page is there to link to.
+	admin bool
 }
 
 func (t *Template) renderPartial(name string, data interface{}) (string, error) {
@@ -469,6 +475,7 @@ func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Con
 
 	return t.templates.ExecuteTemplate(w, "layout", map[string]interface{}{
 		"content": template.HTML(partial),
+		"admin":   t.admin,
 	})
 
 }

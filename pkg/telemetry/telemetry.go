@@ -115,7 +115,7 @@ type Telemetry struct {
 // the default logger feeding both stdout and the kept logs, and starts
 // sampling metrics.
 func Setup(ctx context.Context, opts Options) (*Telemetry, error) {
-	version, revision := buildVersion(opts.Version)
+	version, revision := BuildVersion(opts.Version)
 	res, err := resource.Merge(resource.Default(), resource.NewSchemaless(
 		semconv.ServiceName(opts.ServiceName),
 		semconv.ServiceVersion(version),
@@ -353,9 +353,9 @@ func (t *Telemetry) Runs() []Run {
 	return runs
 }
 
-// buildVersion is the version budge was built as: the one given, stamped in
+// BuildVersion is the version budge was built as: the one given, stamped in
 // at release, or else what Go recorded from the module and its checkout.
-func buildVersion(given string) (version, revision string) {
+func BuildVersion(given string) (version, revision string) {
 	version = given
 	info, ok := debug.ReadBuildInfo()
 	if !ok {

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -240,3 +241,29 @@ func TestAPanicIsRecordedWithItsStack(t *testing.T) {
 }
 
 func panicHere() { panic("oh no") }
+
+func TestWithoutTelemetryThereIsNoAdmin(t *testing.T) {
+	t.Setenv("BUDGE_BOLT_PATH", t.TempDir())
+	store, err := database.NewStore()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+	without, err := NewApplication(store, nil, nil)
+	require.NoError(t, err)
+	with, _ := instrumentedApp(t)
+
+	get := func(app *Application, target string) (int, string) {
+		rec := httptest.NewRecorder()
+		app.http.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, target, nil))
+		return rec.Code, rec.Body.String()
+	}
+
+	code, _ := get(without, "/admin")
+	assert.Equal(t, http.StatusTemporaryRedirect, code, "the page is not there, like any missing page")
+	_, settings := get(without, "/settings")
+	assert.NotContains(t, settings, `href="/admin"`, "neither the icon nor the settings card links to it")
+
+	code, _ = get(with, "/admin")
+	assert.Equal(t, http.StatusOK, code)
+	_, settings = get(with, "/settings")
+	assert.Equal(t, 2, strings.Count(settings, `href="/admin"`), "the icon and the settings card")
+}

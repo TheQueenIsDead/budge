@@ -100,10 +100,12 @@
                     <!-- How budge itself is running, and how it is set up, sit
                          beside the bell at every size: they are about budge,
                          not about the money. -->
-                    <a class="b-nav-link px-2" data-nav href="/admin"
-                       aria-label="Admin" title="Admin" hx-boost="true" hx-target="#main">
-                        <i class="bi bi-activity fs-5"></i>
-                    </a>
+                    {{ if .admin }}
+                        <a class="b-nav-link px-2" data-nav href="/admin"
+                           aria-label="Admin" title="Admin" hx-boost="true" hx-target="#main">
+                            <i class="bi bi-activity fs-5"></i>
+                        </a>
+                    {{ end }}
 
                     <a class="b-nav-link px-2" data-nav href="/settings"
                        aria-label="Settings" title="Settings" hx-boost="true" hx-target="#main">
