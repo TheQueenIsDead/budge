@@ -135,12 +135,13 @@ func (s *Store) DeleteMemory(id string) error {
 	return Delete[models.Memory](s.db, []byte(id))
 }
 
-// GetTimelinePreferences returns what the timeline has been told to hide. Unset
-// means nothing is hidden.
+// GetTimelinePreferences returns what the timeline has been told to hide.
+// Unset means nothing is hidden; preferences that cannot be read are an
+// error, rather than nothing, which the next change would save over.
 func (s *Store) GetTimelinePreferences() (models.TimelinePreferences, error) {
-	prefs, err := Get[models.TimelinePreferences](s.db, models.TimelinePreferences{}.Key())
+	prefs, _, err := GetOptional[models.TimelinePreferences](s.db, models.TimelinePreferences{}.Key())
 	if err != nil {
-		return models.TimelinePreferences{}, nil
+		return models.TimelinePreferences{}, fmt.Errorf("reading timeline preferences: %w", err)
 	}
 	return prefs, nil
 }
@@ -257,21 +258,35 @@ func (s *Store) ExportBackup() (models.Backup, error) {
 	if backup.Timeline, err = s.GetTimelinePreferences(); err != nil {
 		return backup, err
 	}
-	if salary, err := Get[models.BudgetSalary](s.db, models.BudgetSalary{}.Key()); err == nil {
-		backup.BudgetSalary = &salary
+	// A setting never saved is left out, but one that cannot be read fails
+	// the export, rather than leaving a backup quietly without it.
+	if backup.BudgetSalary, err = exported[models.BudgetSalary](s); err != nil {
+		return backup, err
 	}
-	if schedule, err := Get[models.ScheduleSettings](s.db, models.ScheduleSettings{}.Key()); err == nil {
+	if backup.Schedule, err = exported[models.ScheduleSettings](s); err != nil {
+		return backup, err
+	}
+	if backup.Schedule != nil {
 		// When the jobs last ran belongs to this instance, not the next one.
-		schedule.AkahuLastRun, schedule.AssetsLastRun = time.Time{}, time.Time{}
-		backup.Schedule = &schedule
+		backup.Schedule.AkahuLastRun, backup.Schedule.AssetsLastRun = time.Time{}, time.Time{}
 	}
-	if categories, err := Get[models.CategorySettings](s.db, models.CategorySettings{}.Key()); err == nil {
-		backup.Categories = &categories
+	if backup.Categories, err = exported[models.CategorySettings](s); err != nil {
+		return backup, err
 	}
-	if list, err := Get[models.BudgetCategorySettings](s.db, models.BudgetCategorySettings{}.Key()); err == nil {
-		backup.BudgetCategories = &list
+	if backup.BudgetCategories, err = exported[models.BudgetCategorySettings](s); err != nil {
+		return backup, err
 	}
 	return backup, nil
+}
+
+// exported reads a setting for a backup: nil when it was never saved.
+func exported[T Storable](s *Store) (*T, error) {
+	var zero T
+	setting, found, err := GetOptional[T](s.db, zero.Key())
+	if err != nil || !found {
+		return nil, err
+	}
+	return &setting, nil
 }
 
 // ImportBackup writes a backup into this instance in one commit, so a bad
@@ -514,9 +529,15 @@ func (s *Store) UpdateBudgetItem(item models.BudgetItem) error {
 
 /* Budget Salary */
 
+// GetBudgetSalary reads the income settings. Unset means the usual starting
+// point; settings that cannot be read are an error, rather than that starting
+// point, which the next change would save over.
 func (s *Store) GetBudgetSalary() (models.BudgetSalary, error) {
-	salary, err := Get[models.BudgetSalary](s.db, models.BudgetSalary{}.Key())
+	salary, found, err := GetOptional[models.BudgetSalary](s.db, models.BudgetSalary{}.Key())
 	if err != nil {
+		return models.BudgetSalary{}, fmt.Errorf("reading income settings: %w", err)
+	}
+	if !found {
 		return models.BudgetSalary{
 			SalaryFrequency: "yearly",
 			IncludePAYE:     true,
@@ -532,10 +553,15 @@ func (s *Store) SaveBudgetSalary(salary models.BudgetSalary) error {
 /* Schedule */
 
 // GetScheduleSettings returns what runs by itself. An unset schedule is off:
-// nothing should start reaching out to a bank without being asked to.
+// nothing should start reaching out to a bank without being asked to. One
+// that cannot be read is an error, rather than off, which the next change
+// would save over.
 func (s *Store) GetScheduleSettings() (models.ScheduleSettings, error) {
-	schedule, err := Get[models.ScheduleSettings](s.db, models.ScheduleSettings{}.Key())
+	schedule, found, err := GetOptional[models.ScheduleSettings](s.db, models.ScheduleSettings{}.Key())
 	if err != nil {
+		return models.ScheduleSettings{}, fmt.Errorf("reading the schedule: %w", err)
+	}
+	if !found {
 		return models.ScheduleSettings{
 			AkahuInterval:  models.AkahuIntervals[1].Key,
 			AssetsInterval: models.AssetIntervals[0].Key,

@@ -484,3 +484,33 @@ func TestUnreadableCategorySettingsAreAnError(t *testing.T) {
 	_, err = store.GetCategorySettings()
 	assert.Error(t, err)
 }
+
+func TestUnreadableSettingsAreAnError(t *testing.T) {
+	store := tempStore(t)
+
+	salary, err := store.GetBudgetSalary()
+	require.NoError(t, err, "nothing saved is the usual starting point")
+	assert.Equal(t, "yearly", salary.SalaryFrequency)
+	schedule, err := store.GetScheduleSettings()
+	require.NoError(t, err)
+	assert.False(t, schedule.AkahuEnabled, "nothing saved is off")
+	_, err = store.GetTimelinePreferences()
+	require.NoError(t, err)
+	backup, err := store.ExportBackup()
+	require.NoError(t, err)
+	assert.Nil(t, backup.BudgetSalary, "a setting never saved is left out of a backup")
+
+	for _, key := range [][]byte{models.BudgetSalary{}.Key(), models.ScheduleSettings{}.Key(), models.TimelinePreferences{}.Key()} {
+		require.NoError(t, store.db.Update(func(tx *bolt.Tx) error {
+			return tx.Bucket(models.BudgetSalary{}.Bucket()).Put(key, []byte("{not json"))
+		}))
+	}
+	_, err = store.GetBudgetSalary()
+	assert.Error(t, err, "settings that cannot be read are not quietly replaced, for the next change to save over")
+	_, err = store.GetScheduleSettings()
+	assert.Error(t, err)
+	_, err = store.GetTimelinePreferences()
+	assert.Error(t, err)
+	_, err = store.ExportBackup()
+	assert.Error(t, err, "nor left out of a backup without a word")
+}
