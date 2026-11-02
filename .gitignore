@@ -105,6 +105,7 @@ go.work
 budge.bolt.db
 budge.bolt.db.lock
 budge.bolt.db.bak-*
+budge.telemetry.db
 tmp/
 uploads/
 .claude/

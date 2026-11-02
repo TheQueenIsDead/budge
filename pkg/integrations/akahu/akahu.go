@@ -16,7 +16,6 @@ import (
 // stalls holds the sync open forever, and a scheduled sync never reports back.
 const requestTimeout = 30 * time.Second
 
-
 type AkahuClient struct {
 	BaseURL   string `json:"baseURL"`
 	UserToken string `json:"userToken"`

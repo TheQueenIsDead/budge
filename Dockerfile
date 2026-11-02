@@ -8,7 +8,10 @@ RUN go mod verify
 
 COPY . .
 RUN ls -la
-RUN CGO_ENABLED=0 go build -o /go/bin/budge ./cmd/budge/...
+# The release's version, which the admin page and the telemetry file record
+# for each run.
+ARG VERSION=""
+RUN CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION}" -o /go/bin/budge ./cmd/budge/...
 
 FROM gcr.io/distroless/static-debian12
 
