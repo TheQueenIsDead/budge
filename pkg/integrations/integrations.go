@@ -50,9 +50,17 @@ func (i *Integrations) RegisterAkahu() {
 	settings, err := i.store.GetAkahuSettings(ctx)
 	if err != nil {
 		slog.Warn("could not read the akahu settings, falling back to the environment", "error", err)
+	}
+	// Tokens from the environment stand in until some are saved, as on a
+	// fresh instance, and are saved so settings shows them.
+	if settings.UserToken == "" && settings.AppToken == "" {
 		settings.UserToken = os.Getenv("AKAHU_USER_TOKEN")
 		settings.AppToken = os.Getenv("AKAHU_APP_TOKEN")
-		_ = i.store.UpdateAkahuSettings(ctx, settings)
+		if settings.UserToken != "" || settings.AppToken != "" {
+			if err := i.store.UpdateAkahuSettings(ctx, settings); err != nil {
+				slog.Warn("could not save the akahu tokens from the environment", "error", err)
+			}
+		}
 	}
 	i.akahu = akahu.NewClient(
 		akahu.WithUserToken(settings.UserToken),

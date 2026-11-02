@@ -229,3 +229,24 @@ func TestSyncAkahuTracesEachPhase(t *testing.T) {
 			"each call out sits under the phase that made it")
 	}
 }
+
+func TestAFreshInstanceTakesAkahuTokensFromTheEnvironment(t *testing.T) {
+	t.Setenv("AKAHU_USER_TOKEN", "user-from-env")
+	t.Setenv("AKAHU_APP_TOKEN", "app-from-env")
+	t.Setenv("BUDGE_BOLT_PATH", t.TempDir())
+	store, err := database.NewStore()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+
+	i := NewIntegrations(store)
+	assert.Equal(t, "user-from-env", i.akahu.UserToken)
+	assert.Equal(t, "app-from-env", i.akahu.AppToken)
+	saved, err := store.GetAkahuSettings(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "user-from-env", saved.UserToken, "saved, so settings shows them")
+
+	saved.UserToken, saved.AppToken = "user-saved", "app-saved"
+	require.NoError(t, store.UpdateAkahuSettings(t.Context(), saved))
+	again := NewIntegrations(store)
+	assert.Equal(t, "user-saved", again.akahu.UserToken, "saved tokens win over the environment")
+}
