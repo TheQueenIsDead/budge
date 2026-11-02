@@ -13,12 +13,14 @@ function flashSaved(scope) {
 function _toWeekly(v, f) {
     if (f === 'fortnightly') return v / 2;
     if (f === 'monthly')     return v * 12 / 52;
+    if (f === 'quarterly')   return v * 4 / 52;
     if (f === 'yearly')      return v / 52;
     return v;
 }
 function _fromWeekly(v, f) {
     if (f === 'fortnightly') return v * 2;
     if (f === 'monthly')     return v * 52 / 12;
+    if (f === 'quarterly')   return v * 52 / 4;
     if (f === 'yearly')      return v * 52;
     return v;
 }

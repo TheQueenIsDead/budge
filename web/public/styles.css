@@ -1843,10 +1843,12 @@ a.b-acct:focus-visible {
     list-style: none;
 }
 
-/* Name, bar and figure on one line; the bar takes whatever room is left. */
+/* Name, bar and figure on one line. The bar and figure columns are the same
+   width on every row, measured from the right, so bars line up whatever the
+   figure says or how far a subcategory is indented; the name takes the rest. */
 .b-target-line {
     display: grid;
-    grid-template-columns: minmax(10rem, 1.2fr) minmax(4rem, 1fr) auto auto;
+    grid-template-columns: minmax(8rem, 1fr) minmax(4rem, 20rem) 13rem 1rem;
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 1.25rem;
@@ -1857,13 +1859,16 @@ a.b-acct:focus-visible {
     background: var(--b-surface-2);
 }
 
+/* The category's chip, then its name, which is cut short before it pushes
+   the bar out of line. */
 .b-target-name {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
     min-width: 0;
 }
 
-.b-target-name > span {
+.b-target-name > .b-target-label {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1893,6 +1898,111 @@ a.b-acct:focus-visible {
     background: var(--b-clay);
 }
 
+/* A split category's subcategories, each a row of its own, indented under
+   it so they read as its parts. */
+.b-target-children {
+    border-top: 1px solid var(--b-surface-3);
+}
+
+.b-target-sub .b-target-line {
+    padding-left: calc(1.25rem + 30px + 0.5rem);
+}
+
+.b-target-sub .b-target-label {
+    font-weight: 500 !important;
+}
+
+.b-target-sub .b-target-editor,
+.b-target-sub .b-target-quick {
+    padding-left: calc(1.25rem + 2 * (30px + 0.5rem));
+}
+
+.b-target-sub:last-child {
+    border-bottom: 0;
+}
+
+/* A split category's line does not open; it is a heading over its parts. */
+.b-target-fixed {
+    cursor: default;
+}
+
+.b-target-fixed:hover {
+    background: none;
+}
+
+/* A small square button beside a category's name, through to its trend in
+   insights. */
+.b-target-goto {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: var(--b-surface-3);
+    color: var(--b-ink-2);
+    font-size: 0.75rem;
+    line-height: 1;
+    text-decoration: none;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.b-target-goto:hover,
+.b-target-mode:hover {
+    background: var(--b-border);
+    color: var(--b-ink);
+}
+
+/* How a category with subcategories is budgeted, said in words beside its
+   name: Combined, or Split, tinted while split. */
+.b-target-mode {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.25rem;
+    height: 22px;
+    padding: 0 0.5rem;
+    border: 0;
+    border-radius: 6px;
+    background: var(--b-surface-3);
+    color: var(--b-ink-2);
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.b-target-mode.is-split {
+    background: var(--b-primary-soft);
+    color: var(--b-primary);
+}
+
+.b-target-goto:focus-visible,
+.b-target-mode:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--b-primary-ring);
+}
+
+/* A category's spending split by subcategory, inside its opened row. */
+.b-target-subs {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    font-size: 0.825rem;
+}
+
+.b-target-subs li {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.25rem 0;
+    border-top: 1px solid var(--b-surface-3);
+}
+
 .b-target-amount {
     font-size: 0.875rem;
     text-align: right;
@@ -1908,8 +2018,9 @@ a.b-acct:focus-visible {
     transform: rotate(180deg);
 }
 
+/* What opens under a row lines up with its name rather than its chip. */
 .b-target-editor {
-    padding: 0.25rem 1.25rem 1rem;
+    padding: 0.25rem 1.25rem 1rem calc(1.25rem + 30px + 0.5rem);
 }
 
 .b-merchant {
@@ -1937,7 +2048,7 @@ a.b-acct:focus-visible {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-    padding: 0 1.25rem 0.75rem;
+    padding: 0 1.25rem 0.75rem calc(1.25rem + 30px + 0.5rem);
 }
 
 @media (max-width: 575.98px) {
@@ -1961,13 +2072,176 @@ a.b-acct:focus-visible {
 
     .b-target-editor,
     .b-target-quick {
-        padding-left: 1rem;
+        padding-left: calc(1rem + 30px + 0.5rem);
         padding-right: 1rem;
+    }
+
+    .b-target-sub .b-target-line {
+        padding-left: calc(1rem + 30px + 0.5rem);
+    }
+
+    .b-target-sub .b-target-editor,
+    .b-target-sub .b-target-quick {
+        padding-left: calc(1rem + 2 * (30px + 0.5rem));
     }
 }
 
+/* The period charts share a row evenly, wrapping when they no longer fit. */
+.b-periods {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: 1rem;
+}
+
+/* A period chart is shorter than the full-width charts, several to a row. */
+.b-period-chart {
+    height: 160px;
+}
+
+/* What the budget could tidy, under its headline: a quiet line, not a card. */
+.b-budget-note {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin: -0.25rem 0 1rem;
+    color: var(--b-ink-2);
+    font-size: 0.85rem;
+}
+
 /* The budget page's headline: overall spend against targets. */
+.b-track-link {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: var(--b-border-strong);
+    text-underline-offset: 2px;
+}
+
+.b-track-link:hover {
+    color: var(--b-primary);
+}
+
 .b-tracking-bar {
     min-width: 8rem;
     max-width: 20rem;
+}
+
+/* ==========================================================================
+   Category lists: a row per category that opens to its detail
+   ========================================================================== */
+
+.b-pv-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.b-pv-cat + .b-pv-cat {
+    border-top: 1px solid var(--b-surface-3);
+}
+
+.b-pv-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0;
+    cursor: pointer;
+    list-style: none;
+}
+
+.b-pv-row::-webkit-details-marker {
+    display: none;
+}
+
+.b-pv-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.b-pv-figures {
+    flex: 0 0 auto;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.b-pv-cat[open] .b-target-chev {
+    transform: rotate(180deg);
+}
+
+/* An opened category reads as sections: details, subcategories, rules, and
+   deleting it last. */
+.b-cat-section + .b-cat-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--b-surface-3);
+}
+
+.b-cat-section-title {
+    margin-bottom: 0.5rem;
+    color: var(--b-ink-2);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+/* Subcategories side by side once there is room. */
+.b-cat-subs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    gap: 0.5rem;
+}
+
+.b-cat-danger .b-field-label {
+    color: var(--b-negative);
+}
+
+/* Picking a colour or an icon: a row of choices, the chosen one ringed. */
+.b-pick-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+}
+
+.b-accent-pick,
+.b-icon-pick {
+    margin: 0;
+    cursor: pointer;
+    border-radius: 11px;
+    padding: 2px;
+    border: 2px solid transparent;
+}
+
+.b-accent-pick:has(:checked),
+.b-icon-pick:has(:checked) {
+    border-color: var(--b-primary);
+}
+
+.b-accent-pick:has(:focus-visible),
+.b-icon-pick:has(:focus-visible) {
+    box-shadow: 0 0 0 3px var(--b-primary-ring);
+}
+
+.b-swatch {
+    display: block;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: var(--accent);
+}
+
+/* What opens under a category, indented under its name. */
+.b-cat-body {
+    padding: 0 0 0.75rem calc(30px + 0.75rem);
+}
+
+/* A filter toggle, beside the others, reads as pressed while it is on. */
+.b-filter-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    white-space: nowrap;
+}
+
+.btn-check:checked + .b-filter-toggle {
+    background: var(--b-primary-soft);
+    border-color: var(--b-primary);
+    color: var(--b-primary-ink);
 }

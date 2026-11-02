@@ -14,13 +14,15 @@
             <div class="min-width-0 flex-grow-1">
                 <div class="b-card-title">
                     {{if .Target}}
-                    {{.Actual | fmtWhole}} a week against {{.Target | fmtWhole}} of targets
+                    {{.Gap | fmtWholeAbs}} {{if .IsOver}}over{{else}}under{{end}} budget for weekly targets
                     {{else}}
                     No targets set yet
                     {{end}}
                 </div>
                 <div class="b-card-sub">
-                    {{if .OverCount}}{{.OverCount}} categor{{if eq .OverCount 1}}y is{{else}}ies are{{end}} over target{{else if .Target}}Every category is within its target{{end}}{{if .GenerousCount}} · {{.GenerousCount}} target{{if ne .GenerousCount 1}}s{{end}} well above spending{{end}}{{if .UntargetedCount}} · {{.UntargetedWeekly | fmtWhole}} a week in {{.UntargetedCount}} categor{{if eq .UntargetedCount 1}}y{{else}}ies{{end}} with no target{{end}}
+                    {{/* Counts only: what each is, and what to do about it, is in
+                         the notifications, raised when a sync brings new spending. */}}
+                    {{if .OverCount}}{{.OverCount}} {{if eq .OverCount 1}}is{{else}}are{{end}} over target{{else if .Target}}Every category is within its target{{end}}{{if .UntargetedCount}}{{if or .OverCount .Target}} · {{end}}{{.UntargetedWeekly | fmtWhole}} a week with no target{{end}}{{if or .OverCount .UntargetedCount}} · <a class="b-track-link" href="/notifications" hx-boost="true" hx-target="#main">See notifications</a>{{end}}
                 </div>
             </div>
             {{if .Target}}
@@ -31,6 +33,19 @@
         </div>
     </div>
     {{end}}
+
+    {{/* What could be tidied, mentioned rather than given sections of its own,
+         since neither needs doing. */}}
+    {{with .SetupData.Note}}
+    <p class="b-budget-note"><i class="bi bi-lightbulb" aria-hidden="true"></i><span>{{.}}</span></p>
+    {{end}}
+
+    {{/* Each kind of target against its own period, redrawn whenever a
+         target changes. */}}
+    <div id="budget-periods"
+         hx-get="/budget/periods"
+         hx-trigger="load, refreshSummary from:body"
+         hx-swap="innerHTML"></div>
 
     <div class="row g-3 mb-3">
         <div class="col-12 col-lg-5">{{template "budget.income.tile" .Income}}</div>
@@ -115,6 +130,36 @@
             </div>
         </div>
     </div>
+
+    <!-- Savings goal: what should be left each week once the targets are
+         met, judged on the Savings card below. -->
+    <form class="b-card b-card-pad mb-3"
+          hx-post="/budget/savings-goal" hx-trigger="change" hx-swap="none"
+          hx-on::after-request="if (event.detail.successful) { flashSaved(this); htmx.trigger(document.body, 'refreshSummary') }">
+        <div class="d-flex align-items-end justify-content-between gap-3 flex-wrap">
+            <div class="min-width-0">
+                <h3 class="b-card-title">
+                    <i class="bi bi-piggy-bank me-2" aria-hidden="true"></i>Savings goal
+                    <span class="badge-success rounded-pill px-2 ms-2 budge-flash" data-saved-flash aria-live="polite">Saved</span>
+                </h3>
+                <p class="b-card-sub mb-0">What you want left over once your targets are met.</p>
+            </div>
+            <div class="d-flex gap-2">
+                <div class="input-group input-group-sm" style="width:9rem;">
+                    <span class="input-group-text">$</span>
+                    <input type="number" name="savings_goal" class="form-control text-end"
+                           placeholder="Goal" min="0" step="0.01" aria-label="Savings goal amount"
+                           {{if gt .Salary.SavingsGoal 0.0}}value="{{.Salary.SavingsGoal | printf "%.2f"}}"{{end}}>
+                </div>
+                <select name="savings_goal_frequency" class="form-select form-select-sm w-auto" aria-label="Savings goal frequency">
+                    <option value="weekly"      {{if or (eq .Salary.SavingsGoalFrequency "weekly") (eq .Salary.SavingsGoalFrequency "")}}selected{{end}}>Weekly</option>
+                    <option value="fortnightly" {{if eq .Salary.SavingsGoalFrequency "fortnightly"}}selected{{end}}>Fortnightly</option>
+                    <option value="monthly"     {{if eq .Salary.SavingsGoalFrequency "monthly"}}selected{{end}}>Monthly</option>
+                    <option value="yearly"      {{if eq .Salary.SavingsGoalFrequency "yearly"}}selected{{end}}>Yearly</option>
+                </select>
+            </div>
+        </div>
+    </form>
 
     <!-- Income, budgeted expenses and what is left -->
     <div id="budget-cards"
@@ -255,7 +300,13 @@
                 <i class="bi bi-piggy-bank"></i>
             </div>
             <div class="b-stat-value {{if .HasDeficit}}text-danger{{else}}text-success{{end}}">{{.WeeklySavings | fmtCurrencyAbs}}</div>
-            <div class="b-delta-note">{{if .HasDeficit}}Expenses exceed income{{else}}Available after targets{{end}}</div>
+            <div class="b-delta-note">
+                {{if .HasDeficit}}Expenses exceed income{{else}}Available after targets{{end}}
+                {{if gt .SavingsGoalWeekly 0.0}}
+                    {{if .MeetsSavingsGoal}}· meets your {{.SavingsGoalWeekly | fmtWhole}} a week goal
+                    {{else}}· <span class="text-danger">{{.GoalShortfall | fmtWhole}} short of your {{.SavingsGoalWeekly | fmtWhole}} a week goal</span>{{end}}
+                {{end}}
+            </div>
         </div>
     </div>
 </div>
@@ -301,7 +352,7 @@
         <summary class="b-tsec-head">
             <span class="b-card-title">
                 {{.Title}} <span class="b-tsec-count">{{len .Rows}}</span>
-                {{if eq .Key "on-track"}}
+                {{if .Budgeted}}
                 <i class="bi bi-info-circle text-muted ms-1" tabindex="0" data-bs-toggle="tooltip"
                    aria-label="How actual spend is measured"
                    title="Actual spend is averaged over a window matched to each target: the last 4 weeks for weekly targets, 8 for fortnightly, 3 months for monthly and the last 12 months for yearly."></i>
@@ -325,95 +376,82 @@
     </div>
 {{end}}
 
-    <!-- Savings goal -->
-    <form class="b-card b-card-pad mb-3"
-          hx-post="/budget/savings-goal" hx-trigger="change" hx-swap="none">
-        <div class="d-flex align-items-end justify-content-between gap-3 flex-wrap">
-            <div class="min-width-0">
-                <div class="b-card-title"><i class="bi bi-piggy-bank me-2" aria-hidden="true"></i>Savings goal</div>
-                {{template "budget.setup.savings.note" .}}
-            </div>
-            <div class="d-flex gap-2">
-                <div class="input-group input-group-sm" style="width:9rem;">
-                    <span class="input-group-text">$</span>
-                    <input type="number" name="savings_goal" class="form-control text-end"
-                           placeholder="Goal" min="0" step="0.01" aria-label="Savings goal amount"
-                           {{if .HasSavingsGoal}}value="{{.SavingsGoal | printf "%.2f"}}"{{end}}>
-                </div>
-                <select name="savings_goal_frequency" class="form-select form-select-sm w-auto" aria-label="Savings goal frequency">
-                    <option value="weekly"      {{if or (eq .SavingsGoalFrequency "weekly") (eq .SavingsGoalFrequency "")}}selected{{end}}>Weekly</option>
-                    <option value="fortnightly" {{if eq .SavingsGoalFrequency "fortnightly"}}selected{{end}}>Fortnightly</option>
-                    <option value="monthly"     {{if eq .SavingsGoalFrequency "monthly"}}selected{{end}}>Monthly</option>
-                    <option value="yearly"      {{if eq .SavingsGoalFrequency "yearly"}}selected{{end}}>Yearly</option>
-                </select>
-            </div>
-        </div>
-    </form>
 {{end}}
 
 {{define "budget.setup.section.sum"}}
 <span class="b-card-sub" id="tsec-sum-{{.Key}}"{{if .OOB}} hx-swap-oob="true"{{end}}>
-    {{if eq .Key "attention"}}{{.Actual | fmtWhole}} a week{{if .Target}} against {{.Target | fmtWhole}} of targets{{end}}
-    {{else if eq .Key "generous"}}{{.Actual | fmtWhole}} a week spent against {{.Target | fmtWhole}} of targets; lowering them frees the rest
-    {{else if eq .Key "on-track"}}{{.Actual | fmtWhole}} of {{.Target | fmtWhole}} a week
-    {{else if eq .Key "small"}}{{.Actual | fmtWhole}} a week between them, too little to need a target
-    {{else}}{{.Actual | fmtWhole}} a week, left out of the budget{{end}}
+    {{if not .Budgeted}}{{.Actual | fmtWhole}} a week, left out of the budget
+    {{else if .Target}}{{.Actual | fmtWhole}} a week against {{.Target | fmtWhole}} of targets
+    {{else}}{{.Actual | fmtWhole}} a week, no targets yet{{end}}
 </span>
-{{end}}
-
-{{define "budget.setup.savings.note"}}
-<div id="budget-savings-note"{{if .OOB}} hx-swap-oob="true"{{end}}>
-    {{/* Income may not be set yet; tracked savings still mean something. */}}
-    {{if gt .NetWeekly 0.0}}
-    <div class="b-card-sub {{if and .HasSavingsGoal (not .MeetsSavingsGoal)}}text-danger{{end}}">
-        {{if lt .Remaining 0.0}}Targets exceed take-home pay by {{.Remaining | fmtWholeAbs}} a week{{else}}{{.Remaining | fmtWhole}} a week left after targets{{end}}{{if and .HasSavingsGoal .MeetsSavingsGoal}}, which meets the goal{{end}}
-    </div>
-    {{end}}
-    {{if gt .TrackedSavingsWeekly 0.0}}
-    <div class="b-card-sub">{{.TrackedSavingsWeekly | fmtWhole}} a week already going to savings categories</div>
-    {{end}}
-</div>
 {{end}}
 
 {{define "budget.setup.row.update"}}
 {{template "budget.setup.row" .Row}}
 {{range .Setup.Sections}}{{template "budget.setup.section.sum" .}}{{end}}
-{{template "budget.setup.savings.note" .Setup}}
 {{end}}
 
 {{define "budget.setup.row"}}
 {{/* Read-only by default: a name, a bar and one figure. Opening the row
      reveals everything that can be changed, so a settled category costs one
-     line. Every form here swaps the whole list and names this row to keep
-     open, since an edit can move it to another section. */}}
-<div class="b-target{{if .IsOver}} b-target-over{{end}}" id="{{.RowID}}">
+     line. An edit redraws the row, or for a subcategory the category it adds
+     up into. */}}
+{{$swap := .RowID}}{{if .ParentRowID}}{{$swap = .ParentRowID}}{{end}}
+<div class="b-target{{if .IsOver}} b-target-over{{end}}{{if .ParentRowID}} b-target-sub{{end}}" id="{{.RowID}}">
     <details {{if .Open}}open{{end}}>
-        <summary class="b-target-line">
-            <span class="b-target-name">
-                <span class="fw-semibold">{{.SubCategory}}</span>
-                <span class="b-card-sub">{{.BroadCategory}}</span>
+        {{/* A split category has nothing of its own to open: its
+             subcategories below each open instead. Its links still work. */}}
+        <summary class="b-target-line{{if .Split}} b-target-fixed{{end}}"
+                 {{if .Split}}onclick="if (!event.target.closest('a, button')) event.preventDefault()"{{end}}>
+            <span class="b-target-name b-accent-{{.Accent}}">
+                <span class="b-chip b-chip-sm"><i class="bi {{.Icon}}"></i></span>
+                <span class="b-target-label fw-semibold">{{.Label}}</span>
+                {{if not .General}}
+                <a class="b-target-goto" href="/insights?group={{.Key}}" hx-boost="true" hx-target="#main"
+                   title="{{.Label}} over time" aria-label="See {{.Label}} over time">
+                    <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
+                </a>
+                {{end}}
+                {{if or .Splittable .Split}}
+                {{/* Says how the category is budgeted, and switches it: one
+                     target for everything in it, or one per subcategory with
+                     a general bucket for the rest. A button inside the summary
+                     does not open or close the row. */}}
+                <button type="button" class="b-target-mode{{if .Split}} is-split{{end}}"
+                        hx-post="/budget/split" hx-vals='{"category": "{{.Key}}", "split": "{{if .Split}}0{{else}}1{{end}}"}'
+                        hx-target="#{{.RowID}}" hx-swap="outerHTML"
+                        aria-pressed="{{if .Split}}true{{else}}false{{end}}"
+                        title="{{if .Split}}A target for each subcategory, and one for what is filed under {{.Label}} itself. Click to budget it as one.{{else}}One target for everything in {{.Label}}. Click to set one for each subcategory instead.{{end}}">
+                    <i class="bi {{if .Split}}bi-diagram-2-fill{{else}}bi-square{{end}}" aria-hidden="true"></i>{{if .Split}}Split{{else}}Combined{{end}}
+                </button>
+                {{end}}
             </span>
-            {{if .HasTarget}}
+            {{if .Split}}
+            {{/* No bar: its parts each have their own, and some may have no
+                 target, so one bar for all of them would mislead. */}}
+            <span class="b-target-amount text-muted">{{.ActualWeekly | fmtWhole}} a week</span>
+            {{else if .HasTarget}}
             <span class="b-target-bar" aria-hidden="true"><span style="width:{{printf "%.0f" .BarWidth}}%"></span></span>
             <span class="b-target-amount">
                 <span class="fw-semibold">{{.ActualDisplay | fmtWhole}}</span> of {{.TargetDisplay | fmtWhole}} {{.Per}}
             </span>
-            {{else if .IsSpending}}
+            {{else if .Budgeted}}
             <span class="b-target-amount text-muted">No target · {{.ActualWeekly | fmtWhole}} a week</span>
             {{else}}
-            <span class="b-target-amount text-muted">{{.ActualWeekly | fmtWhole}} a week · {{if eq .Kind "savings"}}to savings{{else}}ignored{{end}}</span>
+            <span class="b-target-amount text-muted">{{.ActualWeekly | fmtWhole}} a week</span>
             {{end}}
-            <i class="bi bi-chevron-down b-target-chev" aria-hidden="true"></i>
+            {{/* Hidden rather than left out on a split category, so its figures
+                 line up with the rows that do open. */}}
+            <i class="bi bi-chevron-down b-target-chev{{if .Split}} invisible{{end}}" aria-hidden="true"></i>
         </summary>
 
+        {{if not .Split}}
         <div class="b-target-editor">
-            {{if .IsSpending}}
+            {{if .Budgeted}}
             <form class="row g-2 align-items-end mb-3"
                   hx-post="/budget/targets" hx-trigger="change"
-                  hx-target="#{{.RowID}}" hx-swap="outerHTML">
-                <input type="hidden" name="section" value="{{.Section}}">
-                <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
-                <input type="hidden" name="sub_category" value="{{.SubCategory}}">
+                  hx-target="#{{$swap}}" hx-swap="outerHTML">
+                <input type="hidden" name="category" value="{{.Key}}">
                 <div class="col-6 col-md-3">
                     <label class="b-field-label" for="target-{{.RowID}}">Target</label>
                     <div class="input-group input-group-sm">
@@ -432,31 +470,39 @@
                         <option value="weekly"      {{if or (eq .Frequency "weekly") (eq .Frequency "")}}selected{{end}}>Week</option>
                         <option value="fortnightly" {{if eq .Frequency "fortnightly"}}selected{{end}}>Fortnight</option>
                         <option value="monthly"     {{if eq .Frequency "monthly"}}selected{{end}}>Month</option>
+                        <option value="quarterly"   {{if eq .Frequency "quarterly"}}selected{{end}}>Quarter</option>
                         <option value="yearly"      {{if eq .Frequency "yearly"}}selected{{end}}>Year</option>
                     </select>
                 </div>
             </form>
+            {{if and .NeedsTarget .Suggested}}
+            {{/* The usual answer one click away, in the frequency the picker
+                 above shows, so the two agree. */}}
+            <form class="mb-3" hx-post="/budget/targets" hx-target="#{{$swap}}" hx-swap="outerHTML">
+                <input type="hidden" name="category" value="{{.Key}}">
+                <input type="hidden" name="target_amount" value="{{printf "%.0f" .Suggested}}">
+                <input type="hidden" name="target_frequency" value="{{.SuggestedFrequency}}">
+                <button type="submit" class="btn btn-outline-secondary btn-sm"
+                        title="The higher of its average over the last 13 weeks and over the last {{.SuggestedWindow}}, rounded up">Use {{.Suggested | fmtWhole}} {{.SuggestedPer}}</button>
+            </form>
+            {{end}}
             {{end}}
 
-            <form class="d-flex align-items-center gap-2 flex-wrap mb-2"
-                  hx-post="/budget/kind" hx-target="#{{.RowID}}" hx-swap="outerHTML">
-                <input type="hidden" name="section" value="{{.Section}}">
-                <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
-                <input type="hidden" name="sub_category" value="{{.SubCategory}}">
-                <span class="b-field-label mb-0">Counts as</span>
-                <div class="btn-group btn-group-sm" role="group" aria-label="How {{.SubCategory}} counts">
-                    {{$kind := .Kind}}
-                    {{range budgetKinds}}
-                    <button type="submit" name="kind" value="{{.Value}}"
-                            class="btn btn-outline-secondary{{if eq .Value $kind}} active{{end}}"
-                            {{if eq .Value $kind}}aria-pressed="true"{{end}}>{{.Label}}</button>
-                    {{end}}
-                </div>
-            </form>
 
             <div class="b-card-sub">
-                Averaged over the last {{.WindowWeeks}} weeks{{if gt .PctOfIncome 0.0}} · target is {{.PctOfIncome | fmtPercent}} of take-home pay{{end}}.
+                {{if .Blurb}}{{.Blurb}}. {{end}}Averaged over the last {{.WindowWeeks}} weeks{{if gt .PctOfIncome 0.0}} · target is {{.PctOfIncome | fmtPercent}} of take-home pay{{end}}.
             </div>
+            {{if .Subs}}
+            <ul class="b-target-subs">
+                {{range .Subs}}<li><span>{{.Label}}</span><span class="b-num">{{.Weekly | fmtWhole}} a week</span></li>{{end}}
+            </ul>
+            {{end}}
+            {{if eq .Key "uncategorised"}}
+            <div class="b-card-sub mt-2">
+                <a href="/transactions?uncategorised=1" hx-boost="true" hx-target="#main">File these</a>
+                so they count under a category and its target.
+            </div>
+            {{end}}
             {{if .Merchants}}
             {{/* Each merchant leads to its transactions, where one payment or
                  every one like it can be filed under another category. */}}
@@ -469,16 +515,15 @@
             </div>
             {{end}}
         </div>
+        {{end}}
     </details>
 
     {{if .Generous}}
     {{/* A target far above what is spent overstates the budget, so the usual
          answer is one click away. */}}
     <div class="b-target-quick">
-        <form hx-post="/budget/targets" hx-target="#{{.RowID}}" hx-swap="outerHTML">
-            <input type="hidden" name="section" value="{{.Section}}">
-            <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
-            <input type="hidden" name="sub_category" value="{{.SubCategory}}">
+        <form hx-post="/budget/targets" hx-target="#{{$swap}}" hx-swap="outerHTML">
+            <input type="hidden" name="category" value="{{.Key}}">
             <input type="hidden" name="target_amount" value="{{printf "%.0f" .LoweredTarget}}">
             <input type="hidden" name="target_frequency" value="{{if .Frequency}}{{.Frequency}}{{else}}weekly{{end}}">
             <button type="submit" class="btn btn-outline-secondary btn-sm"
@@ -489,27 +534,127 @@
     </div>
     {{end}}
 
-    {{if and .NeedsTarget .SuggestedMonthly}}
-    {{/* One click for the usual answers, so clearing unbudgeted spend does
-         not mean typing a figure for each category. */}}
-    <div class="b-target-quick">
-        <form hx-post="/budget/targets" hx-target="#{{.RowID}}" hx-swap="outerHTML">
-            <input type="hidden" name="section" value="{{.Section}}">
-            <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
-            <input type="hidden" name="sub_category" value="{{.SubCategory}}">
-            <input type="hidden" name="target_amount" value="{{printf "%.0f" .SuggestedMonthly}}">
-            <input type="hidden" name="target_frequency" value="monthly">
-            <button type="submit" class="btn btn-outline-secondary btn-sm"
-                    title="What it has averaged over the last 13 weeks, rounded up">Use {{.SuggestedMonthly | fmtWhole}} a month</button>
-        </form>
-        <form class="d-flex gap-2" hx-post="/budget/kind" hx-target="#{{.RowID}}" hx-swap="outerHTML">
-            <input type="hidden" name="section" value="{{.Section}}">
-            <input type="hidden" name="broad_category" value="{{.BroadCategory}}">
-            <input type="hidden" name="sub_category" value="{{.SubCategory}}">
-            <button type="submit" name="kind" value="savings" class="btn btn-outline-secondary btn-sm">Savings</button>
-            <button type="submit" name="kind" value="ignore" class="btn btn-outline-secondary btn-sm">Ignore</button>
-        </form>
+    {{if .Split}}
+    <div class="b-target-children">
+        {{range .SubRows}}{{template "budget.setup.row" .}}{{end}}
     </div>
     {{end}}
 </div>
+{{end}}
+
+{{define "budget.periods"}}
+{{if .}}
+{{/* As many to a row as fit: five side by side on a wide screen. */}}
+<div class="b-periods mb-3">
+    {{range .}}
+    <div>
+        <div class="b-card b-card-pad h-100 b-period{{if .IsOver}} b-target-over{{end}}">
+            <div class="b-card-head mb-1">
+                <div class="min-width-0">
+                    <h3 class="b-card-title">{{.Title}}</h3>
+                    <p class="b-card-sub text-truncate" title="{{range $i, $c := .Categories}}{{if $i}}, {{end}}{{$c}}{{end}}">
+                        {{.Range}}
+                    </p>
+                </div>
+                <div class="text-end flex-shrink-0">
+                    <div class="fw-bold b-num {{if .IsOver}}text-danger{{end}}">{{.Total | fmtWhole}}</div>
+                    <div class="b-delta-note">of {{.Target | fmtWhole}}</div>
+                </div>
+            </div>
+            <div class="b-chart b-period-chart">
+                <canvas id="period-{{.Frequency}}"></canvas>
+            </div>
+            <div class="b-card-sub mt-2">
+                {{if .IsOver}}<span class="text-danger">{{.Overspent | fmtWhole}} over</span>{{else}}{{.Remaining | fmtWhole}} to spare{{end}}
+                in {{.Span}}
+            </div>
+        </div>
+    </div>
+    {{end}}
+</div>
+
+<script>
+    (function () {
+        if (typeof Chart === "undefined" || !window.budge) {
+            return;
+        }
+        const charts = {{.}};
+        charts.forEach(function (period) {
+            const canvas = document.getElementById("period-" + period.Frequency);
+            if (!canvas) {
+                return;
+            }
+            Chart.getChart(canvas)?.destroy();
+            const over = period.Total > period.Target;
+            new Chart(canvas, {
+                data: {
+                    labels: period.Labels,
+                    datasets: [
+                        {
+                            type: "bar",
+                            label: "Spent so far",
+                            data: period.Spent,
+                            backgroundColor: window.budge.colour(over ? "clay" : "sage"),
+                            borderRadius: 3,
+                            maxBarThickness: 28,
+                            order: 2
+                        },
+                        {
+                            type: "line",
+                            label: "Target",
+                            data: period.Labels.map(function () { return period.Target; }),
+                            borderColor: window.budge.ink,
+                            borderWidth: 1.5,
+                            pointRadius: 0,
+                            order: 1
+                        },
+                        {
+                            type: "line",
+                            label: "Even pace",
+                            data: period.Pace,
+                            borderColor: window.budge.ink,
+                            borderWidth: 1,
+                            borderDash: [4, 4],
+                            pointRadius: 0,
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        x: {
+                            border: {display: false},
+                            grid: {display: false},
+                            ticks: {color: window.budge.ink, maxRotation: 0, autoSkipPadding: 8}
+                        },
+                        y: {
+                            beginAtZero: true,
+                            border: {display: false},
+                            grid: {color: window.budge.grid},
+                            ticks: {color: window.budge.ink, maxTicksLimit: 4, callback: v => "$" + v.toLocaleString()}
+                        }
+                    },
+                    plugins: {
+                        legend: {display: false},
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ctx.dataset.label + ": $" +
+                                    Math.round(ctx.parsed.y).toLocaleString()
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    })();
+</script>
+{{else}}
+<div class="b-card b-card-pad mb-3 b-card-sub">
+    <i class="bi bi-graph-up-arrow me-1" aria-hidden="true"></i>
+    Set a target below and its week, fortnight, month or year shows here, filling up as you spend.
+</div>
+{{end}}
 {{end}}

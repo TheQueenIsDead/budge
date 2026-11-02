@@ -377,11 +377,15 @@ func TestSanitizeIDCollision(t *testing.T) {
 		"known limitation: every non-alphanumeric maps to the same dash")
 }
 
+// groceriesCategory is the category rows are built for where which one does
+// not matter.
+var groceriesCategory, _ = models.BudgetCategoryByKey("groceries")
+
 func TestBuildSetupRowData(t *testing.T) {
 	const netWeekly = 1_000
 
 	t.Run("spend with no target is flagged as needing one", func(t *testing.T) {
-		row := buildSetupRowData(models.BudgetItem{Category: "Groceries"}, 120, netWeekly)
+		row := buildSetupRowData(groceriesCategory, models.BudgetItem{Category: "Groceries"}, 120, netWeekly)
 
 		assert.False(t, row.HasTarget)
 		assert.True(t, row.NeedsTarget)
@@ -392,7 +396,7 @@ func TestBuildSetupRowData(t *testing.T) {
 	})
 
 	t.Run("no spend and no target needs nothing", func(t *testing.T) {
-		row := buildSetupRowData(models.BudgetItem{Category: "Groceries"}, 0, netWeekly)
+		row := buildSetupRowData(groceriesCategory, models.BudgetItem{Category: "Groceries"}, 0, netWeekly)
 
 		assert.False(t, row.HasTarget)
 		assert.False(t, row.NeedsTarget)
@@ -400,7 +404,7 @@ func TestBuildSetupRowData(t *testing.T) {
 
 	t.Run("under a weekly target", func(t *testing.T) {
 		item := models.BudgetItem{Category: "Groceries", Amount: 200, Frequency: "weekly"}
-		row := buildSetupRowData(item, 150, netWeekly)
+		row := buildSetupRowData(groceriesCategory, item, 150, netWeekly)
 
 		assert.True(t, row.HasTarget)
 		assert.False(t, row.NeedsTarget)
@@ -411,7 +415,7 @@ func TestBuildSetupRowData(t *testing.T) {
 
 	t.Run("over a weekly target", func(t *testing.T) {
 		item := models.BudgetItem{Category: "Groceries", Amount: 100, Frequency: "weekly"}
-		row := buildSetupRowData(item, 150, netWeekly)
+		row := buildSetupRowData(groceriesCategory, item, 150, netWeekly)
 
 		assert.True(t, row.IsOver)
 		assert.InDelta(t, 1.5, row.Percentage, 0.0001)
@@ -419,7 +423,7 @@ func TestBuildSetupRowData(t *testing.T) {
 
 	t.Run("monthly target displays actuals in monthly units", func(t *testing.T) {
 		item := models.BudgetItem{Category: "Power", Amount: 260, Frequency: "monthly"}
-		row := buildSetupRowData(item, 50, netWeekly)
+		row := buildSetupRowData(groceriesCategory, item, 50, netWeekly)
 
 		assert.Equal(t, "a month", row.Per)
 		assert.Equal(t, 13, row.WindowWeeks, "a monthly target is measured over three months")
@@ -430,28 +434,28 @@ func TestBuildSetupRowData(t *testing.T) {
 
 	t.Run("zero income leaves share of income at zero", func(t *testing.T) {
 		item := models.BudgetItem{Category: "Groceries", Amount: 200, Frequency: "weekly"}
-		row := buildSetupRowData(item, 150, 0)
+		row := buildSetupRowData(groceriesCategory, item, 150, 0)
 
 		assert.Zero(t, row.PctOfIncome, "must not divide by zero income")
 	})
 
 	t.Run("a few cents over a target set to the dollar is not over", func(t *testing.T) {
 		item := models.BudgetItem{Category: "Mortgage", Amount: 592, Frequency: "weekly"}
-		assert.False(t, buildSetupRowData(item, 592.10, netWeekly).IsOver)
-		assert.True(t, buildSetupRowData(item, 593.50, netWeekly).IsOver)
+		assert.False(t, buildSetupRowData(groceriesCategory, item, 592.10, netWeekly).IsOver)
+		assert.True(t, buildSetupRowData(groceriesCategory, item, 593.50, netWeekly).IsOver)
 	})
 
 	t.Run("the bar is capped at full however far over", func(t *testing.T) {
 		item := models.BudgetItem{Category: "Groceries", Amount: 100, Frequency: "weekly"}
-		assert.InDelta(t, 100, buildSetupRowData(item, 250, netWeekly).BarWidth(), 0.0001)
-		assert.InDelta(t, 40, buildSetupRowData(item, 40, netWeekly).BarWidth(), 0.0001)
+		assert.InDelta(t, 100, buildSetupRowData(groceriesCategory, item, 250, netWeekly).BarWidth(), 0.0001)
+		assert.InDelta(t, 40, buildSetupRowData(groceriesCategory, item, 40, netWeekly).BarWidth(), 0.0001)
 	})
 
-	t.Run("ids are derived from the category names", func(t *testing.T) {
-		item := models.BudgetItem{Category: "Fuel stations", BroadCategory: "Transport"}
-		row := buildSetupRowData(item, 0, netWeekly)
+	t.Run("ids are derived from the category key", func(t *testing.T) {
+		category, _ := models.BudgetCategoryByKey("eating-out")
+		row := buildSetupRowData(category, models.BudgetItem{}, 0, netWeekly)
 
-		assert.Equal(t, "sc-fuel-stations", row.RowID)
+		assert.Equal(t, "sc-eating-out", row.RowID)
 	})
 }
 
@@ -460,36 +464,23 @@ func TestBuildSetupRowData(t *testing.T) {
 // view-models, which the compiler cannot see.
 func TestBudgetTemplatesRender(t *testing.T) {
 	rows := []CategoryTargetRow{
-		buildSetupRowData(models.BudgetItem{
-			ID: "item-1", Category: "Fuel stations", BroadCategory: "Transport",
-			Amount: 100, Frequency: "weekly",
-		}, 120, 1_000),
-		buildSetupRowData(models.BudgetItem{
-			ID: "item-2", Category: "Vehicle", BroadCategory: "Transport",
-			Amount: 520, Frequency: "yearly",
-		}, 5, 1_000),
-		buildSetupRowData(models.BudgetItem{Category: "Fees", BroadCategory: "Uncategorised"}, 1, 1_000),
-		buildSetupRowData(models.BudgetItem{Category: "Standing orders", BroadCategory: "Uncategorised", Kind: models.BudgetKindSavings}, 100, 1_000),
+		targetRow("transport", 100, "weekly", 120),
+		targetRow("big-purchases", 520, "yearly", 5),
+		targetRow("health", 0, "", 1),
+		targetRow("savings", 0, "", 100),
 	}
-	untargeted := buildSetupRowData(models.BudgetItem{Category: "Loan", BroadCategory: "Uncategorised"}, 390, 1_000)
-	untargeted.SuggestedMonthly = 1_700
+	untargeted := targetRow("maintenance", 0, "", 390)
+	suggestTarget(&untargeted, 410)
 	rows = append(rows, untargeted)
 	setup := CategorySetupData{
-		HasData:              true,
-		NetWeekly:            1_000,
-		Rows:                 rows,
-		Sections:             buildTargetSections(rows, rows[1].RowID),
-		OpenRow:              rows[1].RowID,
-		TotalTargetWeekly:    110,
-		SavingsGoal:          200,
-		SavingsGoalFrequency: "weekly",
-		SavingsGoalWeekly:    200,
-		Remaining:            890,
-		MeetsSavingsGoal:     true,
-		HasSavingsGoal:       true,
-		TrackedSavingsWeekly: 100,
+		HasData:           true,
+		NetWeekly:         1_000,
+		Rows:              rows,
+		Sections:          buildTargetSections(rows, rows[1].RowID),
+		OpenRow:           rows[1].RowID,
+		TotalTargetWeekly: 110,
 	}
-	require.Len(t, setup.Sections, 4, "the fixture should fill every section")
+	require.Len(t, setup.Sections, 2, "the fixture should fill both lists")
 
 	tests := []struct {
 		name     string
@@ -505,6 +496,7 @@ func TestBudgetTemplatesRender(t *testing.T) {
 			},
 		},
 		{"income page", "budget.income", map[string]any{"Salary": models.BudgetSalary{Salary: 100_000, SalaryFrequency: "yearly"}}},
+		{"cards with a savings goal", "budget.cards", BudgetCardsData{NetWeekly: 1_000, TotalWeeklyExpenses: 850, WeeklySavings: 150, HasSalary: true, SavingsGoalWeekly: 200}},
 		{"income breakdown", "budget.summary", BudgetSummary{GrossAnnual: 100_000, NetAnnual: 72_372.50}},
 		{"cards in surplus", "budget.cards", BudgetCardsData{NetWeekly: 1_000, TotalWeeklyExpenses: 400, WeeklySavings: 600, PctAllocatedCss: 40, HasSalary: true}},
 		{"cards in deficit", "budget.cards", BudgetCardsData{NetWeekly: 1_000, TotalWeeklyExpenses: 1_200, WeeklySavings: -200, HasDeficit: true, PctAllocatedCss: 100, IsOverAllocated: true, HasSalary: true}},
@@ -567,14 +559,19 @@ func TestIncomeTile(t *testing.T) {
 func TestBudgetPageTracksTargetsAndLinksToIncome(t *testing.T) {
 	salary := models.BudgetSalary{Salary: 100_000, SalaryFrequency: "yearly"}
 	rows := []CategoryTargetRow{
-		buildSetupRowData(models.BudgetItem{Category: "Supermarkets", Amount: 150, Frequency: "weekly"}, 160, 1_000),
+		targetRow("groceries", 150, "weekly", 160),
 	}
 	budget := renderTemplate(t, "budget", map[string]any{
 		"Income":    buildIncomeTile(salary),
 		"SetupData": CategorySetupData{HasData: true, Rows: rows, Sections: buildTargetSections(rows, ""), Tracking: buildTrackingSummary(rows)},
 	})
-	assert.Contains(t, budget, "$160 a week against $150 of targets")
-	assert.Contains(t, budget, "1 category is over target")
+	assert.Contains(t, budget, "$10 over budget for weekly targets")
+	under := renderTemplate(t, "budget", map[string]any{
+		"Income":    buildIncomeTile(salary),
+		"SetupData": CategorySetupData{HasData: true, Tracking: TrackingSummary{Actual: 123, Target: 150}},
+	})
+	assert.Contains(t, under, "$27 under budget for weekly targets")
+	assert.Contains(t, budget, "1 is over target")
 	assert.Contains(t, budget, `id="budget-setup"`, "the categories are on the budget page itself")
 	assert.Contains(t, budget, `hx-get="/budget/allocation"`)
 	assert.Contains(t, budget, `href="/budget/income"`)
@@ -591,11 +588,12 @@ func TestBudgetPageTracksTargetsAndLinksToIncome(t *testing.T) {
 
 func TestTrackingSummary(t *testing.T) {
 	rows := []CategoryTargetRow{
-		buildSetupRowData(models.BudgetItem{Category: "Supermarkets", Amount: 150, Frequency: "weekly"}, 160, 1_000),
-		buildSetupRowData(models.BudgetItem{Category: "Mortgage", Amount: 1_184.20, Frequency: "fortnightly"}, 592.10, 1_000),
-		buildSetupRowData(models.BudgetItem{Category: "Loan"}, 390, 1_000),
-		buildSetupRowData(models.BudgetItem{Category: "Fees"}, 2, 1_000),
-		buildSetupRowData(models.BudgetItem{Category: "Standing orders", Kind: models.BudgetKindSavings}, 100, 1_000),
+		targetRow("groceries", 150, "weekly", 160),
+		targetRow("home", 1_184.20, "fortnightly", 592.10),
+		targetRow("maintenance", 0, "", 390),
+		targetRow("other", 0, "", 2),
+		targetRow("savings", 0, "", 100),
+		targetRow("uncategorised", 0, "", 50),
 	}
 
 	summary := buildTrackingSummary(rows)
@@ -604,9 +602,64 @@ func TestTrackingSummary(t *testing.T) {
 	assert.InDelta(t, 742.10, summary.Target, 0.001)
 	assert.Equal(t, 1, summary.OverCount, "a fortnightly payment measured over its fortnights is on target")
 	assert.InDelta(t, 392, summary.UntargetedWeekly, 0.001)
-	assert.Equal(t, 2, summary.UntargetedCount, "savings rows are not untargeted spending")
+	assert.Equal(t, 2, summary.UntargetedCount, "savings and what is not filed yet are not asked for a target")
 	assert.True(t, summary.IsOver())
 	assert.InDelta(t, 100, summary.BarWidth(), 0.001)
 
 	assert.False(t, TrackingSummary{Actual: 742.50, Target: 742.10}.IsOver(), "a few cents over is on track")
+
+	t.Run("it names what is over and what has no target", func(t *testing.T) {
+		require.Len(t, summary.Over, 1)
+		assert.Equal(t, "Groceries", summary.Over[0].Label)
+		assert.InDelta(t, 10, summary.Over[0].Weekly, 0.001, "by how much a week")
+		require.Len(t, summary.Untargeted, 2)
+		assert.Equal(t, "Maintenance", summary.Untargeted[0].Label, "largest first")
+
+		html := renderTemplate(t, "budget", map[string]any{
+			"Income":    buildIncomeTile(models.BudgetSalary{}),
+			"SetupData": CategorySetupData{HasData: true, Tracking: summary},
+		})
+		assert.Contains(t, html, "1 is over target")
+		assert.Contains(t, html, `href="/notifications"`, "what each is, is in the notifications")
+		assert.NotContains(t, html, "Groceries", "the page itself stays calm")
+	})
+
+	t.Run("long lists end in a count", func(t *testing.T) {
+		var rows []CategoryTargetRow
+		for _, key := range []string{"shopping", "maintenance", "other", "entertainment", "big-purchases"} {
+			rows = append(rows, targetRow(key, 0, "", 50))
+		}
+		summary := buildTrackingSummary(rows)
+		assert.Len(t, summary.Untargeted, untargetedNamed)
+		assert.Equal(t, 2, summary.UntargetedMore)
+	})
+
+	t.Run("a split category names the part that is over", func(t *testing.T) {
+		rates := targetRow("rates", 860, "quarterly", 80)
+		mortgage := targetRow("mortgage", 1284, "fortnightly", 600)
+		home, _ := models.BudgetCategoryByKey("home")
+		summary := buildTrackingSummary([]CategoryTargetRow{splitRow(home, []CategoryTargetRow{mortgage, rates}, 1_000)})
+		require.Len(t, summary.Over, 1)
+		assert.Equal(t, "Rates", summary.Over[0].Label)
+	})
+}
+
+func TestSavingsGoalLivesWithIncome(t *testing.T) {
+	salary := models.BudgetSalary{Salary: 100_000, SalaryFrequency: "yearly", SavingsGoal: 200, SavingsGoalFrequency: "weekly"}
+
+	income := renderTemplate(t, "budget.income", map[string]any{"Salary": salary})
+	assert.Contains(t, income, `hx-post="/budget/savings-goal"`)
+	assert.Contains(t, income, `name="savings_goal"`)
+	assert.Contains(t, income, `value="200.00"`)
+
+	budget := renderTemplate(t, "budget", map[string]any{
+		"Income":    buildIncomeTile(salary),
+		"SetupData": CategorySetupData{HasData: true},
+	})
+	assert.NotContains(t, budget, "savings-goal", "the budget page leaves it to the income page")
+
+	short := renderTemplate(t, "budget.cards", BudgetCardsData{NetWeekly: 1_000, TotalWeeklyExpenses: 840, WeeklySavings: 160, HasSalary: true, SavingsGoalWeekly: 200})
+	assert.Contains(t, short, "$40 short of your $200 a week goal")
+	met := renderTemplate(t, "budget.cards", BudgetCardsData{NetWeekly: 1_000, TotalWeeklyExpenses: 700, WeeklySavings: 300, HasSalary: true, SavingsGoalWeekly: 200, MeetsSavingsGoal: true})
+	assert.Contains(t, met, "meets your $200 a week goal")
 }

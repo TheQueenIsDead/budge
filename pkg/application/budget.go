@@ -14,13 +14,13 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// CategoryTargetRow is one category on the spending targets page.
+// CategoryTargetRow is one budge category on the budget page.
 type CategoryTargetRow struct {
-	BroadCategory string
-	SubCategory   string
-	RowID         string // HTML-safe id, also how an edit names the row to keep open
-	ActualWeekly  float64
-	// Populated from a saved BudgetItem, if one exists for this pair.
+	models.BudgetCategory
+	RowID        string // HTML-safe id, also how an edit names the row to keep open
+	Order        int    // the category's place in the registry, for sorting
+	ActualWeekly float64
+	// Populated from a saved BudgetItem, if one exists for the category.
 	ItemID    string
 	Target    float64
 	Frequency string
@@ -34,25 +34,47 @@ type CategoryTargetRow struct {
 	NeedsTarget   bool    // has actual spend but no target set
 	PctOfIncome   float64 // targetWeekly / netWeekly (fraction)
 	TargetWeekly  float64 // weekly-normalised target for internal use
-	Kind          string
-	IsSpending    bool // false for savings and ignored rows, which carry no target
-	WindowWeeks   int  // how many weeks the actual is averaged over
-	// SuggestedMonthly is a target to offer a category that has none: its
-	// spend over the same 13 weeks the row is measured over, as a monthly
-	// amount rounded up to whole dollars. Monthly targets are measured over
-	// that window too, so accepting it lands the row on track rather than
-	// tripping over a lumpy month.
-	SuggestedMonthly float64
+	// Budgeted is false for the categories that take no target: savings and
+	// loan interest, which are not spending, and what is not filed yet.
+	Budgeted    bool
+	WindowWeeks int // how many weeks the actual is averaged over
+	// Suggested is a target to offer a category that has none, in the
+	// frequency its target picker shows, rounded up to whole dollars. It is
+	// the higher of its 13 week average and its spend over the window that
+	// frequency is measured over, so accepting it lands the row on track
+	// rather than tripping over a busy few weeks.
+	Suggested          float64
+	SuggestedFrequency string
+	SuggestedPer       string // "a week", "a month"...
+	SuggestedWindow    int    // weeks the frequency is judged over
 	// Generous marks a target set well above what the category spends, and
 	// LoweredTarget is what it could come down to, in the target's own
 	// frequency. Zero means the category spends nothing to budget for.
 	Generous      bool
 	LoweredTarget float64
+	// Subs is the row's spending split by subcategory, over the same window.
+	Subs []SubcategorySpend
+	// Splittable is whether the category has subcategories to budget by
+	// instead. Split marks one that does: SubRows are its subcategories, each
+	// against its own target, and its general row for what is filed under the
+	// category itself, marked General. ParentRowID names the row a
+	// subcategory row sits in, which an edit to it redraws.
+	Splittable  bool
+	Split       bool
+	SubRows     []CategoryTargetRow
+	General     bool
+	ParentRowID string
 	// Merchants seen in this category, highest spend first. Informational
 	// only — they are derived from transactions, never edited.
 	Merchants []string
-	Open      bool   // the row being edited, drawn expanded
-	Section   string // key of the section the row is drawn in
+	Open      bool // the row being edited, drawn expanded
+}
+
+// SubcategorySpend is what one subcategory, or the category itself when
+// nothing finer filed it, spent each week.
+type SubcategorySpend struct {
+	Label  string
+	Weekly float64
 }
 
 // BarWidth is how full the row's progress bar is drawn, capped at full.
@@ -80,46 +102,25 @@ func topMerchants(spend map[string]float64) []string {
 	return names
 }
 
-// uncategorisedGroup collects debits Akahu could not categorise. They are
-// still real outgoings, so leaving them out of the setup table while the
-// weekly chart counts them makes weeks look over budget for no visible reason.
-const uncategorisedGroup = "Uncategorised"
-
-// uncategorisedLabels names the rows inside the uncategorised group. Without
-// a category the transaction type is the most telling thing left: loan
-// interest, a standing order to an investment fund and cash withdrawals each
-// get a row of their own that a target can be set against.
-var uncategorisedLabels = map[string]string{
-	"LOAN":           "Loan",
-	"STANDING ORDER": "Standing orders",
-	"PAYMENT":        "Payments",
-	"DIRECT DEBIT":   "Direct debits",
-	"ATM":            "ATM withdrawals",
-	"EFTPOS":         "EFTPOS",
-	"DEBIT":          "Card debits",
-	"FEE":            "Fees",
+// spendCategory decides whether a transaction is spending and, if it is,
+// which budge category it budgets under. Every budget view goes through here
+// so the chart and the targets always count the same money. Savings and loan
+// interest leave without being spent, so they are not spending here.
+func spendCategory(tx models.Transaction) (models.BudgetCategory, bool) {
+	category, ok := debitCategory(tx)
+	if !ok || category.NotSpending {
+		return models.BudgetCategory{}, false
+	}
+	return category, true
 }
 
-// spendCategory decides whether a transaction is spending and, if it is,
-// which broad and specific category it belongs to. Every budget view goes
-// through here so the chart and the setup table always count the same money.
-func spendCategory(tx models.Transaction) (broad, specific string, ok bool) {
+// debitCategory is the budge category money leaving went to, whether or not
+// it was spent. Transfers between the owner's own accounts went nowhere.
+func debitCategory(tx models.Transaction) (models.BudgetCategory, bool) {
 	if tx.Amount >= 0 || tx.Type == "TRANSFER" {
-		return "", "", false
+		return models.BudgetCategory{}, false
 	}
-	broad = tx.Category.Groups.PersonalFinance.Name
-	if broad == "" {
-		label, known := uncategorisedLabels[tx.Type]
-		if !known {
-			label = "Other"
-		}
-		return uncategorisedGroup, label, true
-	}
-	specific = tx.Category.Name
-	if specific == "" {
-		specific = broad
-	}
-	return broad, specific, true
+	return models.TopBudgetCategory(tx.BudgetCategory()), true
 }
 
 // spendMerchant names who a transaction was paid to. Uncategorised debits
@@ -136,31 +137,21 @@ func spendMerchant(tx models.Transaction) string {
 	return timelineTitle(BuildTransactionRow(tx))
 }
 
-// TargetSection is one part of the spending targets page. Rows are sorted by
-// what they need from the owner rather than by Akahu's groups, so settled
-// categories stay out of the way until something changes.
+// TargetSection is the categories on budget, or those off it, on the budget
+// page.
 type TargetSection struct {
-	Key    string
-	Title  string
-	Rows   []CategoryTargetRow
-	Actual float64 // weekly, across the section's rows
-	Target float64 // weekly, across the section's rows
-	Open   bool
-	OOB    bool // drawn as an out-of-band update after an edit
+	Key      string
+	Title    string
+	Budgeted bool // whether its categories take targets
+	Rows     []CategoryTargetRow
+	Actual   float64 // weekly, across the section's rows
+	Target   float64 // weekly, across the section's rows
+	Open     bool
+	OOB      bool // drawn as an out-of-band update after an edit
 }
 
-// Section keys, in the order the page shows them.
-const (
-	sectionAttention  = "attention"
-	sectionGenerous   = "generous"
-	sectionOnTrack    = "on-track"
-	sectionSmall      = "small"
-	sectionNotCounted = "not-counted"
-)
-
 // smallSpendWeekly is the weekly spend under which a category with no target
-// is folded away rather than asking for one: a few dollars a week is not what
-// tips a budget over.
+// is not asked for one: a few dollars a week is not what tips a budget over.
 const smallSpendWeekly = 5.0
 
 // A target counts as generous when spending is under this share of it and at
@@ -175,76 +166,36 @@ const (
 // a lower target, so a slightly bigger week does not tip it straight over.
 const loweredHeadroom = 1.1
 
-// buildTargetSections sorts rows into the page's sections. Needs attention is
-// always open; another section opens only when it holds the row being edited,
-// so a row that moves section after an edit never disappears from view.
+// budgetSections are the budget page's two lists: the categories on budget,
+// and those off it.
+var budgetSections = []TargetSection{
+	{Key: "on-budget", Title: "On budget", Budgeted: true, Open: true},
+	{Key: "off-budget", Title: "Off budget"},
+}
+
+// buildTargetSections lays rows out on budget and off it, in the order the
+// categories are listed. On budget is open; off budget opens only when it
+// holds the row being edited.
 func buildTargetSections(rows []CategoryTargetRow, openRow string) []TargetSection {
-	sections := []TargetSection{
-		{Key: sectionAttention, Title: "Needs attention", Open: true},
-		{Key: sectionGenerous, Title: "Could be lower", Open: true},
-		{Key: sectionOnTrack, Title: "On track"},
-		{Key: sectionSmall, Title: "Small categories"},
-		{Key: sectionNotCounted, Title: "Not counted"},
-	}
-	index := map[string]int{sectionAttention: 0, sectionGenerous: 1, sectionOnTrack: 2, sectionSmall: 3, sectionNotCounted: 4}
+	sections := append([]TargetSection(nil), budgetSections...)
 	for _, row := range rows {
-		var key string
-		switch {
-		case !row.IsSpending:
-			key = sectionNotCounted
-		case row.IsOver:
-			key = sectionAttention
-		case row.Generous:
-			key = sectionGenerous
-		case row.HasTarget:
-			key = sectionOnTrack
-		case row.ActualWeekly >= smallSpendWeekly:
-			key = sectionAttention
-		default:
-			key = sectionSmall
+		section := &sections[0]
+		if !row.Budgeted {
+			section = &sections[1]
 		}
-		section := &sections[index[key]]
 		row.Open = row.RowID == openRow
-		row.Section = key
 		section.Rows = append(section.Rows, row)
 		section.Actual += row.ActualWeekly
 		section.Target += row.TargetWeekly
-		if row.RowID == openRow {
+		if row.Open {
 			section.Open = true
 		}
 	}
 
-	// Overspends first, worst first, then untargeted spend, largest first.
-	attention := sections[index[sectionAttention]].Rows
-	sort.SliceStable(attention, func(i, j int) bool {
-		a, b := attention[i], attention[j]
-		if a.IsOver != b.IsOver {
-			return a.IsOver
-		}
-		if a.IsOver {
-			return a.ActualWeekly-a.TargetWeekly > b.ActualWeekly-b.TargetWeekly
-		}
-		return a.ActualWeekly > b.ActualWeekly
-	})
-	for _, key := range []string{sectionOnTrack, sectionNotCounted} {
-		rows := sections[index[key]].Rows
-		sort.SliceStable(rows, func(i, j int) bool {
-			if rows[i].BroadCategory != rows[j].BroadCategory {
-				return rows[i].BroadCategory < rows[j].BroadCategory
-			}
-			return rows[i].SubCategory < rows[j].SubCategory
-		})
-	}
-	generous := sections[index[sectionGenerous]].Rows
-	sort.SliceStable(generous, func(i, j int) bool {
-		return generous[i].TargetWeekly-generous[i].ActualWeekly > generous[j].TargetWeekly-generous[j].ActualWeekly
-	})
-	small := sections[index[sectionSmall]].Rows
-	sort.SliceStable(small, func(i, j int) bool { return small[i].ActualWeekly > small[j].ActualWeekly })
-
 	kept := sections[:0]
 	for _, section := range sections {
 		if len(section.Rows) > 0 {
+			sort.SliceStable(section.Rows, func(i, j int) bool { return section.Rows[i].Order < section.Rows[j].Order })
 			kept = append(kept, section)
 		}
 	}
@@ -253,23 +204,50 @@ func buildTargetSections(rows []CategoryTargetRow, openRow string) []TargetSecti
 
 // CategorySetupData is the view-model for the budget.setup partial.
 type CategorySetupData struct {
-	Tracking             TrackingSummary
-	Rows                 []CategoryTargetRow
-	Sections             []TargetSection
-	OpenRow              string // RowID of the row being edited, kept open
-	HasData              bool
-	NetWeekly            float64
-	TotalTargetWeekly    float64
-	SavingsGoal          float64
-	SavingsGoalFrequency string
-	SavingsGoalWeekly    float64
-	Remaining            float64
-	MeetsSavingsGoal     bool
-	HasSavingsGoal       bool
-	// Weekly spend in categories marked as savings, e.g. a standing order to
-	// an investment fund. Shown beside the goal rather than counted as spending.
-	TrackedSavingsWeekly float64
-	OOB                  bool // drawn as an out-of-band update after an edit
+	Tracking          TrackingSummary
+	Rows              []CategoryTargetRow
+	Sections          []TargetSection
+	OpenRow           string // RowID of the row being edited, kept open
+	HasData           bool
+	NetWeekly         float64
+	TotalTargetWeekly float64
+	// Generous names the categories whose targets could come down, and Small
+	// those spending too little to need one, for the note at the top.
+	Generous []string
+	Small    []string
+	OOB      bool // drawn as an out-of-band update after an edit
+}
+
+// Note words the tidying up the budget could do, for the top of the page:
+// targets that could come down, and categories too small to need one.
+func (d CategorySetupData) Note() string {
+	var parts []string
+	if n := len(d.Generous); n > 0 {
+		parts = append(parts, sentenceList(d.Generous)+" could have "+wordFor(n, "a lower target", "lower targets"))
+	}
+	if n := len(d.Small); n > 0 {
+		parts = append(parts, sentenceList(d.Small)+" "+wordFor(n, "spends", "spend")+" too little to need "+wordFor(n, "a target", "targets"))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, " · ") + "."
+}
+
+// sentenceList joins names as prose: "A", "A and B", "A, B and C".
+func sentenceList(names []string) string {
+	if len(names) < 2 {
+		return strings.Join(names, "")
+	}
+	return strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
+}
+
+// wordFor picks the wording for one thing or several.
+func wordFor(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
 }
 
 // BudgetCardsData is the view-model for the summary cards on the income page
@@ -283,6 +261,16 @@ type BudgetCardsData struct {
 	PctAllocatedCss     float64 // clamped to 100 for CSS width
 	IsOverAllocated     bool
 	HasSalary           bool
+	// SavingsGoalWeekly is what is wanted left after targets, judged against
+	// WeeklySavings on the Savings card.
+	SavingsGoalWeekly float64
+	MeetsSavingsGoal  bool
+}
+
+// GoalShortfall is how far what is left after targets falls short of the
+// savings goal.
+func (d BudgetCardsData) GoalShortfall() float64 {
+	return math.Max(0, d.SavingsGoalWeekly-d.WeeklySavings)
 }
 
 // BudgetSummary is the view-model rendered by GET /budget/summary.
@@ -352,6 +340,35 @@ type TrackingSummary struct {
 	UntargetedCount  int
 	// Targets set well above what their categories spend.
 	GenerousCount int
+
+	// Over names what is over target, by how much each week, worst first:
+	// a category, or the subcategory of a split one that is. Untargeted
+	// names the largest spending with no target, and UntargetedMore how many
+	// more there are, for the notifications that say what to look at.
+	Over           []TrackingItem
+	Untargeted     []TrackingItem
+	UntargetedMore int
+}
+
+// TrackingItem is a category the budget has something to say about, and
+// how much a week it is about.
+type TrackingItem struct {
+	Label  string
+	Weekly float64
+}
+
+// untargetedNamed is how many categories with no target are named before
+// saying how many more there are.
+const untargetedNamed = 3
+
+// listed sorts items largest first, keeping the first limit and counting the
+// rest. A limit of zero keeps them all.
+func listed(items []TrackingItem, limit int) ([]TrackingItem, int) {
+	sort.SliceStable(items, func(i, j int) bool { return items[i].Weekly > items[j].Weekly })
+	if limit > 0 && len(items) > limit {
+		return items[:limit], len(items) - limit
+	}
+	return items, 0
 }
 
 // IsOver reports whether spending in targeted categories is over their
@@ -359,6 +376,10 @@ type TrackingSummary struct {
 func (t TrackingSummary) IsOver() bool {
 	return t.Target > 0 && t.Actual > t.Target+overToleranceWeekly
 }
+
+// Gap is how far spending is from the targets each week: positive when over,
+// negative when under.
+func (t TrackingSummary) Gap() float64 { return t.Actual - t.Target }
 
 // BarWidth is how full the headline bar is drawn, capped at full.
 func (t TrackingSummary) BarWidth() float64 {
@@ -370,33 +391,50 @@ func (t TrackingSummary) BarWidth() float64 {
 
 func buildTrackingSummary(rows []CategoryTargetRow) TrackingSummary {
 	var summary TrackingSummary
-	for _, row := range rows {
-		switch {
-		case row.HasTarget:
-			summary.Actual += row.ActualWeekly
-			summary.Target += row.TargetWeekly
-			if row.IsOver {
-				summary.OverCount++
+	for _, category := range rows {
+		// A split category is judged part by part: each subcategory against
+		// its own target, and one with none, its general bucket included, as
+		// spending with no target, rather than all of it against theirs.
+		lines := []CategoryTargetRow{category}
+		if category.Split {
+			lines = category.SubRows
+		}
+		for _, row := range lines {
+			switch {
+			case row.HasTarget:
+				summary.Actual += row.ActualWeekly
+				summary.Target += row.TargetWeekly
+				if row.Generous {
+					summary.GenerousCount++
+				}
+				if row.IsOver {
+					summary.Over = append(summary.Over, TrackingItem{Label: row.Label, Weekly: row.ActualWeekly - row.TargetWeekly})
+				}
+			case row.NeedsTarget:
+				summary.UntargetedWeekly += row.ActualWeekly
+				summary.UntargetedCount++
+				summary.Untargeted = append(summary.Untargeted, TrackingItem{Label: row.Label, Weekly: row.ActualWeekly})
 			}
-			if row.Generous {
-				summary.GenerousCount++
-			}
-		case row.NeedsTarget:
-			summary.UntargetedWeekly += row.ActualWeekly
-			summary.UntargetedCount++
 		}
 	}
+	summary.OverCount = len(summary.Over)
+	summary.Over, _ = listed(summary.Over, 0)
+	summary.Untargeted, summary.UntargetedMore = listed(summary.Untargeted, untargetedNamed)
 	return summary
 }
 
-// BudgetSaveTarget creates or updates a BudgetItem for a category pair and
-// returns the re-rendered row.
+// BudgetSaveTarget creates or updates the target for a budge category, or
+// a subcategory of one that is split, and returns the re-rendered row: the
+// category's, which a subcategory's target adds up into.
 func (app *Application) BudgetSaveTarget(c echo.Context) error {
-	subCat := c.FormValue("sub_category")
-	if subCat == "" {
+	if key, general := strings.CutSuffix(c.FormValue("category"), generalSuffix); general {
+		return app.saveGeneralTarget(c, key)
+	}
+	category, ok := models.BudgetCategoryByKey(c.FormValue("category"))
+	if !ok || category.Key != c.FormValue("category") || !category.Budgeted() {
 		return c.NoContent(http.StatusBadRequest)
 	}
-	broadCat := c.FormValue("broad_category")
+	rowID := sanitizeID(models.TopBudgetCategory(category.Key).Key)
 	target, _ := strconv.ParseFloat(c.FormValue("target_amount"), 64)
 	frequency := c.FormValue("target_frequency")
 	if frequency == "" {
@@ -407,84 +445,88 @@ func (app *Application) BudgetSaveTarget(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	for _, item := range items {
-		if strings.EqualFold(item.Category, subCat) {
-			item.Amount = target
-			item.Frequency = frequency
-			item.BroadCategory = broadCat
-			if err := app.store.UpdateBudgetItem(item); err != nil {
-				return err
-			}
-			return app.renderTargetRow(c, sanitizeID(subCat))
+	if item, saved := budgetTargets(items)[category.Key]; saved {
+		item.Amount = target
+		item.Frequency = frequency
+		if err := app.store.UpdateBudgetItem(item); err != nil {
+			return err
 		}
+		return app.renderTargetRow(c, rowID)
 	}
-	newItem := models.BudgetItem{
-		ID:            newID(),
-		Name:          subCat,
-		Amount:        target,
-		Frequency:     frequency,
-		Category:      subCat,
-		BroadCategory: broadCat,
-	}
-	if err := app.store.CreateBudgetItem(newItem); err != nil {
+	if err := app.store.CreateBudgetItem(models.BudgetItem{
+		ID:             newID(),
+		Name:           category.Label,
+		Amount:         target,
+		Frequency:      frequency,
+		BudgetCategory: category.Key,
+	}); err != nil {
 		return err
 	}
-	return app.renderTargetRow(c, sanitizeID(subCat))
+	return app.renderTargetRow(c, rowID)
 }
 
-type budgetKindOption struct{ Value, Label string }
-
-// budgetKindOptions are the choices in each row's "Counts as" menu.
-var budgetKindOptions = []budgetKindOption{
-	{models.BudgetKindSpending, "Spending"},
-	{models.BudgetKindSavings, "Savings"},
-	{models.BudgetKindIgnore, "Ignore"},
+// saveGeneralTarget sets the target for what is filed under a split
+// category itself, kept beside its own.
+func (app *Application) saveGeneralTarget(c echo.Context, key string) error {
+	category, ok := models.BudgetCategoryByKey(key)
+	if !ok || category.Key != key || category.IsSub() || !category.Budgeted() {
+		return c.NoContent(http.StatusBadRequest)
+	}
+	target, _ := strconv.ParseFloat(c.FormValue("target_amount"), 64)
+	frequency := c.FormValue("target_frequency")
+	if frequency == "" {
+		frequency = "weekly"
+	}
+	items, err := app.store.ReadBudgetItems()
+	if err != nil {
+		return err
+	}
+	item, saved := budgetTargets(items)[key]
+	if !saved {
+		item = models.BudgetItem{ID: newID(), Name: category.Label, BudgetCategory: key, Frequency: category.Frequency, Split: true}
+	}
+	item.GeneralAmount = target
+	item.GeneralFrequency = frequency
+	if saved {
+		err = app.store.UpdateBudgetItem(item)
+	} else {
+		err = app.store.CreateBudgetItem(item)
+	}
+	if err != nil {
+		return err
+	}
+	return app.renderTargetRow(c, sanitizeID(key))
 }
 
-// BudgetSaveKind sets whether a category counts as spending, savings or is
-// ignored. Moving a row in or out of spending changes its group's totals and
-// the savings footer, so the whole table is re-rendered rather than the row.
-func (app *Application) BudgetSaveKind(c echo.Context) error {
-	subCat := c.FormValue("sub_category")
-	kind := c.FormValue("kind")
-	switch kind {
-	case models.BudgetKindSpending, models.BudgetKindSavings, models.BudgetKindIgnore:
-	default:
+// BudgetSaveSplit budgets a category by its subcategories, or by one target
+// again. Both sets of targets are kept, so switching back and forth loses
+// neither.
+func (app *Application) BudgetSaveSplit(c echo.Context) error {
+	category, ok := models.BudgetCategoryByKey(c.FormValue("category"))
+	if !ok || category.IsSub() || !category.Budgeted() || len(models.BudgetSubcategories(category.Key)) == 0 {
 		return c.NoContent(http.StatusBadRequest)
 	}
-	if subCat == "" {
-		return c.NoContent(http.StatusBadRequest)
-	}
+	split := c.FormValue("split") == "1"
 
 	items, err := app.store.ReadBudgetItems()
 	if err != nil {
 		return err
 	}
-	saved := false
-	for _, item := range items {
-		if strings.EqualFold(item.Category, subCat) {
-			item.Kind = kind
-			if err := app.store.UpdateBudgetItem(item); err != nil {
-				return err
-			}
-			saved = true
-			break
-		}
-	}
-	if !saved {
-		if err := app.store.CreateBudgetItem(models.BudgetItem{
-			ID:            newID(),
-			Name:          subCat,
-			Category:      subCat,
-			BroadCategory: c.FormValue("broad_category"),
-			Frequency:     "weekly",
-			Kind:          kind,
-		}); err != nil {
+	if item, saved := budgetTargets(items)[category.Key]; saved {
+		item.Split = split
+		if err := app.store.UpdateBudgetItem(item); err != nil {
 			return err
 		}
+	} else if err := app.store.CreateBudgetItem(models.BudgetItem{
+		ID:             newID(),
+		Name:           category.Label,
+		Frequency:      category.Frequency,
+		BudgetCategory: category.Key,
+		Split:          split,
+	}); err != nil {
+		return err
 	}
-
-	return app.renderTargetRow(c, sanitizeID(subCat))
+	return app.renderTargetRow(c, sanitizeID(category.Key))
 }
 
 // TargetRowUpdate answers an edit on the targets page: the edited row, and
@@ -494,18 +536,15 @@ type TargetRowUpdate struct {
 	Setup CategorySetupData
 }
 
-// renderTargetRow answers an edit with just the edited row, swapped in place.
-// Re-rendering the list instead moved rows between sections and reordered
-// them under the pointer. The row keeps the section it is drawn in, given as
-// "section", even if the edit means it belongs elsewhere; it moves there the
-// next time the page loads. Section totals are worked out with it there too,
-// so they agree with what is on screen.
+// renderTargetRow answers an edit with just the edited row, swapped in place,
+// and the totals of the group it sits in. Re-rendering the list instead
+// closed groups opened by hand and moved the page under the pointer.
 func (app *Application) renderTargetRow(c echo.Context, rowID string) error {
 	setup, err := app.buildSetupData()
 	if err != nil {
 		return err
 	}
-	setup.Sections = pinRow(buildTargetSections(setup.Rows, rowID), rowID, c.FormValue("section"))
+	setup.Sections = buildTargetSections(setup.Rows, rowID)
 	setup.OOB = true
 	for i := range setup.Sections {
 		setup.Sections[i].OOB = true
@@ -518,40 +557,6 @@ func (app *Application) renderTargetRow(c echo.Context, rowID string) error {
 		}
 	}
 	return echo.NewHTTPError(http.StatusNotFound, "That category is no longer in the budget.")
-}
-
-// pinRow moves a row into the section it is drawn in, so totals match the
-// page after an edit that would move it. An unknown section leaves it put.
-func pinRow(sections []TargetSection, rowID, key string) []TargetSection {
-	from, to := -1, -1
-	var row CategoryTargetRow
-	for i, section := range sections {
-		if section.Key == key {
-			to = i
-		}
-		for _, r := range section.Rows {
-			if r.RowID == rowID {
-				from, row = i, r
-			}
-		}
-	}
-	if from < 0 || to < 0 || from == to {
-		return sections
-	}
-	kept := sections[from].Rows[:0:0]
-	for _, r := range sections[from].Rows {
-		if r.RowID != rowID {
-			kept = append(kept, r)
-		}
-	}
-	sections[from].Rows = kept
-	sections[from].Actual -= row.ActualWeekly
-	sections[from].Target -= row.TargetWeekly
-	row.Section = key
-	sections[to].Rows = append(sections[to].Rows, row)
-	sections[to].Actual += row.ActualWeekly
-	sections[to].Target += row.TargetWeekly
-	return sections
 }
 
 // BudgetCards returns the summary cards (income / expenses / savings).
@@ -583,10 +588,7 @@ func (app *Application) buildBudgetCards() (BudgetCardsData, error) {
 		return BudgetCardsData{}, err
 	}
 	netWeekly := computeNetWeekly(salary)
-	var totalExpenses float64
-	for _, it := range items {
-		totalExpenses += weeklyTarget(it)
-	}
+	totalExpenses := weeklyTargetTotal(budgetTargets(items))
 	savings := netWeekly - totalExpenses
 	pct := 0.0
 	if netWeekly > 0 {
@@ -600,6 +602,8 @@ func (app *Application) buildBudgetCards() (BudgetCardsData, error) {
 		PctAllocatedCss:     math.Min(pct*100, 100),
 		IsOverAllocated:     savings < 0,
 		HasSalary:           salary.Salary > 0,
+		SavingsGoalWeekly:   toWeeklyAmount(salary.SavingsGoal, salary.SavingsGoalFrequency),
+		MeetsSavingsGoal:    savings >= toWeeklyAmount(salary.SavingsGoal, salary.SavingsGoalFrequency),
 	}, nil
 }
 
@@ -619,10 +623,10 @@ func (app *Application) BudgetSaveSavingsGoal(c echo.Context) error {
 	return app.store.SaveBudgetSalary(existing)
 }
 
-func buildSetupRowData(item models.BudgetItem, actualWeekly, netWeekly float64) CategoryTargetRow {
+func buildSetupRowData(category models.BudgetCategory, item models.BudgetItem, actualWeekly, netWeekly float64) CategoryTargetRow {
 	targetWeekly := weeklyTarget(item)
-	isSpending := item.IsSpending()
-	hasTarget := targetWeekly > 0
+	budgeted := category.Budgeted()
+	hasTarget := budgeted && targetWeekly > 0
 
 	freq := item.Frequency
 	if freq == "" {
@@ -632,30 +636,31 @@ func buildSetupRowData(item models.BudgetItem, actualWeekly, netWeekly float64) 
 	var pct, pctOfIncome float64
 	if hasTarget {
 		pct = actualWeekly / targetWeekly
-	}
-	if netWeekly > 0 {
-		pctOfIncome = targetWeekly / netWeekly
+		if netWeekly > 0 {
+			pctOfIncome = targetWeekly / netWeekly
+		}
+	} else {
+		targetWeekly = 0
 	}
 	return CategoryTargetRow{
-		BroadCategory: item.BroadCategory,
-		SubCategory:   item.Category,
-		RowID:         sanitizeID(item.Category),
-		ActualWeekly:  actualWeekly,
-		ItemID:        item.ID,
-		Target:        item.Amount,
-		Frequency:     item.Frequency,
-		ActualDisplay: actualInFrequency(actualWeekly, freq),
-		TargetDisplay: item.Amount,
-		Per:           frequencyPer(freq),
-		WindowWeeks:   actualWindowWeeks(item.Frequency),
-		TargetWeekly:  targetWeekly,
-		Percentage:    pct,
-		PctOfIncome:   pctOfIncome,
-		IsOver:        hasTarget && actualWeekly > targetWeekly+overToleranceWeekly,
-		HasTarget:     hasTarget,
-		NeedsTarget:   isSpending && !hasTarget && actualWeekly > 0,
-		Kind:          item.Kind,
-		IsSpending:    isSpending,
+		BudgetCategory: category,
+		RowID:          sanitizeID(category.Key),
+		Order:          categoryOrder(category.Key),
+		ActualWeekly:   actualWeekly,
+		ItemID:         item.ID,
+		Target:         item.Amount,
+		Frequency:      item.Frequency,
+		ActualDisplay:  actualInFrequency(actualWeekly, freq),
+		TargetDisplay:  item.Amount,
+		Per:            frequencyPer(freq),
+		WindowWeeks:    actualWindowWeeks(item.Frequency),
+		TargetWeekly:   targetWeekly,
+		Percentage:     pct,
+		PctOfIncome:    pctOfIncome,
+		IsOver:         hasTarget && actualWeekly > targetWeekly+overToleranceWeekly,
+		HasTarget:      hasTarget,
+		NeedsTarget:    budgeted && !hasTarget && actualWeekly > 0,
+		Budgeted:       budgeted,
 	}
 }
 
@@ -668,6 +673,10 @@ func actualWindowWeeks(frequency string) int {
 		return 8
 	case "monthly":
 		return 13
+	case "quarterly":
+		// Two quarters, so a quarterly bill is caught twice rather than once
+		// or not at all depending on when it lands.
+		return 26
 	case "yearly":
 		return 52
 	}
@@ -688,7 +697,7 @@ const overToleranceWeekly = 1.0
 // the row's own window and the last 13 weeks, so a quiet month does not flag
 // a weekly target and a yearly one is not judged on its quiet weeks alone.
 func markGenerous(row *CategoryTargetRow, recentWeekly float64) {
-	if !row.HasTarget || !row.IsSpending {
+	if !row.HasTarget || !row.Budgeted {
 		return
 	}
 	spent := math.Max(row.ActualWeekly, recentWeekly)
@@ -703,8 +712,9 @@ func markGenerous(row *CategoryTargetRow, recentWeekly float64) {
 	row.LoweredTarget = math.Ceil(actualInFrequency(spent*loweredHeadroom, freq))
 }
 
-// buildSetupData groups 13 months of transactions by category pair and merges
-// in any saved targets, one row per pair.
+// buildSetupData measures 13 months of money leaving against the targets,
+// one row for every budge category, so a target can be set for a category
+// before anything has been spent in it.
 func (app *Application) buildSetupData() (CategorySetupData, error) {
 	salary, err := app.store.GetBudgetSalary()
 	if err != nil {
@@ -721,112 +731,236 @@ func (app *Application) buildSetupData() (CategorySetupData, error) {
 	if err != nil {
 		return CategorySetupData{}, err
 	}
-	itemBySubCat := budgetItemsByCategory(items)
+	targets := budgetTargets(items)
 
-	type pairKey struct{ broad, specific string }
-	var pairOrder []pairKey
-	pairSeen := make(map[pairKey]bool)
 	// spend[key][weeks] is the total within that many weeks back; every window
-	// a transaction falls inside counts it, so each is a plain total.
-	spend := make(map[pairKey]map[int]float64)
-	merchantSpend := make(map[pairKey]map[string]float64)
-	windows := []int{4, 8, 13, 52}
+	// a transaction falls inside counts it, so each is a plain total. Keys are
+	// categories, and subcategories for the split under each row.
+	spend := make(map[string]map[int]float64)
+	merchantSpend := make(map[string]map[string]float64)
+	windows := []int{4, 8, 13, 26, 52}
 	weekStart := isoWeekStart(time.Now())
+	add := func(key string, weeks int, amount float64) {
+		if spend[key] == nil {
+			spend[key] = make(map[int]float64)
+		}
+		spend[key][weeks] += amount
+	}
 
 	for _, tx := range txs {
-		broad, specific, ok := spendCategory(tx)
+		category, ok := debitCategory(tx)
 		if !ok {
 			continue
 		}
-		key := pairKey{broad, specific}
-		if !pairSeen[key] {
-			pairSeen[key] = true
-			pairOrder = append(pairOrder, key)
-			spend[key] = make(map[int]float64)
-			merchantSpend[key] = make(map[string]float64)
-		}
 		amt := math.Abs(tx.Amount)
+		filed := tx.BudgetCategory()
+		if filed == category.Key {
+			// Filed under the category itself, which a split category
+			// budgets as its general row.
+			filed = generalKey(category.Key)
+		}
 		if name := spendMerchant(tx); name != "" {
-			merchantSpend[key][name] += amt
+			for _, key := range []string{category.Key, filed} {
+				if merchantSpend[key] == nil {
+					merchantSpend[key] = make(map[string]float64)
+				}
+				merchantSpend[key][name] += amt
+			}
 		}
 		for _, weeks := range windows {
 			if tx.Date.After(weekStart.AddDate(0, 0, -7*weeks)) {
-				spend[key][weeks] += amt
+				add(category.Key, weeks, amt)
+				add(filed, weeks, amt)
 			}
 		}
 	}
 
-	var rows []CategoryTargetRow
-	for _, key := range pairOrder {
-		saved := itemBySubCat[strings.ToLower(key.specific)]
+	measure := func(category models.BudgetCategory) CategoryTargetRow {
+		saved := targets[category.Key]
+		if saved.Frequency == "" {
+			saved.Frequency = category.Frequency
+		}
+		// A category with no target is measured over 13 weeks, so one odd
+		// month does not set what it is offered, or over its own longer window
+		// when it is judged quarterly or yearly.
 		weeks := actualWindowWeeks(saved.Frequency)
 		if weeklyTarget(saved) == 0 {
-			weeks = untargetedWindowWeeks
+			weeks = max(untargetedWindowWeeks, weeks)
 		}
-		row := buildSetupRowData(saved, spend[key][weeks]/float64(weeks), netWeekly)
+		row := buildSetupRowData(category, saved, spend[category.Key][weeks]/float64(weeks), netWeekly)
 		row.WindowWeeks = weeks
-		if row.BroadCategory == "" {
-			row.BroadCategory = key.broad
-		}
-		if row.SubCategory == "" {
-			row.SubCategory = key.specific
-			row.RowID = sanitizeID(key.specific)
-		}
-		if !row.HasTarget && row.IsSpending {
-			row.SuggestedMonthly = math.Ceil(row.ActualWeekly * 52 / 12)
+		if row.NeedsTarget {
+			measured := actualWindowWeeks(saved.Frequency)
+			suggestTarget(&row, spend[category.Key][measured]/float64(measured))
 		}
 		if row.HasTarget && !row.IsOver {
-			markGenerous(&row, spend[key][untargetedWindowWeeks]/untargetedWindowWeeks)
+			markGenerous(&row, spend[category.Key][untargetedWindowWeeks]/untargetedWindowWeeks)
 		}
-		row.Merchants = topMerchants(merchantSpend[key])
-		rows = append(rows, row)
+		row.Merchants = topMerchants(merchantSpend[category.Key])
+		return row
 	}
 
-	// A saved category with no spending in the window still has a target
-	// that counts toward the total, so it gets a row too; otherwise it could
-	// be neither seen nor changed.
-	shown := make(map[string]bool, len(rows))
-	for _, row := range rows {
-		shown[strings.ToLower(row.SubCategory)] = true
-	}
-	for _, item := range items {
-		if shown[strings.ToLower(item.Category)] {
+	var rows []CategoryTargetRow
+	for _, category := range models.TopBudgetCategories() {
+		subs := models.BudgetSubcategories(category.Key)
+		if !targets[category.Key].Split || len(subs) == 0 || !category.Budgeted() {
+			row := measure(category)
+			row.Splittable = len(subs) > 0 && category.Budgeted()
+			row.Subs = subcategorySpend(category, spend, row.WindowWeeks)
+			rows = append(rows, row)
 			continue
 		}
-		row := buildSetupRowData(item, 0, netWeekly)
-		if weeklyTarget(item) == 0 {
-			row.WindowWeeks = untargetedWindowWeeks
+
+		// Split: each subcategory against its own target and period, what is
+		// filed under the category itself as a general bucket of its own, and
+		// the category the sum of them. The general bucket is always there,
+		// so it is plain where anything not in a subcategory goes.
+		var subRows []CategoryTargetRow
+		for _, sub := range subs {
+			subRow := measure(sub)
+			subRow.ParentRowID = sanitizeID(category.Key)
+			subRows = append(subRows, subRow)
 		}
-		markGenerous(&row, 0)
-		rows = append(rows, row)
+		generalRow := measure(generalCategory(category))
+		generalRow.ParentRowID = sanitizeID(category.Key)
+		generalRow.General = true
+		subRows = append(subRows, generalRow)
+		rows = append(rows, splitRow(category, subRows, netWeekly))
 	}
 
-	var totalTargetWeekly, trackedSavings float64
+	var totalTargetWeekly float64
+	var generous, small []string
 	for _, row := range rows {
 		totalTargetWeekly += row.TargetWeekly
-		if row.Kind == models.BudgetKindSavings {
-			trackedSavings += row.ActualWeekly
+		switch {
+		case row.Generous:
+			generous = append(generous, row.Label)
+		case row.Budgeted && !row.HasTarget && row.ActualWeekly > 0 && row.ActualWeekly < smallSpendWeekly:
+			small = append(small, row.Label)
+		}
+		for _, sub := range row.SubRows {
+			if sub.Generous {
+				generous = append(generous, sub.Label)
+			}
 		}
 	}
 
-	savingsGoalWeekly := toWeeklyAmount(salary.SavingsGoal, salary.SavingsGoalFrequency)
-	remaining := netWeekly - totalTargetWeekly
-
 	return CategorySetupData{
-		Tracking:             buildTrackingSummary(rows),
-		Rows:                 rows,
-		Sections:             buildTargetSections(rows, ""),
-		HasData:              len(txs) > 0,
-		NetWeekly:            netWeekly,
-		TotalTargetWeekly:    totalTargetWeekly,
-		SavingsGoal:          salary.SavingsGoal,
-		SavingsGoalFrequency: salary.SavingsGoalFrequency,
-		SavingsGoalWeekly:    savingsGoalWeekly,
-		Remaining:            remaining,
-		MeetsSavingsGoal:     savingsGoalWeekly > 0 && remaining >= savingsGoalWeekly,
-		HasSavingsGoal:       salary.SavingsGoal > 0,
-		TrackedSavingsWeekly: trackedSavings,
+		Tracking:          buildTrackingSummary(rows),
+		Rows:              rows,
+		Sections:          buildTargetSections(rows, ""),
+		HasData:           len(txs) > 0,
+		NetWeekly:         netWeekly,
+		TotalTargetWeekly: totalTargetWeekly,
+		Generous:          generous,
+		Small:             small,
 	}, nil
+}
+
+// suggestTarget offers a target for a row with none, in the row's own
+// frequency. measuredWeekly is its spend over the window that frequency is
+// judged on, which for a weekly target is only the last 4 weeks.
+func suggestTarget(row *CategoryTargetRow, measuredWeekly float64) {
+	freq := row.Frequency
+	if freq == "" {
+		freq = "weekly"
+	}
+	row.SuggestedFrequency = freq
+	row.SuggestedPer = frequencyPer(freq)
+	row.SuggestedWindow = actualWindowWeeks(freq)
+	row.Suggested = math.Ceil(actualInFrequency(math.Max(row.ActualWeekly, measuredWeekly), freq))
+}
+
+// splitRow is a category budgeted by its subcategories. It is measured per
+// week, since its subcategories can each have a different period: the sum of
+// what they spend, plus anything filed under the category itself, against
+// the sum of their targets. Its merchants are left to its subcategories,
+// each listing its own, rather than repeated above them.
+func splitRow(category models.BudgetCategory, subRows []CategoryTargetRow, netWeekly float64) CategoryTargetRow {
+	row := CategoryTargetRow{
+		BudgetCategory: category,
+		RowID:          sanitizeID(category.Key),
+		Order:          categoryOrder(category.Key),
+		Budgeted:       true,
+		Splittable:     true,
+		Split:          true,
+		SubRows:        subRows,
+		Frequency:      "weekly",
+		Per:            frequencyPer("weekly"),
+		WindowWeeks:    untargetedWindowWeeks,
+	}
+	for _, sub := range subRows {
+		row.ActualWeekly += sub.ActualWeekly
+		row.TargetWeekly += sub.TargetWeekly
+	}
+	row.ActualDisplay = row.ActualWeekly
+	row.TargetDisplay = row.TargetWeekly
+	row.Target = row.TargetWeekly
+	row.HasTarget = row.TargetWeekly > 0
+	row.NeedsTarget = !row.HasTarget && row.ActualWeekly > 0
+	row.IsOver = row.HasTarget && row.ActualWeekly > row.TargetWeekly+overToleranceWeekly
+	if row.HasTarget {
+		row.Percentage = row.ActualWeekly / row.TargetWeekly
+		if netWeekly > 0 {
+			row.PctOfIncome = row.TargetWeekly / netWeekly
+		}
+	}
+	return row
+}
+
+// generalSuffix marks the key of a split category's general row, for what is
+// filed under the category itself. It is not a category of its own.
+const generalSuffix = ":general"
+
+// generalKey is the key of a category's general row.
+func generalKey(key string) string { return key + generalSuffix }
+
+// generalCategory is a split category's general row, dressed as the category
+// it belongs to.
+func generalCategory(category models.BudgetCategory) models.BudgetCategory {
+	general := category
+	general.Key = generalKey(category.Key)
+	general.Label = category.Label + " (general)"
+	general.Blurb = "Filed under " + category.Label + " itself rather than one of its subcategories"
+	return general
+}
+
+// categoryOrder is a category's place in the registry, which is the order
+// the budget lists categories in.
+func categoryOrder(key string) int {
+	for i, category := range models.TopBudgetCategories() {
+		if category.Key == key {
+			return i
+		}
+	}
+	return -1
+}
+
+// subcategorySpend splits a category's weekly spending by subcategory, over
+// the window its row is measured over. Spending filed under the category
+// itself is listed last, as "Other <category>". A category with nothing finer
+// returns nothing, since the split would only repeat the row.
+func subcategorySpend(category models.BudgetCategory, spend map[string]map[int]float64, weeks int) []SubcategorySpend {
+	var subs []SubcategorySpend
+	for _, sub := range models.BudgetSubcategories(category.Key) {
+		if total := spend[sub.Key][weeks]; total > 0 {
+			subs = append(subs, SubcategorySpend{Label: sub.Label, Weekly: total / float64(weeks)})
+		}
+	}
+	if len(subs) == 0 {
+		return nil
+	}
+	if direct := spend[category.Key][weeks]; direct > 0 {
+		var filed float64
+		for _, sub := range models.BudgetSubcategories(category.Key) {
+			filed += spend[sub.Key][weeks]
+		}
+		if rest := direct - filed; rest > 0.005 {
+			subs = append(subs, SubcategorySpend{Label: "Other " + strings.ToLower(category.Label), Weekly: rest / float64(weeks)})
+		}
+	}
+	sort.SliceStable(subs, func(i, j int) bool { return subs[i].Weekly > subs[j].Weekly })
+	return subs
 }
 
 // BudgetSaveSalary persists salary config (called on field change, hx-swap="none").
@@ -935,49 +1069,59 @@ func buildBudgetSummary(salary models.BudgetSalary) BudgetSummary {
 	}
 }
 
-// budgetItemsByCategory indexes items by their lower-cased subcategory, the
-// key every budget view matches transactions on.
-func budgetItemsByCategory(items []models.BudgetItem) map[string]models.BudgetItem {
-	byCategory := make(map[string]models.BudgetItem, len(items))
+// budgetTargets indexes the targets set against budge categories and
+// subcategories by key.
+// Targets from before budge had its own categories name none, and are left
+// out, as are the targets of deleted categories: the category their
+// transactions went to keeps its own target.
+func budgetTargets(items []models.BudgetItem) map[string]models.BudgetItem {
+	targets := make(map[string]models.BudgetItem, len(items))
 	for _, item := range items {
-		byCategory[strings.ToLower(item.Category)] = item
-	}
-	return byCategory
-}
-
-// countedSpend is spendCategory narrowed to what counts against the budget:
-// categories marked as savings or ignored are left out. A category with no
-// saved item is spending.
-func countedSpend(tx models.Transaction, items map[string]models.BudgetItem) (broad, specific string, ok bool) {
-	broad, specific, ok = spendCategory(tx)
-	if !ok {
-		return "", "", false
-	}
-	if item, saved := items[strings.ToLower(specific)]; saved && !item.IsSpending() {
-		return "", "", false
-	}
-	return broad, specific, true
-}
-
-// withoutUncounted drops debits in categories the owner has marked as savings
-// or ignored on the targets page, so every view of spending agrees with the
-// budget: a contribution to an investment fund is not spending, and loan
-// interest is not counted again on top of the repayments that pay it.
-func (app *Application) withoutUncounted(txs []models.Transaction) ([]models.Transaction, error) {
-	items, err := app.store.ReadBudgetItems()
-	if err != nil {
-		return nil, err
-	}
-	byCategory := budgetItemsByCategory(items)
-	kept := make([]models.Transaction, 0, len(txs))
-	for _, tx := range txs {
-		_, _, spend := spendCategory(tx)
-		_, _, counted := countedSpend(tx, byCategory)
-		if !spend || counted {
-			kept = append(kept, tx)
+		if category, ok := models.BudgetCategoryByKey(item.BudgetCategory); ok && category.Key == item.BudgetCategory && category.Budgeted() {
+			targets[item.BudgetCategory] = item
+			if !category.IsSub() {
+				targets[generalKey(item.BudgetCategory)] = models.BudgetItem{
+					Name:           category.Label + " (general)",
+					Amount:         item.GeneralAmount,
+					Frequency:      item.GeneralFrequency,
+					BudgetCategory: generalKey(item.BudgetCategory),
+				}
+			}
 		}
 	}
-	return kept, nil
+	return targets
+}
+
+// weeklyTargetTotal adds up the targets in force, per week: a category's
+// own, or its subcategories' when it is split.
+func weeklyTargetTotal(targets map[string]models.BudgetItem) float64 {
+	var total float64
+	for _, category := range models.TopBudgetCategories() {
+		if !targets[category.Key].Split {
+			total += weeklyTarget(targets[category.Key])
+			continue
+		}
+		for _, sub := range models.BudgetSubcategories(category.Key) {
+			total += weeklyTarget(targets[sub.Key])
+		}
+		total += weeklyTarget(targets[generalKey(category.Key)])
+	}
+	return total
+}
+
+// spendingOnly drops money that left without being spent, savings and loan
+// interest, so every view of spending agrees with the budget: a contribution
+// to an investment fund is not spending, and loan interest is not counted
+// again on top of the repayments that pay it.
+func spendingOnly(txs []models.Transaction) []models.Transaction {
+	kept := make([]models.Transaction, 0, len(txs))
+	for _, tx := range txs {
+		if category, ok := debitCategory(tx); ok && category.NotSpending {
+			continue
+		}
+		kept = append(kept, tx)
+	}
+	return kept
 }
 
 // isoWeekStart returns the Monday of the ISO week containing t, normalised to
@@ -1014,6 +1158,8 @@ func actualInFrequency(weeklyActual float64, frequency string) float64 {
 		return weeklyActual * 2
 	case "monthly":
 		return weeklyActual * 52 / 12
+	case "quarterly":
+		return weeklyActual * 13
 	case "yearly":
 		return weeklyActual * 52
 	}
@@ -1028,6 +1174,8 @@ func frequencyPer(frequency string) string {
 		return "a fortnight"
 	case "monthly":
 		return "a month"
+	case "quarterly":
+		return "a quarter"
 	case "yearly":
 		return "a year"
 	}
@@ -1122,6 +1270,8 @@ func toWeeklyAmount(amount float64, frequency string) float64 {
 		return amount / 2
 	case "monthly":
 		return amount * 12 / 52
+	case "quarterly":
+		return amount * 4 / 52
 	case "yearly":
 		return amount / 52
 	}

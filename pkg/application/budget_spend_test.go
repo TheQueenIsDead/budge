@@ -1,9 +1,6 @@
 package application
 
 import (
-	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"testing"
 	"time"
 
@@ -23,26 +20,25 @@ func spendTx(id, txType, broad, specific, merchant, description string, amount f
 func TestSpendCategory(t *testing.T) {
 	now := time.Now()
 	tests := []struct {
-		name             string
-		tx               models.Transaction
-		expectedBroad    string
-		expectedSpecific string
-		expectedOK       bool
+		name     string
+		tx       models.Transaction
+		expected string
+		ok       bool
 	}{
-		{"categorised debit keeps its categories", spendTx("1", "EFTPOS", "Food", "Supermarkets", "", "", -50, now), "Food", "Supermarkets", true},
-		{"missing specific falls back to broad", spendTx("2", "EFTPOS", "Food", "", "", "", -50, now), "Food", "Food", true},
-		{"uncategorised loan interest is grouped by type", spendTx("3", "LOAN", "", "", "", "LOAN INTEREST", -400, now), uncategorisedGroup, "Loan", true},
-		{"uncategorised standing order is grouped by type", spendTx("4", "STANDING ORDER", "", "", "", "AP#1 TO FISHER FUNDS", -385, now), uncategorisedGroup, "Standing orders", true},
-		{"unknown type still counts", spendTx("5", "MYSTERY", "", "", "", "", -10, now), uncategorisedGroup, "Other", true},
-		{"income is not spending", spendTx("6", "CREDIT", "", "", "", "", 1000, now), "", "", false},
-		{"transfers are not spending", spendTx("7", "TRANSFER", "", "", "", "", -500, now), "", "", false},
+		{"a categorised debit goes where Akahu's category does", spendTx("1", "EFTPOS", "Food", "Supermarkets and grocery stores", "", "", -50, now), "groceries", true},
+		{"a subcategory budgets under its category", spendTx("2", "EFTPOS", "Transport", "Fuel stations", "", "", -50, now), "transport", true},
+		{"a repayment a rule counts is spending", spendTx("3", models.TypeCountedTransfer, "Housing", "Mortgage", "", "", -641, now), "home", true},
+		{"anything unfiled is still spending", spendTx("4", "PAYMENT", "", "", "", "PAY ROOFER", -900, now), "uncategorised", true},
+		{"loan interest is not spending", spendTx("5", "LOAN", "", "", "", "LOAN INTEREST", -400, now), "", false},
+		{"savings are not spending", spendTx("6", models.TypeCountedTransfer, "General", "Savings", "", "", -385, now), "", false},
+		{"income is not spending", spendTx("7", "CREDIT", "", "", "", "", 1000, now), "", false},
+		{"transfers are not spending", spendTx("8", "TRANSFER", "", "", "", "", -500, now), "", false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			broad, specific, ok := spendCategory(test.tx)
-			assert.Equal(t, test.expectedOK, ok)
-			assert.Equal(t, test.expectedBroad, broad)
-			assert.Equal(t, test.expectedSpecific, specific)
+			category, ok := spendCategory(test.tx)
+			assert.Equal(t, test.ok, ok)
+			assert.Equal(t, test.expected, category.Key)
 		})
 	}
 }
@@ -63,7 +59,7 @@ func TestBudgetCountsUncategorisedSpend(t *testing.T) {
 	app := newTestApp(t)
 	recent := time.Now().Add(-48 * time.Hour)
 	for _, tx := range []models.Transaction{
-		spendTx("groceries", "EFTPOS", "Food", "Supermarkets", "Countdown", "", -120, recent),
+		spendTx("groceries", "EFTPOS", "Food", "Supermarkets and grocery stores", "Countdown", "", -120, recent),
 		spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -410, recent),
 		spendTx("fund", "STANDING ORDER", "", "", "", "AP#23533701 TO FISHER FUNDS", -385, recent),
 		spendTx("salary", "CREDIT", "", "", "", "SALARY", 3000, recent),
@@ -75,34 +71,71 @@ func TestBudgetCountsUncategorisedSpend(t *testing.T) {
 	setup, err := app.buildSetupData()
 	require.NoError(t, err)
 
-	rows := map[string]CategoryTargetRow{}
-	for _, row := range rowsIn(t, setup, uncategorisedGroup) {
-		rows[row.SubCategory] = row
-	}
-	assert.Equal(t, []string{"LOAN INTEREST"}, rows["Loan"].Merchants)
-	assert.Equal(t, []string{"AP#23533701 TO FISHER FUNDS"}, rows["Standing orders"].Merchants)
-	assert.True(t, rows["Loan"].NeedsTarget, "untargeted spend is flagged so it can be budgeted")
+	uncategorised := rowByKey(t, setup, "uncategorised")
+	assert.Equal(t, []string{"AP#23533701 TO FISHER FUNDS"}, uncategorised.Merchants)
+	assert.False(t, uncategorised.Budgeted, "what is not filed yet takes no target")
+	assert.False(t, uncategorised.NeedsTarget)
 
-	assert.InDelta(t, 915, countedTotal(t, app), 0.001, "every debit is counted, but not income or transfers")
+	interest := rowByKey(t, setup, "loan-interest")
+	assert.Equal(t, []string{"LOAN INTEREST"}, interest.Merchants, "interest is still shown, for information")
+
+	assert.True(t, rowByKey(t, setup, "groceries").NeedsTarget, "untargeted spend is flagged so it can be budgeted")
+	assert.InDelta(t, 505, countedTotal(t, app), 0.001, "every debit is spending but interest, income and transfers")
 }
 
-func TestNonSpendingRowsCarryNoTarget(t *testing.T) {
-	for _, kind := range []string{models.BudgetKindSavings, models.BudgetKindIgnore} {
-		t.Run(kind, func(t *testing.T) {
-			item := models.BudgetItem{ID: "fund", Category: "Standing orders", Amount: 385, Frequency: "weekly", Kind: kind}
-			row := buildSetupRowData(item, 400, 1_000)
+func TestEveryCategoryHasARow(t *testing.T) {
+	app := newTestApp(t)
+	require.NoError(t, app.store.CreateTransaction(spendTx("groceries", "EFTPOS", "Food", "Supermarkets and grocery stores", "", "", -50, time.Now())))
 
-			assert.False(t, row.IsSpending)
+	setup, err := app.buildSetupData()
+	require.NoError(t, err)
+	assert.Len(t, setup.Rows, len(models.TopBudgetCategories()), "a target can be set before anything is spent")
+	assert.Equal(t, "home", setup.Rows[0].Key, "rows follow the registry")
+}
+
+func TestUnbudgetedRowsCarryNoTarget(t *testing.T) {
+	for _, key := range []string{"savings", "loan-interest", "uncategorised"} {
+		t.Run(key, func(t *testing.T) {
+			category, _ := models.BudgetCategoryByKey(key)
+			item := models.BudgetItem{ID: "x", BudgetCategory: key, Amount: 385, Frequency: "weekly"}
+			row := buildSetupRowData(category, item, 400, 1_000)
+
+			assert.False(t, row.Budgeted)
 			assert.False(t, row.HasTarget)
-			assert.False(t, row.IsOver, "a non-spending row can never be over budget")
-			assert.False(t, row.NeedsTarget, "a non-spending row should not nag for a target")
+			assert.False(t, row.IsOver, "an unbudgeted row can never be over budget")
+			assert.False(t, row.NeedsTarget, "an unbudgeted row should not nag for a target")
+			assert.Zero(t, row.TargetWeekly, "nor count towards the targets")
 			assert.Zero(t, row.PctOfIncome)
 
 			html := renderTemplate(t, "budget.setup.row", row)
 			assert.NotContains(t, html, `name="target_amount"`)
-			assert.Contains(t, html, `hx-post="/budget/kind"`, "the row can still be switched back")
 		})
 	}
+}
+
+func TestSubcategorySpend(t *testing.T) {
+	app := newTestApp(t)
+	recent := time.Now().Add(-48 * time.Hour)
+	for _, tx := range []models.Transaction{
+		spendTx("power", "DIRECT DEBIT", "Utilities", "Electricity services", "Mercury", "", -130, recent),
+		spendTx("net", "DIRECT DEBIT", "Utilities", "Internet services", "Voyager", "", -65, recent),
+		spendTx("water", "DIRECT DEBIT", "Utilities", "Water", "Water Co", "", -26, recent),
+	} {
+		require.NoError(t, app.store.CreateTransaction(tx))
+	}
+
+	setup, err := app.buildSetupData()
+	require.NoError(t, err)
+	bills := rowByKey(t, setup, "bills")
+	weeks := float64(bills.WindowWeeks)
+	assert.InDelta(t, 221/weeks, bills.ActualWeekly, 0.001)
+	assert.Equal(t, []SubcategorySpend{
+		{Label: "Power", Weekly: 130 / weeks},
+		{Label: "Internet & mobile", Weekly: 65 / weeks},
+		{Label: "Other bills & subscriptions", Weekly: 26 / weeks},
+	}, bills.Subs, "biggest first, with what no subcategory holds last")
+
+	assert.Empty(t, rowByKey(t, setup, "groceries").Subs, "nothing finer to split by")
 }
 
 // countedTotal is the spending the budget counts across every category, each
@@ -114,108 +147,23 @@ func countedTotal(t *testing.T, app *Application) float64 {
 	require.NoError(t, err)
 	var total float64
 	for _, row := range setup.Rows {
-		if row.IsSpending {
+		if !row.NotSpending {
 			total += row.ActualWeekly * float64(row.WindowWeeks)
 		}
 	}
 	return total
 }
 
-// rowsIn returns the rows filed under a broad category, failing the test if
-// there are none.
-func rowsIn(t *testing.T, setup CategorySetupData, broad string) []CategoryTargetRow {
+// rowByKey returns a category's row, failing the test if there is none.
+func rowByKey(t *testing.T, setup CategorySetupData, key string) CategoryTargetRow {
 	t.Helper()
-	var rows []CategoryTargetRow
 	for _, row := range setup.Rows {
-		if row.BroadCategory == broad {
-			rows = append(rows, row)
+		if row.Key == key {
+			return row
 		}
 	}
-	if len(rows) == 0 {
-		t.Fatalf("no rows under %q", broad)
-	}
-	return rows
-}
-
-// countedWeekly totals the weekly spend that counts against the budget.
-func countedWeekly(rows []CategoryTargetRow) float64 {
-	var total float64
-	for _, row := range rows {
-		if row.IsSpending {
-			total += row.ActualWeekly
-		}
-	}
-	return total
-}
-
-func TestBudgetSaveKind(t *testing.T) {
-	app := newTestApp(t)
-	recent := time.Now().Add(-48 * time.Hour)
-	for _, tx := range []models.Transaction{
-		spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -400, recent),
-		spendTx("fund", "STANDING ORDER", "", "", "", "AP#1 TO FISHER FUNDS", -200, recent),
-	} {
-		require.NoError(t, app.store.CreateTransaction(tx))
-	}
-	require.InDelta(t, 600, countedTotal(t, app), 0.001)
-
-	saveKind := func(kind string) *httptest.ResponseRecorder {
-		c, rec := postForm(t, app, url.Values{
-			"sub_category":   {"Standing orders"},
-			"broad_category": {uncategorisedGroup},
-			"kind":           {kind},
-		})
-		require.NoError(t, app.BudgetSaveKind(c))
-		return rec
-	}
-
-	t.Run("savings leave the counted total but are tracked", func(t *testing.T) {
-		rec := saveKind(models.BudgetKindSavings)
-		require.Equal(t, http.StatusOK, rec.Code)
-		assert.Contains(t, rec.Body.String(), "going to savings categories", "the re-rendered table reports tracked savings")
-
-		assert.InDelta(t, 400, countedTotal(t, app), 0.001)
-		setup, err := app.buildSetupData()
-		require.NoError(t, err)
-		assert.InDelta(t, 400.0/untargetedWindowWeeks, countedWeekly(rowsIn(t, setup, uncategorisedGroup)), 0.001)
-		assert.InDelta(t, 200.0/untargetedWindowWeeks, setup.TrackedSavingsWeekly, 0.001)
-	})
-
-	t.Run("ignored spend is dropped without counting as savings", func(t *testing.T) {
-		saveKind(models.BudgetKindIgnore)
-
-		assert.InDelta(t, 400, countedTotal(t, app), 0.001)
-		setup, err := app.buildSetupData()
-		require.NoError(t, err)
-		assert.Zero(t, setup.TrackedSavingsWeekly)
-	})
-
-	t.Run("switching back to spending counts it again", func(t *testing.T) {
-		saveKind(models.BudgetKindSpending)
-		assert.InDelta(t, 600, countedTotal(t, app), 0.001)
-
-		items, err := app.store.ReadBudgetItems()
-		require.NoError(t, err)
-		assert.Len(t, items, 1, "repeat changes update the same item")
-	})
-
-	t.Run("an unknown kind is rejected", func(t *testing.T) {
-		c, rec := postForm(t, app, url.Values{"sub_category": {"Standing orders"}, "kind": {"bogus"}})
-		require.NoError(t, app.BudgetSaveKind(c))
-		assert.Equal(t, http.StatusBadRequest, rec.Code)
-	})
-}
-
-func TestSavingTargetKeepsKind(t *testing.T) {
-	app := newTestApp(t)
-	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "fund", Category: "Standing orders", Kind: models.BudgetKindSavings}))
-
-	c, _ := postForm(t, app, url.Values{"sub_category": {"Standing orders"}, "target_amount": {"100"}, "target_frequency": {"weekly"}})
-	require.NoError(t, app.BudgetSaveTarget(c))
-
-	item, err := app.store.GetBudgetItem("fund")
-	require.NoError(t, err)
-	assert.Equal(t, models.BudgetKindSavings, item.Kind)
+	t.Fatalf("no row for %q", key)
+	return CategoryTargetRow{}
 }
 
 func TestDashboardListsLeaveOutTransfers(t *testing.T) {
@@ -252,25 +200,19 @@ func TestDashboardMonthsAreWhole(t *testing.T) {
 	assert.Contains(t, months, "May 26")
 }
 
-func TestWithoutUncountedDropsSavingsAndIgnoredSpend(t *testing.T) {
-	app := newTestApp(t)
-	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "loan", Category: "Loan", Kind: models.BudgetKindIgnore}))
-	require.NoError(t, app.store.CreateBudgetItem(models.BudgetItem{ID: "fund", Category: "Savings", BroadCategory: "General", Kind: models.BudgetKindSavings}))
+func TestSpendingOnlyDropsSavingsAndInterest(t *testing.T) {
 	now := time.Now()
 	txs := []models.Transaction{
 		spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -410, now),
 		spendTx("fund", models.TypeCountedTransfer, "General", "Savings", "", "AP#1 TO FISHER FUNDS", -100, now),
 		spendTx("repay", models.TypeCountedTransfer, "Housing", "Mortgage", "", "AP#2 TO D J KING", -641, now),
-		spendTx("groceries", "EFTPOS", "Food", "Supermarkets", "", "", -80, now),
+		spendTx("groceries", "EFTPOS", "Food", "Supermarkets and grocery stores", "", "", -80, now),
 		spendTx("pay", "CREDIT", "", "", "", "SALARY", 3000, now),
 		spendTx("sweep", "TRANSFER", "Transfer", "Transfer", "", "TO SAVINGS", -500, now),
 	}
 
-	kept, err := app.withoutUncounted(txs)
-	require.NoError(t, err)
-
 	var ids []string
-	for _, tx := range kept {
+	for _, tx := range spendingOnly(txs) {
 		ids = append(ids, tx.Id)
 	}
 	assert.Equal(t, []string{"repay", "groceries", "pay", "sweep"}, ids,

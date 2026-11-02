@@ -38,13 +38,7 @@ func templateFuncs() template.FuncMap {
 		// ("deficit", "over-allocated") already carries the direction.
 		// fmtWhole rounds to whole dollars, for figures read at a glance where
 		// cents are noise, such as targets and their averages.
-		"fmtWhole": func(number float64) string {
-			p := message.NewPrinter(language.English)
-			if number < 0 {
-				return p.Sprintf("-$%.0f", math.Abs(number))
-			}
-			return p.Sprintf("$%.0f", number)
-		},
+		"fmtWhole": fmtWhole,
 		// fmtWholeAbs is fmtWhole without the sign, for where the words say
 		// which way the figure goes.
 		"fmtWholeAbs": func(number float64) string {
@@ -55,7 +49,6 @@ func templateFuncs() template.FuncMap {
 			p := message.NewPrinter(language.English)
 			return p.Sprintf("$%.2f", math.Abs(number))
 		},
-		"budgetKinds": func() []budgetKindOption { return budgetKindOptions },
 		"fmtPercent": func(number float64) string {
 			p := message.NewPrinter(language.English)
 			return p.Sprintf("%.1f%%", math.Abs(number)*100)
@@ -201,8 +194,9 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	// Settings
 	app.http.GET("/settings", app.Settings)
 	app.http.POST("/settings/schedule", app.SettingsSaveSchedule)
-	app.http.POST("/settings/categories", app.SettingsAddCategory)
-	app.http.DELETE("/settings/categories/:id", app.SettingsDeleteCategory)
+	app.http.POST("/settings/budget-categories", app.SettingsAddBudgetCategory)
+	app.http.POST("/settings/budget-categories/:key", app.SettingsUpdateBudgetCategory)
+	app.http.DELETE("/settings/budget-categories/:key", app.SettingsDeleteBudgetCategory)
 	app.http.POST("/settings/rules", app.SettingsAddRule)
 	app.http.GET("/settings/rules/preview", app.SettingsPreviewRule)
 	app.http.DELETE("/settings/rules/:id", app.SettingsDeleteRule)
@@ -227,6 +221,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	// Adding transactions to a memory from the transactions list, one at a
 	// time or every ticked row at once, and taking them back out.
+	app.http.POST("/transactions/category", app.TransactionsSetCategory)
 	app.http.POST("/transactions/memory", app.TransactionsAddToMemory)
 	app.http.DELETE("/transactions/memory", app.TransactionsRemoveFromMemory)
 	app.http.POST("/transactions/:id/memory", app.TransactionAddToMemory)
@@ -261,9 +256,10 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.POST("/budget/salary", app.BudgetSaveSalary)
 	app.http.GET("/budget/cards", app.BudgetCards)
 	app.http.GET("/budget/allocation", app.BudgetAllocation)
+	app.http.GET("/budget/periods", app.BudgetPeriods)
+	app.http.POST("/budget/split", app.BudgetSaveSplit)
 	app.http.POST("/budget/savings-goal", app.BudgetSaveSavingsGoal)
 	app.http.POST("/budget/targets", app.BudgetSaveTarget)
-	app.http.POST("/budget/kind", app.BudgetSaveKind)
 
 	app.scheduler = newScheduler(app)
 
@@ -354,4 +350,14 @@ func (app *Application) Toast(c echo.Context, level string, message string) {
 		return
 	}
 	c.Response().Header().Add("Hx-Trigger", string(buf))
+}
+
+// fmtWhole rounds to whole dollars, for figures read at a glance where cents
+// are noise, such as targets and their averages.
+func fmtWhole(number float64) string {
+	p := message.NewPrinter(language.English)
+	if number < 0 {
+		return p.Sprintf("-$%.0f", math.Abs(number))
+	}
+	return p.Sprintf("$%.0f", number)
 }
