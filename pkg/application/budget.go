@@ -188,7 +188,7 @@ func buildTargetSections(rows []CategoryTargetRow, openRow string) []TargetSecti
 	}
 	index := map[string]int{sectionAttention: 0, sectionGenerous: 1, sectionOnTrack: 2, sectionSmall: 3, sectionNotCounted: 4}
 	for _, row := range rows {
-		key := sectionOnTrack
+		var key string
 		switch {
 		case !row.IsSpending:
 			key = sectionNotCounted
