@@ -1,5 +1,43 @@
 # Changelog
 
+## [1.19.0](https://github.com/TheQueenIsDead/budge/compare/v1.18.0...v1.19.0) (2026-11-03)
+
+
+### Features
+
+* **admin:** an admin page of what budge records about itself ([8572e16](https://github.com/TheQueenIsDead/budge/commit/8572e16de1ae976855c3b608b4e7957feba52fdd))
+* **admin:** keep exceptions on spans, with the stack of a panic ([ff270b1](https://github.com/TheQueenIsDead/budge/commit/ff270b126d2f8d2e74456e9ae3403daae5cb0f0a))
+* **admin:** keep telemetry past a restart, and show what it takes ([39e4178](https://github.com/TheQueenIsDead/budge/commit/39e4178a1803381c6fb396a21bdc4284c0103db4))
+* **admin:** keep traces for the retention, and compact the file ([b256015](https://github.com/TheQueenIsDead/budge/commit/b256015fe2b4f23169b209bdad145785f9945b8c))
+* **admin:** show where a sync's time goes ([fdd8a89](https://github.com/TheQueenIsDead/budge/commit/fdd8a89782fe6061b31ec0bcf93e683515332b53))
+* **budget:** budget by category, combined or split, with period charts ([0ef98ef](https://github.com/TheQueenIsDead/budge/commit/0ef98efb2fd3616e6ca3a7f57edbd19cb5c35c28))
+* **budget:** raise a notification for what is over target ([1069ed7](https://github.com/TheQueenIsDead/budge/commit/1069ed7886e8244a7e5969e87a8723ab0802aca5))
+* **categories:** file every transaction under budge's own categories ([b886817](https://github.com/TheQueenIsDead/budge/commit/b8868178e481f20d23c22647272168e806b78f39))
+* **nav:** admin and settings as icons beside the bell ([b05cae7](https://github.com/TheQueenIsDead/budge/commit/b05cae76cdf654ce3c4c26e83bb65af07397f507))
+* **settings:** add new categories on budget ([dc4d14c](https://github.com/TheQueenIsDead/budge/commit/dc4d14cee54f0c7e68ab0ae2b34e9f0c3def24c5))
+* **settings:** edit categories in place, with their rules beside them ([c2a42fb](https://github.com/TheQueenIsDead/budge/commit/c2a42fb6fd50c37dffde3114eaa0b7413ba0b175))
+* shut down cleanly on interrupt, and stamp the release version ([ef00833](https://github.com/TheQueenIsDead/budge/commit/ef008339002a7300c3a89adf7ad86ca2dfd24d80))
+* **telemetry:** instrument budge with OpenTelemetry, kept in memory ([e2157ce](https://github.com/TheQueenIsDead/budge/commit/e2157ce7b8c27ac85d927c14db41affc241bbc54))
+* **telemetry:** trace and time every request, and log through slog ([55c1483](https://github.com/TheQueenIsDead/budge/commit/55c148397d2d21c3df7949ffd9d36b9d71b1a564))
+* **telemetry:** trace every store query back to the code that asked ([34636e2](https://github.com/TheQueenIsDead/budge/commit/34636e254d77ed4513680125f0f3a3ff704adfba))
+* **telemetry:** turn telemetry off with BUDGE_TELEMETRY=false ([948b757](https://github.com/TheQueenIsDead/budge/commit/948b75742738edd4258456384c0403fd2cad17c3))
+* **transactions:** file by budge's categories, one or many at once ([0680e43](https://github.com/TheQueenIsDead/budge/commit/0680e430020533f5dc18d769a8d14c77e0802846))
+
+
+### Bug Fixes
+
+* **admin:** draw charts across their whole range, breaking at gaps ([8e089aa](https://github.com/TheQueenIsDead/budge/commit/8e089aafaaaeb4ad30ea4e26b693718c2555df4f))
+* **akahu:** take tokens from the environment until some are saved ([eb9af3a](https://github.com/TheQueenIsDead/budge/commit/eb9af3a97fa4ad9b4ac5ee969d6cb09a5d88e1d0))
+* **budget:** count a month back without leaving a bill out ([313c73d](https://github.com/TheQueenIsDead/budge/commit/313c73dd88ba96af920613704f14919f289ac3a3))
+* **budget:** drop an ineffectual starting value for a row's section ([003c9b3](https://github.com/TheQueenIsDead/budge/commit/003c9b386a4bd2162385bc620351d6b5ab397fcc))
+* **budget:** fixes from review of the category and budget work ([01371dd](https://github.com/TheQueenIsDead/budge/commit/01371dd08281209f5c6514d30f5a2b92dace8959))
+* **deps:** move to Echo v5 and echo-otel v5 ([31c5660](https://github.com/TheQueenIsDead/budge/commit/31c5660c309ac0219d0a5b9cd18c85d3616605c8))
+* **deps:** update module github.com/labstack/echo/v4 to v4.16.3 ([#106](https://github.com/TheQueenIsDead/budge/issues/106)) ([980ff73](https://github.com/TheQueenIsDead/budge/commit/980ff739fac0564f9ec17ffd1cfe5773ce655128))
+* **deps:** update opentelemetry-go-contrib to v0.72.0 ([343eea7](https://github.com/TheQueenIsDead/budge/commit/343eea7bfcf76a637936a91b48c89282f5a1616c))
+* **lint:** clear what golangci-lint finds on main ([96c9232](https://github.com/TheQueenIsDead/budge/commit/96c9232868f45fdbd9adc57ccb00f4d130627508))
+* **settings:** read Akahu settings never saved as none, not an error ([a46c5f5](https://github.com/TheQueenIsDead/budge/commit/a46c5f5463b51e65502b1ef62bc18ed0139c7f1f))
+* **settings:** report settings that cannot be read, rather than defaulting ([23187f6](https://github.com/TheQueenIsDead/budge/commit/23187f6a346fb5fe47251bb73d8fd2804e2afd79))
+
 ## [1.18.0](https://github.com/TheQueenIsDead/budge/compare/v1.17.0...v1.18.0) (2026-10-28)
 
 
