@@ -82,6 +82,11 @@ func TestBuildPeriodCharts(t *testing.T) {
 	assert.Equal(t, 210.0, week.Pace[6])
 	assert.Equal(t, 110.0, week.Remaining())
 	assert.False(t, week.IsOver())
+	assert.Equal(t, "/transactions?from=2026-10-27&group=groceries&group=eating-out&to=2026-11-02", week.Link,
+		"the total opens the transactions behind it")
+	require.Len(t, week.Links, 7)
+	assert.Equal(t, "/transactions?from=2026-10-27&group=groceries&group=eating-out&to=2026-10-29", week.Links[2],
+		"a bar is a running total, so it opens everything from the start of the period to the end of the bar")
 
 	fortnight := charts[1]
 	assert.Equal(t, "Fortnightly", fortnight.Title)
@@ -100,12 +105,24 @@ func TestBuildPeriodCharts(t *testing.T) {
 		assert.Equal(t, 5490.0, charts[0].Total, "a purchase over a year ago has dropped out")
 	})
 
+	t.Run("a split category opens its general row on its own", func(t *testing.T) {
+		split := budgetTargets([]models.BudgetItem{
+			{BudgetCategory: "home", Split: true, GeneralAmount: 300, GeneralFrequency: "quarterly"},
+			{BudgetCategory: "rates", Amount: 900, Frequency: "quarterly"},
+		})
+		charts := BuildPeriodCharts(nil, split, now)
+		require.Len(t, charts, 1)
+		assert.Equal(t, "/transactions?from=2026-08-03&group=rates&group=home%3Ageneral&to=2026-11-02", charts[0].Link)
+	})
+
 	t.Run("the page shows each and a hint when there are none", func(t *testing.T) {
 		html := renderTemplate(t, "budget.periods", charts)
 		assert.Contains(t, html, `id="period-weekly"`)
 		assert.Contains(t, html, `id="period-fortnightly"`)
 		assert.Contains(t, html, "$110 to spare")
 		assert.Contains(t, html, "in the last 7 days")
+		assert.Contains(t, html, `href="/transactions?from=2026-10-27&amp;group=groceries&amp;group=eating-out&amp;to=2026-11-02"`,
+			"the total is a link")
 		assert.Contains(t, renderTemplate(t, "budget.periods", []PeriodChart(nil)), "Set a target below")
 	})
 }

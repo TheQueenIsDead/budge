@@ -41,6 +41,12 @@ type PeriodChart struct {
 	Target     float64
 	Total      float64
 	Categories []string
+
+	// Link opens the transactions behind the total, and Links those behind
+	// each bar. A bar is a running total, so its transactions run from the
+	// start of the period to the end of the bar.
+	Link  string
+	Links []string
 }
 
 // Remaining is what is left of the target, never below nothing.
@@ -156,7 +162,7 @@ func BuildPeriodCharts(transactions []models.Transaction, targets map[string]mod
 	for _, frequency := range budgetPeriods {
 		inPeriod := map[string]bool{}
 		var target float64
-		var names []string
+		var names, keys []string
 		for _, l := range lines {
 			if l.item.Amount <= 0 || frequencyOrWeekly(l.item.Frequency) != frequency {
 				continue
@@ -164,6 +170,7 @@ func BuildPeriodCharts(transactions []models.Transaction, targets map[string]mod
 			inPeriod[l.category.Key] = true
 			target += l.item.Amount
 			names = append(names, l.category.Label)
+			keys = append(keys, l.category.Key)
 		}
 		if len(inPeriod) == 0 {
 			continue
@@ -177,6 +184,7 @@ func BuildPeriodCharts(transactions []models.Transaction, targets map[string]mod
 			Span:       span,
 			Target:     target,
 			Categories: names,
+			Link:       transactionsLink(keys, start, end),
 		}
 
 		var bounds []time.Time
@@ -206,6 +214,7 @@ func BuildPeriodCharts(transactions []models.Transaction, targets map[string]mod
 				next = bounds[i+1]
 			}
 			chart.Pace = append(chart.Pace, math.Round(target*next.Sub(start).Hours()/length*100)/100)
+			chart.Links = append(chart.Links, transactionsLink(keys, start, next))
 			running += totals[i]
 			chart.Spent = append(chart.Spent, roundCents(running))
 		}

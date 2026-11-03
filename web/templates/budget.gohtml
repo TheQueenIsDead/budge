@@ -556,10 +556,12 @@
                         {{.Range}}
                     </p>
                 </div>
-                <div class="text-end flex-shrink-0">
+                {{/* The total opens the transactions behind it, as each bar does. */}}
+                <a class="text-end flex-shrink-0 text-reset text-decoration-none" href="{{.Link}}"
+                   hx-boost="true" hx-target="#main" title="See these transactions">
                     <div class="fw-bold b-num {{if .IsOver}}text-danger{{end}}">{{.Total | fmtWhole}}</div>
                     <div class="b-delta-note">of {{.Target | fmtWhole}}</div>
-                </div>
+                </a>
             </div>
             <div class="b-chart b-period-chart">
                 <canvas id="period-{{.Frequency}}"></canvas>
@@ -624,6 +626,18 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     animation: false,
+                    // A bar opens the transactions behind its running total.
+                    // Tapping anywhere in its column counts, as a bar near
+                    // the start of a period can be too short to hit.
+                    interaction: {mode: "index", intersect: false},
+                    onClick: (event, elements) => {
+                        if (elements.length) {
+                            window.location.href = period.Links[elements[0].index];
+                        }
+                    },
+                    onHover: (event, elements) => {
+                        event.native.target.style.cursor = elements.length ? "pointer" : "default";
+                    },
                     scales: {
                         x: {
                             border: {display: false},
