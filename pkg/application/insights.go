@@ -2,6 +2,7 @@ package application
 
 import (
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
@@ -31,6 +32,12 @@ func (d InsightsData) CurrentLink() string { return d.link(1) }
 
 // PreviousLink opens the transactions behind the last completed period.
 func (d InsightsData) PreviousLink() string { return d.link(2) }
+
+// MerchantLink opens a merchant's transactions behind its total: in the
+// selected category, over the window the chart covers.
+func (d InsightsData) MerchantLink(merchant string) string {
+	return transactionsLink([]string{d.Selected.Key}, d.WindowStart, d.WindowEnd) + "&search=" + url.QueryEscape(merchant)
+}
 
 // link is the nth bar's link counting back from the last, or none.
 func (d InsightsData) link(n int) string {

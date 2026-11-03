@@ -116,7 +116,7 @@
                     <ul class="b-rank">
                         {{ range .Merchants }}
                             <li>
-                                <a class="b-rank-item b-rank-link" href="/transactions?search={{ .Merchant }}"
+                                <a class="b-rank-item b-rank-link" href="{{ $.MerchantLink .Merchant }}"
                                    hx-boost="false">
                                     <span class="b-chip b-chip-sm fw-bold">{{ slice .Merchant 0 1 }}</span>
                                     <div class="b-rank-body">

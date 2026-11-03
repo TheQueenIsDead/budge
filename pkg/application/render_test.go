@@ -1,6 +1,7 @@
 package application
 
 import (
+	"net/url"
 	"regexp"
 	"strings"
 	"testing"
@@ -325,7 +326,7 @@ func TestRenderInsights(t *testing.T) {
 	summary := BuildSpendSummary(transactions, groceries, CadenceWeekly, now)
 	start, end := summary.Window()
 
-	page := renderTemplate(t, "insights", InsightsData{
+	data := InsightsData{
 		Groups:      SpendGroups(),
 		Selected:    groceries,
 		Cadence:     CadenceWeekly,
@@ -334,7 +335,8 @@ func TestRenderInsights(t *testing.T) {
 		WindowStart: start,
 		WindowEnd:   end,
 		Links:       summary.Links(),
-	})
+	}
+	page := renderTemplate(t, "insights", data)
 
 	t.Run("this week and last open the transactions behind them", func(t *testing.T) {
 		last := summary.Buckets[len(summary.Buckets)-1]
@@ -343,6 +345,14 @@ func TestRenderInsights(t *testing.T) {
 		previous := summary.Buckets[len(summary.Buckets)-2]
 		assert.Contains(t, page, `href="/transactions?from=`+previous.Start.Format(time.DateOnly)+`&amp;group=groceries&amp;to=`+previous.End.AddDate(0, 0, -1).Format(time.DateOnly)+`"`)
 		assert.Contains(t, page, "chart.$links", "and so does each bar")
+	})
+
+	t.Run("a merchant opens its transactions in the category over the window", func(t *testing.T) {
+		require.NotEmpty(t, data.Merchants)
+		merchant := data.Merchants[0].Merchant
+		link := data.MerchantLink(merchant)
+		assert.Equal(t, transactionsLink([]string{"groceries"}, start, end)+"&search="+url.QueryEscape(merchant), link)
+		assert.Contains(t, page, `href="`+strings.ReplaceAll(link, "&", "&amp;")+`"`)
 	})
 
 	t.Run("offers every tracked category at its own cadence", func(t *testing.T) {
