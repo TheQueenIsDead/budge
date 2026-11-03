@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,8 +23,7 @@ func TestTransactionAddToMemory(t *testing.T) {
 	add := func(tx string, values url.Values) (string, error) {
 		t.Helper()
 		c, rec := postForm(t, app, values)
-		c.SetParamNames("id")
-		c.SetParamValues(tx)
+		c.SetPathValues(echo.PathValues{{Name: "id", Value: tx}})
 		err := app.TransactionAddToMemory(c)
 		return rec.Body.String(), err
 	}
@@ -74,7 +73,7 @@ func TestTransactionAddToMemory(t *testing.T) {
 
 // deleteQuery builds a DELETE the way htmx 2 sends one, with its values in
 // the query string rather than a body.
-func deleteQuery(app *Application, values url.Values) (echo.Context, *httptest.ResponseRecorder) {
+func deleteQuery(app *Application, values url.Values) (*echo.Context, *httptest.ResponseRecorder) {
 	req := httptest.NewRequest(http.MethodDelete, "/?"+values.Encode(), nil)
 	rec := httptest.NewRecorder()
 	return app.http.NewContext(req, rec), rec
@@ -87,8 +86,7 @@ func TestTransactionRemoveFromMemory(t *testing.T) {
 	remove := func(tx string) string {
 		t.Helper()
 		c, rec := deleteQuery(app, url.Values{"layout": {"d"}})
-		c.SetParamNames("id")
-		c.SetParamValues(tx)
+		c.SetPathValues(echo.PathValues{{Name: "id", Value: tx}})
 		require.NoError(t, app.TransactionRemoveFromMemory(c))
 		return rec.Body.String()
 	}

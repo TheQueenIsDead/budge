@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 // spendCategory decides whether a transaction is spending and, if it is,
@@ -154,7 +154,7 @@ func wordFor(n int, one, many string) string {
 // measured over a window matched to its target's frequency rather than week
 // by week, so a fortnightly mortgage or a monthly power bill reads as on
 // track instead of spiking in the week it is paid.
-func (app *Application) Budget(c echo.Context) error {
+func (app *Application) Budget(c *echo.Context) error {
 	ctx := c.Request().Context()
 	salary, err := app.store.GetBudgetSalary(ctx)
 	if err != nil {

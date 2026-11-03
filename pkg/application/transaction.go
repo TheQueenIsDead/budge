@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 // transactionPageSize is how many transactions a single render carries. The
@@ -101,7 +101,7 @@ func GroupTransactionsByDay(transactions []models.Transaction, location *time.Lo
 	return days
 }
 
-func (app *Application) Transactions(c echo.Context) error {
+func (app *Application) Transactions(c *echo.Context) error {
 	ctx := c.Request().Context()
 
 	account := c.QueryParam("account")

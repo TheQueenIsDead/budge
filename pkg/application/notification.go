@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 // Sources a notification can come from. Naming them here rather than passing
@@ -27,7 +27,7 @@ type NotificationsProps struct {
 
 // Notify records something worth telling the owner about later.
 //
-// It deliberately takes no echo.Context. The callers that matter most are
+// It deliberately takes no *echo.Context. The callers that matter most are
 // background jobs with nobody watching - a scheduled sync failing overnight -
 // and a toast needs somebody looking at a page when it fires. A failure to
 // record is logged rather than returned: losing the note about a problem should
@@ -67,7 +67,7 @@ func (app *Application) sortedNotifications(ctx context.Context) ([]models.Notif
 	return notifications, unread, nil
 }
 
-func (app *Application) Notifications(c echo.Context) error {
+func (app *Application) Notifications(c *echo.Context) error {
 	ctx := c.Request().Context()
 	notifications, unread, err := app.sortedNotifications(ctx)
 	if err != nil {
@@ -84,7 +84,7 @@ func (app *Application) Notifications(c echo.Context) error {
 // NotificationBadge renders just the count on the bell. It is its own endpoint
 // so the layout can stay a dumb shell: the badge asks for itself on load and
 // again whenever something says the log changed.
-func (app *Application) NotificationBadge(c echo.Context) error {
+func (app *Application) NotificationBadge(c *echo.Context) error {
 	ctx := c.Request().Context()
 	_, unread, err := app.sortedNotifications(ctx)
 	if err != nil {
@@ -98,7 +98,7 @@ func (app *Application) NotificationBadge(c echo.Context) error {
 // NotificationsRead marks everything read. The list fires this on load rather
 // than the page doing it while rendering, so opening the list stays a plain GET
 // with no side effect of its own.
-func (app *Application) NotificationsRead(c echo.Context) error {
+func (app *Application) NotificationsRead(c *echo.Context) error {
 	ctx := c.Request().Context()
 	if err := app.store.MarkNotificationsRead(ctx, time.Now()); err != nil {
 		slog.ErrorContext(ctx, "request failed", "error", err)
@@ -107,7 +107,7 @@ func (app *Application) NotificationsRead(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func (app *Application) NotificationDelete(c echo.Context) error {
+func (app *Application) NotificationDelete(c *echo.Context) error {
 	ctx := c.Request().Context()
 	if err := app.store.DeleteNotification(ctx, c.Param("id")); err != nil {
 		app.Toast(c, "Error", "Could not remove the notification.")
@@ -116,7 +116,7 @@ func (app *Application) NotificationDelete(c echo.Context) error {
 	return app.Notifications(c)
 }
 
-func (app *Application) NotificationsClear(c echo.Context) error {
+func (app *Application) NotificationsClear(c *echo.Context) error {
 	ctx := c.Request().Context()
 	if err := app.store.DeleteNotifications(ctx); err != nil {
 		app.Toast(c, "Error", "Could not clear notifications.")

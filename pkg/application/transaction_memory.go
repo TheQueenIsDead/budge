@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 // A transaction can be added to a memory straight from the transactions list,
@@ -64,7 +64,7 @@ func markMemories(days []TransactionDay, held map[string]models.Memory) {
 // addToMemory puts transactions into the memory named by the form, or into a
 // new one built from its title, kind and note when none is named. Anything put
 // into a memory was worth keeping, so it is unhidden from the timeline too.
-func (app *Application) addToMemory(c echo.Context, ids []string) (models.Memory, error) {
+func (app *Application) addToMemory(c *echo.Context, ids []string) (models.Memory, error) {
 	ctx := c.Request().Context()
 	var memory models.Memory
 	if id := c.FormValue("memory"); id != "" {
@@ -148,7 +148,7 @@ var transactionMemoryLayouts = []string{"m", "d"}
 // was used, named by its layout, is swapped in place; everything else rides
 // along out of band. With no layout named, as from the selection bar, all of
 // it is out of band, and the bar is redrawn so it offers any memory just made.
-func (app *Application) renderMemoryControls(c echo.Context, ids []string, used string) error {
+func (app *Application) renderMemoryControls(c *echo.Context, ids []string, used string) error {
 	ctx := c.Request().Context()
 	held, options, err := app.memoryIndex(ctx)
 	if err != nil {
@@ -179,7 +179,7 @@ func (app *Application) renderMemoryControls(c echo.Context, ids []string, used 
 }
 
 // usedLayout reads which copy of a control a request came from.
-func usedLayout(c echo.Context) string {
+func usedLayout(c *echo.Context) string {
 	layout := c.FormValue("layout")
 	if !slices.Contains(transactionMemoryLayouts, layout) {
 		layout = transactionMemoryLayouts[0]
@@ -189,7 +189,7 @@ func usedLayout(c echo.Context) string {
 
 // pickedMemory insists on an existing memory. The transactions list only
 // adds to memories already made; new ones start on the timeline.
-func pickedMemory(c echo.Context) error {
+func pickedMemory(c *echo.Context) error {
 	if c.FormValue("memory") == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "Pick a memory to add to.")
 	}
@@ -197,7 +197,7 @@ func pickedMemory(c echo.Context) error {
 }
 
 // TransactionAddToMemory adds one transaction to a memory.
-func (app *Application) TransactionAddToMemory(c echo.Context) error {
+func (app *Application) TransactionAddToMemory(c *echo.Context) error {
 	id := c.Param("id")
 	if id == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "Pick a transaction to add.")
@@ -216,7 +216,7 @@ func (app *Application) TransactionAddToMemory(c echo.Context) error {
 }
 
 // TransactionRemoveFromMemory takes one transaction back out of its memory.
-func (app *Application) TransactionRemoveFromMemory(c echo.Context) error {
+func (app *Application) TransactionRemoveFromMemory(c *echo.Context) error {
 	ctx := c.Request().Context()
 	id := c.Param("id")
 	if id == "" {
@@ -235,8 +235,8 @@ func (app *Application) TransactionRemoveFromMemory(c echo.Context) error {
 }
 
 // selectedTransactions reads the transactions ticked in the list.
-func selectedTransactions(c echo.Context) ([]string, error) {
-	form, err := c.FormParams()
+func selectedTransactions(c *echo.Context) ([]string, error) {
+	form, err := c.FormValues()
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
@@ -248,7 +248,7 @@ func selectedTransactions(c echo.Context) ([]string, error) {
 }
 
 // TransactionsAddToMemory adds every ticked transaction to one memory.
-func (app *Application) TransactionsAddToMemory(c echo.Context) error {
+func (app *Application) TransactionsAddToMemory(c *echo.Context) error {
 	ids, err := selectedTransactions(c)
 	if err != nil {
 		return err
@@ -268,7 +268,7 @@ func (app *Application) TransactionsAddToMemory(c echo.Context) error {
 
 // TransactionsRemoveFromMemory takes every ticked transaction out of whichever
 // memory holds it.
-func (app *Application) TransactionsRemoveFromMemory(c echo.Context) error {
+func (app *Application) TransactionsRemoveFromMemory(c *echo.Context) error {
 	ctx := c.Request().Context()
 	ids, err := selectedTransactions(c)
 	if err != nil {

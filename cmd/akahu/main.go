@@ -3,9 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/TheQueenIsDead/budge/pkg/integrations/akahu"
-	log "github.com/sirupsen/logrus"
+	"log/slog"
 	"os"
+
+	"github.com/TheQueenIsDead/budge/pkg/integrations/akahu"
 )
 
 func main() {
@@ -13,7 +14,7 @@ func main() {
 	appToken := os.Getenv("AKAHU_APP_TOKEN")
 
 	if userToken == "" || appToken == "" {
-		log.Error("Could not load env vars")
+		slog.Error("AKAHU_USER_TOKEN and AKAHU_APP_TOKEN must both be set")
 		return
 	}
 

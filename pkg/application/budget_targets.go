@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 // BudgetSaveTarget creates or updates the target for a budge category, or
 // a subcategory of one that is split, and returns the re-rendered row: the
 // category's, which a subcategory's target adds up into.
-func (app *Application) BudgetSaveTarget(c echo.Context) error {
+func (app *Application) BudgetSaveTarget(c *echo.Context) error {
 	ctx := c.Request().Context()
 	if key, general := strings.CutSuffix(c.FormValue("category"), generalSuffix); general {
 		return app.saveGeneralTarget(c, key)
@@ -54,7 +54,7 @@ func (app *Application) BudgetSaveTarget(c echo.Context) error {
 
 // saveGeneralTarget sets the target for what is filed under a split
 // category itself, kept beside its own.
-func (app *Application) saveGeneralTarget(c echo.Context, key string) error {
+func (app *Application) saveGeneralTarget(c *echo.Context, key string) error {
 	ctx := c.Request().Context()
 	category, ok := models.BudgetCategoryByKey(key)
 	if !ok || category.Key != key || category.IsSub() || !category.Budgeted() {
@@ -89,7 +89,7 @@ func (app *Application) saveGeneralTarget(c echo.Context, key string) error {
 // BudgetSaveSplit budgets a category by its subcategories, or by one target
 // again. Both sets of targets are kept, so switching back and forth loses
 // neither.
-func (app *Application) BudgetSaveSplit(c echo.Context) error {
+func (app *Application) BudgetSaveSplit(c *echo.Context) error {
 	ctx := c.Request().Context()
 	category, ok := models.BudgetCategoryByKey(c.FormValue("category"))
 	if !ok || category.Key != c.FormValue("category") || category.IsSub() || !category.Budgeted() || len(models.BudgetSubcategories(category.Key)) == 0 {
@@ -128,7 +128,7 @@ type TargetRowUpdate struct {
 // renderTargetRow answers an edit with just the edited row, swapped in place,
 // and the totals of the group it sits in. Re-rendering the list instead
 // closed groups opened by hand and moved the page under the pointer.
-func (app *Application) renderTargetRow(c echo.Context, rowID string) error {
+func (app *Application) renderTargetRow(c *echo.Context, rowID string) error {
 	ctx := c.Request().Context()
 	setup, err := app.buildSetupData(ctx)
 	if err != nil {

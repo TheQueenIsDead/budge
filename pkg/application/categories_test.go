@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -45,8 +45,7 @@ func TestCategoryRulesEndToEnd(t *testing.T) {
 		req := httptest.NewRequest(http.MethodDelete, "/", nil)
 		rec := httptest.NewRecorder()
 		c := app.http.NewContext(req, rec)
-		c.SetParamNames("id")
-		c.SetParamValues(settings.Rules[0].ID)
+		c.SetPathValues(echo.PathValues{{Name: "id", Value: settings.Rules[0].ID}})
 		require.NoError(t, app.SettingsDeleteRule(c))
 		assert.Regexp(t, `id="category-home" open`, rec.Body.String())
 
@@ -268,8 +267,7 @@ func TestEditingBudgetCategories(t *testing.T) {
 		rec := httptest.NewRecorder()
 		c := app.http.NewContext(req, rec)
 		if key != "" {
-			c.SetParamNames("key")
-			c.SetParamValues(key)
+			c.SetPathValues(echo.PathValues{{Name: "key", Value: key}})
 		}
 		require.NoError(t, handler(c))
 		return rec

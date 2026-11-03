@@ -1,6 +1,7 @@
 package application
 
 import (
+	"github.com/labstack/echo/v5"
 	"net/url"
 	"testing"
 	"time"
@@ -18,8 +19,7 @@ func TestAssetUpdatePurchase(t *testing.T) {
 	update := func(values url.Values) error {
 		c, _ := postForm(t, app, values)
 		c.Request().Header.Set("HX-Request", "true")
-		c.SetParamNames("id")
-		c.SetParamValues("car")
+		c.SetPathValues(echo.PathValues{{Name: "id", Value: "car"}})
 		return app.AssetUpdatePurchase(c)
 	}
 

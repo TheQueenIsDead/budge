@@ -20,10 +20,9 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/telemetry"
 	"github.com/TheQueenIsDead/budge/web"
 	"github.com/dustin/go-humanize"
-	echootel "github.com/labstack/echo-otel/v4"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	"github.com/labstack/gommon/log"
+	echootel "github.com/labstack/echo-otel/v5"
+	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
 	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
@@ -129,6 +128,7 @@ func tracer() trace.Tracer {
 
 type Application struct {
 	http         *echo.Echo
+	server       *http.Server
 	store        *database.Store
 	integrations *integrations.Integrations
 	scheduler    *scheduler
@@ -146,8 +146,6 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.store = store
 	app.http = echo.New()
 
-	app.http.Debug = true
-
 	tpl := template.New("").Funcs(templateFuncs())
 	tpl = template.Must(tpl.ParseFS(web.Templates, "templates/*.gohtml"))
 
@@ -156,42 +154,48 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 		admin:     tel != nil,
 	}
 
-	// Echo's own logging, from starting the server and the like, goes to
-	// slog with the rest, so it is kept and exported too.
-	app.http.Logger.SetLevel(log.INFO)
-	app.http.Logger.SetOutput(echoLogWriter{})
-	app.http.HideBanner = true
+	// Echo's own logging goes to slog with the rest, so it is kept and
+	// exported too.
+	app.http.Logger = slog.Default()
 
-	app.http.HTTPErrorHandler = func(err error, c echo.Context) {
+	app.http.HTTPErrorHandler = func(c *echo.Context, err error) {
 		// Handled already, inside the request's span: Echo hands the error
 		// over again once the middleware has returned.
-		if c.Response().Committed {
+		if res, _ := echo.UnwrapResponse(c.Response()); res != nil && res.Committed {
 			return
 		}
 
-		// Extract the code from the HTTPError
+		// The status the error carries: an HTTPError's, or one of Echo's own,
+		// such as its not found; anything else is a server error.
 		code := http.StatusInternalServerError
-		msg := err.Error()
-		if he, ok := err.(*echo.HTTPError); ok {
-			code = he.Code
+		var coded echo.HTTPStatusCoder
+		if errors.As(err, &coded) && coded.StatusCode() != 0 {
+			code = coded.StatusCode()
 		}
 
 		// Logged against the request, so the log names its trace, and the
 		// request's span marked failed for anything that is not the
-		// visitor's mistake.
+		// visitor's mistake. A recovered panic carries the stack it came from,
+		// which goes on the span and in the log, but never to the visitor.
 		ctx := c.Request().Context()
+		span := trace.SpanFromContext(ctx)
+		msg := err.Error()
 		level := slog.LevelWarn
-		if code >= http.StatusInternalServerError {
+		var panicked *middleware.PanicStackError
+		switch {
+		case errors.As(err, &panicked):
 			level = slog.LevelError
-			span := trace.SpanFromContext(ctx)
-			// A panic recorded its exception, with the stack it came from,
-			// as it was recovered.
-			if !errors.As(err, new(recovered)) {
-				span.RecordError(err)
-			}
+			recovered := recovered{panicked.Err}
+			msg = recovered.Error()
+			slog.ErrorContext(ctx, "panic", "error", panicked.Err, "stack", string(panicked.Stack))
+			span.RecordError(recovered, trace.WithAttributes(semconv.ExceptionStacktrace(string(panicked.Stack))))
+			span.SetStatus(codes.Error, msg)
+		case code >= http.StatusInternalServerError:
+			level = slog.LevelError
+			span.RecordError(err)
 			span.SetStatus(codes.Error, msg)
 		}
-		slog.Log(ctx, level, "request failed", "error", err, "status", code, "uri", c.Request().RequestURI)
+		slog.Log(ctx, level, "request failed", "error", msg, "status", code, "uri", c.Request().RequestURI)
 
 		if code == http.StatusNotFound {
 			if err := c.Redirect(http.StatusTemporaryRedirect, "/4XX"); err != nil {
@@ -230,21 +234,11 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.Use(echootel.NewMiddlewareWithConfig(echootel.Config{
 		ServerName:  "budge",
 		Skipper:     untraced,
-		OnNextError: func(c echo.Context, err error) { c.Error(err) },
+		OnNextError: func(c *echo.Context, err error) { c.Echo().HTTPErrorHandler(c, err) },
 	}))
-	app.http.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
-		LogErrorFunc: func(c echo.Context, err error, stack []byte) error {
-			ctx := c.Request().Context()
-			slog.ErrorContext(ctx, "panic", "error", err, "stack", string(stack))
-			// The stack is where the panic happened, which nothing after
-			// this point can see, so it goes on the request's span now.
-			panicked := recovered{err}
-			trace.SpanFromContext(ctx).RecordError(panicked, trace.WithAttributes(
-				semconv.ExceptionStacktrace(string(stack)),
-			))
-			return panicked
-		},
-	}))
+	// A panic comes back as an error carrying its stack, for the error
+	// handler to record and answer.
+	app.http.Use(middleware.Recover())
 	app.http.Use(Caching())
 
 	// General
@@ -330,7 +324,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	app.http.GET("/budget", app.Budget)
 	app.http.GET("/budget/income", app.BudgetIncome)
 	// The targets now live on the budget page itself.
-	app.http.GET("/budget/targets", func(c echo.Context) error { return c.Redirect(http.StatusMovedPermanently, "/budget") })
+	app.http.GET("/budget/targets", func(c *echo.Context) error { return c.Redirect(http.StatusMovedPermanently, "/budget") })
 	app.http.GET("/budget/summary", app.BudgetSummary)
 	app.http.POST("/budget/salary", app.BudgetSaveSalary)
 	app.http.GET("/budget/cards", app.BudgetCards)
@@ -350,8 +344,8 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	return app, nil
 }
 
-// recovered is a panic the recover middleware caught and recorded. It names
-// the exception's type, so a panic reads as one.
+// recovered is a panic the recover middleware caught, as the error handler
+// records it. It names the exception's type, so a panic reads as one.
 type recovered struct{ error }
 
 func (r recovered) Error() string { return "panic: " + r.error.Error() }
@@ -375,43 +369,20 @@ func fmtDuration(d time.Duration) string {
 
 // untraced reports requests not worth a trace of their own: static files,
 // and the polls that run in the background of every page.
-func untraced(c echo.Context) bool {
+func untraced(c *echo.Context) bool {
 	path := c.Request().URL.Path
 	return strings.HasPrefix(path, "/static/") ||
 		path == "/notifications/badge" ||
 		path == "/integrations/akahu/sync" && c.Request().Method == http.MethodGet
 }
 
-// echoLogWriter hands echo's own log lines, which it writes as JSON, to
-// slog at their level.
-type echoLogWriter struct{}
-
-func (echoLogWriter) Write(p []byte) (int, error) {
-	var line struct {
-		Level   string `json:"level"`
-		Message string `json:"message"`
-	}
-	if err := json.Unmarshal(p, &line); err != nil || line.Message == "" {
-		slog.Info(strings.TrimSpace(string(p)), "source", "echo")
-		return len(p), nil
-	}
-	level := slog.LevelInfo
-	switch line.Level {
-	case "WARN":
-		level = slog.LevelWarn
-	case "ERROR":
-		level = slog.LevelError
-	case "DEBUG":
-		level = slog.LevelDebug
-	}
-	slog.Log(context.Background(), level, line.Message, "source", "echo")
-	return len(p), nil
-}
-
+// Start serves until Close shuts the server down, when it returns
+// http.ErrServerClosed.
 func (app *Application) Start() error {
 	app.scheduler.start()
-	slog.Info("http server started", "address", ":1337")
-	return app.http.Start(":1337")
+	app.server = &http.Server{Addr: ":1337", Handler: app.http}
+	slog.Info("http server started", "address", app.server.Addr)
+	return app.server.ListenAndServe()
 }
 
 func (app *Application) Close() error {
@@ -420,9 +391,12 @@ func (app *Application) Close() error {
 	app.scheduler.stop()
 	// Requests under way are let finish, for a while, before the server
 	// closes.
+	if app.server == nil {
+		return nil
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	return app.http.Shutdown(ctx)
+	return app.server.Shutdown(ctx)
 }
 
 type Template struct {
@@ -446,7 +420,7 @@ func (t *Template) renderPartial(name string, data interface{}) (string, error) 
 	return buf.String(), nil
 }
 
-func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
+func (t *Template) Render(c *echo.Context, w io.Writer, name string, data any) error {
 
 	var found bool
 	for _, t := range t.templates.Templates() {
@@ -480,7 +454,7 @@ func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Con
 
 }
 
-func (app *Application) Toast(c echo.Context, level string, message string) {
+func (app *Application) Toast(c *echo.Context, level string, message string) {
 	// Set an HTMX Error even via headers
 	event := map[string]interface{}{
 		"toast": map[string]string{

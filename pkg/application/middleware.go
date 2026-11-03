@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/hex"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"net/http"
 	"sync"
 )
@@ -24,9 +24,12 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
+// Unwrap lets Echo find its own response beneath this one.
+func (w *responseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
 func Caching() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			// Set default cache hit reponse header
 			c.Response().Header().Set("X-Cache-Hit", "false")
 
@@ -51,10 +54,9 @@ func Caching() echo.MiddlewareFunc {
 			}
 
 			// Else, wrap the response writer to capture the response and cache on the way out
-			rw := c.Response()
 			buf := new(bytes.Buffer)
-			mw := &responseWriter{ResponseWriter: rw.Writer, buf: buf}
-			rw.Writer = mw
+			mw := &responseWriter{ResponseWriter: c.Response(), buf: buf}
+			c.SetResponse(mw)
 
 			// Call next
 			err = next(c)
@@ -85,8 +87,11 @@ func Caching() echo.MiddlewareFunc {
 // keep the redirect long after the file appeared.
 func StaticCaching() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			res := c.Response()
+		return func(c *echo.Context) error {
+			res, err := echo.UnwrapResponse(c.Response())
+			if err != nil {
+				return next(c)
+			}
 			res.Before(func() {
 				if res.Status != http.StatusOK {
 					return

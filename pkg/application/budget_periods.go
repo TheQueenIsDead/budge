@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 // The budget's period charts show each kind of target against its own
@@ -225,7 +225,7 @@ func frequencyOrWeekly(frequency string) string {
 
 // BudgetPeriods answers with the period charts, redrawn after a target
 // changes.
-func (app *Application) BudgetPeriods(c echo.Context) error {
+func (app *Application) BudgetPeriods(c *echo.Context) error {
 	ctx := c.Request().Context()
 	now := time.Now()
 	txs, err := app.store.ReadTransactionsByDate(ctx, now.AddDate(-1, 0, -1), now)

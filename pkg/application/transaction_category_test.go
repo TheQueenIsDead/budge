@@ -1,6 +1,7 @@
 package application
 
 import (
+	"github.com/labstack/echo/v5"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -16,8 +17,7 @@ func setCategory(t *testing.T, app *Application, id string, values url.Values) *
 	t.Helper()
 	c, rec := postForm(t, app, values)
 	c.Request().Header.Set("HX-Request", "true")
-	c.SetParamNames("id")
-	c.SetParamValues(id)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: id}})
 	require.NoError(t, app.TransactionSetCategory(c))
 	return rec
 }
@@ -38,8 +38,7 @@ func TestCategorisingOneTransaction(t *testing.T) {
 		req.Header.Set("HX-Request", "true")
 		rec := httptest.NewRecorder()
 		c := app.http.NewContext(req, rec)
-		c.SetParamNames("id")
-		c.SetParamValues("plumber")
+		c.SetPathValues(echo.PathValues{{Name: "id", Value: "plumber"}})
 		require.NoError(t, app.TransactionCategoryForm(c))
 		assert.Contains(t, rec.Body.String(), "· from Akahu")
 		assert.Contains(t, rec.Body.String(), "All transactions containing “Plumbing World”")
@@ -66,8 +65,7 @@ func TestCategorisingOneTransaction(t *testing.T) {
 		req.Header.Set("HX-Request", "true")
 		rec := httptest.NewRecorder()
 		c := app.http.NewContext(req, rec)
-		c.SetParamNames("id")
-		c.SetParamValues("cylinder")
+		c.SetPathValues(echo.PathValues{{Name: "id", Value: "cylinder"}})
 		require.NoError(t, app.TransactionCategoryForm(c))
 		body := rec.Body.String()
 		assert.Contains(t, body, "Maintenance › Trades &amp; repairs")
@@ -105,8 +103,7 @@ func TestCategorisingOneTransaction(t *testing.T) {
 
 	t.Run("an unknown category is refused", func(t *testing.T) {
 		c, _ := postForm(t, app, url.Values{"category": {"Nowhere"}})
-		c.SetParamNames("id")
-		c.SetParamValues("plumber")
+		c.SetPathValues(echo.PathValues{{Name: "id", Value: "plumber"}})
 		err := app.TransactionSetCategory(c)
 		require.Error(t, err)
 	})

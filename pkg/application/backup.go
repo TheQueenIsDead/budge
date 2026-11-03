@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 // backupMaxBytes bounds an uploaded backup. A real one is a few hundred
@@ -18,7 +18,7 @@ const backupMaxBytes = 10 << 20
 
 // SettingsExport downloads everything set up by hand as a JSON file, for
 // importing into another instance.
-func (app *Application) SettingsExport(c echo.Context) error {
+func (app *Application) SettingsExport(c *echo.Context) error {
 	ctx := c.Request().Context()
 	backup, err := app.store.ExportBackup(ctx)
 	if err != nil {
@@ -32,7 +32,7 @@ func (app *Application) SettingsExport(c echo.Context) error {
 
 // SettingsImport reads a backup into this instance and shows the settings page
 // as it now stands.
-func (app *Application) SettingsImport(c echo.Context) error {
+func (app *Application) SettingsImport(c *echo.Context) error {
 	ctx := c.Request().Context()
 	file, err := c.FormFile("backup")
 	if err != nil {

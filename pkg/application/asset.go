@@ -14,7 +14,7 @@ import (
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/TheQueenIsDead/budge/pkg/integrations/property"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 // AssetType is a kind of asset, along with how its form should read. Different
@@ -275,7 +275,7 @@ func (app *Application) buildAssetSummaries(ctx context.Context) ([]AssetSummary
 	return summaries, nil
 }
 
-func (app *Application) AssetCreate(c echo.Context) error {
+func (app *Application) AssetCreate(c *echo.Context) error {
 	ctx := c.Request().Context()
 
 	name := strings.TrimSpace(c.FormValue("name"))
@@ -325,7 +325,7 @@ func (app *Application) AssetCreate(c echo.Context) error {
 	return app.Portfolio(c)
 }
 
-func (app *Application) Asset(c echo.Context) error {
+func (app *Application) Asset(c *echo.Context) error {
 	ctx := c.Request().Context()
 
 	asset, err := app.store.GetAsset(ctx, c.Param("id"))
@@ -348,7 +348,7 @@ func (app *Application) Asset(c echo.Context) error {
 	})
 }
 
-func (app *Application) AssetAddValuation(c echo.Context) error {
+func (app *Application) AssetAddValuation(c *echo.Context) error {
 	ctx := c.Request().Context()
 
 	id := c.Param("id")
@@ -376,7 +376,7 @@ func (app *Application) AssetAddValuation(c echo.Context) error {
 // AssetUpdatePurchase corrects what was paid for an asset and when. Both are
 // held to the same rules as when it was added, since every gain is measured
 // against them.
-func (app *Application) AssetUpdatePurchase(c echo.Context) error {
+func (app *Application) AssetUpdatePurchase(c *echo.Context) error {
 	ctx := c.Request().Context()
 	asset, err := app.store.GetAsset(ctx, c.Param("id"))
 	if err != nil {
@@ -403,7 +403,7 @@ func (app *Application) AssetUpdatePurchase(c echo.Context) error {
 	return app.Asset(c)
 }
 
-func (app *Application) AssetDeleteValuation(c echo.Context) error {
+func (app *Application) AssetDeleteValuation(c *echo.Context) error {
 	ctx := c.Request().Context()
 	if err := app.store.DeleteAssetValuation(ctx, c.Param("id"), c.Param("valuationId")); err != nil {
 		app.Toast(c, "Error", "Could not remove the valuation.")
@@ -412,7 +412,7 @@ func (app *Application) AssetDeleteValuation(c echo.Context) error {
 	return app.Asset(c)
 }
 
-func (app *Application) AssetDelete(c echo.Context) error {
+func (app *Application) AssetDelete(c *echo.Context) error {
 	ctx := c.Request().Context()
 	if err := app.store.DeleteAsset(ctx, c.Param("id")); err != nil {
 		app.Toast(c, "Error", "Could not remove the asset.")
@@ -427,7 +427,7 @@ func (app *Application) AssetDelete(c echo.Context) error {
 //
 // A lookup failure returns an empty list rather than an error. The address field
 // is an ordinary text input, so losing autocomplete costs nothing but typing.
-func (app *Application) AddressSuggest(c echo.Context) error {
+func (app *Application) AddressSuggest(c *echo.Context) error {
 	query := strings.TrimSpace(c.QueryParam("q"))
 	if len(query) < 3 {
 		return c.JSON(http.StatusOK, []property.Suggestion{})
@@ -445,7 +445,7 @@ func (app *Application) AddressSuggest(c echo.Context) error {
 // AssetRefreshEstimate asks the valuation sources what the property is worth now
 // and records the average as a valuation. Sources that do not answer narrow the
 // average rather than failing the request, and nothing is recorded if none do.
-func (app *Application) AssetRefreshEstimate(c echo.Context) error {
+func (app *Application) AssetRefreshEstimate(c *echo.Context) error {
 	ctx := c.Request().Context()
 
 	id := c.Param("id")
@@ -526,7 +526,7 @@ type AssetNewProps struct {
 // AssetNew renders the wizard. Picking a type is a real step rather than a
 // dropdown on a single form, because the type decides which questions are worth
 // asking: an address lookup is meaningless for a trailer.
-func (app *Application) AssetNew(c echo.Context) error {
+func (app *Application) AssetNew(c *echo.Context) error {
 	props := AssetNewProps{
 		Types: assetTypes,
 		Today: time.Now().Format("2006-01-02"),

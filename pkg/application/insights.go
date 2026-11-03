@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 // InsightsData drives the per-category deep dive. The page shows one group at a
@@ -26,7 +26,7 @@ type InsightsData struct {
 // a year, plus a month of slack so the oldest bucket is not clipped.
 const insightsHistory = 14
 
-func (app *Application) Insights(c echo.Context) error {
+func (app *Application) Insights(c *echo.Context) error {
 	ctx := c.Request().Context()
 
 	now := time.Now()

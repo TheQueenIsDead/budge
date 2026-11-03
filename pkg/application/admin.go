@@ -12,7 +12,7 @@ import (
 
 	"github.com/TheQueenIsDead/budge/pkg/telemetry"
 	"github.com/dustin/go-humanize"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	otellog "go.opentelemetry.io/otel/log"
 )
 
@@ -291,7 +291,7 @@ type AdminTraceRow struct {
 }
 
 // Admin shows the admin page, opened on the tab asked for.
-func (app *Application) Admin(c echo.Context) error {
+func (app *Application) Admin(c *echo.Context) error {
 	ctx := c.Request().Context()
 	tel := app.telemetry
 	// Histogram totals are otherwise only as fresh as the last sample.
@@ -316,7 +316,7 @@ func (app *Application) Admin(c echo.Context) error {
 
 // AdminCompact packs the telemetry file down now, rather than waiting for
 // enough of it to be free.
-func (app *Application) AdminCompact(c echo.Context) error {
+func (app *Application) AdminCompact(c *echo.Context) error {
 	result, err := app.telemetry.Compact()
 	if err != nil {
 		app.Toast(c, "Error", "Could not compact: "+err.Error())
@@ -327,7 +327,7 @@ func (app *Application) AdminCompact(c echo.Context) error {
 }
 
 // AdminTrace shows one trace as a waterfall.
-func (app *Application) AdminTrace(c echo.Context) error {
+func (app *Application) AdminTrace(c *echo.Context) error {
 	trace, ok := buildTrace(app.telemetry, c.Param("id"))
 	if !ok {
 		return echo.NewHTTPError(http.StatusNotFound, "that trace is no longer kept")

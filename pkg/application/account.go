@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -263,7 +263,7 @@ func OldestRefresh(accounts []models.Account) (time.Time, bool) {
 	return oldest, !oldest.IsZero()
 }
 
-func (app *Application) Portfolio(c echo.Context) error {
+func (app *Application) Portfolio(c *echo.Context) error {
 	ctx := c.Request().Context()
 
 	accounts, err := app.store.ReadAccounts(ctx)
@@ -312,7 +312,7 @@ func (app *Application) Portfolio(c echo.Context) error {
 	})
 }
 
-func (app *Application) Account(c echo.Context) error {
+func (app *Application) Account(c *echo.Context) error {
 	ctx := c.Request().Context()
 
 	accountId := c.Param("id")
@@ -355,7 +355,7 @@ func (app *Application) Account(c echo.Context) error {
 	return c.Render(http.StatusOK, "account", props)
 }
 
-func (app *Application) accountBalance(c echo.Context, account models.Account, viewDate time.Time) (AccountTimeseriesData, AccountStatistics, error) {
+func (app *Application) accountBalance(c *echo.Context, account models.Account, viewDate time.Time) (AccountTimeseriesData, AccountStatistics, error) {
 	ctx := c.Request().Context()
 
 	// Retrieve all transactions for an account

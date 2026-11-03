@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 // TransactionCategoryView is the categorise popover on a transaction row.
@@ -82,7 +82,7 @@ func categorySource(tx models.Transaction) (string, bool) {
 }
 
 // TransactionCategoryForm loads the categorise popover's form.
-func (app *Application) TransactionCategoryForm(c echo.Context) error {
+func (app *Application) TransactionCategoryForm(c *echo.Context) error {
 	ctx := c.Request().Context()
 	tx, err := app.store.GetTransaction(ctx, c.Param("id"))
 	if err != nil {
@@ -104,7 +104,7 @@ func (app *Application) TransactionCategoryForm(c echo.Context) error {
 // TransactionSetCategory files a transaction under a category: an override
 // for the one transaction, or with scope "like", a rule for every transaction
 // with the same text. "clear" removes the override instead.
-func (app *Application) TransactionSetCategory(c echo.Context) error {
+func (app *Application) TransactionSetCategory(c *echo.Context) error {
 	ctx := c.Request().Context()
 	tx, err := app.store.GetTransaction(ctx, c.Param("id"))
 	if err != nil {
@@ -177,7 +177,7 @@ func (app *Application) TransactionSetCategory(c echo.Context) error {
 // as if each were filed by hand, so it wins over rules and Akahu. The rows it
 // changes can be anywhere on the page, and under the uncategorised filter
 // they leave it, so the page is drawn again.
-func (app *Application) TransactionsSetCategory(c echo.Context) error {
+func (app *Application) TransactionsSetCategory(c *echo.Context) error {
 	ctx := c.Request().Context()
 	ids, err := selectedTransactions(c)
 	if err != nil {

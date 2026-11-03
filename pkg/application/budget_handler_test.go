@@ -10,7 +10,7 @@ import (
 
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/web"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -36,7 +36,7 @@ func newTestApp(t *testing.T) *Application {
 
 // postForm builds an echo context for a form POST, plus the recorder holding
 // whatever the handler writes.
-func postForm(t *testing.T, app *Application, values url.Values) (echo.Context, *httptest.ResponseRecorder) {
+func postForm(t *testing.T, app *Application, values url.Values) (*echo.Context, *httptest.ResponseRecorder) {
 	t.Helper()
 
 	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(values.Encode()))

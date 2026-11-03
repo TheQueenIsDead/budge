@@ -2,6 +2,7 @@ package application
 
 import (
 	"fmt"
+	"github.com/labstack/echo/v5"
 	"net/url"
 	"testing"
 	"time"
@@ -601,8 +602,7 @@ func TestTimelineMemoryEditing(t *testing.T) {
 
 	t.Run("a memory can be edited", func(t *testing.T) {
 		c, _ := postForm(t, app, url.Values{"title": {"Japan 2026"}, "kind": {"experience"}, "note": {"Cherry blossoms"}})
-		c.SetParamNames("id")
-		c.SetParamValues(id)
+		c.SetPathValues(echo.PathValues{{Name: "id", Value: id}})
 		require.NoError(t, app.TimelineUpdateMemory(c))
 
 		memory, err := app.store.GetMemory(t.Context(), id)
@@ -616,8 +616,7 @@ func TestTimelineMemoryEditing(t *testing.T) {
 	t.Run("purchases can be taken out, and the last takes the memory", func(t *testing.T) {
 		remove := func(tx string) {
 			c, _ := postForm(t, app, url.Values{})
-			c.SetParamNames("id", "tx")
-			c.SetParamValues(id, tx)
+			c.SetPathValues(echo.PathValues{{Name: "id", Value: id}, {Name: "tx", Value: tx}})
 			require.NoError(t, app.TimelineRemoveFromMemory(c))
 		}
 

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 // RuleView is a rule with how many transactions it currently files, so a
@@ -214,7 +214,7 @@ func (app *Application) buildCategoriesView(ctx context.Context, open string) (C
 // renderCategories answers every categories action with the whole card, so
 // rule counts always reflect the change. A message explains an action that
 // was refused; open keeps the category being worked on expanded.
-func (app *Application) renderCategories(c echo.Context, message, open string) error {
+func (app *Application) renderCategories(c *echo.Context, message, open string) error {
 	ctx := c.Request().Context()
 	view, err := app.buildCategoriesView(ctx, open)
 	if err != nil {
@@ -227,7 +227,7 @@ func (app *Application) renderCategories(c echo.Context, message, open string) e
 // editBudgetCategories applies an edit to the category list and saves it,
 // answering with the card and the category the edit names kept open. A
 // refused edit is explained and changes nothing.
-func (app *Application) editBudgetCategories(c echo.Context, edit func(models.BudgetCategorySettings) (models.BudgetCategorySettings, string, error)) error {
+func (app *Application) editBudgetCategories(c *echo.Context, edit func(models.BudgetCategorySettings) (models.BudgetCategorySettings, string, error)) error {
 	return app.saveBudgetCategories(c, false, edit)
 }
 
@@ -235,7 +235,7 @@ func (app *Application) editBudgetCategories(c echo.Context, edit func(models.Bu
 // with nothing: the page already shows the change, made as it was typed, and
 // redrawing the card would take the field being typed in away. A refused
 // quiet save still redraws the card, putting back what was there.
-func (app *Application) saveBudgetCategories(c echo.Context, quiet bool, edit func(models.BudgetCategorySettings) (models.BudgetCategorySettings, string, error)) error {
+func (app *Application) saveBudgetCategories(c *echo.Context, quiet bool, edit func(models.BudgetCategorySettings) (models.BudgetCategorySettings, string, error)) error {
 	ctx := c.Request().Context()
 	settings, err := app.store.GetBudgetCategorySettings(ctx)
 	if err != nil {
@@ -264,7 +264,7 @@ func (app *Application) saveBudgetCategories(c echo.Context, quiet bool, edit fu
 
 // SettingsAddBudgetCategory adds a category, on budget, or a subcategory to
 // a category. A new category is drawn open, ready to be dressed.
-func (app *Application) SettingsAddBudgetCategory(c echo.Context) error {
+func (app *Application) SettingsAddBudgetCategory(c *echo.Context) error {
 	return app.editBudgetCategories(c, func(settings models.BudgetCategorySettings) (models.BudgetCategorySettings, string, error) {
 		parent := c.FormValue("parent")
 		next, key, err := settings.AddBudgetCategory(c.FormValue("label"), parent)
@@ -278,7 +278,7 @@ func (app *Application) SettingsAddBudgetCategory(c echo.Context) error {
 // SettingsUpdateBudgetCategory renames a category or changes its look, as
 // each field is changed. Only putting it on or off budget redraws the card,
 // asked for by "render", since the category moves to the other list.
-func (app *Application) SettingsUpdateBudgetCategory(c echo.Context) error {
+func (app *Application) SettingsUpdateBudgetCategory(c *echo.Context) error {
 	key := c.Param("key")
 	return app.saveBudgetCategories(c, c.FormValue("render") != "card", func(settings models.BudgetCategorySettings) (models.BudgetCategorySettings, string, error) {
 		change := models.BudgetCategoryChange{
@@ -299,7 +299,7 @@ func (app *Application) SettingsUpdateBudgetCategory(c echo.Context) error {
 // SettingsDeleteBudgetCategory deletes a category, sending everything filed
 // under it to the category named by "into". Deleting a subcategory keeps its
 // category open; deleting a category opens the one its transactions went to.
-func (app *Application) SettingsDeleteBudgetCategory(c echo.Context) error {
+func (app *Application) SettingsDeleteBudgetCategory(c *echo.Context) error {
 	key := c.Param("key")
 	return app.editBudgetCategories(c, func(settings models.BudgetCategorySettings) (models.BudgetCategorySettings, string, error) {
 		category, _ := models.BudgetCategoryByKey(key)
@@ -314,7 +314,7 @@ func (app *Application) SettingsDeleteBudgetCategory(c echo.Context) error {
 // SettingsAddRule adds a rule filing matching transactions under a category
 // or subcategory. A new rule goes last, so it never takes transactions an
 // earlier rule already files.
-func (app *Application) SettingsAddRule(c echo.Context) error {
+func (app *Application) SettingsAddRule(c *echo.Context) error {
 	ctx := c.Request().Context()
 	target, ok := models.BudgetCategoryByKey(c.FormValue("category"))
 	if !ok {
@@ -400,7 +400,7 @@ func buildRulePreview(rule models.CategoryRule, txs []models.Transaction, settin
 }
 
 // SettingsPreviewRule answers the rule form as it is typed into.
-func (app *Application) SettingsPreviewRule(c echo.Context) error {
+func (app *Application) SettingsPreviewRule(c *echo.Context) error {
 	ctx := c.Request().Context()
 	rule := models.CategoryRule{
 		Contains:         strings.TrimSpace(c.QueryParam("contains")),
@@ -421,7 +421,7 @@ func (app *Application) SettingsPreviewRule(c echo.Context) error {
 	return c.Render(http.StatusOK, "settings.rules.preview", buildRulePreview(rule, txs, settings))
 }
 
-func (app *Application) SettingsDeleteRule(c echo.Context) error {
+func (app *Application) SettingsDeleteRule(c *echo.Context) error {
 	ctx := c.Request().Context()
 	settings, err := app.store.GetCategorySettings(ctx)
 	if err != nil {

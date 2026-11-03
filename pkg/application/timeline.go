@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 // The timeline answers "what did this year's money actually go towards?" It
@@ -926,13 +926,13 @@ func (d TimelineData) State() string {
 	return string(state)
 }
 
-func (app *Application) Timeline(c echo.Context) error {
+func (app *Application) Timeline(c *echo.Context) error {
 	return app.renderTimeline(c)
 }
 
 // renderTimeline reads the view and period from the request, which may be a
 // page load's query string or an action's form, and renders the page.
-func (app *Application) renderTimeline(c echo.Context) error {
+func (app *Application) renderTimeline(c *echo.Context) error {
 	ctx := c.Request().Context()
 	now := time.Now()
 
@@ -978,8 +978,8 @@ func (app *Application) renderTimeline(c echo.Context) error {
 
 // TimelineSaveMemory adds the posted transactions to a memory: the one named,
 // or a new one when none is.
-func (app *Application) TimelineSaveMemory(c echo.Context) error {
-	form, err := c.FormParams()
+func (app *Application) TimelineSaveMemory(c *echo.Context) error {
+	form, err := c.FormValues()
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
@@ -999,7 +999,7 @@ func (app *Application) TimelineSaveMemory(c echo.Context) error {
 }
 
 // TimelineUpdateMemory renames a memory, or changes its kind or note.
-func (app *Application) TimelineUpdateMemory(c echo.Context) error {
+func (app *Application) TimelineUpdateMemory(c *echo.Context) error {
 	ctx := c.Request().Context()
 	memory, err := app.store.GetMemory(ctx, c.Param("id"))
 	if err != nil {
@@ -1021,7 +1021,7 @@ func (app *Application) TimelineUpdateMemory(c echo.Context) error {
 // TimelineRemoveFromMemory takes one purchase back out of a memory, returning
 // it to the timeline. Taking out the last one removes the memory, since an
 // empty memory has no date to sit at.
-func (app *Application) TimelineRemoveFromMemory(c echo.Context) error {
+func (app *Application) TimelineRemoveFromMemory(c *echo.Context) error {
 	ctx := c.Request().Context()
 	memory, err := app.store.GetMemory(ctx, c.Param("id"))
 	if err != nil {
@@ -1044,7 +1044,7 @@ func (app *Application) TimelineRemoveFromMemory(c echo.Context) error {
 
 // TimelineDeleteMemory deletes a memory. Its purchases go back on the timeline
 // rather than being lost with it.
-func (app *Application) TimelineDeleteMemory(c echo.Context) error {
+func (app *Application) TimelineDeleteMemory(c *echo.Context) error {
 	ctx := c.Request().Context()
 	if err := app.store.DeleteMemory(ctx, c.Param("id")); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -1062,7 +1062,7 @@ type timelineHideRequest struct {
 
 // TimelineHide hides purchases or a merchant, or dismisses a suggestion, that
 // are not worth remembering.
-func (app *Application) TimelineHide(c echo.Context) error {
+func (app *Application) TimelineHide(c *echo.Context) error {
 	return app.updateTimelinePreferences(c, func(prefs *models.TimelinePreferences, req timelineHideRequest) {
 		prefs.HiddenTransactions = uniqueValues(append(prefs.HiddenTransactions, req.Transactions...))
 		prefs.DismissedSuggestions = uniqueValues(append(prefs.DismissedSuggestions, req.Suggestion))
@@ -1073,7 +1073,7 @@ func (app *Application) TimelineHide(c echo.Context) error {
 // TimelineRestore undoes a hide or a dismissal. Dismissed suggestions are only
 // brought back all at once, since once dismissed there is nothing left on the
 // page to name one by.
-func (app *Application) TimelineRestore(c echo.Context) error {
+func (app *Application) TimelineRestore(c *echo.Context) error {
 	return app.updateTimelinePreferences(c, func(prefs *models.TimelinePreferences, req timelineHideRequest) {
 		prefs.HiddenTransactions = slices.DeleteFunc(prefs.HiddenTransactions, func(id string) bool {
 			return slices.Contains(req.Transactions, id)
@@ -1087,9 +1087,9 @@ func (app *Application) TimelineRestore(c echo.Context) error {
 	})
 }
 
-func (app *Application) updateTimelinePreferences(c echo.Context, apply func(*models.TimelinePreferences, timelineHideRequest)) error {
+func (app *Application) updateTimelinePreferences(c *echo.Context, apply func(*models.TimelinePreferences, timelineHideRequest)) error {
 	ctx := c.Request().Context()
-	form, err := c.FormParams()
+	form, err := c.FormValues()
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}

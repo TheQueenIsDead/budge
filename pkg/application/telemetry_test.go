@@ -12,7 +12,7 @@ import (
 
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/telemetry"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	otellog "go.opentelemetry.io/otel/log"
@@ -46,8 +46,8 @@ func instrumentedAppKeeping(t *testing.T, path string) (*Application, *telemetry
 
 func TestRequestsAreTracedAndTimed(t *testing.T) {
 	app, tel := instrumentedApp(t)
-	app.http.GET("/boom", func(echo.Context) error { return echo.NewHTTPError(http.StatusInternalServerError, "it broke") })
-	app.http.GET("/panic", func(echo.Context) error { panic("oh no") })
+	app.http.GET("/boom", func(*echo.Context) error { return echo.NewHTTPError(http.StatusInternalServerError, "it broke") })
+	app.http.GET("/panic", func(*echo.Context) error { panic("oh no") })
 
 	serve := func(method, target string) int {
 		rec := httptest.NewRecorder()
@@ -132,7 +132,7 @@ func TestQueriesSitUnderTheirRequest(t *testing.T) {
 
 func TestAdminPageShowsWhatWasRecorded(t *testing.T) {
 	app, tel := instrumentedApp(t)
-	app.http.GET("/boom", func(echo.Context) error { return echo.NewHTTPError(http.StatusInternalServerError, "it broke") })
+	app.http.GET("/boom", func(*echo.Context) error { return echo.NewHTTPError(http.StatusInternalServerError, "it broke") })
 	get := func(target string, htmx bool) (int, string) {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, target, nil)
@@ -204,8 +204,8 @@ func TestAdminCompactsTheTelemetryFile(t *testing.T) {
 
 func TestAPanicIsRecordedWithItsStack(t *testing.T) {
 	app, tel := instrumentedApp(t)
-	app.http.GET("/boom", func(echo.Context) error { return echo.NewHTTPError(http.StatusInternalServerError, "it broke") })
-	app.http.GET("/panic", func(echo.Context) error { panicHere(); return nil })
+	app.http.GET("/boom", func(*echo.Context) error { return echo.NewHTTPError(http.StatusInternalServerError, "it broke") })
+	app.http.GET("/panic", func(*echo.Context) error { panicHere(); return nil })
 	for _, target := range []string{"/boom", "/panic"} {
 		app.http.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, target, nil))
 	}
@@ -266,4 +266,20 @@ func TestWithoutTelemetryThereIsNoAdmin(t *testing.T) {
 	assert.Equal(t, http.StatusOK, code)
 	_, settings = get(with, "/settings")
 	assert.Equal(t, 2, strings.Count(settings, `href="/admin"`), "the icon and the settings card")
+}
+
+func TestEchosOwnErrorsKeepTheirStatus(t *testing.T) {
+	app, _ := instrumentedApp(t)
+	serve := func(method, target string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		app.http.ServeHTTP(rec, httptest.NewRequest(method, target, nil))
+		return rec
+	}
+
+	missing := serve(http.MethodGet, "/no-such-page")
+	assert.Equal(t, http.StatusTemporaryRedirect, missing.Code, "an unknown page is not found, not a server error")
+	assert.Equal(t, "/4XX", missing.Header().Get("Location"))
+
+	wrongMethod := serve(http.MethodPut, "/settings")
+	assert.Equal(t, http.StatusMethodNotAllowed, wrongMethod.Code)
 }

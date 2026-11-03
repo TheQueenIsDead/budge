@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 type DashboardData struct {
@@ -371,7 +371,7 @@ func dashboardMonthsStart(now time.Time) time.Time {
 	return time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).AddDate(0, -5, 0)
 }
 
-func (app *Application) Dashboard(c echo.Context) error {
+func (app *Application) Dashboard(c *echo.Context) error {
 	ctx := c.Request().Context()
 
 	now := time.Now()
@@ -420,6 +420,6 @@ func (app *Application) Dashboard(c echo.Context) error {
 		SpendHighlights:             BuildSpendSummaries(nonTransfer, []string{"groceries", "fuel", "power"}, now),
 	})
 }
-func (app *Application) _4XX(c echo.Context) error {
+func (app *Application) _4XX(c *echo.Context) error {
 	return c.Render(http.StatusOK, "4XX", nil)
 }

@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 // BudgetCardsData is the view-model for the summary cards on the income page
@@ -69,7 +69,7 @@ type BudgetSummary struct {
 }
 
 // BudgetCards returns the summary cards (income / expenses / savings).
-func (app *Application) BudgetCards(c echo.Context) error {
+func (app *Application) BudgetCards(c *echo.Context) error {
 	ctx := c.Request().Context()
 	data, err := app.buildBudgetCards(ctx)
 	if err != nil {
@@ -80,7 +80,7 @@ func (app *Application) BudgetCards(c echo.Context) error {
 
 // BudgetAllocation returns the bar showing how much of take-home pay the
 // targets claim.
-func (app *Application) BudgetAllocation(c echo.Context) error {
+func (app *Application) BudgetAllocation(c *echo.Context) error {
 	ctx := c.Request().Context()
 	data, err := app.buildBudgetCards(ctx)
 	if err != nil {
@@ -119,7 +119,7 @@ func (app *Application) buildBudgetCards(ctx context.Context) (BudgetCardsData, 
 }
 
 // BudgetSaveSavingsGoal persists the weekly savings goal.
-func (app *Application) BudgetSaveSavingsGoal(c echo.Context) error {
+func (app *Application) BudgetSaveSavingsGoal(c *echo.Context) error {
 	ctx := c.Request().Context()
 	goal, _ := strconv.ParseFloat(c.FormValue("savings_goal"), 64)
 	freq := c.FormValue("savings_goal_frequency")
@@ -136,7 +136,7 @@ func (app *Application) BudgetSaveSavingsGoal(c echo.Context) error {
 }
 
 // BudgetSaveSalary persists salary config (called on field change, hx-swap="none").
-func (app *Application) BudgetSaveSalary(c echo.Context) error {
+func (app *Application) BudgetSaveSalary(c *echo.Context) error {
 	ctx := c.Request().Context()
 	salary, _ := strconv.ParseFloat(c.FormValue("salary"), 64)
 	kiwiSaverRate, _ := strconv.ParseFloat(c.FormValue("kiwisaver_rate"), 64)
@@ -155,7 +155,7 @@ func (app *Application) BudgetSaveSalary(c echo.Context) error {
 }
 
 // BudgetSummary reads saved state and returns calculated summary HTML.
-func (app *Application) BudgetSummary(c echo.Context) error {
+func (app *Application) BudgetSummary(c *echo.Context) error {
 	ctx := c.Request().Context()
 	salary, err := app.store.GetBudgetSalary(ctx)
 	if err != nil {
@@ -187,7 +187,7 @@ func buildIncomeTile(salary models.BudgetSalary) IncomeTileData {
 
 // BudgetIncome is the page for configuring income, kept off the budget page
 // because it is set once and rarely revisited.
-func (app *Application) BudgetIncome(c echo.Context) error {
+func (app *Application) BudgetIncome(c *echo.Context) error {
 	ctx := c.Request().Context()
 	salary, err := app.store.GetBudgetSalary(ctx)
 	if err != nil {

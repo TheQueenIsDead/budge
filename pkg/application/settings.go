@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 // ScheduleView is the schedule as the settings page reads it: what is on, how
@@ -36,7 +36,7 @@ func buildScheduleView(schedule models.ScheduleSettings) ScheduleView {
 	return view
 }
 
-func (app *Application) Settings(c echo.Context) error {
+func (app *Application) Settings(c *echo.Context) error {
 	ctx := c.Request().Context()
 	accounts, err := app.store.ReadAccounts(ctx)
 	if err != nil {
@@ -73,7 +73,7 @@ func (app *Application) Settings(c echo.Context) error {
 	})
 }
 
-func (app *Application) SettingsDeleteSynced(c echo.Context) error {
+func (app *Application) SettingsDeleteSynced(c *echo.Context) error {
 	ctx := c.Request().Context()
 
 	err := app.store.DeleteSynced(ctx)
@@ -86,7 +86,7 @@ func (app *Application) SettingsDeleteSynced(c echo.Context) error {
 	return nil
 }
 
-func (app *Application) PutAkahuSettings(c echo.Context) error {
+func (app *Application) PutAkahuSettings(c *echo.Context) error {
 	ctx := c.Request().Context()
 
 	settings, err := app.store.GetAkahuSettings(ctx)
@@ -111,7 +111,7 @@ func (app *Application) PutAkahuSettings(c echo.Context) error {
 // SettingsSaveSchedule stores what should run by itself. Last-run times are
 // carried across rather than reset, so changing a cadence does not fire a job
 // immediately as a side effect of saving.
-func (app *Application) SettingsSaveSchedule(c echo.Context) error {
+func (app *Application) SettingsSaveSchedule(c *echo.Context) error {
 	ctx := c.Request().Context()
 
 	schedule, err := app.store.GetScheduleSettings(ctx)

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"go.opentelemetry.io/otel/codes"
 )
 
@@ -122,7 +122,7 @@ func (app *Application) syncStatus(ctx context.Context) SyncStatus {
 // SyncAkahu starts a sync in the background and answers at once with the
 // progress view, which polls until the sync is done. Asking while one is
 // already running joins it rather than starting another.
-func (app *Application) SyncAkahu(c echo.Context) error {
+func (app *Application) SyncAkahu(c *echo.Context) error {
 	ctx := c.Request().Context()
 	if app.akahuSync.begin() {
 		// The sync outlives the request, so it keeps the request's trace but
@@ -144,7 +144,7 @@ func (app *Application) SyncAkahu(c echo.Context) error {
 // classifies transactions reach the ones already stored. Nothing is deleted
 // first, so memories and hidden purchases, which are keyed by Akahu's own
 // transaction IDs, are untouched.
-func (app *Application) ResyncAkahu(c echo.Context) error {
+func (app *Application) ResyncAkahu(c *echo.Context) error {
 	ctx := c.Request().Context()
 	if app.akahuSync.begin() {
 		background := context.WithoutCancel(ctx)
@@ -165,7 +165,7 @@ func (app *Application) ResyncAkahu(c echo.Context) error {
 
 // SyncAkahuStatus answers the progress view's poll. When the run it was
 // watching has finished, it says how that went, once.
-func (app *Application) SyncAkahuStatus(c echo.Context) error {
+func (app *Application) SyncAkahuStatus(c *echo.Context) error {
 	ctx := c.Request().Context()
 	status := app.syncStatus(ctx)
 
