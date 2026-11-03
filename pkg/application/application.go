@@ -239,7 +239,6 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	// A panic comes back as an error carrying its stack, for the error
 	// handler to record and answer.
 	app.http.Use(middleware.Recover())
-	app.http.Use(Caching())
 
 	// General
 	app.http.GET("/", app.Dashboard)

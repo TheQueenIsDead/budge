@@ -175,11 +175,6 @@ func (app *Application) SyncAkahuStatus(c *echo.Context) error {
 			app.Toast(c, "Error", "Sync failed: "+status.Error)
 		} else {
 			app.Toast(c, "Success", "Akahu synced successfully!")
-			c.SetCookie(&http.Cookie{
-				Name:  "X-Cache-Key",
-				Value: status.LastSync.String(),
-				Path:  "/",
-			})
 		}
 	}
 
