@@ -16,6 +16,9 @@
               hx-push-url="true">
             <input type="hidden" name="from" value="{{ .from }}">
             <input type="hidden" name="to" value="{{ .to }}">
+            {{ range .groups }}
+                <input type="hidden" name="group" value="{{ .Key }}">
+            {{ end }}
 
             <div class="row g-2">
                 <div class="col-12 col-sm-6">
@@ -52,9 +55,15 @@
 
         <div class="b-summary-bar mt-2">
             {{ if .dated }}
-                <a class="badge-category badge-link" href="/transactions?search={{ .search }}&account={{ .account }}"
+                <a class="badge-category badge-link" href="/transactions?search={{ .search }}&account={{ .account }}{{ range .groups }}&group={{ .Key }}{{ end }}"
                    hx-boost="true" hx-target="#main" title="Show every date">
                     <i class="bi bi-calendar-range"></i> {{ .dateRange }} <i class="bi bi-x"></i>
+                </a>
+            {{ end }}
+            {{ if .groups }}
+                <a class="badge-category badge-link" href="/transactions?search={{ .search }}&account={{ .account }}&from={{ .from }}&to={{ .to }}"
+                   hx-boost="true" hx-target="#main" title="Show every category">
+                    <i class="bi bi-tags"></i> {{ range $i, $g := .groups }}{{ if $i }}, {{ end }}{{ $g.Label }}{{ end }} <i class="bi bi-x"></i>
                 </a>
             {{ end }}
             <span class="b-summary-item fw-semibold">
@@ -207,7 +216,7 @@
         {{ if .hasMore }}
             <div class="text-center my-3">
                 <a class="btn btn-outline-secondary"
-                   href="/transactions?search={{ .search }}&account={{ .account }}&from={{ .from }}&to={{ .to }}&limit={{ .nextLimit }}{{ if .uncategorisedOnly }}&uncategorised=1{{ end }}"
+                   href="/transactions?search={{ .search }}&account={{ .account }}&from={{ .from }}&to={{ .to }}&limit={{ .nextLimit }}{{ if .uncategorisedOnly }}&uncategorised=1{{ end }}{{ range .groups }}&group={{ .Key }}{{ end }}"
                    hx-boost="true" hx-target="#main">
                     Load more
                     <span class="text-muted">({{ .total }} in total)</span>

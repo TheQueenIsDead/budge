@@ -2,8 +2,10 @@ package application
 
 import (
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
@@ -132,6 +134,16 @@ func (app *Application) Transactions(c *echo.Context) error {
 		})
 	}
 
+	// Groups narrow to the spending filed under the categories named. It is
+	// how a chart opens the transactions behind a bar, so what is left adds
+	// up to the bar.
+	groups := transactionGroups(c.QueryParams()["group"])
+	if len(groups) > 0 {
+		transactions = slices.DeleteFunc(transactions, func(t models.Transaction) bool {
+			return !slices.ContainsFunc(groups, func(g TransactionGroup) bool { return g.Matches(t) })
+		})
+	}
+
 	// Uncategorised spending is counted across everything recent, whatever the
 	// search, so the warning about it is the same wherever the page is opened.
 	since := uncategorisedSince(time.Now())
@@ -202,7 +214,7 @@ func (app *Application) Transactions(c *echo.Context) error {
 	// rather than the hundred rows under it. The category split only earns its
 	// place once a search has narrowed the results to something coherent.
 	series := BuildTransactionSeries(transactions, transactionSeriesMonths, time.Now())
-	if search == "" {
+	if search == "" && len(groups) < 2 {
 		series = series.Combined()
 	}
 
@@ -218,6 +230,7 @@ func (app *Application) Transactions(c *echo.Context) error {
 		"to":         c.QueryParam("to"),
 		"dated":      dated,
 		"dateRange":  transactionDateLabel(c.QueryParam("from"), c.QueryParam("to"), from, to),
+		"groups":     groups,
 		"took":       took,
 		"in":         in,
 		"out":        out,
@@ -245,6 +258,62 @@ func uncategorisedSince(now time.Time) time.Time {
 // lump together under Uncategorised.
 func isUncategorisedSpend(tx models.Transaction, since time.Time) bool {
 	return tx.IsDebit() && tx.BudgetCategory() == models.CategoryUncategorised && !tx.Date.Before(since)
+}
+
+// TransactionGroup is a category the transactions page is narrowed to: the
+// category with its subcategories, or only what is filed under the category
+// itself when it is a split category's general row.
+type TransactionGroup struct {
+	Key   string
+	Label string
+
+	category string
+	general  bool
+}
+
+// Matches reports whether a transaction is spending filed under the group,
+// the same spending the budget and insights count for it.
+func (g TransactionGroup) Matches(tx models.Transaction) bool {
+	if !tx.IsDebit() {
+		return false
+	}
+	key := tx.BudgetCategory()
+	if g.general {
+		return key == g.category
+	}
+	return key == g.category || models.TopBudgetCategory(key).Key == g.category
+}
+
+// transactionGroups reads the groups named in a query, leaving out any that
+// name no category, so a stale link still opens rather than showing nothing.
+func transactionGroups(keys []string) []TransactionGroup {
+	var groups []TransactionGroup
+	for _, key := range keys {
+		top, general := strings.CutSuffix(key, generalSuffix)
+		category, ok := models.BudgetCategoryByKey(top)
+		if !ok || general && category.IsSub() {
+			continue
+		}
+		group := TransactionGroup{Key: category.Key, Label: category.Label, category: category.Key, general: general}
+		if general {
+			group.Key, group.Label = generalCategory(category).Key, generalCategory(category).Label
+		}
+		if !slices.ContainsFunc(groups, func(g TransactionGroup) bool { return g.Key == group.Key }) {
+			groups = append(groups, group)
+		}
+	}
+	return groups
+}
+
+// transactionsLink opens the spending filed under the given categories over
+// a run of local days, end exclusive, as a drill-down from a chart.
+func transactionsLink(groups []string, start, end time.Time) string {
+	query := url.Values{
+		"group": groups,
+		"from":  {start.Format(time.DateOnly)},
+		"to":    {end.AddDate(0, 0, -1).Format(time.DateOnly)},
+	}
+	return "/transactions?" + query.Encode()
 }
 
 // transactionDateRange reads an inclusive range of local dates into the times
