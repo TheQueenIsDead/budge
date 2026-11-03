@@ -176,16 +176,31 @@ func (t Transaction) IsDebit() bool {
 // category, then the subcategory when it has one. Money coming in and moving
 // between the owner's accounts is not filed anywhere.
 func (t *Transaction) Categories() (labels []string) {
+	for _, tag := range t.CategoryTags() {
+		labels = append(labels, tag.Label)
+	}
+	return labels
+}
+
+// CategoryTag is a category a transaction is filed under, named, with the key
+// that narrows a list to it.
+type CategoryTag struct {
+	Key   string
+	Label string
+}
+
+// CategoryTags are the categories behind the badges Categories names.
+func (t *Transaction) CategoryTags() (tags []CategoryTag) {
 	if !t.IsDebit() {
 		return nil
 	}
 	key := t.BudgetCategory()
 	top := TopBudgetCategory(key)
-	labels = append(labels, top.Label)
+	tags = append(tags, CategoryTag{Key: top.Key, Label: top.Label})
 	if category, ok := BudgetCategoryByKey(key); ok && category.IsSub() {
-		labels = append(labels, category.Label)
+		tags = append(tags, CategoryTag{Key: category.Key, Label: category.Label})
 	}
-	return labels
+	return tags
 }
 
 type Inventory struct {

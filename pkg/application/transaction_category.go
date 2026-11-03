@@ -29,7 +29,7 @@ type TransactionCategoryView struct {
 // popover, in both layouts, after the category changes.
 type TransactionCategoryUpdate struct {
 	ID         string
-	Categories []string
+	Categories []models.CategoryTag
 	Popovers   []TransactionCategoryView
 }
 
@@ -166,7 +166,7 @@ func (app *Application) TransactionSetCategory(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
-	update := TransactionCategoryUpdate{ID: tx.Id, Categories: updated.Categories()}
+	update := TransactionCategoryUpdate{ID: tx.Id, Categories: updated.CategoryTags()}
 	for _, layout := range []string{"m", "d"} {
 		update.Popovers = append(update.Popovers, TransactionCategoryView{ID: tx.Id, Layout: layout, OOB: true})
 	}

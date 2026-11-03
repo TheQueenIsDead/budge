@@ -72,6 +72,17 @@ func TestTransactionsByGroup(t *testing.T) {
 		assert.NotContains(t, page, "bi-tags")
 	})
 
+	t.Run("a category tag narrows the list to its category", func(t *testing.T) {
+		page := get("")
+		assert.Contains(t, page, `href="/transactions?group=transport"`, "the category")
+		assert.Contains(t, page, `href="/transactions?group=fuel"`, "and the subcategory")
+		assert.Contains(t, page, `hx-include="#search, #account, #filter-from, #filter-to"`, "keeping the other filters")
+		assert.Contains(t, page, `id="filter-from" name="from"`)
+
+		rec := setCategory(t, app, "metro", url.Values{"category": {"parking"}})
+		assert.Contains(t, rec.Body.String(), `href="/transactions?group=parking"`, "and so does a tag redrawn after filing")
+	})
+
 	t.Run("clearing the dates keeps the groups", func(t *testing.T) {
 		page := get("group=fuel&from=2020-01-01")
 		assert.Contains(t, page, `href="/transactions?search=&account=&group=fuel"`)
