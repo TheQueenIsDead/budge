@@ -104,7 +104,7 @@ func (s *SpanStore) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpan
 	for _, span := range spans {
 		attrs := make(map[string]string, len(span.Attributes()))
 		for _, kv := range span.Attributes() {
-			attrs[string(kv.Key)] = kv.Value.Emit()
+			attrs[string(kv.Key)] = kv.Value.String()
 		}
 		var parent string
 		if span.Parent().IsValid() {
@@ -114,7 +114,7 @@ func (s *SpanStore) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpan
 		for _, event := range span.Events() {
 			eventAttrs := make(map[string]string, len(event.Attributes))
 			for _, kv := range event.Attributes {
-				eventAttrs[string(kv.Key)] = kv.Value.Emit()
+				eventAttrs[string(kv.Key)] = kv.Value.String()
 			}
 			events = append(events, SpanEvent{Name: event.Name, Time: event.Time, Attrs: eventAttrs})
 		}

@@ -23,7 +23,6 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -177,7 +176,7 @@ func Setup(ctx context.Context, opts Options) (*Telemetry, error) {
 
 	otel.SetTracerProvider(tracers)
 	otel.SetMeterProvider(meters)
-	global.SetLoggerProvider(loggers)
+	otel.SetLoggerProvider(loggers)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 
 	slog.SetDefault(slog.New(fanout{

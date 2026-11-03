@@ -276,7 +276,10 @@ func (d *disk) logs(before time.Time, visit func(LogRecord) bool) error {
 func (d *disk) walkBack(bucket []byte, before time.Time, visit func([]byte) bool) error {
 	err := d.view(func(tx *bolt.Tx) error {
 		c := tx.Bucket(bucket).Cursor()
-		k, v := c.Seek(timeKey(nil, before))
+		// The newest before the time is the one ahead of where it would go,
+		// or the last of all when nothing comes after it.
+		var v []byte
+		k, _ := c.Seek(timeKey(nil, before))
 		if k == nil {
 			k, v = c.Last()
 		} else {

@@ -416,7 +416,7 @@ func (m *MetricStore) Names() []string {
 func attrMap(set attribute.Set) map[string]string {
 	out := make(map[string]string, set.Len())
 	for _, kv := range set.ToSlice() {
-		out[string(kv.Key)] = kv.Value.Emit()
+		out[string(kv.Key)] = kv.Value.String()
 	}
 	return out
 }

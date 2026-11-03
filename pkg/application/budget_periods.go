@@ -187,7 +187,7 @@ func BuildPeriodCharts(transactions []models.Transaction, targets map[string]mod
 
 		totals := make([]float64, len(bounds))
 		for _, s := range spending {
-			if !(inPeriod[s.top] || inPeriod[s.filed]) || s.date.Before(start) || !s.date.Before(end) {
+			if !inPeriod[s.top] && !inPeriod[s.filed] || s.date.Before(start) || !s.date.Before(end) {
 				continue
 			}
 			for i := len(bounds) - 1; i >= 0; i-- {

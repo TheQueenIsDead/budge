@@ -45,7 +45,7 @@ func (s *LogStore) Export(_ context.Context, records []sdklog.Record) error {
 	for _, record := range records {
 		attrs := map[string]string{}
 		record.WalkAttributes(func(kv attribute.KeyValue) bool {
-			attrs[string(kv.Key)] = kv.Value.Emit()
+			attrs[string(kv.Key)] = kv.Value.String()
 			return true
 		})
 		var traceID string
