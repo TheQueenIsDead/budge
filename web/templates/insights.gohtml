@@ -48,15 +48,19 @@
 
                 <!-- The three numbers worth knowing: now, last, and typical. -->
                 <div class="row g-2 mb-3">
+                    <!-- This period and the last open the transactions behind
+                         them, as the bars do. -->
                     <div class="col-4">
-                        <div class="b-stat">
+                        <a class="b-stat d-block text-reset text-decoration-none" href="{{ .CurrentLink }}"
+                           hx-boost="false" title="See these transactions">
                             <div class="b-stat-label"><span>This {{ .Cadence.Label }}</span></div>
                             <div class="b-stat-value">{{ .Summary.Current | fmtCurrency }}</div>
                             <div class="b-delta-note">{{ if .Summary.Awaiting }}nothing yet{{ else }}so far{{ end }}</div>
-                        </div>
+                        </a>
                     </div>
                     <div class="col-4">
-                        <div class="b-stat">
+                        <a class="b-stat d-block text-reset text-decoration-none" href="{{ .PreviousLink }}"
+                           hx-boost="false" title="See these transactions">
                             <div class="b-stat-label"><span>Last {{ .Cadence.Label }}</span></div>
                             <div class="b-stat-value">{{ .Summary.Previous | fmtCurrency }}</div>
                             <div>
@@ -74,7 +78,7 @@
                                     <span class="b-delta b-delta-flat">No history</span>
                                 {{ end }}
                             </div>
-                        </div>
+                        </a>
                     </div>
                     <div class="col-4">
                         <div class="b-stat">
@@ -155,6 +159,7 @@
                     const soft = window.budge.mix(key, 0.45);
 
                     const labels = {{ .Summary.Labels }};
+                    const links = {{ .Links }};
                     const totals = {{ .Summary.Totals }};
                     const label = {{ .Selected.Label }};
 
@@ -171,13 +176,14 @@
                         existing.data.datasets[0].data = totals;
                         existing.data.datasets[0].backgroundColor = colours;
                         existing.data.datasets[0].label = label;
+                        existing.$links = links;
                         existing.update("none");
                         return;
                     }
 
                     const ink = window.budge.ink;
 
-                    new Chart(canvas, {
+                    const chart = new Chart(canvas, {
                         type: "bar",
                         data: {
                             labels: labels,
@@ -193,6 +199,17 @@
                             responsive: true,
                             maintainAspectRatio: false,
                             animation: false,
+                            // A bar opens the transactions behind it. The links
+                            // are read off the chart, as the canvas is kept
+                            // across swaps to another category.
+                            onClick: (event, elements) => {
+                                if (elements.length) {
+                                    window.location.href = chart.$links[elements[0].index];
+                                }
+                            },
+                            onHover: (event, elements) => {
+                                event.native.target.style.cursor = elements.length ? "pointer" : "default";
+                            },
                             scales: {
                                 y: {
                                     beginAtZero: true,
@@ -220,6 +237,7 @@
                             }
                         }
                     });
+                    chart.$links = links;
                 })();
             </script>
         </div>

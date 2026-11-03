@@ -20,6 +20,24 @@ type InsightsData struct {
 
 	WindowStart time.Time
 	WindowEnd   time.Time
+
+	// Links open the transactions behind each bar of the chart, oldest first,
+	// so the last two are this period and the one before.
+	Links []string
+}
+
+// CurrentLink opens the transactions behind the period in progress.
+func (d InsightsData) CurrentLink() string { return d.link(1) }
+
+// PreviousLink opens the transactions behind the last completed period.
+func (d InsightsData) PreviousLink() string { return d.link(2) }
+
+// link is the nth bar's link counting back from the last, or none.
+func (d InsightsData) link(n int) string {
+	if len(d.Links) < n {
+		return ""
+	}
+	return d.Links[len(d.Links)-n]
 }
 
 // insightsHistory is how far back the page reads. Twelve monthly buckets need
@@ -71,5 +89,6 @@ func (app *Application) Insights(c *echo.Context) error {
 		Merchants:   BuildSpendMerchants(transactions, selected, start, end, 12),
 		WindowStart: start,
 		WindowEnd:   end,
+		Links:       summary.Links(),
 	})
 }

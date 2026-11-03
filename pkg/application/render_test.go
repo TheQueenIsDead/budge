@@ -333,6 +333,16 @@ func TestRenderInsights(t *testing.T) {
 		Merchants:   BuildSpendMerchants(transactions, groceries, start, end, 12),
 		WindowStart: start,
 		WindowEnd:   end,
+		Links:       summary.Links(),
+	})
+
+	t.Run("this week and last open the transactions behind them", func(t *testing.T) {
+		last := summary.Buckets[len(summary.Buckets)-1]
+		assert.Equal(t, transactionsLink([]string{"groceries"}, last.Start, last.End), summary.Links()[len(summary.Buckets)-1])
+		assert.Contains(t, page, `href="/transactions?from=`+last.Start.Format(time.DateOnly)+`&amp;group=groceries&amp;to=`+last.End.AddDate(0, 0, -1).Format(time.DateOnly)+`"`)
+		previous := summary.Buckets[len(summary.Buckets)-2]
+		assert.Contains(t, page, `href="/transactions?from=`+previous.Start.Format(time.DateOnly)+`&amp;group=groceries&amp;to=`+previous.End.AddDate(0, 0, -1).Format(time.DateOnly)+`"`)
+		assert.Contains(t, page, "chart.$links", "and so does each bar")
 	})
 
 	t.Run("offers every tracked category at its own cadence", func(t *testing.T) {

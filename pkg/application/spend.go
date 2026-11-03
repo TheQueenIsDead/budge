@@ -488,6 +488,15 @@ func (s SpendSummary) Window() (start, end time.Time) {
 	return s.Buckets[0].Start, s.Buckets[len(s.Buckets)-1].End
 }
 
+// Links open the transactions behind each bucket, oldest first.
+func (s SpendSummary) Links() []string {
+	links := make([]string, len(s.Buckets))
+	for i, bucket := range s.Buckets {
+		links[i] = transactionsLink([]string{s.Group.Key}, bucket.Start, bucket.End)
+	}
+	return links
+}
+
 // BuildSpendMerchants ranks the merchants inside a group over the summary's
 // window. This is what turns "power costs $X" into "power is Mercury", and is
 // how a merchant gets identified as a utility without manual tagging.
