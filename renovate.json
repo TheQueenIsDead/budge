@@ -2,5 +2,16 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "description": "echo-otel's major version tracks Echo's, so the two move together in one PR, whatever their major version.",
+      "matchDatasources": ["go"],
+      "matchPackageNames": [
+        "/^github\\.com/labstack/echo/v\\d+$/",
+        "/^github\\.com/labstack/echo-otel/v\\d+$/"
+      ],
+      "groupName": "echo"
+    }
   ]
 }
