@@ -6,6 +6,7 @@ import (
 	"maps"
 	"math"
 	"net/http"
+	"net/url"
 	"slices"
 	"sort"
 	"strings"
@@ -27,16 +28,41 @@ type DashboardData struct {
 	TopMerchants                []models.MerchantTotal
 	HighestOutgoingTransactions []OutgoingTransaction
 
+	// RecentSince is where the last 30 days the merchants cover begin.
+	RecentSince time.Time
+
 	// SpendHighlights answer the questions asked most often - what the weekly
 	// shop cost, what petrol cost, what the power bill was - without needing
 	// the insights page.
 	SpendHighlights []SpendSummary
 }
 
+// MerchantLink opens a merchant's transactions over the last 30 days, the
+// ones behind its total.
+func (d DashboardData) MerchantLink(merchant string) string {
+	return searchLink(merchant, d.RecentSince, time.Now())
+}
+
 type OutgoingTransaction struct {
 	Description string
 	Amount      float64
 	Date        time.Time
+}
+
+// Link opens the transactions page on the day of the payment, with it found.
+func (o OutgoingTransaction) Link() string {
+	return searchLink(o.Description, o.Date.Local(), o.Date.Local())
+}
+
+// searchLink opens what a search finds over a run of local days, both ends
+// inclusive.
+func searchLink(search string, first, last time.Time) string {
+	query := url.Values{
+		"search": {search},
+		"from":   {first.Format(time.DateOnly)},
+		"to":     {last.Format(time.DateOnly)},
+	}
+	return "/transactions?" + query.Encode()
 }
 
 func BuildHighestOutgoingTransactions(current []models.Transaction, n int) []OutgoingTransaction {
@@ -115,18 +141,25 @@ func AggregateMonthlyTransactions(transactions []models.Transaction, location *t
 	return monthlyTransactions
 }
 
+// recentSince is where the dashboard's last 30 days begin, counting today. It
+// is the start of a local day, so the transactions page opened over the same
+// dates holds the same transactions.
+func recentSince(now time.Time) time.Time {
+	y, m, d := now.Date()
+	return time.Date(y, m, d-29, 0, 0, 0, 0, now.Location())
+}
+
 // FilterRecentTransactions takes a list of transactions and returns two lists: past and recent.
-// Recent transactions occurred in the last 30 days from the current date.
+// Recent transactions occurred in the last 30 days, counting today.
 // Past transactions occurred in the 30 days prior to the recent transactions.
 // Transactions older than 60 days are excluded from both lists.
-func FilterRecentTransactions(transactions []models.Transaction) (past []models.Transaction, recent []models.Transaction) {
-	now := time.Now()
-	thirtyDaysAgo := now.AddDate(0, 0, -30)
-	sixtyDaysAgo := now.AddDate(0, 0, -60)
+func FilterRecentTransactions(transactions []models.Transaction, now time.Time) (past []models.Transaction, recent []models.Transaction) {
+	since := recentSince(now)
+	before := since.AddDate(0, 0, -30)
 	for _, tx := range transactions {
-		if tx.Date.After(thirtyDaysAgo) {
+		if !tx.Date.Before(since) {
 			recent = append(recent, tx)
-		} else if tx.Date.After(sixtyDaysAgo) {
+		} else if !tx.Date.Before(before) {
 			past = append(past, tx)
 		}
 	}
@@ -401,7 +434,7 @@ func (app *Application) Dashboard(c *echo.Context) error {
 	}
 
 	monthlyTransactions := AggregateMonthlyTransactions(lastSixMonths, now.Location())
-	pastTransactions, recentTransactions := FilterRecentTransactions(lastSixMonths)
+	pastTransactions, recentTransactions := FilterRecentTransactions(lastSixMonths, now)
 
 	// Build cards based on differences between the last 30 days, and the 30 days prior to that
 	balance, spend, income, savings := BuildCards(accounts, pastTransactions, recentTransactions)
@@ -418,6 +451,7 @@ func (app *Application) Dashboard(c *echo.Context) error {
 		// lists describe the same period rather than silently differing.
 		HighestOutgoingTransactions: BuildHighestOutgoingTransactions(recentTransactions, 6),
 		SpendHighlights:             BuildSpendSummaries(nonTransfer, []string{"groceries", "fuel", "power"}, now),
+		RecentSince:                 recentSince(now),
 	})
 }
 func (app *Application) _4XX(c *echo.Context) error {

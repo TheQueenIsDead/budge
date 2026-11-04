@@ -55,6 +55,18 @@ func TestRenderDashboard(t *testing.T) {
 		HighestOutgoingTransactions: []OutgoingTransaction{
 			{Description: "Mercury", Amount: -186.40, Date: time.Now().AddDate(0, 0, -5)},
 		},
+		RecentSince: recentSince(time.Now()),
+	})
+
+	t.Run("a merchant opens its transactions over the last 30 days", func(t *testing.T) {
+		today := time.Now().Format(time.DateOnly)
+		from := time.Now().AddDate(0, 0, -29).Format(time.DateOnly)
+		assert.Contains(t, page, `href="/transactions?from=`+from+`&amp;search=Z&#43;Energy&amp;to=`+today+`"`)
+	})
+
+	t.Run("a payment opens its own day", func(t *testing.T) {
+		day := time.Now().AddDate(0, 0, -5).Format(time.DateOnly)
+		assert.Contains(t, page, `href="/transactions?from=`+day+`&amp;search=Mercury&amp;to=`+day+`"`)
 	})
 
 	t.Run("shows the headline metrics", func(t *testing.T) {
