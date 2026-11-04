@@ -142,7 +142,7 @@
                 {{ end }}
             </div>
 
-            <script>
+            <script nonce="{{ nonce }}">
                 (function () {
                     const canvas = document.getElementById("insightsChart");
                     if (!canvas || typeof Chart === "undefined") {

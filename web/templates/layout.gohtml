@@ -42,14 +42,14 @@
         <script src="{{ asset "/static/charts.js" }}"></script>
         <!-- The browser chrome takes the page ground. A meta tag cannot read a
              CSS variable, so it is copied across once the stylesheet is in. -->
-        <script>
+        <script nonce="{{ nonce }}">
             document.querySelector('meta[name="theme-color"]').content =
                 getComputedStyle(document.documentElement).getPropertyValue('--b-bg').trim();
         </script>
 
         <!-- HTMX -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/2.0.11/htmx.min.js" integrity="sha512-YdHy6FzjD4qoyI/yWGIbsKnJHe98r96np9XeYp3ovFL+0sNP/NbDrYlSLDr5a6Ndi5sRi9GgJj+suE7yLeUMNQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-        <script>
+        <script nonce="{{ nonce }}">
             // A swap marked "morph" updates what is on the page in place rather
             // than replacing it, with Alpine's own morph so Alpine components on
             // it carry on: only what changed is touched, so the page stays put
@@ -82,9 +82,12 @@
         <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/morph@3.14.1/dist/cdn.min.js" integrity="sha512-IsuqDpICOT7pqnQGfdVnESaOvsiKD/ZG7VKM4hRlwKsCW8gYUlK1UDmFtEaL3s71vJMu723VhFPcaGVBM8MN9A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
         <script defer src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.14.1/cdn.min.js" integrity="sha512-ytM6hP1K9BkRTjUQZpxZKFjJ2TvE4QXaK7phVymsm7NimaI5H09TWWW6f2JMbonLp4ftYU6xfwQGoe3C8jta9A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
-        <script>
+        <script nonce="{{ nonce }}">
             htmx.config.useTemplateFragments = true
             htmx.config.scrollIntoViewOnBoost = false
+            // Scripts that arrive in a swap are run with the page's nonce, which
+            // the Content Security Policy allows, not the one in the response.
+            htmx.config.inlineScriptNonce = {{ nonce }}
         </script>
     </head>
 
@@ -174,7 +177,7 @@
             <a data-nav href="/budget"><i class="bi bi-pie-chart"></i>Budget</a>
         </nav>
 
-        <script>
+        <script nonce="{{ nonce }}">
             // Mark the current destination from the URL rather than from a click,
             // so a reload or a shared link still highlights the right tab.
             function markActiveNav() {

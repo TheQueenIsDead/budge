@@ -402,7 +402,7 @@
         {{/* A split category has nothing of its own to open: its
              subcategories below each open instead. Its links still work. */}}
         <summary class="b-target-line{{if .Split}} b-target-fixed{{end}}"
-                 {{if .Split}}onclick="if (!event.target.closest('a, button')) event.preventDefault()"{{end}}>
+                 {{if .Split}}hx-on:click="if (!event.target.closest('a, button')) event.preventDefault()"{{end}}>
             <span class="b-target-name b-accent-{{.Accent}}">
                 <span class="b-chip b-chip-sm"><i class="bi {{.Icon}}"></i></span>
                 <span class="b-target-label fw-semibold">{{.Label}}</span>
@@ -466,7 +466,7 @@
                     <select id="frequency-{{.RowID}}" name="target_frequency" class="form-select form-select-sm"
                             data-prev="{{if .Frequency}}{{.Frequency}}{{else}}weekly{{end}}"
                             title="Changing the frequency converts the amount"
-                            onchange="convertTargetFrequency(this)">
+                            hx-on:change="convertTargetFrequency(this)">
                         <option value="weekly"      {{if or (eq .Frequency "weekly") (eq .Frequency "")}}selected{{end}}>Week</option>
                         <option value="fortnightly" {{if eq .Frequency "fortnightly"}}selected{{end}}>Fortnight</option>
                         <option value="monthly"     {{if eq .Frequency "monthly"}}selected{{end}}>Month</option>
@@ -575,7 +575,7 @@
     {{end}}
 </div>
 
-<script>
+<script nonce="{{ nonce }}">
     (function () {
         if (typeof Chart === "undefined" || !window.budge) {
             return;

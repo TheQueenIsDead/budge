@@ -108,7 +108,7 @@
         {{ end }}
 
         {{ if .Selected.AddressLookup }}
-            <script>
+            <script nonce="{{ nonce }}">
                 (function () {
                     const input = document.getElementById("asset-name");
                     const list = document.getElementById("asset-suggestions");

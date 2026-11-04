@@ -214,7 +214,7 @@
             <div class="b-chart b-chart-short">
                 <canvas id="{{ .id }}" hx-preserve="true"></canvas>
             </div>
-            <script>
+            <script nonce="{{ nonce }}">
                 (function () {
                     const canvas = document.getElementById({{ .id }});
                     if (!canvas || typeof Chart === "undefined" || !window.budge) {

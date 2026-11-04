@@ -99,6 +99,10 @@ func templateFuncs() template.FuncMap {
 			return cases.Title(language.English).String(text)
 		},
 		"asset": assetURL,
+		// nonce marks a script as the page's own, so the Content Security
+		// Policy lets it run. Each request binds its own; outside one there is
+		// none.
+		"nonce": func() string { return "" },
 		// dict builds a map from alternating keys and values, so a partial
 		// template can be handed more than one thing.
 		"dict": func(pairs ...interface{}) map[string]interface{} {
@@ -149,9 +153,9 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	tpl := template.New("").Funcs(templateFuncs())
 	tpl = template.Must(tpl.ParseFS(web.Templates, "templates/*.gohtml"))
 
-	t := &Template{
-		templates: tpl,
-		admin:     tel != nil,
+	t, err := newTemplate(tpl, tel != nil)
+	if err != nil {
+		return nil, err
 	}
 
 	// Echo's own logging goes to slog with the rest, so it is kept and
@@ -239,6 +243,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	// A panic comes back as an error carrying its stack, for the error
 	// handler to record and answer.
 	app.http.Use(middleware.Recover())
+	app.http.Use(SecurityHeaders())
 
 	// General
 	app.http.GET("/", app.Dashboard)
@@ -399,15 +404,44 @@ func (app *Application) Close() error {
 }
 
 type Template struct {
+	// templates are never executed themselves, only clones of them, as
+	// html/template cannot clone a set once it has run. See forRequest.
 	templates *template.Template
+	// fragments answer htmx's requests, with no nonce bound: htmx gives the
+	// scripts it swaps in the page's own nonce, so a fragment needs none, and
+	// cloning for every badge poll would be a waste.
+	fragments *template.Template
 	// admin is whether the admin page is there to link to.
 	admin bool
 }
 
-func (t *Template) renderPartial(name string, data interface{}) (string, error) {
+func newTemplate(templates *template.Template, admin bool) (*Template, error) {
+	fragments, err := templates.Clone()
+	if err != nil {
+		return nil, err
+	}
+	return &Template{templates: templates, fragments: fragments, admin: admin}, nil
+}
+
+// forRequest is the templates to answer a request with: for a whole page,
+// cloned with the request's Content Security Policy nonce bound, so the
+// page's own scripts carry it.
+func (t *Template) forRequest(c *echo.Context) (*template.Template, error) {
+	if c.Request().Header.Get("HX-Request") != "" && t.fragments != nil {
+		return t.fragments, nil
+	}
+	nonce, _ := c.Get(cspNonceKey).(string)
+	clone, err := t.templates.Clone()
+	if err != nil {
+		return nil, err
+	}
+	return clone.Funcs(template.FuncMap{"nonce": func() string { return nonce }}), nil
+}
+
+func renderPartial(templates *template.Template, name string, data interface{}) (string, error) {
 	var buf bytes.Buffer
 	bw := bufio.NewWriter(&buf)
-	err := t.templates.ExecuteTemplate(bw, name, data)
+	err := templates.ExecuteTemplate(bw, name, data)
 	if err != nil {
 		return "", err
 	}
@@ -433,20 +467,24 @@ func (t *Template) Render(c *echo.Context, w io.Writer, name string, data any) e
 		return echo.NewHTTPError(http.StatusNotFound, "could not find template")
 	}
 
+	templates, err := t.forRequest(c)
+	if err != nil {
+		return err
+	}
+
 	// If the request was initiated by HTMX, return a standalone partial
 	if hx := c.Request().Header.Get("HX-Request"); hx != "" {
-		// If the
-		return t.templates.ExecuteTemplate(w, name, data)
+		return templates.ExecuteTemplate(w, name, data)
 	}
 
 	// Else, render a full template within the context of the main HTML layout
-	partial, err := t.renderPartial(name, data)
+	partial, err := renderPartial(templates, name, data)
 	if err != nil {
 		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
 		return err
 	}
 
-	return t.templates.ExecuteTemplate(w, "layout", map[string]interface{}{
+	return templates.ExecuteTemplate(w, "layout", map[string]interface{}{
 		"content": template.HTML(partial),
 		"admin":   t.admin,
 	})

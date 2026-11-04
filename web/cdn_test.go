@@ -140,3 +140,32 @@ func TestPinnedHashesMatchTheirFiles(t *testing.T) {
 		})
 	}
 }
+
+// TestScriptsInTheMarkupCarryTheNonce keeps every inline script marked as the
+// page's own, and leaves out inline event handlers, which the Content Security
+// Policy would stop without a word.
+func TestScriptsInTheMarkupCarryTheNonce(t *testing.T) {
+	scriptTag := regexp.MustCompile(`<script\b[^>]*>`)
+	handler := regexp.MustCompile(`(?:\s|}})on[a-z]+="`) // after a space, or straight after an {{if}}
+	err := fs.WalkDir(Templates, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		content, err := fs.ReadFile(Templates, path)
+		if err != nil {
+			return err
+		}
+		for _, tag := range scriptTag.FindAllString(string(content), -1) {
+			if !strings.Contains(tag, " src=") && !strings.Contains(tag, `nonce="{{ nonce }}"`) {
+				t.Errorf("%s: %s has no nonce=\"{{ nonce }}\", so the Content Security Policy will not run it", path, tag)
+			}
+		}
+		for _, match := range handler.FindAllString(string(content), -1) {
+			t.Errorf("%s: inline event handler%q will not run under the Content Security Policy; use hx-on or Alpine", path, match)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}

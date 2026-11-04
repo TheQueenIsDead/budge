@@ -28,8 +28,10 @@ func newTestApp(t *testing.T) *Application {
 	tpl, err := template.New("").Funcs(templateFuncs()).ParseFS(web.Templates, "templates/*.gohtml")
 	require.NoError(t, err)
 
+	renderer, err := newTemplate(tpl, false)
+	require.NoError(t, err)
 	e := echo.New()
-	e.Renderer = &Template{templates: tpl}
+	e.Renderer = renderer
 
 	return &Application{store: store, http: e}
 }
