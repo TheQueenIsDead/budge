@@ -64,6 +64,7 @@ func TestSettingsAddRuleRefusals(t *testing.T) {
 	}{
 		{"a category is required", url.Values{"contains": {"LOAN INTEREST"}, "category": {"Nowhere"}}, "Pick a category"},
 		{"text to match is required", url.Values{"contains": {"  "}, "category": {"fuel"}}, "needs some text"},
+		{"the amounts must leave a range", url.Values{"contains": {"AA INSURANCE"}, "category": {"insurance"}, "at_least": {"2000"}, "at_most": {"1000"}}, "smallest amount is above the largest"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -218,6 +219,49 @@ func TestSettingsPreviewRule(t *testing.T) {
 	assert.Contains(t, get("contains=loan+interest&type=LOAN"), "1 transaction")
 	assert.Contains(t, get("contains=loan+interest&type=DEBIT"), "Matches nothing yet", "the type narrows the preview")
 	assert.Empty(t, strings.TrimSpace(get("contains=+")), "nothing typed shows nothing")
+}
+
+func TestRulesTellPaymentsApartByAmount(t *testing.T) {
+	app := newTestApp(t)
+	recent := time.Now().Add(-48 * time.Hour)
+	for _, tx := range []models.Transaction{
+		spendTx("house", "DEBIT", "", "", "AA Insurance", "AA INSURANCE AUCKLAND", -2152.84, recent),
+		spendTx("car", "DEBIT", "", "", "AA Insurance", "AA INSURANCE AUCKLAND", -493.18, recent),
+		spendTx("monthly", "DIRECT DEBIT", "", "", "AA Insurance", "Direct Debit -AA INSURANCE LTD", -81.90, recent),
+	} {
+		require.NoError(t, app.store.CreateTransaction(t.Context(), tx))
+	}
+	preview := func(query string) string {
+		req := httptest.NewRequest(http.MethodGet, "/settings/rules/preview?"+query, nil)
+		req.Header.Set("HX-Request", "true")
+		rec := httptest.NewRecorder()
+		require.NoError(t, app.SettingsPreviewRule(app.http.NewContext(req, rec)))
+		return rec.Body.String()
+	}
+	page := preview("contains=AA+INSURANCE+AUCKLAND&at_least=1500")
+	assert.Contains(t, page, `Would file <span class="fw-semibold">1 transaction<`)
+	assert.Contains(t, page, "1 more transaction matches the text, but its amount is outside the rule's",
+		"the form says what the amounts leave out")
+
+	add := func(values url.Values) string {
+		c, rec := postForm(t, app, values)
+		require.NoError(t, app.SettingsAddRule(c))
+		return rec.Body.String()
+	}
+	body := add(url.Values{"contains": {"AA INSURANCE AUCKLAND"}, "category": {"insurance"}, "at_least": {"1500"}})
+	assert.Contains(t, body, "$1,500.00 or more", "a rule says the amounts it matches")
+	body = add(url.Values{"contains": {"AA INSURANCE AUCKLAND"}, "category": {"rego"}, "at_most": {"-1499.99"}})
+	assert.Contains(t, body, "up to $1,499.99", "a sign is ignored, as an amount is a size")
+
+	filed := map[string]string{}
+	txs, err := app.store.ReadTransactions(t.Context())
+	require.NoError(t, err)
+	for _, tx := range txs {
+		filed[tx.Id] = tx.BudgetCategory()
+	}
+	assert.Equal(t, "insurance", filed["house"])
+	assert.Equal(t, "rego", filed["car"], "the same text, told apart by its amount")
+	assert.NotEqual(t, "rego", filed["monthly"])
 }
 
 func TestTransferRuleBudgetsMortgageRepayments(t *testing.T) {

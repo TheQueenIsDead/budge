@@ -1,6 +1,7 @@
 package models
 
 import (
+	"math"
 	"strings"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
@@ -36,6 +37,18 @@ type CategoryRule struct {
 	// payments that are real outgoings even though both ends are the
 	// owner's, such as a mortgage repayment into a loan account.
 	IncludeTransfers bool
+	// AtLeast and AtMost narrow the rule to amounts in a range, both ends
+	// included, for payments the text cannot tell apart, such as two policies
+	// paid to the same insurer. They are sizes, whether money went out or
+	// came in, and zero leaves that end open.
+	AtLeast float64
+	AtMost  float64
+}
+
+// InRange reports whether a transaction's size is within the rule's amounts.
+func (r CategoryRule) InRange(tx Transaction) bool {
+	amount := math.Abs(tx.Amount)
+	return (r.AtLeast <= 0 || amount >= r.AtLeast) && (r.AtMost <= 0 || amount <= r.AtMost)
 }
 
 // TypeCountedTransfer marks the outgoing leg of a transfer that a rule has
@@ -62,6 +75,9 @@ func (r CategoryRule) Matches(tx Transaction) bool {
 		return false
 	}
 	if r.Type != "" && !strings.EqualFold(r.Type, tx.Type) {
+		return false
+	}
+	if !r.InRange(tx) {
 		return false
 	}
 	needle := strings.ToLower(r.Contains)

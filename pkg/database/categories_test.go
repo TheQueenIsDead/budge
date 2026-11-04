@@ -30,6 +30,10 @@ func TestCategoryRuleMatches(t *testing.T) {
 		{"merchant name matches", models.CategoryRule{Contains: "fisher"}, categorisedTx("3", "EFTPOS", "AP#1", "Fisher Funds"), true},
 		{"an empty pattern matches nothing", models.CategoryRule{}, categorisedTx("4", "DEBIT", "anything", ""), false},
 		{"transfers are never recategorised", models.CategoryRule{Contains: "loan"}, categorisedTx("5", "TRANSFER", "LOAN REPAYMENT", ""), false},
+		{"an amount at the bottom of the range matches", models.CategoryRule{Contains: "aa insurance", AtLeast: 100}, categorisedTx("6", "DEBIT", "AA INSURANCE AUCKLAND", ""), true},
+		{"an amount under the range does not", models.CategoryRule{Contains: "aa insurance", AtLeast: 100.01}, categorisedTx("7", "DEBIT", "AA INSURANCE AUCKLAND", ""), false},
+		{"an amount at the top of the range matches", models.CategoryRule{Contains: "aa insurance", AtMost: 100}, categorisedTx("8", "DEBIT", "AA INSURANCE AUCKLAND", ""), true},
+		{"an amount over the range does not", models.CategoryRule{Contains: "aa insurance", AtLeast: 50, AtMost: 99.99}, categorisedTx("9", "DEBIT", "AA INSURANCE AUCKLAND", ""), false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

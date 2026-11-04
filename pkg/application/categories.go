@@ -3,8 +3,10 @@ package application
 import (
 	"context"
 	"errors"
+	"math"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -327,6 +329,11 @@ func (app *Application) SettingsAddRule(c *echo.Context) error {
 		return app.renderCategories(c, "A rule needs some text to match.", open)
 	}
 
+	atLeast, atMost := ruleAmounts(c.FormValue("at_least"), c.FormValue("at_most"))
+	if atLeast > 0 && atMost > 0 && atLeast > atMost {
+		return app.renderCategories(c, "The smallest amount is above the largest, so the rule would match nothing.", open)
+	}
+
 	settings, err := app.store.GetCategorySettings(ctx)
 	if err != nil {
 		return err
@@ -337,11 +344,24 @@ func (app *Application) SettingsAddRule(c *echo.Context) error {
 		Type:             c.FormValue("type"),
 		Category:         target.Key,
 		IncludeTransfers: c.FormValue("include_transfers") != "",
+		AtLeast:          atLeast,
+		AtMost:           atMost,
 	})
 	if err := app.store.SaveCategorySettings(ctx, settings); err != nil {
 		return err
 	}
 	return app.renderCategories(c, "", open)
+}
+
+// ruleAmounts reads a rule's amount range from its form. A blank or
+// unreadable end is left open, and a sign is ignored, as the amounts are
+// sizes.
+func ruleAmounts(atLeast, atMost string) (float64, float64) {
+	read := func(raw string) float64 {
+		amount, _ := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+		return math.Abs(amount)
+	}
+	return read(atLeast), read(atMost)
 }
 
 // rulePreviewSamples is how many matching transactions the preview lists.
@@ -356,7 +376,10 @@ type RulePreview struct {
 	// would leave alone because it does not include transfers, so the form
 	// can say why a repayment it was typed for is missing.
 	Transfers int
-	Samples   []RuleSample
+	// OutOfRange counts transactions the text matches whose amount is
+	// outside the rule's, so the form says what the amounts leave out.
+	OutOfRange int
+	Samples    []RuleSample
 }
 
 // RuleSample is one of the transactions a rule preview lists.
@@ -371,11 +394,16 @@ func buildRulePreview(rule models.CategoryRule, txs []models.Transaction, settin
 	preview := RulePreview{Contains: rule.Contains}
 	withTransfers := rule
 	withTransfers.IncludeTransfers = true
+	anyAmount := rule
+	anyAmount.AtLeast, anyAmount.AtMost = 0, 0
 	var matched []models.Transaction
 	for _, tx := range txs {
 		if !rule.Matches(tx) {
-			if withTransfers.Matches(tx) {
+			switch {
+			case withTransfers.Matches(tx):
 				preview.Transfers++
+			case anyAmount.Matches(tx):
+				preview.OutOfRange++
 			}
 			continue
 		}
@@ -407,6 +435,7 @@ func (app *Application) SettingsPreviewRule(c *echo.Context) error {
 		Type:             c.QueryParam("type"),
 		IncludeTransfers: c.QueryParam("include_transfers") != "",
 	}
+	rule.AtLeast, rule.AtMost = ruleAmounts(c.QueryParam("at_least"), c.QueryParam("at_most"))
 	if rule.Contains == "" {
 		return c.Render(http.StatusOK, "settings.rules.preview", RulePreview{})
 	}

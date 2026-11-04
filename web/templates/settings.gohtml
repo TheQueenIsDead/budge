@@ -323,6 +323,11 @@
                                         <div>
                                             Contains <span class="font-monospace">“{{ .Contains }}”</span>
                                             {{ if .Type }}<span class="text-muted">and type is</span> <span class="badge-category">{{ .Type }}</span>{{ end }}
+                                            {{ if or .AtLeast .AtMost }}<span class="text-muted">and is</span> <span class="badge-category">
+                                                {{- if and .AtLeast .AtMost }}{{ .AtLeast | fmtCurrency }} to {{ .AtMost | fmtCurrency }}
+                                                {{- else if .AtLeast }}{{ .AtLeast | fmtCurrency }} or more
+                                                {{- else }}up to {{ .AtMost | fmtCurrency }}{{ end -}}
+                                            </span>{{ end }}
                                             {{ if .IncludeTransfers }}<span class="badge-category" title="Counts money leaving by transfer as spending">incl. transfers</span>{{ end }}
                                         </div>
                                         <div class="small">
@@ -378,13 +383,31 @@
                                         {{ if ne $only.Key .Key }}<div class="b-delta-note pb-1">Files under {{ $only.Label }}</div>{{ end }}
                                     {{ end }}
                                 </div>
+                                {{/* For payments the text cannot tell apart, such as two
+                                     policies paid to the same insurer. */}}
+                                <div class="col-6 col-md-3">
+                                    <label class="b-field-label" for="rule-atleast-{{ .Key }}">Amount at least</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">$</span>
+                                        <input class="form-control" type="number" id="rule-atleast-{{ .Key }}" name="at_least"
+                                               min="0" step="0.01" inputmode="decimal" placeholder="Any">
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <label class="b-field-label" for="rule-atmost-{{ .Key }}">Amount at most</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">$</span>
+                                        <input class="form-control" type="number" id="rule-atmost-{{ .Key }}" name="at_most"
+                                               min="0" step="0.01" inputmode="decimal" placeholder="Any">
+                                    </div>
+                                </div>
                                 {{/* Re-rendered with the card, so its "from:" listeners always
                                      bind to the current inputs. hx-target is set here because it
                                      would otherwise inherit the form's, and replace the card. */}}
                                 <div class="col-12" aria-live="polite"
                                      hx-get="/settings/rules/preview"
-                                     hx-trigger="input changed delay:300ms from:#rule-contains-{{ .Key }}, change from:#rule-type-{{ .Key }}, change from:#rule-transfers-{{ .Key }}"
-                                     hx-include="#rule-contains-{{ .Key }}, #rule-type-{{ .Key }}, #rule-transfers-{{ .Key }}"
+                                     hx-trigger="input changed delay:300ms from:#rule-contains-{{ .Key }}, change from:#rule-type-{{ .Key }}, change from:#rule-transfers-{{ .Key }}, input changed delay:300ms from:#rule-atleast-{{ .Key }}, input changed delay:300ms from:#rule-atmost-{{ .Key }}"
+                                     hx-include="#rule-contains-{{ .Key }}, #rule-type-{{ .Key }}, #rule-transfers-{{ .Key }}, #rule-atleast-{{ .Key }}, #rule-atmost-{{ .Key }}"
                                      hx-target="this"
                                      hx-swap="innerHTML"></div>
                                 <div class="col-12">
@@ -556,6 +579,9 @@
         {{ .Transfers }} transfer{{ if ne .Transfers 1 }}s{{ end }} between your accounts also match{{ if eq .Transfers 1 }}es{{ end }}.
         Tick “Include transfers” to count {{ if eq .Transfers 1 }}it{{ else }}them{{ end }} as spending.
     </div>
+    {{ end }}
+    {{ if .OutOfRange }}
+    <div class="text-muted mt-1">{{ .OutOfRange }} more transaction{{ if ne .OutOfRange 1 }}s{{ end }} match{{ if eq .OutOfRange 1 }}es{{ end }} the text, but {{ if eq .OutOfRange 1 }}its amount is{{ else }}their amounts are{{ end }} outside the rule's.</div>
     {{ end }}
     {{ if .Taken }}
     <div class="text-muted mt-1">{{ .Taken }} more transaction{{ if ne .Taken 1 }}s{{ end }} match{{ if eq .Taken 1 }}es{{ end }}, but an earlier rule already files {{ if eq .Taken 1 }}it{{ else }}them{{ end }}.</div>
