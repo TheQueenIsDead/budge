@@ -146,7 +146,8 @@ func TestSettingsCategoriesRenders(t *testing.T) {
 		assert.Contains(t, transport, `hx-delete="/settings/budget-categories/transport"`)
 		assert.Contains(t, transport, `<input type="hidden" name="parent" value="transport">`, "and added to")
 		assert.Equal(t, 1, strings.Count(html, `hx-post="/settings/budget-categories" hx-vals`), "one button adds a category")
-		assert.Contains(t, html, `hx-swap="outerHTML show:details.b-pv-cat[open]:top"`, "and shows the new one, which opens above it")
+		assert.Regexp(t, `hx-target="#categories" hx-swap="outerHTML">\s*<i class="bi bi-plus-lg"></i>New category`, html,
+			"the new one opens above it, leaving the page where it is")
 		assert.Contains(t, html, `hx-vals='{"label": "New category"}'`, "named for you, to change after")
 		assert.Contains(t, transport, `hx-vals='{"budget": "off", "render": "card"}'`, "each category can be taken off budget")
 		assert.NotContains(t, section("uncategorised"), `"budget": "on"`, "but not Uncategorised")

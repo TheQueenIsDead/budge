@@ -437,11 +437,12 @@
     {{ end }}
 
     {{/* A new category starts on budget under a placeholder name, and opens
-         ready to be named and dressed, brought into view since it lands
-         above the button. */}}
+         ready to be named and dressed, just above the button. The page is
+         left where it is: scrolling to the new category threw the reader to
+         the bottom of the page. */}}
     <button type="button" class="btn btn-outline-secondary btn-sm mt-3"
             hx-post="/settings/budget-categories" hx-vals='{"label": "New category"}'
-            hx-target="#categories" hx-swap="outerHTML show:details.b-pv-cat[open]:top">
+            hx-target="#categories" hx-swap="outerHTML">
         <i class="bi bi-plus-lg"></i>New category
     </button>
 </div>
