@@ -28,9 +28,9 @@
       "groupName": "echo"
     },
     {
-      "description": "The page's libraries load straight into the browser, so a release must be two weeks old before it is proposed, long enough for a hijacked one to be caught and pulled.",
+      "description": "The page's libraries load straight into the browser, so a release must be a few days old before it is proposed, long enough for most hijacked ones to be caught and pulled. Kept short because OSV does not cover cdnjs, so a security fix arrives only as an ordinary update.",
       "matchManagers": ["html", "custom.regex"],
-      "minimumReleaseAge": "14 days"
+      "minimumReleaseAge": "3 days"
     },
     {
       "description": "Alpine's morph plugin must match Alpine's own version, so the two move together in one PR.",
