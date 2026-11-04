@@ -3,6 +3,20 @@
   "extends": [
     "config:recommended"
   ],
+  "osvVulnerabilityAlerts": true,
+  "html": {
+    "description": "The page's scripts and stylesheets are pinned in Go templates, which the html manager does not look at by default. It moves a cdnjs file's version and integrity hash together.",
+    "managerFilePatterns": ["/\\.gohtml$/"]
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Alpine's morph plugin is on jsdelivr rather than cdnjs, so the html manager does not see it. Renovate moves its version but not its integrity hash: the CDN test in CI fails until the hash is updated by hand.",
+      "managerFilePatterns": ["/\\.gohtml$/"],
+      "matchStrings": ["https://cdn\\.jsdelivr\\.net/npm/(?<depName>@alpinejs/morph)@(?<currentValue>\\d+\\.\\d+\\.\\d+)/"],
+      "datasourceTemplate": "npm"
+    }
+  ],
   "packageRules": [
     {
       "description": "echo-otel's major version tracks Echo's, so the two move together in one PR, whatever their major version.",
@@ -12,6 +26,16 @@
         "/^github\\.com/labstack/echo-otel/v\\d+$/"
       ],
       "groupName": "echo"
+    },
+    {
+      "description": "The page's libraries load straight into the browser, so a release must be two weeks old before it is proposed, long enough for a hijacked one to be caught and pulled.",
+      "matchManagers": ["html", "custom.regex"],
+      "minimumReleaseAge": "14 days"
+    },
+    {
+      "description": "Alpine's morph plugin must match Alpine's own version, so the two move together in one PR.",
+      "matchPackageNames": ["/^alpinejs(\\/|$)/", "@alpinejs/morph"],
+      "groupName": "alpine"
     }
   ]
 }

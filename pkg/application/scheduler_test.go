@@ -171,7 +171,7 @@ func TestRenderSettingsPage(t *testing.T) {
 	})
 
 	t.Run("keeps every control the page depends on", func(t *testing.T) {
-		// These ids and names are wired to hyperscript toggles, htmx swap
+		// These ids and names are wired to the token toggles, htmx swap
 		// targets and form handlers; restyling must not disturb them.
 		for _, hook := range []string{
 			`id="akahuAppToken"`, `name="akahuAppToken"`,

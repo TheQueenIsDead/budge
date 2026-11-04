@@ -40,13 +40,10 @@ type SettingsCategoryView struct {
 }
 
 // State is what the page keeps of the category while it is edited, so its
-// heading follows the fields as they change.
+// heading follows the fields as they change. Its subcategories are not in
+// it: they change only by a save, which redraws the heading from the server.
 func (v SettingsCategoryView) State() map[string]any {
-	subs := make([]string, 0, len(v.Subs))
-	for _, sub := range v.Subs {
-		subs = append(subs, sub.Label)
-	}
-	return map[string]any{"label": v.Label, "blurb": v.Blurb, "icon": v.Icon, "accent": v.Accent, "subs": subs}
+	return map[string]any{"label": v.Label, "blurb": v.Blurb, "icon": v.Icon, "accent": v.Accent}
 }
 
 // SettingsCategoryGroupView is the categories on budget, or those off it, in
@@ -248,7 +245,7 @@ func (app *Application) saveBudgetCategories(c *echo.Context, quiet bool, edit f
 	if errors.As(err, &refused) {
 		if quiet {
 			c.Response().Header().Set("HX-Retarget", "#categories")
-			c.Response().Header().Set("HX-Reswap", "outerHTML")
+			c.Response().Header().Set("HX-Reswap", "morph")
 		}
 		return app.renderCategories(c, refused.Error(), open)
 	}
@@ -278,8 +275,9 @@ func (app *Application) SettingsAddBudgetCategory(c *echo.Context) error {
 }
 
 // SettingsUpdateBudgetCategory renames a category or changes its look, as
-// each field is changed. Only putting it on or off budget redraws the card,
-// asked for by "render", since the category moves to the other list.
+// each field is changed. Putting it on or off budget redraws the card, asked
+// for by "render", since the category moves to the other list, and so does
+// renaming a subcategory, which its category's heading and rules name.
 func (app *Application) SettingsUpdateBudgetCategory(c *echo.Context) error {
 	key := c.Param("key")
 	return app.saveBudgetCategories(c, c.FormValue("render") != "card", func(settings models.BudgetCategorySettings) (models.BudgetCategorySettings, string, error) {

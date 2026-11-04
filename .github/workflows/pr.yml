@@ -20,6 +20,9 @@ jobs:
       run: go build -v ./...
     - name: Test
       run: go test -v ./...
+      env:
+        # Fetch the scripts the page pins to a hash, and check each matches.
+        BUDGE_CHECK_CDN: "1"
 
   lint:
     permissions:

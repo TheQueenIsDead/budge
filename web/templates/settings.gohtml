@@ -24,25 +24,25 @@
             <div class="row g-2">
                 <div class="col-12 col-md-6">
                     <label class="b-field-label" for="akahuAppToken">App token</label>
-                    <div class="input-group input-group-sm">
+                    <div class="input-group input-group-sm" x-data="{ shown: false }">
                         <input class="form-control" id="akahuAppToken" name="akahuAppToken"
-                               value="{{ .akahuAppToken }}" type="password" autocomplete="off">
-                        <span class="input-group-text">
-                            <i class="bi bi-eye-fill" id="toggleAppToken" style="cursor: pointer"
-                               _="on click if #akahuAppToken.type is 'password' set #akahuAppToken.type to 'text' else set #akahuAppToken.type to 'password'"></i>
-                        </span>
+                               value="{{ .akahuAppToken }}" type="password" autocomplete="off" :type="shown ? 'text' : 'password'">
+                        <button type="button" class="btn btn-outline-secondary" id="toggleAppToken" @click="shown = !shown"
+                                :aria-pressed="shown" aria-label="Show the app token">
+                            <i class="bi bi-eye-fill" :class="{ 'bi-eye-fill': !shown, 'bi-eye-slash-fill': shown }"></i>
+                        </button>
                     </div>
                 </div>
 
                 <div class="col-12 col-md-6">
                     <label class="b-field-label" for="akahuUserToken">User token</label>
-                    <div class="input-group input-group-sm">
+                    <div class="input-group input-group-sm" x-data="{ shown: false }">
                         <input class="form-control" id="akahuUserToken" name="akahuUserToken"
-                               value="{{ .akahuUserToken }}" type="password" autocomplete="off">
-                        <span class="input-group-text">
-                            <i class="bi bi-eye-fill" id="toggleUserToken" style="cursor: pointer"
-                               _="on click if #akahuUserToken.type is 'password' set #akahuUserToken.type to 'text' else set #akahuUserToken.type to 'password'"></i>
-                        </span>
+                               value="{{ .akahuUserToken }}" type="password" autocomplete="off" :type="shown ? 'text' : 'password'">
+                        <button type="button" class="btn btn-outline-secondary" id="toggleUserToken" @click="shown = !shown"
+                                :aria-pressed="shown" aria-label="Show the user token">
+                            <i class="bi bi-eye-fill" :class="{ 'bi-eye-fill': !shown, 'bi-eye-slash-fill': shown }"></i>
+                        </button>
                     </div>
                 </div>
 
@@ -251,9 +251,10 @@
 
 {{ define "settings.categories" }}
 {{/* One swap target for every category and rule, so a rule's counts and the
-     category it lands in are always current after a change. It is swapped
-     whole: emptying it first shortened the page for a moment, and the browser
-     scrolled to its new bottom. */}}
+     category it lands in are always current after a change. It is morphed
+     rather than replaced: only what changed is touched, so the page stays
+     put, the button pressed keeps its focus, and categories opened by hand
+     stay open. Repeated items carry a key, so morphing matches them up. */}}
 <div id="categories">
 {{ if .Error }}
 <div class="alert alert-warning py-2 small mb-3" role="alert">{{ .Error }}</div>
@@ -291,16 +292,18 @@
                      all set the same variables, so two at once left whichever
                      came later in the stylesheet, and muted, a new category's
                      colour, comes last. */}}
-                <details class="b-pv-cat b-accent-{{ .Accent }}" id="category-{{ .Key }}"{{ if .Open }} open{{ end }}
+                <details class="b-pv-cat b-accent-{{ .Accent }}" id="category-{{ .Key }}"{{ if .Open }} open{{ end }} key="{{ .Key }}"
                          x-data='{{ .State | toJSON }}'
                          x-effect="[...$el.classList].filter(c => c.startsWith('b-accent-')).forEach(c => $el.classList.remove(c)); $el.classList.add('b-accent-' + accent)">
                     <summary class="b-pv-row">
                         <span class="b-chip b-chip-sm"><i class="bi {{ .Icon }}" x-effect="$el.className = 'bi ' + icon"></i></span>
                         <div class="b-pv-body">
                             <div class="fw-semibold" x-text="label">{{ .Label }}</div>
-                            <div class="b-delta-note text-truncate" x-text="subs.length ? subs.join(' · ') : blurb">
-                                {{ if .Subs }}{{ range $i, $sub := .Subs }}{{ if $i }} · {{ end }}{{ $sub.Label }}{{ end }}{{ else }}{{ .Blurb }}{{ end }}
-                            </div>
+                            {{ if .Subs }}
+                                <div class="b-delta-note text-truncate">{{ range $i, $sub := .Subs }}{{ if $i }} · {{ end }}{{ $sub.Label }}{{ end }}</div>
+                            {{ else }}
+                                <div class="b-delta-note text-truncate" x-text="blurb">{{ .Blurb }}</div>
+                            {{ end }}
                         </div>
                         <div class="b-pv-figures b-delta-note">
                             {{ if .Rules }}<div>{{ len .Rules }} rule{{ if ne (len .Rules) 1 }}s{{ end }}</div>{{ end }}
@@ -318,7 +321,7 @@
                         {{ if .Rules }}
                             <ol class="list-unstyled mb-3">
                                 {{ range .Rules }}
-                                <li class="d-flex align-items-start justify-content-between gap-2 py-2 border-bottom">
+                                <li class="d-flex align-items-start justify-content-between gap-2 py-2 border-bottom" key="{{ .ID }}">
                                     <div class="min-width-0">
                                         <div>
                                             Contains <span class="font-monospace">“{{ .Contains }}”</span>
@@ -339,7 +342,7 @@
                                     </div>
                                     <button type="button" class="btn btn-link btn-sm p-0 text-danger flex-shrink-0"
                                             hx-delete="/settings/rules/{{ .ID }}"
-                                            hx-target="#categories" hx-swap="outerHTML"
+                                            hx-target="#categories" hx-swap="morph"
                                             title="Delete rule" aria-label="Delete the rule for {{ .Contains }}">
                                         <i class="bi bi-x-circle" aria-hidden="true"></i>
                                     </button>
@@ -355,7 +358,8 @@
                                 or add a rule to the category they belong in.
                             </p>
                         {{ else }}
-                            <form hx-post="/settings/rules" hx-target="#categories" hx-swap="outerHTML" class="row g-2 align-items-end">
+                            <form hx-post="/settings/rules" hx-target="#categories" hx-swap="morph" class="row g-2 align-items-end"
+                                  key="add-rule-{{ .Key }}" hx-on::after-request="if (event.detail.successful) this.reset()">
                                 <div class="col-12 col-md-5">
                                     <label class="b-field-label" for="rule-contains-{{ .Key }}">Description or merchant contains</label>
                                     <input class="form-control form-control-sm" id="rule-contains-{{ .Key }}" name="contains"
@@ -442,7 +446,7 @@
          the bottom of the page. */}}
     <button type="button" class="btn btn-outline-secondary btn-sm mt-3"
             hx-post="/settings/budget-categories" hx-vals='{"label": "New category"}'
-            hx-target="#categories" hx-swap="outerHTML">
+            hx-target="#categories" hx-swap="morph">
         <i class="bi bi-plus-lg"></i>New category
     </button>
 </div>
@@ -475,11 +479,11 @@
                 <button type="button" class="btn btn-outline-secondary{{ if $c.Budgeted }} active{{ end }}"
                         aria-pressed="{{ if $c.Budgeted }}true{{ else }}false{{ end }}"
                         hx-post="/settings/budget-categories/{{ $c.Key }}" hx-include="closest form"
-                        hx-vals='{"budget": "on", "render": "card"}' hx-target="#categories" hx-swap="outerHTML">On</button>
+                        hx-vals='{"budget": "on", "render": "card"}' hx-target="#categories" hx-swap="morph">On</button>
                 <button type="button" class="btn btn-outline-secondary{{ if not $c.Budgeted }} active{{ end }}"
                         aria-pressed="{{ if $c.Budgeted }}false{{ else }}true{{ end }}"
                         hx-post="/settings/budget-categories/{{ $c.Key }}" hx-include="closest form"
-                        hx-vals='{"budget": "off", "render": "card"}' hx-target="#categories" hx-swap="outerHTML">Off</button>
+                        hx-vals='{"budget": "off", "render": "card"}' hx-target="#categories" hx-swap="morph">Off</button>
             </div>
         </div>
         {{ end }}
@@ -516,19 +520,23 @@
 <div class="b-cat-section">
     <div class="b-cat-section-title">Subcategories</div>
     <div class="b-cat-subs">
-        {{ range $i, $sub := $c.Subs }}
-        <form class="input-group input-group-sm" hx-post="/settings/budget-categories/{{ .Key }}" hx-trigger="change" hx-swap="none">
-            <input class="form-control" name="label" value="{{ .Label }}" aria-label="Name of {{ .Label }}" x-model="subs[{{ $i }}]" required>
+        {{ range $c.Subs }}
+        {{/* A rename redraws the card, so the category's heading names it. */}}
+        <form class="input-group input-group-sm" hx-post="/settings/budget-categories/{{ .Key }}" hx-trigger="change"
+              hx-vals='{"render": "card"}' hx-target="#categories" hx-swap="morph" key="{{ .Key }}">
+            <input class="form-control" name="label" value="{{ .Label }}" aria-label="Name of {{ .Label }}" required>
             <input type="hidden" name="blurb" value="{{ .Blurb }}">
             <button type="button" class="btn btn-outline-secondary text-danger"
-                    hx-delete="/settings/budget-categories/{{ .Key }}" hx-target="#categories" hx-swap="outerHTML"
+                    hx-delete="/settings/budget-categories/{{ .Key }}" hx-target="#categories" hx-swap="morph"
                     hx-confirm="Delete {{ .Label }}? Anything filed under it moves to {{ $c.Label }}."
                     title="Delete {{ .Label }}" aria-label="Delete {{ .Label }}">
                 <i class="bi bi-trash" aria-hidden="true"></i>
             </button>
         </form>
         {{ end }}
-        <form class="input-group input-group-sm" hx-post="/settings/budget-categories" hx-target="#categories" hx-swap="outerHTML">
+        {{/* Morphing keeps this form, typing and all, so it is cleared once sent. */}}
+        <form class="input-group input-group-sm" hx-post="/settings/budget-categories" hx-target="#categories" hx-swap="morph"
+              key="add-sub-{{ $c.Key }}" hx-on::after-request="if (event.detail.successful) this.reset()">
             <input type="hidden" name="parent" value="{{ $c.Key }}">
             <input class="form-control" name="label" placeholder="New subcategory" aria-label="Name of a new subcategory of {{ $c.Label }}" required>
             <button class="btn btn-outline-secondary"><i class="bi bi-plus-lg"></i>Add</button>
@@ -543,7 +551,7 @@
 {{ $c := . }}
 {{ if not $c.Fixed }}
 <form class="b-cat-section b-cat-danger d-flex flex-wrap align-items-center gap-2" hx-delete="/settings/budget-categories/{{ $c.Key }}"
-      hx-target="#categories" hx-swap="outerHTML"
+      hx-target="#categories" hx-swap="morph"
       hx-confirm="Delete {{ $c.Label }} and its subcategories? Its rules, and everything filed under it, move to the category you picked.">
     <label class="b-field-label mb-0" for="cat-into-{{ $c.Key }}">Delete {{ $c.Label }}, moving everything to</label>
     <select class="form-select form-select-sm w-auto" id="cat-into-{{ $c.Key }}" name="into">

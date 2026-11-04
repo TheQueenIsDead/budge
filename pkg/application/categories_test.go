@@ -138,7 +138,11 @@ func TestSettingsCategoriesRenders(t *testing.T) {
 		assert.Contains(t, transport, `x-text="label"`)
 		assert.Contains(t, transport, `$el.classList.add('b-accent-' + accent)`, "the colour is swapped, not added to")
 		assert.NotContains(t, transport, `:class="'b-accent-' + accent"`)
-		assert.Contains(t, transport, `x-model="subs[0]"`)
+		assert.Contains(t, transport, `hx-post="/settings/budget-categories/fuel" hx-trigger="change"
+              hx-vals='{"render": "card"}' hx-target="#categories" hx-swap="morph"`,
+			"renaming a subcategory redraws the card, so the heading and the rules name it")
+		assert.Contains(t, transport, `<div class="b-delta-note text-truncate">Fuel · Rego, tolls &amp; fares · Servicing &amp; parts · Parking</div>`,
+			"the heading names the subcategories as saved")
 		assert.NotContains(t, transport, "Save details")
 		assert.Contains(t, transport, `value="bi-car-front" checked`, "its icon is picked")
 		assert.Contains(t, transport, `value="clay" checked`, "and its colour")
@@ -146,7 +150,7 @@ func TestSettingsCategoriesRenders(t *testing.T) {
 		assert.Contains(t, transport, `hx-delete="/settings/budget-categories/transport"`)
 		assert.Contains(t, transport, `<input type="hidden" name="parent" value="transport">`, "and added to")
 		assert.Equal(t, 1, strings.Count(html, `hx-post="/settings/budget-categories" hx-vals`), "one button adds a category")
-		assert.Regexp(t, `hx-target="#categories" hx-swap="outerHTML">\s*<i class="bi bi-plus-lg"></i>New category`, html,
+		assert.Regexp(t, `hx-target="#categories" hx-swap="morph">\s*<i class="bi bi-plus-lg"></i>New category`, html,
 			"the new one opens above it, leaving the page where it is")
 		assert.Contains(t, html, `hx-vals='{"label": "New category"}'`, "named for you, to change after")
 		assert.Contains(t, transport, `hx-vals='{"budget": "off", "render": "card"}'`, "each category can be taken off budget")
@@ -296,6 +300,31 @@ func TestTransferRuleBudgetsMortgageRepayments(t *testing.T) {
 	assert.InDelta(t, 641, countedTotal(t, app), 0.001, "interest is not spending, and the repayment is counted once")
 }
 
+func TestRenamingASubcategoryRedrawsItsNameEverywhere(t *testing.T) {
+	app := newTestApp(t)
+	t.Cleanup(func() { models.UseBudgetCategories(models.BudgetCategorySettings{}) })
+	require.NoError(t, app.store.SaveCategorySettings(t.Context(), models.CategorySettings{Rules: []models.CategoryRule{
+		{ID: "z", Contains: "Z ENERGY", Category: "fuel"},
+	}}))
+
+	values := url.Values{"label": {"Petrol"}, "render": {"card"}}
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(values.Encode()))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	rec := httptest.NewRecorder()
+	c := app.http.NewContext(req, rec)
+	c.SetPathValues(echo.PathValues{{Name: "key", Value: "fuel"}})
+	require.NoError(t, app.SettingsUpdateBudgetCategory(c))
+
+	body := rec.Body.String()
+	assert.Regexp(t, `id="category-transport" open`, body, "its category stays open")
+	assert.Contains(t, body, `<div class="b-delta-note text-truncate">Petrol · Rego`, "the heading names it")
+	assert.Regexp(t, `bi-arrow-return-right[^<]*</i> Petrol`, body, "and so does the rule that files under it")
+
+	settings, err := app.store.GetCategorySettings(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "fuel", settings.Rules[0].Category, "the rule names the subcategory by its key, so still files under it")
+}
+
 func TestEditingBudgetCategories(t *testing.T) {
 	app := newTestApp(t)
 	t.Cleanup(func() { models.UseBudgetCategories(models.BudgetCategorySettings{}) })
@@ -368,7 +397,7 @@ func TestEditingBudgetCategories(t *testing.T) {
 	t.Run("a refused quiet save redraws the card to put the name back", func(t *testing.T) {
 		rec := sendFor(http.MethodPost, app.SettingsUpdateBudgetCategory, "groceries", url.Values{"label": {"  "}})
 		assert.Equal(t, "#categories", rec.Header().Get("HX-Retarget"))
-		assert.Equal(t, "outerHTML", rec.Header().Get("HX-Reswap"))
+		assert.Equal(t, "morph", rec.Header().Get("HX-Reswap"), "morphed, so the page stays put")
 		assert.Contains(t, rec.Body.String(), "A category needs a name.")
 		assert.Contains(t, rec.Body.String(), `value="Food shopping"`)
 	})
