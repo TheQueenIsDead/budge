@@ -290,6 +290,13 @@ func TestRenderLayout(t *testing.T) {
 		assert.Contains(t, page, "lastPath")
 		assert.Contains(t, page, "if (path === lastPath)")
 	})
+
+	t.Run("a swap that replaces the focused element leaves the page where it is", func(t *testing.T) {
+		// The browser followed the focused Add button down as the new content
+		// went in above it, and the page ended up at the bottom.
+		assert.Contains(t, page, "active.blur()")
+		assert.Contains(t, page, "field.focus({preventScroll: true})", "and focus goes back, so a search box keeps its cursor")
+	})
 }
 
 // dashboardTransactions is a small but realistic feed: a weekly shop, fuel and

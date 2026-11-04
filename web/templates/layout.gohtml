@@ -198,6 +198,36 @@
                 }
             });
 
+            // A swap that replaces the element with focus, such as the Add button
+            // that sent it, threw the page down to the bottom: the new content goes
+            // in above the old before the old is taken out, and the browser follows
+            // the focused element down as it moves. Focus is taken off it first,
+            // and given back after the swap, without scrolling, to the element with
+            // the same id, as htmx would, so a search box keeps its cursor.
+            let refocus = null;
+            document.body.addEventListener('htmx:beforeSwap', function (evt) {
+                const active = document.activeElement;
+                const swap = (evt.detail.elt.closest && evt.detail.elt.closest('[hx-swap]')?.getAttribute('hx-swap')) || '';
+                if (!evt.detail.shouldSwap || swap.startsWith('none') || !active || active === document.body ||
+                    !evt.detail.target.contains(active)) {
+                    return;
+                }
+                refocus = {id: active.id, start: active.selectionStart, end: active.selectionEnd};
+                active.blur();
+            });
+            document.body.addEventListener('htmx:afterSwap', function () {
+                const field = refocus && refocus.id && document.getElementById(refocus.id);
+                if (field) {
+                    field.focus({preventScroll: true});
+                    try {
+                        field.setSelectionRange(refocus.start, refocus.end);
+                    } catch (e) {
+                        // Only text fields have a cursor to put back.
+                    }
+                }
+                refocus = null;
+            });
+
             // Bootstrap tooltips have to be rebuilt after each swap too, since the
             // elements carrying them are replaced.
             function initTooltips() {
