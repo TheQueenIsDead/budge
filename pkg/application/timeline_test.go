@@ -286,6 +286,10 @@ func TestRenderTimeline(t *testing.T) {
 		assert.Contains(t, page, "$3,000.00")
 	})
 
+	t.Run("a purchase's category tag opens that category", func(t *testing.T) {
+		assert.Contains(t, page, `href="/transactions?group=uncategorised"`)
+	})
+
 	t.Run("offers the trip as a suggestion to save", func(t *testing.T) {
 		assert.Contains(t, page, "Trip to Singapore &amp; Indonesia")
 		assert.Contains(t, page, "Suggested")

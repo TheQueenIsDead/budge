@@ -252,7 +252,8 @@
                                                 </span>
                                             {{ end }}
                                             <span>{{ .Span }}</span>
-                                            {{ range $row.Categories }}<span class="badge-category">{{ . }}</span>{{ end }}
+                                            {{ range $row.CategoryTags }}<a class="badge-category badge-link" href="/transactions?group={{ .Key }}"
+                                                hx-boost="true" hx-params="none" title="Show only {{ .Label }}">{{ .Label }}</a>{{ end }}
                                         </div>
                                     </div>
                                     <div class="b-tx-amount">{{ .Total | fmtCurrency }}</div>
