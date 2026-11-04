@@ -59,7 +59,7 @@ func SecurityHeaders() echo.MiddlewareFunc {
 			if _, err := rand.Read(nonce); err != nil {
 				return err
 			}
-			encoded := base64.StdEncoding.EncodeToString(nonce)
+			encoded := base64.RawURLEncoding.EncodeToString(nonce) // no + or =, which html/template would escape in the markup
 			c.Set(cspNonceKey, encoded)
 
 			header := c.Response().Header()
