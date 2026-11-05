@@ -22,7 +22,7 @@
     {
       "description": "Alpine's morph plugin must match Alpine's own version, so the two move together in one PR.",
       "matchPackageNames": ["alpinejs", "@alpinejs/morph"],
-      "groupName": "alpine"
+      "groupName": "alpinejs"
     },
     {
       "description": "htmx 4 is a rewrite, with new event names and a new extension API, which the morph extension in layout.gohtml is written against. Moving to it is a piece of work, not an update.",
