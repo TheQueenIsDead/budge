@@ -20,10 +20,18 @@ jobs:
       - id: release
         uses: googleapis/release-please-action@v5
 
-  # Publish (only if a new release was created), tested and built the same way
-  # as on a PR.
-  build:
+  # A new release's image in a browser, before it is published.
+  e2e:
     needs: release
+    if: ${{ needs.release.outputs.release_created }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/_e2e.yml
+
+  # Publish (only if a new release was created and its browser tests pass),
+  # tested and built the same way as on a PR.
+  build:
+    needs: [release, e2e]
     if: ${{ needs.release.outputs.release_created }}
     permissions:
       contents: read

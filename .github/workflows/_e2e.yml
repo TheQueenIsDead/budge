@@ -1,0 +1,50 @@
+# Builds budge's image and drives it in a browser, on made-up data; see e2e/.
+# The build shares _build's layer cache, so it is mostly cache hits.
+name: _e2e
+
+on:
+  workflow_call:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # The Dockerfile builds with the Go go.mod names and the pnpm
+      # web/package.json names, read here to pass in as build args.
+      - id: versions
+        run: |
+          echo "go=$(awk '/^go /{print $2}' go.mod)" >> "$GITHUB_OUTPUT"
+          echo "pnpm=$(jq -r '.packageManager | ltrimstr("pnpm@") | split("+")[0]' web/package.json)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4
+
+      # Into the runner's Docker, where the tests start it.
+      - name: Build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: budge:e2e
+          build-args: |
+            GO_VERSION=${{ steps.versions.outputs.go }}
+            PNPM_VERSION=${{ steps.versions.outputs.pnpm }}
+          cache-from: type=gha
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Browser tests
+        env:
+          BUDGE_E2E_IMAGE: budge:e2e
+        run: go test -tags e2e -artifacts -outputdir "$RUNNER_TEMP/e2e" ./e2e/...
+
+      # A screenshot and the HTML of each page a failed test was on.
+      - if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-tests
+          path: ${{ runner.temp }}/e2e/_artifacts
+          if-no-files-found: ignore

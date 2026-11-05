@@ -1,6 +1,5 @@
-# Tests budge, builds its image and tests that in a browser, the same way for a
-# PR and a release, so a PR proves the image a release will publish. Only a
-# release pushes it to GHCR.
+# Tests budge and builds its image, the same way for a PR and a release, so a PR
+# proves the image a release will publish. Only a release pushes it to GHCR.
 name: _build
 
 on:
@@ -67,16 +66,12 @@ jobs:
             PNPM_VERSION=${{ steps.versions.outputs.pnpm }}
           cache-from: type=gha
 
-      # Built into the runner's Docker, for the browser tests to run, and
-      # pushed from there as it is, so a release pushes the image tested.
       - name: Build
         uses: docker/build-push-action@v7
         with:
           context: .
-          load: true
-          tags: |
-            budge:e2e
-            ${{ steps.meta.outputs.tags }}
+          push: ${{ inputs.push }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
@@ -84,29 +79,3 @@ jobs:
             PNPM_VERSION=${{ steps.versions.outputs.pnpm }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-
-      # The image in a browser, on made-up data; see e2e/.
-      - name: Browser tests
-        env:
-          BUDGE_E2E_IMAGE: budge:e2e
-        run: go test -tags e2e -artifacts -outputdir "$RUNNER_TEMP/e2e" ./e2e/...
-
-      - if: ${{ failure() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: browser-tests
-          path: ${{ runner.temp }}/e2e/_artifacts
-          if-no-files-found: ignore
-
-      - if: ${{ inputs.push }}
-        name: Push
-        env:
-          TAGS: ${{ steps.meta.outputs.tags }}
-        run: |
-          for tag in $TAGS; do
-            docker push "$tag"
-          done

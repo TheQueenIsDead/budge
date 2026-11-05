@@ -11,6 +11,12 @@ jobs:
       contents: read
     uses: ./.github/workflows/_build.yml
 
+  # The image a release would publish, in a browser.
+  e2e:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/_e2e.yml
+
   lint:
     permissions:
       contents: read
