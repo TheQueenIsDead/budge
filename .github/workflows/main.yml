@@ -34,6 +34,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # The image builds with the Go go.mod names and installs the page's
+      # libraries with the pnpm web/package.json names, so the build asks setup
+      # for each and passes their versions.
+      - if: ${{ steps.release.outputs.release_created }}
+        id: go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - if: ${{ steps.release.outputs.release_created }}
+        uses: pnpm/action-setup@v6
+        with:
+          package_json_file: web/package.json
+
+      - if: ${{ steps.release.outputs.release_created }}
+        id: pnpm
+        run: echo "version=$(pnpm --version)" >> "$GITHUB_OUTPUT"
+
       - if: ${{ steps.release.outputs.release_created }}
         id: meta
         uses: docker/metadata-action@v6
@@ -57,5 +76,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
+            GO_VERSION=${{ steps.go.outputs.go-version }}
+            PNPM_VERSION=${{ steps.pnpm.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

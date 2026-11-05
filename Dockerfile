@@ -1,17 +1,19 @@
-# The page's libraries, installed with pnpm from web/package.json, for
-# web/embed.go to embed from node_modules.
-FROM node:26-alpine AS web
+# pnpm's and Go's versions. The release workflow passes the ones
+# web/package.json and go.mod name; a build by hand takes the latest.
+ARG PNPM_VERSION=latest
+ARG GO_VERSION=latest
 
-# pnpm's own build, from the image pnpm publishes. Renovate moves it with the
-# packageManager version in web/package.json.
-COPY --from=ghcr.io/pnpm/pnpm:12.16.1-alpine /usr/local/bin/pnpm /usr/local/bin/pnpm
+# The page's libraries, installed with pnpm from web/package.json, for
+# web/embed.go to embed from node_modules. pnpm's image is its standalone
+# build, which needs no Node.
+FROM ghcr.io/pnpm/pnpm:${PNPM_VERSION} AS web
 
 WORKDIR /web
 
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
-FROM golang:1.27 AS build
+FROM golang:${GO_VERSION} AS build
 
 WORKDIR /go/src/app
 
