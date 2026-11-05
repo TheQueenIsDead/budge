@@ -97,8 +97,7 @@ func Seed(ctx context.Context, store *database.Store, now time.Time) error {
 		category, _ := models.BudgetCategoryByKey(target.key)
 		if err := store.CreateBudgetItem(ctx, models.BudgetItem{
 			ID: "budget_seed_" + target.key, Name: category.Label, BudgetCategory: target.key,
-			Frequency: category.Frequency, Split: true,
-			GeneralAmount: target.amount, GeneralFrequency: target.frequency,
+			Amount: target.amount, Frequency: target.frequency,
 		}); err != nil {
 			return err
 		}

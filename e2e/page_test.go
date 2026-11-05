@@ -185,13 +185,20 @@ func eval[T any](p *page, expression string) T {
 // the mouse, after scrolling it into the middle of the view.
 func (p *page) click(sel string) {
 	p.t.Helper()
+	p.clickText(sel, "")
+}
+
+// clickText is click, for the first visible element sel matches whose text
+// holds text.
+func (p *page) clickText(sel, text string) {
+	p.t.Helper()
 	rect := eval[struct{ X, Y, Width, Height float64 }](p, fmt.Sprintf(`(() => {
-		const el = [...document.querySelectorAll(%s)].find(e => e.getBoundingClientRect().width > 0);
-		if (!el) throw new Error('nothing visible matches ' + %[1]s);
+		const el = [...document.querySelectorAll(%s)].find(e => e.getBoundingClientRect().width > 0 && e.textContent.includes(%s));
+		if (!el) throw new Error('nothing visible matches ' + %[1]s + ' holding ' + %[2]s);
 		el.scrollIntoView({block: 'center', behavior: 'instant'});
 		const r = el.getBoundingClientRect();
 		return {X: r.x, Y: r.y, Width: r.width, Height: r.height};
-	})()`, quote(sel)))
+	})()`, quote(sel), quote(text)))
 	p.do(chromedp.MouseClickXY(rect.X+rect.Width/2, rect.Y+rect.Height/2))
 }
 
@@ -207,6 +214,51 @@ func (p *page) typeText(text string) {
 func (p *page) press(key string) {
 	p.t.Helper()
 	p.do(chromedp.KeyEvent(key))
+}
+
+// choose picks an option of a select. Chrome draws a select's list outside
+// the page, where the mouse can't reach it, so this does what picking does:
+// sets the value and says it changed.
+func (p *page) choose(sel, value string) {
+	p.t.Helper()
+	eval[bool](p, fmt.Sprintf(`(() => {
+		const s = document.querySelector(%s);
+		s.value = %s;
+		s.dispatchEvent(new Event('change', {bubbles: true}));
+		return true;
+	})()`, quote(sel), quote(value)))
+}
+
+// is is a check, for eventually, that read gives want for sel, as p.text
+// and p.value do.
+func (p *page) is(sel, want string, read func(string) string) func() error {
+	return func() error {
+		if got := read(sel); got != want {
+			return fmt.Errorf("%s is %q, not %q", sel, got, want)
+		}
+		return nil
+	}
+}
+
+// at is a check, for eventually, that the browser is at path, with its query.
+func (p *page) at(path string) func() error {
+	return func() error {
+		if got := eval[string](p, `location.pathname + location.search`); got != path {
+			return fmt.Errorf("the browser is at %s, not %s", got, path)
+		}
+		return nil
+	}
+}
+
+// contains is a check, for eventually, that the first element sel matches
+// holds text.
+func (p *page) contains(sel, text string) func() error {
+	return func() error {
+		if got := p.text(sel); !strings.Contains(got, text) {
+			return fmt.Errorf("%s doesn't hold %q: %.300q", sel, text, got)
+		}
+		return nil
+	}
 }
 
 // text is the text of the first element sel matches.

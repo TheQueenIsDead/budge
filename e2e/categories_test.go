@@ -27,15 +27,6 @@ func (p *page) selectAll(sel string) {
 	eval[bool](p, fmt.Sprintf(`(document.querySelector(%s).select(), true)`, quote(sel)))
 }
 
-func (p *page) is(sel, want string, read func(string) string) func() error {
-	return func() error {
-		if got := read(sel); got != want {
-			return fmt.Errorf("%s is %q, not %q", sel, got, want)
-		}
-		return nil
-	}
-}
-
 // TestCategoryNameLeftBlankGoesBack clears a name the way a person does, with
 // Backspace, and moves on. The name can't be blank, so the last one saved
 // comes back, rather than the box and heading staying empty while the save is

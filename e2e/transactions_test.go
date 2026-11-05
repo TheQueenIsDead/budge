@@ -31,3 +31,28 @@ func TestTransactionSearch(t *testing.T) {
 	assert.True(t, eval[bool](p, `document.querySelector('#main').textContent.includes("Pak'nSave")`), "matching transactions are listed")
 	assert.False(t, eval[bool](p, `document.querySelector('#main').textContent.includes('Z Energy')`), "others are not")
 }
+
+// TestFileATransaction files a fuel purchase under Health from its row. Its
+// category badge changes at once, and stays changed.
+func TestFileATransaction(t *testing.T) {
+	p := open(t)
+	p.visit("/transactions?search=energy")
+	id := eval[string](p, `document.querySelector('details.b-txcat[id^="txcat-d-"]').id.slice('txcat-d-'.length)`)
+	picker, badges := "#txcat-d-"+id, "#txcats-d-"+id
+
+	assert.NotContains(t, p.text(badges), "Health", "it starts elsewhere")
+	p.click(picker + " > summary")
+	p.eventually(func() error {
+		if !eval[bool](p, fmt.Sprintf(`!!document.querySelector(%s)`, quote(picker+" select[name=category]"))) {
+			return fmt.Errorf("the category picker hasn't loaded")
+		}
+		return nil
+	})
+	p.choose(picker+" select[name=category]", "health")
+	p.click(picker + " button.btn-primary")
+	p.settle()
+	p.eventually(p.contains(badges, "Health"))
+
+	p.visit("/transactions?search=energy")
+	assert.Contains(t, p.text(badges), "Health", "the filing is saved")
+}
