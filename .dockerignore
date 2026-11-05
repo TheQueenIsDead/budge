@@ -8,4 +8,5 @@ tmp/
 *.db
 *.exe
 *.md
-release-please-config.jsonweb/node_modules
+release-please-config.json
+web/node_modules

@@ -24,27 +24,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # The tests and the image both use the Go go.mod names and the pnpm
-      # web/package.json names, so the image build is passed setup's versions.
-      - id: go
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-
-      - uses: pnpm/action-setup@v6
-        with:
-          package_json_file: web/package.json
-
-      - id: pnpm
-        run: echo "version=$(pnpm --version)" >> "$GITHUB_OUTPUT"
-
-      # The code embeds the page's libraries, so they must be installed to test it.
-      - name: Install the page's libraries
-        working-directory: web
-        run: pnpm install --frozen-lockfile
-
-      - name: Test
-        run: go test -v ./...
+      # The Dockerfile builds with the Go go.mod names and the pnpm
+      # web/package.json names, read here to pass in as build args.
+      - id: versions
+        run: |
+          echo "go=$(awk '/^go /{print $2}' go.mod)" >> "$GITHUB_OUTPUT"
+          echo "pnpm=$(jq -r '.packageManager | ltrimstr("pnpm@") | split("+")[0]' web/package.json)" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v4
 
@@ -69,7 +54,20 @@ jobs:
             type=raw,value=latest,enable=${{ inputs.tag != '' }}
             type=ref,event=pr
 
-      - uses: docker/build-push-action@v7
+      # The Dockerfile's test stage runs the tests on the code the image is
+      # built from, sharing its modules, libraries and cache.
+      - name: Test
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: test
+          build-args: |
+            GO_VERSION=${{ steps.versions.outputs.go }}
+            PNPM_VERSION=${{ steps.versions.outputs.pnpm }}
+          cache-from: type=gha
+
+      - name: Build
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: ${{ inputs.push }}
@@ -77,7 +75,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
-            GO_VERSION=${{ steps.go.outputs.go-version }}
-            PNPM_VERSION=${{ steps.pnpm.outputs.version }}
+            GO_VERSION=${{ steps.versions.outputs.go }}
+            PNPM_VERSION=${{ steps.versions.outputs.pnpm }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

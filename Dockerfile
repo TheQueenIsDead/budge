@@ -1,4 +1,4 @@
-# pnpm's and Go's versions. The release workflow passes the ones
+# pnpm's and Go's versions. The _build workflow passes the ones
 # web/package.json and go.mod name; a build by hand takes the latest.
 ARG PNPM_VERSION=latest
 ARG GO_VERSION=latest
@@ -13,7 +13,9 @@ WORKDIR /web
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
-FROM golang:${GO_VERSION} AS build
+# budge's code, with its modules and the page's libraries, for the test and
+# build stages to share.
+FROM golang:${GO_VERSION} AS source
 
 WORKDIR /go/src/app
 
@@ -23,7 +25,15 @@ RUN go mod verify
 
 COPY . .
 COPY --from=web /web/node_modules web/node_modules
-RUN ls -la
+
+# The tests, which _build runs by building this stage before the image. The
+# image's stages don't depend on it, so a build by hand skips it.
+FROM source AS test
+
+RUN go test ./...
+
+FROM source AS build
+
 # The release's version, which the admin page and the telemetry file record
 # for each run.
 ARG VERSION=""
