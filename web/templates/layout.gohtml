@@ -159,8 +159,12 @@
             </div>
         </div>
 
-        <!-- Main -->
-        <main id="main" class="container">
+        <!-- Main. The history htmx keeps for the back button is of this alone,
+             the part navigation swaps. Kept of the whole body, going back
+             ran the scripts above again, which threw on their second run,
+             and a page fetched afresh, which comes without the layout,
+             replaced the nav too. -->
+        <main id="main" class="container" hx-history-elt>
             {{ .content }}
         </main>
 
