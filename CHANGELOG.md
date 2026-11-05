@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.20.0](https://github.com/TheQueenIsDead/budge/compare/v1.19.0...v1.20.0) (2026-11-05)
+
+
+### Features
+
+* **budget:** open the transactions behind a period chart ([500a4e2](https://github.com/TheQueenIsDead/budge/commit/500a4e2270f166188e94af2e86995ba0daa5a492))
+* **categories:** rules can match on an amount, at least, at most or both ([c75b4bc](https://github.com/TheQueenIsDead/budge/commit/c75b4bc402d8b2374b9107c1d5b5716982b4478f))
+* **dashboard:** open a merchant's last 30 days, and a payment's own day ([832521a](https://github.com/TheQueenIsDead/budge/commit/832521a5ad8f1af64b6565389e6dd84c30358d77))
+* **insights:** open a merchant's transactions in the category over the window ([ec44e43](https://github.com/TheQueenIsDead/budge/commit/ec44e43c845f779cadb0558347a851344841efec))
+* **insights:** open the transactions behind a bar, this period or the last ([015f3d9](https://github.com/TheQueenIsDead/budge/commit/015f3d9044118eade08c506cef3f0a5926cf6849))
+* **security:** set a Content Security Policy, with a nonce for each page ([5955291](https://github.com/TheQueenIsDead/budge/commit/5955291afc3b90ce7715b5fd63c2cd4ea173e923))
+* **timeline:** a purchase's category tag opens that category ([e251826](https://github.com/TheQueenIsDead/budge/commit/e251826244d8a46a39240a14b912e6c384dc198c))
+* **transactions:** a category tag narrows the list to its category ([86c7429](https://github.com/TheQueenIsDead/budge/commit/86c7429067c5790809e99286f491c940f62546dd))
+* **transactions:** narrow to the spending filed under one or more categories ([fba6de2](https://github.com/TheQueenIsDead/budge/commit/fba6de2ec066b1f6d73b85da9124a6b4f8549abd))
+* **ui:** morph the categories card in place, with libraries pinned on cdnjs ([944b319](https://github.com/TheQueenIsDead/budge/commit/944b319cf91a9baaf03d0a78526bdc97e29cdec4))
+* **web:** install the page's libraries with pnpm and serve them from budge ([9cdb9d6](https://github.com/TheQueenIsDead/budge/commit/9cdb9d6c508a5026f80528a7e178eae4fefcf78c))
+
+
+### Bug Fixes
+
+* **deps:** update alpine to v3.17.5 ([#112](https://github.com/TheQueenIsDead/budge/issues/112)) ([3978380](https://github.com/TheQueenIsDead/budge/commit/3978380d901c94162cf53ea5a2ceec4424149519))
+* **deps:** update dependency bootstrap to v5.3.8 ([#113](https://github.com/TheQueenIsDead/budge/issues/113)) ([5175d78](https://github.com/TheQueenIsDead/budge/commit/5175d78ff13bbaf4af17e7f939196fa2e97a81ff))
+* **deps:** update dependency bootstrap-icons to v1.13.2 ([#115](https://github.com/TheQueenIsDead/budge/issues/115)) ([32c9481](https://github.com/TheQueenIsDead/budge/commit/32c94816bbe051dc7fb373ed34839520fad94893))
+* **deps:** update dependency chart.js to v4.6.1 ([#116](https://github.com/TheQueenIsDead/budge/issues/116)) ([65e24eb](https://github.com/TheQueenIsDead/budge/commit/65e24eb3e8971c32e8ad4ca466677e8339691380))
+* **deps:** update module github.com/chromedp/cdproto to v0.159.2 ([#117](https://github.com/TheQueenIsDead/budge/issues/117)) ([a4cfc37](https://github.com/TheQueenIsDead/budge/commit/a4cfc378c3106abe64f4880a6c63a701bf253162))
+* **deps:** update module github.com/chromedp/chromedp to v0.23.0 ([#119](https://github.com/TheQueenIsDead/budge/issues/119)) ([ad1b9aa](https://github.com/TheQueenIsDead/budge/commit/ad1b9aa7bf2c6746912bbf1fd6f9e3f7a9ee9a33))
+* **security:** make the CSP nonce URL-safe base64 ([e8d434f](https://github.com/TheQueenIsDead/budge/commit/e8d434f43ec40801c68714abca7d307d70e215c1))
+* **settings:** leave the page where it is after adding a category ([5fd8d5f](https://github.com/TheQueenIsDead/budge/commit/5fd8d5f9827c47f5b1cd35c5d123b1d4466998e0))
+* **settings:** put a category's name back when it is left blank ([8cd7383](https://github.com/TheQueenIsDead/budge/commit/8cd7383ddf2288971339d2e2cd07f4d43a1ac95c))
+* **ui:** stop a swap from throwing the page to the bottom ([2f9fcca](https://github.com/TheQueenIsDead/budge/commit/2f9fcca1a7fc96f92b80f068d2c5196a020dc800))
+* **web:** keep htmx history of the main content only ([b0173ee](https://github.com/TheQueenIsDead/budge/commit/b0173eed41cc5cdec2e94f039b8330371a0b3a9b))
+
 ## [1.19.0](https://github.com/TheQueenIsDead/budge/compare/v1.18.0...v1.19.0) (2026-11-03)
 
 
