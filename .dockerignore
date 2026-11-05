@@ -10,3 +10,4 @@ tmp/
 *.md
 release-please-config.json
 web/node_modules
+_artifacts

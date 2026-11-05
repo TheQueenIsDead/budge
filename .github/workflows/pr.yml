@@ -38,3 +38,5 @@ jobs:
         with:
           install-mode: goinstall
           version: latest
+          # The browser tests are built only with the e2e tag.
+          args: --build-tags e2e

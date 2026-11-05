@@ -47,7 +47,7 @@ func TestSeedIsTheSameGivenTheSameNow(t *testing.T) {
 		t.Setenv("BUDGE_BOLT_PATH", t.TempDir())
 		store, err := database.NewStore()
 		require.NoError(t, err)
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 		require.NoError(t, Seed(context.Background(), store, now))
 		txs, err := store.ReadTransactions(context.Background())
 		require.NoError(t, err)

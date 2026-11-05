@@ -39,12 +39,13 @@ jobs:
       - name: Browser tests
         env:
           BUDGE_E2E_IMAGE: budge:e2e
-        run: go test -tags e2e -artifacts -outputdir "$RUNNER_TEMP/e2e" ./e2e/...
+        # -artifacts keeps what failed tests save, in _artifacts.
+        run: go test -tags e2e -artifacts ./e2e/...
 
       # A screenshot and the HTML of each page a failed test was on.
       - if: ${{ failure() }}
         uses: actions/upload-artifact@v7
         with:
           name: browser-tests
-          path: ${{ runner.temp }}/e2e/_artifacts
+          path: _artifacts
           if-no-files-found: ignore

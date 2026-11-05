@@ -115,3 +115,6 @@ _palettes.html
 # The page's libraries: pnpm install in web fetches them, and web/embed.go
 # embeds the files the pages use.
 web/node_modules/
+
+# What the browser tests keep of failed pages, run with -artifacts.
+_artifacts/

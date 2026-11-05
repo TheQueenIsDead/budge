@@ -102,18 +102,13 @@ func seed(now time.Time) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 
 	// The store finds its file through the environment, as budge does.
-	previous, had := os.LookupEnv("BUDGE_BOLT_PATH")
-	os.Setenv("BUDGE_BOLT_PATH", dir)
-	defer func() {
-		if had {
-			os.Setenv("BUDGE_BOLT_PATH", previous)
-		} else {
-			os.Unsetenv("BUDGE_BOLT_PATH")
-		}
-	}()
+	// Nothing else in the tests reads it.
+	if err := os.Setenv("BUDGE_BOLT_PATH", dir); err != nil {
+		return nil, err
+	}
 
 	store, err := database.NewStore()
 	if err != nil {

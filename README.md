@@ -90,4 +90,4 @@ BUDGE_E2E_IMAGE=budge:e2e go test -tags e2e ./e2e/...
 ```
 
 Add `-artifacts` to keep a screenshot and the HTML of each page a failed test
-was on.
+was on, in `_artifacts`.
