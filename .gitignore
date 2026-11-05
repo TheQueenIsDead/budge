@@ -111,3 +111,8 @@ uploads/
 .claude/
 .idea/
 _palettes.html
+
+# The page's libraries: pnpm install in web fetches them and copies the files
+# the pages use into public/vendor.
+web/node_modules/
+web/public/vendor/

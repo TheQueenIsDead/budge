@@ -3,7 +3,7 @@
 An opinionated tool for helping Kiwis with money and asset management. 
 
 Budge is powered by [Go](https://go.dev/), [Echo](https://echo.labstack.com/), 
-[HTMX](https://htmx.org/), [Bootstrap](https://getbootstrap.com/), [Air](https://github.com/air-verse/air) and [bbolt](https://github.com/etcd-io/bbolt).
+[HTMX](https://htmx.org/), [Alpine](https://alpinejs.dev/), [Bootstrap](https://getbootstrap.com/), [Air](https://github.com/air-verse/air) and [bbolt](https://github.com/etcd-io/bbolt).
 
 ## Getting Started
 
@@ -46,15 +46,23 @@ Budge is configured with environment variables, all optional.
 
 ## Development
 
-To develop Budge you will need an Akahu account, as well as Golang installed:
+To develop Budge you will need an Akahu account, as well as Golang and pnpm installed:
 - Akahu: https://developers.akahu.nz/docs/personal-apps
 - Golang: https://go.dev/doc/install
+- pnpm: https://pnpm.io/installation
+
+The libraries the pages load, such as htmx and Bootstrap, are listed in
+`web/package.json`. `pnpm install` in `web` fetches them and copies the files
+the pages use into `web/public/vendor`, which is not committed, to be embedded
+in the binary. Run it again after the libraries change; Air does so before
+each build.
 
 Air is recommended in order to perform live-reloading of the build while changing files.
 
 ```shell
 git clone https://github.com/TheQueenIsDead/budge.git
 cd budge
+pnpm install --dir web
 go install github.com/air-verse/air@latest
 air
 # Budge is now accessible at http://localhost:1337

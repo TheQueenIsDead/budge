@@ -44,9 +44,10 @@ func StaticCaching() echo.MiddlewareFunc {
 const cspNonceKey = "cspNonce"
 
 // SecurityHeaders sets a Content Security Policy on every response, with a
-// nonce made for the request. Only scripts carrying the nonce, or loaded from
-// budge or the CDNs its libraries are pinned on, run, and nothing the page
-// does can send data anywhere but budge.
+// nonce made for the request. Only scripts carrying the nonce, or served by
+// budge itself, run, and nothing the page does can send data anywhere but
+// budge. Libraries are served from /static/vendor, so the page needs nothing
+// from any other site.
 //
 // Alpine and htmx's hx-on run expressions written in the markup, which needs
 // 'unsafe-eval'. Styles may be inline: markup sets widths and colours as it is
@@ -73,11 +74,10 @@ func SecurityHeaders() echo.MiddlewareFunc {
 
 // contentSecurityPolicy is the policy for a page carrying the given nonce.
 func contentSecurityPolicy(nonce string) string {
-	const cdnjs = "https://cdnjs.cloudflare.com"
 	return "default-src 'self'; " +
-		"script-src 'self' 'nonce-" + nonce + "' 'unsafe-eval' " + cdnjs + " https://cdn.jsdelivr.net; " +
-		"style-src 'self' 'unsafe-inline' " + cdnjs + " https://fonts.googleapis.com; " +
-		"font-src " + cdnjs + " https://fonts.gstatic.com; " +
+		"script-src 'self' 'nonce-" + nonce + "' 'unsafe-eval'; " +
+		"style-src 'self' 'unsafe-inline'; " +
+		"font-src 'self'; " +
 		"img-src 'self' data: https://cdn.akahu.nz; " +
 		"connect-src 'self'; " +
 		"object-src 'none'; " +

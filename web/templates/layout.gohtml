@@ -11,24 +11,20 @@
 
         <title>Budge</title>
 
-        <!-- Libraries come from cdnjs, each pinned to a version and to its hash, so
-             the browser refuses a file that is not the one published. Renovate
-             moves the version and the hash together. Alpine's morph plugin is not
-             on cdnjs, so comes from jsdelivr: Renovate moves its version with
-             Alpine's, and its hash is updated by hand, which a test checks. -->
+        <!-- Libraries are installed with pnpm and served by budge itself, from
+             /static/vendor; see web/package.json. Nothing on the page comes
+             from another site. -->
 
         <!-- Bootstrap -->
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.6/css/bootstrap.min.css" integrity="sha512-Y4o9ui4SDy096Huuckv3bu6vfy3PG170S/EJO3fD13EJM4R2M5iDrTsDYKrm7U71j9IIupl1RJcBgd6caFbBIA==" crossorigin="anonymous" referrerpolicy="no-referrer">
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.6/js/bootstrap.bundle.min.js" integrity="sha512-TqV44vJ6VstCMM8ksoxkOy/xxO97sKJUSxOCgLdysw4QRw4kTVLwOmxlzRnutf6NuNMtt48UMJEMyZZ7hMMebQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" integrity="sha512-dPXYcDub/aeb08c63jRq/k6GaKccl256JQy/AnOq7CAnEZ9FzSL9wSbcZkMp4R26vBsMLFYH4kQ67/bbV8XaCQ==" crossorigin="anonymous" referrerpolicy="no-referrer">
+        <link rel="stylesheet" href="{{ asset "/static/vendor/bootstrap/bootstrap.min.css" }}">
+        <script src="{{ asset "/static/vendor/bootstrap/bootstrap.bundle.min.js" }}"></script>
+        <link rel="stylesheet" href="{{ asset "/static/vendor/bootstrap-icons/bootstrap-icons.min.css" }}">
 
         <!-- Inter, with a system stack behind it if the font does not load -->
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="{{ asset "/static/vendor/inter/inter.css" }}">
 
         <!-- Chart JS -->
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js" integrity="sha512-WoViKhKD4qI2WruSZqv9+kvM4WfFhUMQCLN4QlDTt5aU56fLQy2gYoxWIqlEnXqJy/+Ac5q/hk1oWfqnMDhwMA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <script src="{{ asset "/static/vendor/chart.js/chart.umd.min.js" }}"></script>
 
         <!-- Budge -->
         <!-- Each asset URL carries a hash of the file, so a deploy is never
@@ -48,7 +44,7 @@
         </script>
 
         <!-- HTMX -->
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/2.0.11/htmx.min.js" integrity="sha512-YdHy6FzjD4qoyI/yWGIbsKnJHe98r96np9XeYp3ovFL+0sNP/NbDrYlSLDr5a6Ndi5sRi9GgJj+suE7yLeUMNQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <script src="{{ asset "/static/vendor/htmx/htmx.min.js" }}"></script>
         <script nonce="{{ nonce }}">
             // A swap marked "morph" updates what is on the page in place rather
             // than replacing it, with Alpine's own morph so Alpine components on
@@ -79,8 +75,8 @@
         <!-- Alpine, for what a page shows changing as it is edited, before htmx
              saves it. -->
         <!-- The morph plugin goes first: Alpine's plugins register before it starts. -->
-        <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/morph@3.14.1/dist/cdn.min.js" integrity="sha512-IsuqDpICOT7pqnQGfdVnESaOvsiKD/ZG7VKM4hRlwKsCW8gYUlK1UDmFtEaL3s71vJMu723VhFPcaGVBM8MN9A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-        <script defer src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.14.1/cdn.min.js" integrity="sha512-ytM6hP1K9BkRTjUQZpxZKFjJ2TvE4QXaK7phVymsm7NimaI5H09TWWW6f2JMbonLp4ftYU6xfwQGoe3C8jta9A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <script defer src="{{ asset "/static/vendor/alpinejs/morph.min.js" }}"></script>
+        <script defer src="{{ asset "/static/vendor/alpinejs/alpine.min.js" }}"></script>
 
         <script nonce="{{ nonce }}">
             htmx.config.useTemplateFragments = true

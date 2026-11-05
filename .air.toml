@@ -7,7 +7,7 @@ tmp_dir = "tmp"
   bin = "./budge.exe"
   cmd = "go build -o ./budge.exe cmd/budge/main.go"
   delay = 1000
-  exclude_dir = [".github","docs","assets", "tmp", "vendor", "testdata"]
+  exclude_dir = [".github","docs","assets", "tmp", "vendor", "testdata", "web/node_modules"]
   exclude_file = []
   exclude_regex = ["_test.go"]
   exclude_unchanged = false
@@ -21,7 +21,9 @@ tmp_dir = "tmp"
   poll = false
   poll_interval = 0
   post_cmd = []
-  pre_cmd = []
+  # Before each build, installs the page's libraries and copies them into
+  # web/public/vendor to be embedded. Quick when nothing has changed.
+  pre_cmd = ["pnpm install --dir web --frozen-lockfile --prefer-offline"]
   rerun = false
   rerun_delay = 500
   send_interrupt = true

@@ -16,13 +16,15 @@ jobs:
       uses: actions/setup-go@v7
       with:
         go-version-file: 'go.mod'
+    - name: Install the page's libraries
+      working-directory: web
+      run: |
+        npm install -g "$(node -p 'require("./package.json").packageManager')"
+        pnpm install --frozen-lockfile
     - name: Build
       run: go build -v ./...
     - name: Test
       run: go test -v ./...
-      env:
-        # Fetch the scripts the page pins to a hash, and check each matches.
-        BUDGE_CHECK_CDN: "1"
 
   lint:
     permissions:

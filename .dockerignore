@@ -8,4 +8,5 @@ tmp/
 *.db
 *.exe
 *.md
-release-please-config.json
+release-please-config.jsonweb/node_modules
+web/public/vendor

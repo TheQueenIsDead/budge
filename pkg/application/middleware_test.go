@@ -63,6 +63,12 @@ func TestSecurityHeaders(t *testing.T) {
 		assert.NotEqual(t, nonce, again[1])
 	})
 
+	t.Run("scripts, styles and fonts come only from budge", func(t *testing.T) {
+		for _, directive := range []string{"script-src 'self' 'nonce-" + nonce + "' 'unsafe-eval';", "style-src 'self' 'unsafe-inline';", "font-src 'self';"} {
+			assert.Contains(t, policy, directive)
+		}
+	})
+
 	t.Run("nothing can be sent anywhere but budge, or frame it", func(t *testing.T) {
 		for _, directive := range []string{"default-src 'self'", "connect-src 'self'", "img-src 'self' data: https://cdn.akahu.nz", "form-action 'self'",
 			"frame-ancestors 'none'", "object-src 'none'", "base-uri 'none'"} {

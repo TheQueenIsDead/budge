@@ -4,19 +4,6 @@
     "config:recommended"
   ],
   "osvVulnerabilityAlerts": true,
-  "html": {
-    "description": "The page's scripts and stylesheets are pinned in Go templates, which the html manager does not look at by default. It moves a cdnjs file's version and integrity hash together.",
-    "managerFilePatterns": ["/\\.gohtml$/"]
-  },
-  "customManagers": [
-    {
-      "customType": "regex",
-      "description": "Alpine's morph plugin is on jsdelivr rather than cdnjs, so the html manager does not see it. Renovate moves its version but not its integrity hash: the CDN test in CI fails until the hash is updated by hand.",
-      "managerFilePatterns": ["/\\.gohtml$/"],
-      "matchStrings": ["https://cdn\\.jsdelivr\\.net/npm/(?<depName>@alpinejs/morph)@(?<currentValue>\\d+\\.\\d+\\.\\d+)/"],
-      "datasourceTemplate": "npm"
-    }
-  ],
   "packageRules": [
     {
       "description": "echo-otel's major version tracks Echo's, so the two move together in one PR, whatever their major version.",
@@ -28,14 +15,19 @@
       "groupName": "echo"
     },
     {
-      "description": "The page's libraries load straight into the browser, so a release must be a few days old before it is proposed, long enough for most hijacked ones to be caught and pulled. Kept short because OSV does not cover cdnjs, so a security fix arrives only as an ordinary update.",
-      "matchManagers": ["html", "custom.regex"],
+      "description": "The page's libraries, in web/package.json, run in the browser, so a release must be a few days old before it is proposed, long enough for most hijacked ones to be caught and pulled. pnpm refuses younger ones too; see web/pnpm-workspace.yaml.",
+      "matchManagers": ["npm"],
       "minimumReleaseAge": "3 days"
     },
     {
       "description": "Alpine's morph plugin must match Alpine's own version, so the two move together in one PR.",
-      "matchPackageNames": ["/^alpinejs(\\/|$)/", "@alpinejs/morph"],
+      "matchPackageNames": ["alpinejs", "@alpinejs/morph"],
       "groupName": "alpine"
+    },
+    {
+      "description": "htmx 4 is a rewrite, with new event names and a new extension API, which the morph extension in layout.gohtml is written against. Moving to it is a piece of work, not an update.",
+      "matchPackageNames": ["htmx.org"],
+      "allowedVersions": "<3"
     }
   ]
 }

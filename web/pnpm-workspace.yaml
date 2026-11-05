@@ -1,0 +1,6 @@
+# pnpm reads its settings from here.
+
+# Refuse a release less than three days old (in minutes): long enough for most
+# hijacked releases to be caught and pulled. Renovate waits as long before
+# proposing one.
+minimumReleaseAge: 4320
