@@ -3,7 +3,7 @@ module github.com/TheQueenIsDead/budge
 go 1.27.0
 
 require (
-	github.com/chromedp/cdproto v0.159.0
+	github.com/chromedp/cdproto v0.159.2
 	github.com/chromedp/chromedp v0.22.1
 	github.com/dustin/go-humanize v1.1.0
 	github.com/labstack/echo-otel/v5 v5.0.0
