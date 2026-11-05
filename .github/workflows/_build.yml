@@ -1,0 +1,77 @@
+# Builds budge's image, the same way for a PR and a release, so a PR proves the
+# image a release will publish. Only a release pushes it to GHCR.
+name: _build
+
+on:
+  workflow_call:
+    inputs:
+      push:
+        description: Push the image to GHCR.
+        type: boolean
+        default: false
+      tag:
+        description: The release tag, such as v1.2.3, which names the image's version.
+        type: string
+        default: ""
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # The image builds with the Go go.mod names and installs the page's
+      # libraries with the pnpm web/package.json names, so the build asks setup
+      # for each and passes their versions.
+      - id: go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: web/package.json
+
+      - id: pnpm
+        run: echo "version=$(pnpm --version)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - if: ${{ inputs.push }}
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # A release runs on refs/heads/main, not on the release tag, so semver
+          # patterns must read the version from the tag input rather than the
+          # git ref. A PR has no tag, and is named after its number.
+          tags: |
+            type=semver,pattern={{version}},value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+            type=semver,pattern={{major}},value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+            type=raw,value=latest,enable=${{ inputs.tag != '' }}
+            type=ref,event=pr
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: ${{ inputs.push }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            GO_VERSION=${{ steps.go.outputs.go-version }}
+            PNPM_VERSION=${{ steps.pnpm.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

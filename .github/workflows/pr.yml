@@ -27,6 +27,12 @@ jobs:
     - name: Test
       run: go test -v ./...
 
+  # The image a release would publish, built but not pushed.
+  image:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/_build.yml
+
   lint:
     permissions:
       contents: read
