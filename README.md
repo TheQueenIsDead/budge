@@ -67,3 +67,27 @@ go install github.com/air-verse/air@latest
 air
 # Budge is now accessible at http://localhost:1337
 ```
+
+### Browser tests
+
+The tests in `e2e/` run Budge's image and drive it in Chrome, both in
+containers, on made-up data. They need Docker or Podman, and an image to test:
+
+```shell
+docker build -t budge:e2e .
+BUDGE_E2E_IMAGE=budge:e2e go test -tags e2e ./e2e/...
+```
+
+With Podman, point the tests at its socket, and turn off the container
+testcontainers starts to clean up after a crashed run, which expects Docker's
+network names:
+
+```shell
+podman build -t budge:e2e .
+export DOCKER_HOST=unix://$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')
+export TESTCONTAINERS_RYUK_DISABLED=true
+BUDGE_E2E_IMAGE=budge:e2e go test -tags e2e ./e2e/...
+```
+
+Add `-artifacts` to keep a screenshot and the HTML of each page a failed test
+was on.
