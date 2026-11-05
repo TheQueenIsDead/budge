@@ -464,7 +464,12 @@
     <div class="row g-2">
         <div class="col-12 col-md-4">
             <label class="b-field-label" for="cat-label-{{ $c.Key }}">Name</label>
-            <input class="form-control form-control-sm" id="cat-label-{{ $c.Key }}" name="label" value="{{ $c.Label }}" x-model="label" required>
+            {{/* A name left blank goes back to the saved one. htmx won't post a
+                 form with a required field empty, so without this the box and
+                 heading stayed blank though nothing was saved. Saving doesn't
+                 redraw the box, so each name saved becomes the one to go back to. */}}
+            <input class="form-control form-control-sm" id="cat-label-{{ $c.Key }}" name="label" value="{{ $c.Label }}" x-model="label" required
+                   @change="if ($el.value.trim()) $el.defaultValue = $el.value; else { $el.value = $el.defaultValue; label = $el.value }">
         </div>
         <div class="col-12 {{ if $c.Fixed }}col-md-8{{ else }}col-md-5{{ end }}">
             <label class="b-field-label" for="cat-blurb-{{ $c.Key }}">Description</label>
@@ -521,10 +526,12 @@
     <div class="b-cat-section-title">Subcategories</div>
     <div class="b-cat-subs">
         {{ range $c.Subs }}
-        {{/* A rename redraws the card, so the category's heading names it. */}}
+        {{/* A rename redraws the card, so the category's heading names it. A
+             name left blank goes back to the saved one, as the category's does. */}}
         <form class="input-group input-group-sm" hx-post="/settings/budget-categories/{{ .Key }}" hx-trigger="change"
               hx-vals='{"render": "card"}' hx-target="#categories" hx-swap="morph" key="{{ .Key }}">
-            <input class="form-control" name="label" value="{{ .Label }}" aria-label="Name of {{ .Label }}" required>
+            <input class="form-control" name="label" value="{{ .Label }}" aria-label="Name of {{ .Label }}" required
+                   @change="if (!$el.value.trim()) $el.value = $el.defaultValue">
             <input type="hidden" name="blurb" value="{{ .Blurb }}">
             <button type="button" class="btn btn-outline-secondary text-danger"
                     hx-delete="/settings/budget-categories/{{ .Key }}" hx-target="#categories" hx-swap="morph"
