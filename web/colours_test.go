@@ -22,14 +22,8 @@ const colourFile = "public/colours.css"
 func TestColoursOnlyComeFromTheColourFile(t *testing.T) {
 	for name, files := range map[string]fs.FS{"public": Public, "templates": Templates} {
 		err := fs.WalkDir(files, ".", func(path string, d fs.DirEntry, err error) error {
-			if err != nil || path == colourFile {
+			if err != nil || d.IsDir() || path == colourFile {
 				return err
-			}
-			if d.IsDir() {
-				if path == "public/vendor" {
-					return fs.SkipDir // the libraries' own files
-				}
-				return nil
 			}
 			if !strings.HasSuffix(path, ".css") && !strings.HasSuffix(path, ".js") && !strings.HasSuffix(path, ".gohtml") {
 				return nil // images carry their own artwork colours

@@ -12,19 +12,19 @@
         <title>Budge</title>
 
         <!-- Libraries are installed with pnpm and served by budge itself, from
-             /static/vendor; see web/package.json. Nothing on the page comes
-             from another site. -->
+             /static/lib; see web/package.json and web/embed.go. Nothing on the
+             page comes from another site. -->
 
         <!-- Bootstrap -->
-        <link rel="stylesheet" href="{{ asset "/static/vendor/bootstrap/bootstrap.min.css" }}">
-        <script src="{{ asset "/static/vendor/bootstrap/bootstrap.bundle.min.js" }}"></script>
-        <link rel="stylesheet" href="{{ asset "/static/vendor/bootstrap-icons/bootstrap-icons.min.css" }}">
+        <link rel="stylesheet" href="{{ asset "/static/lib/bootstrap/dist/css/bootstrap.min.css" }}">
+        <script src="{{ asset "/static/lib/bootstrap/dist/js/bootstrap.bundle.min.js" }}"></script>
+        <link rel="stylesheet" href="{{ asset "/static/lib/bootstrap-icons/font/bootstrap-icons.min.css" }}">
 
         <!-- Inter, with a system stack behind it if the font does not load -->
-        <link rel="stylesheet" href="{{ asset "/static/vendor/inter/inter.css" }}">
+        <link rel="stylesheet" href="{{ asset "/static/lib/@fontsource-variable/inter/wght.css" }}">
 
         <!-- Chart JS -->
-        <script src="{{ asset "/static/vendor/chart.js/chart.umd.min.js" }}"></script>
+        <script src="{{ asset "/static/lib/chart.js/dist/chart.umd.min.js" }}"></script>
 
         <!-- Budge -->
         <!-- Each asset URL carries a hash of the file, so a deploy is never
@@ -44,7 +44,7 @@
         </script>
 
         <!-- HTMX -->
-        <script src="{{ asset "/static/vendor/htmx/htmx.min.js" }}"></script>
+        <script src="{{ asset "/static/lib/htmx.org/dist/htmx.min.js" }}"></script>
         <script nonce="{{ nonce }}">
             // A swap marked "morph" updates what is on the page in place rather
             // than replacing it, with Alpine's own morph so Alpine components on
@@ -75,8 +75,8 @@
         <!-- Alpine, for what a page shows changing as it is edited, before htmx
              saves it. -->
         <!-- The morph plugin goes first: Alpine's plugins register before it starts. -->
-        <script defer src="{{ asset "/static/vendor/alpinejs/morph.min.js" }}"></script>
-        <script defer src="{{ asset "/static/vendor/alpinejs/alpine.min.js" }}"></script>
+        <script defer src="{{ asset "/static/lib/@alpinejs/morph/dist/cdn.min.js" }}"></script>
+        <script defer src="{{ asset "/static/lib/alpinejs/dist/cdn.min.js" }}"></script>
 
         <script nonce="{{ nonce }}">
             htmx.config.useTemplateFragments = true

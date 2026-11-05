@@ -4,3 +4,8 @@
 # hijacked releases to be caught and pulled. Renovate waits as long before
 # proposing one.
 minimumReleaseAge: 4320
+
+# Install each package as a plain folder rather than a link into pnpm's store:
+# go:embed, which serves the libraries straight from node_modules, will not
+# follow a link.
+nodeLinker: hoisted

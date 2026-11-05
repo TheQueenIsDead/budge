@@ -17,25 +17,37 @@ var staticFiles = func() fs.FS {
 	return public
 }()
 
+// libraryFiles are the files the pages load from libraries, as served under
+// /static/lib.
+var libraryFiles = func() fs.FS {
+	libraries, err := fs.Sub(web.Libraries, "node_modules")
+	if err != nil {
+		panic(err)
+	}
+	return libraries
+}()
+
 // assetVersions maps each /static path to a short hash of the file's contents.
 // It changes only when the file does, so a release that leaves the stylesheet
 // alone leaves its URL alone too, and caches keep their copy.
 var assetVersions = func() map[string]string {
 	versions := map[string]string{}
-	err := fs.WalkDir(staticFiles, ".", func(path string, entry fs.DirEntry, err error) error {
-		if err != nil || entry.IsDir() {
-			return err
-		}
-		data, err := fs.ReadFile(staticFiles, path)
+	for prefix, files := range map[string]fs.FS{"/static/": staticFiles, "/static/lib/": libraryFiles} {
+		err := fs.WalkDir(files, ".", func(path string, entry fs.DirEntry, err error) error {
+			if err != nil || entry.IsDir() {
+				return err
+			}
+			data, err := fs.ReadFile(files, path)
+			if err != nil {
+				return err
+			}
+			sum := sha256.Sum256(data)
+			versions[prefix+path] = hex.EncodeToString(sum[:5])
+			return nil
+		})
 		if err != nil {
-			return err
+			panic(err)
 		}
-		sum := sha256.Sum256(data)
-		versions["/static/"+path] = hex.EncodeToString(sum[:5])
-		return nil
-	})
-	if err != nil {
-		panic(err)
 	}
 	return versions
 }()

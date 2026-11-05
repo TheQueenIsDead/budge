@@ -1,5 +1,5 @@
-# The page's libraries, installed with pnpm from web/package.json and copied
-# into public/vendor, to be embedded with budge's own static files.
+# The page's libraries, installed with pnpm from web/package.json, for
+# web/embed.go to embed from node_modules.
 FROM node:26-alpine AS web
 
 # pnpm's own build, from the image pnpm publishes. Renovate moves it with the
@@ -8,7 +8,7 @@ COPY --from=ghcr.io/pnpm/pnpm:12.16.1-alpine /usr/local/bin/pnpm /usr/local/bin/
 
 WORKDIR /web
 
-COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml web/vendor.mjs ./
+COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 FROM golang:1.27 AS build
@@ -20,7 +20,7 @@ RUN go mod download
 RUN go mod verify
 
 COPY . .
-COPY --from=web /web/public/vendor web/public/vendor
+COPY --from=web /web/node_modules web/node_modules
 RUN ls -la
 # The release's version, which the admin page and the telemetry file record
 # for each run.

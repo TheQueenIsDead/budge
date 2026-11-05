@@ -9,4 +9,3 @@ tmp/
 *.exe
 *.md
 release-please-config.jsonweb/node_modules
-web/public/vendor

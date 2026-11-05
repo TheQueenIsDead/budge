@@ -28,49 +28,50 @@ func templateFiles(t *testing.T, visit func(name, content string)) {
 }
 
 // TestNothingLoadsFromElsewhere keeps every script, stylesheet and font served
-// by budge, from /static/vendor, so the Content Security Policy can refuse
-// every other site.
+// by budge, from /static/lib, so the Content Security Policy can refuse every
+// other site.
 func TestNothingLoadsFromElsewhere(t *testing.T) {
 	external := regexp.MustCompile(`<(?:script|link)\b[^>]*\b(?:src|href)="(?:https?:)?//[^"]+"[^>]*>`)
 	templateFiles(t, func(name, content string) {
 		for _, tag := range external.FindAllString(content, -1) {
-			t.Errorf("%s: %s loads from another site; add the library to web/package.json and vendor.mjs instead", name, tag)
+			t.Errorf("%s: %s loads from another site; add the library to web/package.json and embed.go instead", name, tag)
 		}
 	})
 }
 
-// TestVendoredFilesArePresent checks that the library files the pages load,
-// and the fonts their stylesheets load in turn, were copied in to be embedded.
-// They are not committed: pnpm install in web copies them.
-func TestVendoredFilesArePresent(t *testing.T) {
-	vendored := regexp.MustCompile(`"/static/(vendor/[^"]+)"`)
+// TestLibraryFilesAreEmbedded checks that the library files the pages load,
+// and the fonts their stylesheets load in turn, are among those embed.go
+// embeds from node_modules.
+func TestLibraryFilesAreEmbedded(t *testing.T) {
+	library := regexp.MustCompile(`"/static/lib/([^"]+)"`)
 	cssURL := regexp.MustCompile(`url\(\s*["']?([^"')]+)["']?\s*\)`)
+	elsewhere := regexp.MustCompile(`^(data:|[a-z]+://|/)`)
 	var count int
 	templateFiles(t, func(name, content string) {
-		for _, m := range vendored.FindAllStringSubmatch(content, -1) {
+		for _, m := range library.FindAllStringSubmatch(content, -1) {
 			count++
-			file := path.Join("public", m[1])
-			data, err := fs.ReadFile(Public, file)
+			file := path.Join("node_modules", m[1])
+			data, err := fs.ReadFile(Libraries, file)
 			if err != nil {
-				t.Errorf("%s: %s is not there to embed; run pnpm install in web", name, file)
+				t.Errorf("%s: %s is not embedded; add it to the go:embed lines in embed.go", name, file)
 				continue
 			}
 			if !strings.HasSuffix(file, ".css") {
 				continue
 			}
 			for _, u := range cssURL.FindAllStringSubmatch(string(data), -1) {
-				if regexp.MustCompile(`^(data:|[a-z]+://|/)`).MatchString(u[1]) {
+				if elsewhere.MatchString(u[1]) {
 					continue
 				}
 				loaded := path.Join(path.Dir(file), strings.SplitN(strings.SplitN(u[1], "?", 2)[0], "#", 2)[0])
-				if _, err := fs.Stat(Public, loaded); err != nil {
-					t.Errorf("%s loads %s, which is not there to embed; vendor.mjs should have copied it", file, loaded)
+				if _, err := fs.Stat(Libraries, loaded); err != nil {
+					t.Errorf("%s loads %s, which is not embedded; add it to the go:embed lines in embed.go", file, loaded)
 				}
 			}
 		}
 	})
 	if count == 0 {
-		t.Fatal("found no vendored files in the templates; has the layout moved?")
+		t.Fatal("found no library files in the templates; has the layout moved?")
 	}
 }
 

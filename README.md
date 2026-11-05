@@ -52,10 +52,10 @@ To develop Budge you will need an Akahu account, as well as Golang and pnpm inst
 - pnpm: https://pnpm.io/installation
 
 The libraries the pages load, such as htmx and Bootstrap, are listed in
-`web/package.json`. `pnpm install` in `web` fetches them and copies the files
-the pages use into `web/public/vendor`, which is not committed, to be embedded
-in the binary. Run it again after the libraries change; Air does so before
-each build.
+`web/package.json`. `pnpm install` in `web` fetches them into
+`web/node_modules`, which `web/embed.go` embeds in the binary, so Budge does
+not build without it. Run it again after the libraries change; Air does so
+before each build.
 
 Air is recommended in order to perform live-reloading of the build while changing files.
 

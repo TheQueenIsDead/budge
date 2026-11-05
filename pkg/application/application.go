@@ -342,8 +342,10 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	// Static files, compiled into the binary. Mounted at /static rather than
 	// /assets so the assets feature can own /assets/:id without shadowing the
-	// stylesheet.
-	app.http.Group("/static", StaticCaching()).StaticFS("/", staticFiles)
+	// stylesheet. The libraries the pages load are under /static/lib.
+	static := app.http.Group("/static", StaticCaching())
+	static.StaticFS("/lib", libraryFiles)
+	static.StaticFS("/", staticFiles)
 
 	return app, nil
 }
