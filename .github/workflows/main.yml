@@ -7,6 +7,7 @@ on:
     branches: [ "main" ]
 
 jobs:
+  # Run release-please to aggregate changes and handle semantic versioning via conventional commits
   release:
     permissions:
       contents: write
@@ -30,7 +31,7 @@ jobs:
 
   # Publish (only if a new release was created and its browser tests pass),
   # tested and built the same way as on a PR.
-  build:
+  publish:
     needs: [release, e2e]
     if: ${{ needs.release.outputs.release_created }}
     permissions:
