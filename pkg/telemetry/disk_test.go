@@ -24,6 +24,7 @@ import (
 // persisted sets telemetry up keeping its samples and logs in a file.
 func persisted(t *testing.T, path string) *Telemetry {
 	t.Helper()
+	noCollector(t)
 	opts := DefaultOptions()
 	opts.Stdout, opts.Runtime, opts.SampleEvery = io.Discard, false, time.Hour
 	opts.Path = path

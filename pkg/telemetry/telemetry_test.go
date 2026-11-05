@@ -17,8 +17,23 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// noCollector clears the OTLP endpoints the environment may name, such as the
+// one BuildKit gives a Dockerfile's RUN steps, so the tests export nowhere.
+func noCollector(t *testing.T) {
+	t.Helper()
+	for _, name := range []string{
+		"OTEL_EXPORTER_OTLP_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
+	} {
+		t.Setenv(name, "")
+	}
+}
+
 func setup(t *testing.T, runtime bool) *Telemetry {
 	t.Helper()
+	noCollector(t)
 	opts := DefaultOptions()
 	opts.Stdout = io.Discard
 	opts.Spans, opts.Logs = 10, 10
