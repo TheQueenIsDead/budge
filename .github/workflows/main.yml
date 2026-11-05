@@ -20,8 +20,9 @@ jobs:
       - id: release
         uses: googleapis/release-please-action@v5
 
-  # Publish (only if a new release was created), built the same way as on a PR.
-  image:
+  # Publish (only if a new release was created), tested and built the same way
+  # as on a PR.
+  build:
     needs: release
     if: ${{ needs.release.outputs.release_created }}
     permissions:

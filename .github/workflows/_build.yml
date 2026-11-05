@@ -1,5 +1,5 @@
-# Builds budge's image, the same way for a PR and a release, so a PR proves the
-# image a release will publish. Only a release pushes it to GHCR.
+# Tests budge and builds its image, the same way for a PR and a release, so a PR
+# proves the image a release will publish. Only a release pushes it to GHCR.
 name: _build
 
 on:
@@ -19,19 +19,17 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  image:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
-      # The image builds with the Go go.mod names and installs the page's
-      # libraries with the pnpm web/package.json names, so the build asks setup
-      # for each and passes their versions.
+      # The tests and the image both use the Go go.mod names and the pnpm
+      # web/package.json names, so the image build is passed setup's versions.
       - id: go
         uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: false
 
       - uses: pnpm/action-setup@v6
         with:
@@ -39,6 +37,14 @@ jobs:
 
       - id: pnpm
         run: echo "version=$(pnpm --version)" >> "$GITHUB_OUTPUT"
+
+      # The code embeds the page's libraries, so they must be installed to test it.
+      - name: Install the page's libraries
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Test
+        run: go test -v ./...
 
       - uses: docker/setup-buildx-action@v4
 

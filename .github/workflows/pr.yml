@@ -5,30 +5,8 @@ on:
     branches: [ "main" ]
 
 jobs:
-
+  # Tests and builds the image a release would publish, without pushing it.
   build:
-    permissions:
-      contents: read
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v7
-    - name: Set up Go
-      uses: actions/setup-go@v7
-      with:
-        go-version-file: 'go.mod'
-    - uses: pnpm/action-setup@v6
-      with:
-        package_json_file: web/package.json
-    - name: Install the page's libraries
-      working-directory: web
-      run: pnpm install --frozen-lockfile
-    - name: Build
-      run: go build -v ./...
-    - name: Test
-      run: go test -v ./...
-
-  # The image a release would publish, built but not pushed.
-  image:
     permissions:
       contents: read
     uses: ./.github/workflows/_build.yml
