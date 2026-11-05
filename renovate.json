@@ -4,6 +4,7 @@
     "config:recommended"
   ],
   "osvVulnerabilityAlerts": true,
+  "postUpdateOptions": ["gomodTidy"],
   "customManagers": [
     {
       "description": "Images Go code runs, such as the Chrome the browser tests drive, named in a string under a renovate comment.",
