@@ -1,11 +1,14 @@
-# The page's libraries, installed with the pnpm package.json names and copied
+# The page's libraries, installed with pnpm from web/package.json and copied
 # into public/vendor, to be embedded with budge's own static files.
 FROM node:26-alpine AS web
+
+# pnpm's own build, from the image pnpm publishes. Renovate moves it with the
+# packageManager version in web/package.json.
+COPY --from=ghcr.io/pnpm/pnpm:12.16.1-alpine /usr/local/bin/pnpm /usr/local/bin/pnpm
 
 WORKDIR /web
 
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml web/vendor.mjs ./
-RUN npm install -g "$(node -p 'require("./package.json").packageManager')"
 RUN pnpm install --frozen-lockfile
 
 FROM golang:1.27 AS build

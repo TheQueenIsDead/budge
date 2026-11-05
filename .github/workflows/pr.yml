@@ -16,11 +16,12 @@ jobs:
       uses: actions/setup-go@v7
       with:
         go-version-file: 'go.mod'
+    - uses: pnpm/action-setup@v6
+      with:
+        package_json_file: web/package.json
     - name: Install the page's libraries
       working-directory: web
-      run: |
-        npm install -g "$(node -p 'require("./package.json").packageManager')"
-        pnpm install --frozen-lockfile
+      run: pnpm install --frozen-lockfile
     - name: Build
       run: go build -v ./...
     - name: Test

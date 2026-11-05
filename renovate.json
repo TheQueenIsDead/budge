@@ -25,6 +25,11 @@
       "groupName": "alpine"
     },
     {
+      "description": "The Dockerfile copies pnpm out of pnpm's image, which must match the packageManager version in web/package.json, so the two move together in one PR.",
+      "matchPackageNames": ["pnpm", "ghcr.io/pnpm/pnpm"],
+      "groupName": "pnpm"
+    },
+    {
       "description": "htmx 4 is a rewrite, with new event names and a new extension API, which the morph extension in layout.gohtml is written against. Moving to it is a piece of work, not an update.",
       "matchPackageNames": ["htmx.org"],
       "allowedVersions": "<3"
