@@ -179,8 +179,8 @@ importers:
         specifier: 5.3.6
         version: 5.3.6(@popperjs/core@2.11.8)
       bootstrap-icons:
-        specifier: 1.11.3
-        version: 1.11.3
+        specifier: 1.13.2
+        version: 1.13.2
       chart.js:
         specifier: 4.5.1
         version: 4.5.1
@@ -211,8 +211,8 @@ packages:
   alpinejs@3.17.5:
     resolution: {integrity: sha512-XewMqRC6zjy8iaUPn86dxjvooAsNai3hUtQbdn0A5H2w7Jt10xHGZ1SczN5+Dvp3UKkuSEt9moy/UaUWOwKdnQ==}
 
-  bootstrap-icons@1.11.3:
-    resolution: {integrity: sha512-+3lpHrCw/it2/7lBL15VR0HEumaBss0+f/Lb6ZvHISn1mlK83jjFpooTLsMWbIjJMDjDjOExMsTxnXSIT4k4ww==}
+  bootstrap-icons@1.13.2:
+    resolution: {integrity: sha512-fAU1Ly3dH7hwRg+CB8EZ0Vl0fF80zgXHeUVJyfUOKzoURr+TbwISbCW5tKUoQLERaWYG2emTCybcPbD96hdD1A==}
 
   bootstrap@5.3.6:
     resolution: {integrity: sha512-jX0GAcRzvdwISuvArXn3m7KZscWWFAf1MKBcnzaN02qWMb3jpMoUX4/qgeiGzqyIb4ojulRzs89UCUmGcFSzTA==}
@@ -246,7 +246,7 @@ snapshots:
     dependencies:
       '@vue/reactivity': 3.5.44
 
-  bootstrap-icons@1.11.3: {}
+  bootstrap-icons@1.13.2: {}
 
   bootstrap@5.3.6(@popperjs/core@2.11.8):
     dependencies:
