@@ -167,14 +167,14 @@ importers:
   .:
     dependencies:
       '@alpinejs/morph':
-        specifier: 3.14.1
-        version: 3.14.1
+        specifier: 3.17.5
+        version: 3.17.5
       '@fontsource-variable/inter':
         specifier: 5.3.0
         version: 5.3.0
       alpinejs:
-        specifier: 3.14.1
-        version: 3.14.1
+        specifier: 3.17.5
+        version: 3.17.5
       bootstrap:
         specifier: 5.3.6
         version: 5.3.6(@popperjs/core@2.11.8)
@@ -190,8 +190,8 @@ importers:
 
 packages:
 
-  '@alpinejs/morph@3.14.1':
-    resolution: {integrity: sha512-6wJuI7QETygFhw0ZLvIZ5mAM082rbK++t4U624I4NagNjJHGiKKuPJBIw+oAYjHz7KT/tvp/Ng4PheEH+GY4eA==}
+  '@alpinejs/morph@3.17.5':
+    resolution: {integrity: sha512-3/zvG152HGW/sIuvOKMojKc0sH+quIFjMArKuG8vT07x5I7R90iVmwCtCZgE+9+7BJoop9q00maNd7nvHIA5Fw==}
 
   '@fontsource-variable/inter@5.3.0':
     resolution: {integrity: sha512-OupL48va4JNofb97w6NYeF9S7W/kHNKM0Er8Dem5nqi4jeOLrVJDoE8tZEpnMJmtkvNbB1EIPPwHcdkF6b1oUA==}
@@ -202,14 +202,14 @@ packages:
   '@popperjs/core@2.11.8':
     resolution: {integrity: sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==}
 
-  '@vue/reactivity@3.1.5':
-    resolution: {integrity: sha512-1tdfLmNjWG6t/CsPldh+foumYFo3cpyCHgBYQ34ylaMsJ+SNHQ1kApMIa8jN+i593zQuaw3AdWH0nJTARzCFhg==}
+  '@vue/reactivity@3.5.44':
+    resolution: {integrity: sha512-u+QJdKeBBEADkPdevsL+6E12QlYVfBD8Zcw5qjDQKtamI6l14KyqazJMobhCKelhWN5zpyKUiEDoTyHE93cqWw==}
 
-  '@vue/shared@3.1.5':
-    resolution: {integrity: sha512-oJ4F3TnvpXaQwZJNF3ZK+kLPHKarDmJjJ6jyzVNDKH9md1dptjC7lWR//jrGuLdek/U6iltWxqAnYOu8gCiOvA==}
+  '@vue/shared@3.5.44':
+    resolution: {integrity: sha512-H82XLH0DjmSOdbEwO15x3QTo1f5PWEtv237eLpYKc0mqLu+B8hnq16lFWmuBmNurkeiG3wr+oM1FhOll/YVFRg==}
 
-  alpinejs@3.14.1:
-    resolution: {integrity: sha512-ICar8UsnRZAYvv/fCNfNeKMXNoXGUfwHrjx7LqXd08zIP95G2d9bAOuaL97re+1mgt/HojqHsfdOLo/A5LuWgQ==}
+  alpinejs@3.17.5:
+    resolution: {integrity: sha512-XewMqRC6zjy8iaUPn86dxjvooAsNai3hUtQbdn0A5H2w7Jt10xHGZ1SczN5+Dvp3UKkuSEt9moy/UaUWOwKdnQ==}
 
   bootstrap-icons@1.11.3:
     resolution: {integrity: sha512-+3lpHrCw/it2/7lBL15VR0HEumaBss0+f/Lb6ZvHISn1mlK83jjFpooTLsMWbIjJMDjDjOExMsTxnXSIT4k4ww==}
@@ -228,7 +228,7 @@ packages:
 
 snapshots:
 
-  '@alpinejs/morph@3.14.1': {}
+  '@alpinejs/morph@3.17.5': {}
 
   '@fontsource-variable/inter@5.3.0': {}
 
@@ -236,15 +236,15 @@ snapshots:
 
   '@popperjs/core@2.11.8': {}
 
-  '@vue/reactivity@3.1.5':
+  '@vue/reactivity@3.5.44':
     dependencies:
-      '@vue/shared': 3.1.5
+      '@vue/shared': 3.5.44
 
-  '@vue/shared@3.1.5': {}
+  '@vue/shared@3.5.44': {}
 
-  alpinejs@3.14.1:
+  alpinejs@3.17.5:
     dependencies:
-      '@vue/reactivity': 3.1.5
+      '@vue/reactivity': 3.5.44
 
   bootstrap-icons@1.11.3: {}
 
