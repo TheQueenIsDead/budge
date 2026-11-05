@@ -4,7 +4,7 @@ FROM node:26-alpine AS web
 
 # pnpm's own build, from the image pnpm publishes. Renovate moves it with the
 # packageManager version in web/package.json.
-COPY --from=ghcr.io/pnpm/pnpm:12.16.1-alpine /usr/local/bin/pnpm /usr/local/bin/pnpm
+COPY --from=ghcr.io/pnpm/pnpm:12.18.0-alpine /usr/local/bin/pnpm /usr/local/bin/pnpm
 
 WORKDIR /web
 
