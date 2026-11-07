@@ -30,7 +30,7 @@ import (
 
 // chrome is the Chrome the tests drive. Renovate keeps it current.
 // renovate: datasource=docker depName=docker.io/chromedp/headless-shell
-const chrome = "docker.io/chromedp/headless-shell:159.0.8130.0"
+const chrome = "docker.io/chromedp/headless-shell:159.0.8144.0"
 
 var (
 	// image is the budge image under test.
