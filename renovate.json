@@ -17,6 +17,12 @@
   ],
   "packageRules": [
     {
+      "description": "Minor and patch updates merge themselves once every check on the PR has passed, the browser tests among them. Renovate merges rather than GitHub's auto-merge, which waits only for required checks, and main requires none.",
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "platformAutomerge": false
+    },
+    {
       "description": "echo-otel's major version tracks Echo's, so the two move together in one PR, whatever their major version.",
       "matchDatasources": ["go"],
       "matchPackageNames": [
