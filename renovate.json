@@ -17,6 +17,11 @@
   ],
   "packageRules": [
     {
+      "description": "Minor and patch updates merge themselves, by GitHub's auto-merge, once the checks main requires have passed, the browser tests among them.",
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    },
+    {
       "description": "echo-otel's major version tracks Echo's, so the two move together in one PR, whatever their major version.",
       "matchDatasources": ["go"],
       "matchPackageNames": [

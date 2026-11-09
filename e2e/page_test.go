@@ -164,9 +164,21 @@ func (p *page) visit(path string) {
 }
 
 // settle waits until no htmx request is under way and the page's fonts are in.
+// A page a link is loading is waited for too.
 func (p *page) settle() {
 	p.t.Helper()
-	p.do(chromedp.Poll[chromedp.Void](`document.readyState === 'complete' && !document.querySelector('.htmx-request') && document.fonts.status === 'loaded'`))
+	ctx, cancel := context.WithTimeout(p.ctx, 30*time.Second)
+	defer cancel()
+	for {
+		err := chromedp.Do(ctx, chromedp.Poll[chromedp.Void](`document.readyState === 'complete' && !document.querySelector('.htmx-request') && document.fonts.status === 'loaded'`))
+		if gone(err) {
+			continue
+		}
+		if err != nil {
+			p.t.Fatal(err)
+		}
+		return
+	}
 }
 
 // eval returns the value of a JavaScript expression, awaited if a promise.
@@ -175,10 +187,21 @@ func eval[T any](p *page, expression string) T {
 	ctx, cancel := context.WithTimeout(p.ctx, 30*time.Second)
 	defer cancel()
 	v, err := chromedp.Run(ctx, chromedp.Evaluate[T](expression, chromedp.EvalAwaitPromise))
+	for gone(err) {
+		v, err = chromedp.Run(ctx, chromedp.Evaluate[T](expression, chromedp.EvalAwaitPromise))
+	}
 	if err != nil {
 		p.t.Fatalf("evaluating %s: %v", expression, err)
 	}
 	return v
+}
+
+// gone reports whether err is Chrome saying the page an expression ran in
+// went away under it: a click on a plain link, or the back button, loaded
+// another. Run again, the expression runs in the new page.
+func gone(err error) bool {
+	return err != nil && (strings.Contains(err.Error(), "Cannot find context with specified id") ||
+		strings.Contains(err.Error(), "Execution context was destroyed"))
 }
 
 // click clicks the middle of the first visible element sel matches, with
