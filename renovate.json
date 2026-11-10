@@ -31,8 +31,8 @@
       "groupName": "echo"
     },
     {
-      "description": "The page's libraries, in web/package.json, run in the browser, so a release must be a few days old before it is proposed, long enough for most hijacked ones to be caught and pulled. pnpm refuses younger ones too; see web/pnpm-workspace.yaml.",
-      "matchManagers": ["npm"],
+      "description": "A release must be a few days old before it is proposed, long enough for most hijacked ones to be caught and pulled, as minor and patch updates merge themselves. pnpm refuses younger libraries too; see web/pnpm-workspace.yaml. Security fixes are proposed at once.",
+      "matchPackageNames": ["*"],
       "minimumReleaseAge": "3 days"
     },
     {
