@@ -244,6 +244,7 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	// handler to record and answer.
 	app.http.Use(middleware.Recover())
 	app.http.Use(SecurityHeaders())
+	app.http.Use(CrossOriginProtection())
 
 	// General
 	app.http.GET("/", app.Dashboard)

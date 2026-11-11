@@ -85,3 +85,37 @@ func TestSecurityHeaders(t *testing.T) {
 		assert.NotContains(t, fragment.Body.String(), "<html", "only the fragment")
 	})
 }
+
+func TestCrossOriginProtection(t *testing.T) {
+	e := echo.New()
+	e.Use(CrossOriginProtection())
+	e.POST("/settings/danger/remove/synced", func(c *echo.Context) error { return c.NoContent(http.StatusOK) })
+	e.GET("/settings", func(c *echo.Context) error { return c.NoContent(http.StatusOK) })
+
+	send := func(method, path string, headers map[string]string) int {
+		req := httptest.NewRequest(method, "http://budge:1337"+path, nil)
+		for name, value := range headers {
+			req.Header.Set(name, value)
+		}
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	const remove = "/settings/danger/remove/synced"
+
+	t.Run("a post from another site is refused", func(t *testing.T) {
+		assert.Equal(t, http.StatusForbidden, send(http.MethodPost, remove, map[string]string{"Sec-Fetch-Site": "cross-site"}))
+		assert.Equal(t, http.StatusForbidden, send(http.MethodPost, remove, map[string]string{"Origin": "https://evil.example"}),
+			"a browser without Sec-Fetch-Site is judged by its Origin")
+	})
+
+	t.Run("budge's own pages, and clients that are not browsers, get through", func(t *testing.T) {
+		assert.Equal(t, http.StatusOK, send(http.MethodPost, remove, map[string]string{"Sec-Fetch-Site": "same-origin", "HX-Request": "true"}))
+		assert.Equal(t, http.StatusOK, send(http.MethodPost, remove, map[string]string{"Origin": "http://budge:1337"}))
+		assert.Equal(t, http.StatusOK, send(http.MethodPost, remove, nil))
+	})
+
+	t.Run("reading is never refused", func(t *testing.T) {
+		assert.Equal(t, http.StatusOK, send(http.MethodGet, "/settings", map[string]string{"Sec-Fetch-Site": "cross-site"}))
+	})
+}

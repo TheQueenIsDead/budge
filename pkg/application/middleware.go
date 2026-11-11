@@ -39,6 +39,25 @@ func StaticCaching() echo.MiddlewareFunc {
 	}
 }
 
+// CrossOriginProtection refuses a request that would change something when
+// it comes from another site. budge has no sign-in, so without this any page
+// open in the same browser could post a form to it, and remove the synced
+// data or overwrite the Akahu tokens. Go's own check is used: it trusts the
+// browser's Sec-Fetch-Site header, falls back to comparing Origin with Host,
+// and lets GET, HEAD and OPTIONS through, as they change nothing. htmx's
+// requests come from budge's own pages, so they are same-origin and pass.
+func CrossOriginProtection() echo.MiddlewareFunc {
+	protection := http.NewCrossOriginProtection()
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			if err := protection.Check(c.Request()); err != nil {
+				return echo.NewHTTPError(http.StatusForbidden, "refused a request from another site")
+			}
+			return next(c)
+		}
+	}
+}
+
 // cspNonceKey is where a request's nonce is kept, for the templates to mark
 // the page's own scripts with.
 const cspNonceKey = "cspNonce"
