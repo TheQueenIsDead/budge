@@ -151,10 +151,10 @@ func TestRenderSettingsPage(t *testing.T) {
 	account.Balance.Current = 79.80
 
 	page := renderTemplate(t, "settings", map[string]interface{}{
-		"accounts":       []models.Account{account},
-		"akahuAppToken":  "app_token",
-		"akahuUserToken": "user_token",
-		"sync":           SyncStatus{LastSync: time.Now().Add(-2 * time.Hour)},
+		"accounts":            []models.Account{account},
+		"akahuAppTokenSaved":  true,
+		"akahuUserTokenSaved": true,
+		"sync":                SyncStatus{LastSync: time.Now().Add(-2 * time.Hour)},
 		"schedule": buildScheduleView(models.ScheduleSettings{
 			AkahuEnabled: true, AkahuInterval: "6h", AkahuLastRun: time.Now().Add(-time.Hour),
 		}),

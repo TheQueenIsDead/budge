@@ -2,6 +2,7 @@ package application
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
@@ -63,13 +64,15 @@ func (app *Application) Settings(c *echo.Context) error {
 	}
 
 	return c.Render(http.StatusOK, "settings", map[string]interface{}{
-		"accounts":       accounts,
-		"categories":     categories,
-		"akahuAppToken":  akahuConfig.AppToken,
-		"akahuUserToken": akahuConfig.UserToken,
-		"sync":           app.syncStatus(ctx),
-		"schedule":       buildScheduleView(schedule),
-		"admin":          app.telemetry != nil,
+		"accounts":   accounts,
+		"categories": categories,
+		// Whether each token is saved, never the token itself: the page is
+		// not somewhere a secret should be readable from.
+		"akahuAppTokenSaved":  akahuConfig.AppToken != "",
+		"akahuUserTokenSaved": akahuConfig.UserToken != "",
+		"sync":                app.syncStatus(ctx),
+		"schedule":            buildScheduleView(schedule),
+		"admin":               app.telemetry != nil,
 	})
 }
 
@@ -94,8 +97,14 @@ func (app *Application) PutAkahuSettings(c *echo.Context) error {
 		return err
 	}
 
-	settings.AppToken = c.FormValue("akahuAppToken")
-	settings.UserToken = c.FormValue("akahuUserToken")
+	// The page never holds the saved tokens, so a field left blank keeps
+	// what is saved rather than clearing it.
+	if token := strings.TrimSpace(c.FormValue("akahuAppToken")); token != "" {
+		settings.AppToken = token
+	}
+	if token := strings.TrimSpace(c.FormValue("akahuUserToken")); token != "" {
+		settings.UserToken = token
+	}
 	if err := settings.Validate(); err != nil {
 		return err
 	}

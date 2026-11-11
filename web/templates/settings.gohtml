@@ -26,7 +26,7 @@
                     <label class="b-field-label" for="akahuAppToken">App token</label>
                     <div class="input-group input-group-sm" x-data="{ shown: false }">
                         <input class="form-control" id="akahuAppToken" name="akahuAppToken"
-                               value="{{ .akahuAppToken }}" type="password" autocomplete="off" :type="shown ? 'text' : 'password'">
+                               {{ if .akahuAppTokenSaved }}placeholder="Saved — leave blank to keep"{{ end }} type="password" autocomplete="off" :type="shown ? 'text' : 'password'">
                         <button type="button" class="btn btn-outline-secondary" id="toggleAppToken" @click="shown = !shown"
                                 :aria-pressed="shown" aria-label="Show the app token">
                             <i class="bi bi-eye-fill" :class="{ 'bi-eye-fill': !shown, 'bi-eye-slash-fill': shown }"></i>
@@ -38,7 +38,7 @@
                     <label class="b-field-label" for="akahuUserToken">User token</label>
                     <div class="input-group input-group-sm" x-data="{ shown: false }">
                         <input class="form-control" id="akahuUserToken" name="akahuUserToken"
-                               value="{{ .akahuUserToken }}" type="password" autocomplete="off" :type="shown ? 'text' : 'password'">
+                               {{ if .akahuUserTokenSaved }}placeholder="Saved — leave blank to keep"{{ end }} type="password" autocomplete="off" :type="shown ? 'text' : 'password'">
                         <button type="button" class="btn btn-outline-secondary" id="toggleUserToken" @click="shown = !shown"
                                 :aria-pressed="shown" aria-label="Show the user token">
                             <i class="bi bi-eye-fill" :class="{ 'bi-eye-fill': !shown, 'bi-eye-slash-fill': shown }"></i>
