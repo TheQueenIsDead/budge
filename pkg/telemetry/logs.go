@@ -30,13 +30,15 @@ type LogStore struct {
 	records *ring[LogRecord]
 	disk    *disk
 
-	// pending is what has been logged since the last write to disk.
-	mu      sync.Mutex
-	pending []LogRecord
+	// pending is what has been logged since the last write to disk, at
+	// most maxPending of it once a write has failed.
+	mu         sync.Mutex
+	pending    []LogRecord
+	maxPending int
 }
 
 func newLogStore(capacity int) *LogStore {
-	return &LogStore{records: newRing[LogRecord](capacity)}
+	return &LogStore{records: newRing[LogRecord](capacity), maxPending: capacity}
 }
 
 // Export keeps the records handed to it.
@@ -84,11 +86,15 @@ func (s *LogStore) takePending() []LogRecord {
 }
 
 // requeue puts back records a write to disk failed to keep, ahead of any
-// logged since, so the next write tries them again.
-func (s *LogStore) requeue(records []LogRecord) {
+// logged since, so the next write tries them again. No more wait than memory
+// holds, so a disk that keeps failing does not grow them without end: the
+// oldest are dropped, and how many is returned.
+func (s *LogStore) requeue(records []LogRecord) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.pending = append(records, s.pending...)
+	var dropped int
+	s.pending, dropped = keepNewest(append(records, s.pending...), s.maxPending)
+	return dropped
 }
 
 // Search finds records at or above a severity that match, newest first,

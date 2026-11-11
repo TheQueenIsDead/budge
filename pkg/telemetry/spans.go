@@ -86,16 +86,22 @@ type SpanStore struct {
 	children *ring[Span]
 	disk     *disk
 
-	// pending is what has finished since the last write to disk.
-	mu      sync.Mutex
-	pending []Span
+	// pending is what has finished since the last write to disk, at most
+	// maxPending of it once a write has failed.
+	mu         sync.Mutex
+	pending    []Span
+	maxPending int
 }
 
 // childrenPerRoot is how many spans beneath a root are kept for each root.
 const childrenPerRoot = 4
 
 func newSpanStore(capacity int) *SpanStore {
-	return &SpanStore{roots: newRing[Span](capacity), children: newRing[Span](capacity * childrenPerRoot)}
+	return &SpanStore{
+		roots:      newRing[Span](capacity),
+		children:   newRing[Span](capacity * childrenPerRoot),
+		maxPending: capacity * (1 + childrenPerRoot),
+	}
 }
 
 // ExportSpans keeps the spans handed to it.
@@ -156,11 +162,14 @@ func (s *SpanStore) takePending() []Span {
 	return pending
 }
 
-// requeue puts back spans a write to disk failed to keep.
-func (s *SpanStore) requeue(spans []Span) {
+// requeue puts back spans a write to disk failed to keep, no more than
+// memory holds, dropping the oldest and returning how many went.
+func (s *SpanStore) requeue(spans []Span) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.pending = append(spans, s.pending...)
+	var dropped int
+	s.pending, dropped = keepNewest(append(spans, s.pending...), s.maxPending)
+	return dropped
 }
 
 // History walks the roots kept, newest first, through memory and then the

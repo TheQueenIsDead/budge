@@ -1,6 +1,9 @@
 package telemetry
 
-import "sync"
+import (
+	"slices"
+	"sync"
+)
 
 // ring keeps the most recent items up to its capacity, dropping the oldest
 // as new ones arrive. Telemetry is kept since the process started, but only
@@ -51,4 +54,15 @@ func (r *ring[T]) len() int {
 		return len(r.items)
 	}
 	return r.next
+}
+
+// keepNewest trims items, oldest first, to at most limit, returning what is
+// left and how many went. What is left is copied, so the dropped items are
+// not held on to by the array beneath it.
+func keepNewest[T any](items []T, limit int) ([]T, int) {
+	if len(items) <= limit {
+		return items, 0
+	}
+	dropped := len(items) - limit
+	return slices.Clone(items[dropped:]), dropped
 }

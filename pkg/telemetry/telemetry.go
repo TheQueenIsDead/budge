@@ -257,13 +257,14 @@ func (t *Telemetry) sample(ctx context.Context, every, persistEvery time.Duratio
 }
 
 // persist writes the newest samples and the logs since the last write to
-// disk. Logs a write failed to keep are tried again next time.
+// disk. Logs and spans a write failed to keep are tried again next time, as
+// many as memory holds; past that the oldest are dropped, and counted in the
+// one warning rather than one apiece.
 func (t *Telemetry) persist() {
 	samples, records, spans := t.Metrics.unpersisted(), t.Logs.takePending(), t.Spans.takePending()
 	if err := t.disk.write(samples, records, spans); err != nil {
-		t.Logs.requeue(records)
-		t.Spans.requeue(spans)
-		slog.Warn("could not write telemetry to disk", "error", err)
+		droppedLogs, droppedSpans := t.Logs.requeue(records), t.Spans.requeue(spans)
+		slog.Warn("could not write telemetry to disk", "error", err, "dropped_logs", droppedLogs, "dropped_spans", droppedSpans)
 		return
 	}
 	t.Metrics.markPersisted(samples)

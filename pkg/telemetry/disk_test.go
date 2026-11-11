@@ -260,3 +260,38 @@ func TestWritesWaitOutACompaction(t *testing.T) {
 	require.NoError(t, d.logs(time.Now().Add(time.Hour), func(LogRecord) bool { kept++; return true }))
 	assert.Equal(t, 200, kept)
 }
+
+func TestRequeueKeepsNoMoreThanMemoryHolds(t *testing.T) {
+	logs := newLogStore(3)
+	logs.pending = []LogRecord{{Message: "since"}}
+	dropped := logs.requeue([]LogRecord{{Message: "1"}, {Message: "2"}, {Message: "3"}})
+	assert.Equal(t, 1, dropped)
+	var messages []string
+	for _, record := range logs.takePending() {
+		messages = append(messages, record.Message)
+	}
+	assert.Equal(t, []string{"2", "3", "since"}, messages, "the oldest go, and what was logged since stays")
+
+	spans := newSpanStore(1) // a root and four beneath it
+	assert.Equal(t, 2, spans.requeue(make([]Span, 7)))
+	assert.Len(t, spans.takePending(), 5)
+}
+
+func TestAFailingDiskDoesNotGrowWhatIsWaiting(t *testing.T) {
+	tel := persisted(t, filepath.Join(t.TempDir(), "telemetry.db"))
+	t.Cleanup(func() { _ = tel.Shutdown(context.Background()) })
+	tel.Logs.maxPending = 5
+	// Every write fails from here on.
+	require.NoError(t, tel.disk.db.Close())
+
+	for range 3 {
+		for i := range 10 {
+			slog.Info("busy", "i", i)
+		}
+		tel.persist()
+	}
+	waiting := tel.Logs.takePending()
+	require.Len(t, waiting, 6, "only as many wait as memory holds, and the warning logged since")
+	assert.Equal(t, "could not write telemetry to disk", waiting[5].Message)
+	assert.Equal(t, "11", waiting[5].Attrs["dropped_logs"], "of the five kept, the warning before and ten more, only five are kept again")
+}
