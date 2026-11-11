@@ -242,7 +242,7 @@ func (t *Telemetry) sample(ctx context.Context, every, persistEvery time.Duratio
 				persisted = now
 			}
 			if now.Sub(pruned) >= pruneEvery {
-				if err := t.disk.prune(now); err != nil {
+				if err := t.disk.prune(now); err != nil && !errors.Is(err, errUnusable) {
 					slog.Warn("could not prune telemetry", "error", err)
 				}
 				pruned = now
@@ -263,6 +263,11 @@ func (t *Telemetry) sample(ctx context.Context, every, persistEvery time.Duratio
 func (t *Telemetry) persist() {
 	samples, records, spans := t.Metrics.unpersisted(), t.Logs.takePending(), t.Spans.takePending()
 	if err := t.disk.write(samples, records, spans); err != nil {
+		// A file given up on was said so at Error when it went, and nothing
+		// waiting could reach it, so it stays in memory only.
+		if errors.Is(err, errUnusable) {
+			return
+		}
 		droppedLogs, droppedSpans := t.Logs.requeue(records), t.Spans.requeue(spans)
 		slog.Warn("could not write telemetry to disk", "error", err, "dropped_logs", droppedLogs, "dropped_spans", droppedSpans)
 		return
@@ -276,6 +281,10 @@ func (t *Telemetry) Compact() (Compaction, error) {
 		return Compaction{}, errors.New("telemetry is kept in memory only")
 	}
 	result, err := t.disk.compact()
+	if errors.Is(err, errUnusable) {
+		slog.Error("telemetry is kept in memory only from now on: its file could not be reopened after compacting", "path", t.Path, "error", err)
+		return result, err
+	}
 	if err != nil {
 		slog.Error("could not compact telemetry", "error", err)
 		return result, err

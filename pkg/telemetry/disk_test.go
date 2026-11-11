@@ -261,6 +261,26 @@ func TestWritesWaitOutACompaction(t *testing.T) {
 	assert.Equal(t, 200, kept)
 }
 
+func TestAFileThatWillNotReopenIsGivenUpOn(t *testing.T) {
+	tel := persisted(t, filepath.Join(t.TempDir(), "telemetry.db"))
+	t.Cleanup(func() { _ = tel.Shutdown(context.Background()) })
+	reopenBolt = func(string) (*bolt.DB, error) { return nil, errors.New("disk gone") }
+	t.Cleanup(func() { reopenBolt = openBolt })
+
+	_, err := tel.Compact()
+	require.ErrorIs(t, err, errUnusable)
+	assert.ErrorContains(t, err, "disk gone", "the reason it would not reopen is kept")
+
+	slog.Info("after")
+	tel.persist()
+	assert.Empty(t, tel.Logs.takePending(), "what was waiting is not put back to try again")
+	assert.ErrorIs(t, tel.disk.write(nil, []LogRecord{{Time: time.Now()}}, nil), errUnusable, "a write says why it cannot be kept")
+	assert.False(t, tel.disk.worthCompacting())
+	_, err = tel.Compact()
+	assert.ErrorIs(t, err, errUnusable, "nor is it compacted again")
+	assert.NoError(t, tel.disk.close())
+}
+
 func TestRequeueKeepsNoMoreThanMemoryHolds(t *testing.T) {
 	logs := newLogStore(3)
 	logs.pending = []LogRecord{{Message: "since"}}

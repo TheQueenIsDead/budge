@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"os"
 	"sync"
@@ -30,6 +31,10 @@ type disk struct {
 	// a compacted copy, so nothing reaches a file being closed.
 	lock sync.RWMutex
 	db   *bolt.DB
+
+	// broken is why the file can no longer be used: a compaction closed it
+	// and could not open it again. Nothing reaches the closed handle after.
+	broken error
 
 	// Counting what the file holds walks all of it, so a count is reused for
 	// a minute rather than taken on every look at the admin page.
@@ -84,21 +89,34 @@ func openBolt(path string) (*bolt.DB, error) {
 
 func compactPath(path string) string { return path + ".compact" }
 
+// errUnusable is what every read and write returns once the file could not
+// be opened again after a compaction.
+var errUnusable = errors.New("telemetry file is unusable for the rest of this run")
+
 func (d *disk) close() error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
+	if d.broken != nil {
+		return nil
+	}
 	return d.db.Close()
 }
 
 func (d *disk) view(fn func(*bolt.Tx) error) error {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
+	if d.broken != nil {
+		return d.broken
+	}
 	return d.db.View(fn)
 }
 
 func (d *disk) update(fn func(*bolt.Tx) error) error {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
+	if d.broken != nil {
+		return d.broken
+	}
 	return d.db.Update(fn)
 }
 
@@ -393,6 +411,9 @@ func (c Compaction) Freed() int64 { return max(0, c.Before-c.After) }
 func (d *disk) reclaimable() (size, free int64) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
+	if d.broken != nil {
+		return 0, 0
+	}
 	return d.fileSize(), int64(d.db.Stats().FreeAlloc)
 }
 
@@ -436,9 +457,16 @@ func (d *disk) compact() (Compaction, error) {
 	return result, nil
 }
 
+// reopenBolt opens the file again once swap has closed it. Tests stand in
+// for it to see what a file that will not reopen leaves behind.
+var reopenBolt = openBolt
+
 func (d *disk) swap() (Compaction, error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
+	if d.broken != nil {
+		return Compaction{}, d.broken
+	}
 	started := time.Now()
 	result := Compaction{At: started, Before: d.fileSize()}
 
@@ -457,19 +485,27 @@ func (d *disk) swap() (Compaction, error) {
 		_ = os.Remove(copyPath)
 		return result, err
 	}
-	if err := d.db.Close(); err != nil {
-		return result, err
+	// Once closed, a file is reopened whatever happens: the copy if it took
+	// the old one's place, or else the old one, so telemetry carries on.
+	closed := d.db.Close()
+	var renamed error
+	if closed == nil {
+		renamed = os.Rename(copyPath, d.path)
 	}
-	renamed := os.Rename(copyPath, d.path)
-	// Whether or not the copy took its place, a file is reopened: the old one
-	// if the rename failed, so telemetry carries on either way.
-	db, err := openBolt(d.path)
+	failed := errors.Join(closed, renamed)
+	if failed != nil {
+		_ = os.Remove(copyPath)
+	}
+	db, err := reopenBolt(d.path)
 	if err != nil {
-		return result, errors.Join(renamed, err)
+		// Left as it was, every later write would reach a closed handle and
+		// fail without saying why, so the file is given up on instead.
+		d.broken = fmt.Errorf("%w: %w", errUnusable, errors.Join(failed, err))
+		return result, d.broken
 	}
 	d.db = db
-	if renamed != nil {
-		return result, renamed
+	if failed != nil {
+		return result, failed
 	}
 	result.After = d.fileSize()
 	result.Took = time.Since(started)
