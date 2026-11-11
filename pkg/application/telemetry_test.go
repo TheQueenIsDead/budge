@@ -279,6 +279,17 @@ func TestEchosOwnErrorsKeepTheirStatus(t *testing.T) {
 	missing := serve(http.MethodGet, "/no-such-page")
 	assert.Equal(t, http.StatusTemporaryRedirect, missing.Code, "an unknown page is not found, not a server error")
 	assert.Equal(t, "/4XX", missing.Header().Get("Location"))
+	assert.Empty(t, missing.Header().Get("Hx-Trigger"), "a redirect is the whole answer")
+	assert.NotContains(t, missing.Body.String(), `"Not Found"`, "nothing is written after the redirect")
+
+	req := httptest.NewRequest(http.MethodGet, "/no-such-page", nil)
+	req.Header.Set("HX-Request", "true")
+	htmx := httptest.NewRecorder()
+	app.http.ServeHTTP(htmx, req)
+	assert.Equal(t, http.StatusNotFound, htmx.Code, "htmx is told, not redirected")
+	assert.Empty(t, htmx.Header().Get("Location"))
+	assert.Contains(t, htmx.Header().Get("Hx-Trigger"), `"toast"`)
+	assert.Equal(t, "none", htmx.Header().Get("Hx-Reswap"))
 
 	wrongMethod := serve(http.MethodPut, "/settings")
 	assert.Equal(t, http.StatusMethodNotAllowed, wrongMethod.Code)

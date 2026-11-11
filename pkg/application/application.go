@@ -201,10 +201,14 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 		}
 		slog.Log(ctx, level, "request failed", "error", msg, "status", code, "uri", c.Request().RequestURI)
 
-		if code == http.StatusNotFound {
+		// A page that is not there is sent to the not found page, and that is
+		// the whole answer. htmx would swap the not found page into whatever
+		// asked, so its requests are told with a toast like any other error.
+		if code == http.StatusNotFound && c.Request().Header.Get("HX-Request") == "" {
 			if err := c.Redirect(http.StatusTemporaryRedirect, "/4XX"); err != nil {
 				slog.ErrorContext(ctx, "could not redirect to the not found page", "error", err)
 			}
+			return
 		}
 
 		// Set an HTMX Error even via headers
