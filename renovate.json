@@ -4,6 +4,10 @@
     "config:recommended"
   ],
   "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "description": "Security fixes are committed as fix(deps), whatever the dependency, so Release Please cuts a release that carries them. Otherwise an indirect dependency's fix is a chore and waits for the next release.",
+    "semanticCommitType": "fix"
+  },
   "postUpdateOptions": ["gomodTidy"],
   "customManagers": [
     {
