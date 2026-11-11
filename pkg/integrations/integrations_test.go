@@ -250,3 +250,52 @@ func TestAFreshInstanceTakesAkahuTokensFromTheEnvironment(t *testing.T) {
 	again := NewIntegrations(store)
 	assert.Equal(t, "user-saved", again.akahu.UserToken, "saved tokens win over the environment")
 }
+
+// TestAnIncrementalSyncKeepsATransferSplitByItsWindow covers a transfer whose
+// legs fall either side of where an incremental sync starts reading. The
+// later leg arrived without its partner and was saved over as a credit.
+func TestAnIncrementalSyncKeepsATransferSplitByItsWindow(t *testing.T) {
+	through := time.Date(2026, time.October, 15, 9, 0, 0, 0, time.UTC)
+	since := through.AddDate(0, 0, -syncOverlapDays)
+	transactions := []map[string]interface{}{
+		{"_id": "out", "_account": "savings", "amount": -500, "type": "PAYMENT", "date": since.Add(-3 * time.Hour)},
+		{"_id": "in", "_account": "everyday", "amount": 500, "type": "PAYMENT", "date": since.Add(2 * time.Hour)},
+		{"_id": "groceries", "_account": "everyday", "amount": -80, "type": "EFTPOS", "date": since.Add(4 * time.Hour)},
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/accounts":
+			_, _ = fmt.Fprint(w, `{"success": true, "items": []}`)
+		case "/transactions":
+			var start time.Time
+			if s := r.URL.Query().Get("start"); s != "" {
+				start, _ = time.Parse(time.RFC3339, s)
+			}
+			var items []map[string]interface{}
+			for _, tx := range transactions {
+				if !tx["date"].(time.Time).Before(start) {
+					items = append(items, tx)
+				}
+			}
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "items": items})
+		}
+	}))
+	defer server.Close()
+	integrations, store := testIntegrations(t, server.URL)
+
+	typeOf := func(id string) string {
+		tx, err := store.GetTransaction(t.Context(), id)
+		require.NoError(t, err)
+		return tx.Type
+	}
+
+	_, err := integrations.SyncAkahu(t.Context(), time.Time{}, nil)
+	require.NoError(t, err)
+	require.Equal(t, "TRANSFER", typeOf("in"), "a full sync sees both legs")
+
+	_, err = integrations.SyncAkahu(t.Context(), through, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "TRANSFER", typeOf("in"), "the leg inside the window stays a transfer")
+	assert.Equal(t, "TRANSFER", typeOf("out"))
+	assert.Equal(t, "EFTPOS", typeOf("groceries"), "nothing else becomes one")
+}

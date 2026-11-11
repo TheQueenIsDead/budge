@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -417,6 +418,36 @@ func (s *Store) SaveSynced(ctx context.Context, accounts []models.Account, trans
 			putAll(tx, merchants),
 		)
 	})
+}
+
+// StoredTransfers reports which of the given transactions are stored as a
+// transfer, reading them all in one transaction. One not stored is not.
+func (s *Store) StoredTransfers(ctx context.Context, ids []string) (map[string]bool, error) {
+	transfers := map[string]bool{}
+	if len(ids) == 0 {
+		return transfers, nil
+	}
+	err := view(ctx, s.db, bucketOf[models.Transaction](), func(tx *bolt.Tx) error {
+		b := tx.Bucket(buckets.TransactionBucket)
+		if b == nil {
+			return nil
+		}
+		for _, id := range ids {
+			buf := b.Get([]byte(id))
+			if buf == nil {
+				continue
+			}
+			var stored models.Transaction
+			if err := json.Unmarshal(buf, &stored); err != nil {
+				return err
+			}
+			if stored.Type == "TRANSFER" {
+				transfers[id] = true
+			}
+		}
+		return nil
+	})
+	return transfers, err
 }
 
 /* Merchants */

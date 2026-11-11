@@ -24,6 +24,9 @@ import (
 // fortnight costs a few hundred transactions, rewritten in one commit.
 const syncOverlapDays = 14
 
+// transferWindow is how far apart the two legs of a transfer can be dated.
+const transferWindow = 24 * time.Hour
+
 type Integrations struct {
 	store *database.Store
 	akahu *akahu.AkahuClient
@@ -107,6 +110,11 @@ func (i *Integrations) SyncAkahu(ctx context.Context, dataThrough time.Time, pro
 	_, span = tracer().Start(ctx, "classify transactions")
 
 	transfers := identifyTransfers(transactions)
+	if err := i.keepBoundaryTransfers(ctx, since, transactions, transfers); err != nil {
+		end(span, err)
+		slog.ErrorContext(ctx, "akahu sync failed", "error", err)
+		return dataThrough, err
+	}
 
 	// Accounts hardly change, so just insert them and overwrite the key if need be.
 	saved := make([]models.Account, len(accounts))
@@ -229,7 +237,7 @@ func isMatchingTransfer(tx1, tx2 akahu.Transaction) bool {
 
 	// Check if transactions are within 24 hours
 	timeDiff := tx1.Date.Sub(tx2.Date)
-	return math.Abs(timeDiff.Hours()) <= 24
+	return math.Abs(timeDiff.Hours()) <= transferWindow.Hours()
 }
 
 // identifyTransfers pairs up transfers between the owner's accounts. Each
@@ -269,6 +277,38 @@ func identifyTransfers(transactions []akahu.Transaction) map[string]bool {
 
 	return matchIds
 
+}
+
+// keepBoundaryTransfers stops an incremental sync downgrading a transfer it
+// cannot see the whole of. The window starts at an arbitrary time of day, so
+// one leg of a transfer can fall just before it and the other just after; the
+// later leg then has no partner here and would be saved over as a debit or
+// credit. A transaction dated within a day of the start of the window could
+// have its partner outside it, so if it is stored as a transfer, it stays
+// one. Feeding the stored transactions before the window into the pairing
+// instead was the alternative, but a stored transfer has lost the type Akahu
+// gave it, and is already paired with something that may not be loaded, so
+// it could be paired a second time. A full resync sees both legs of
+// everything, so it is still free to correct a transfer.
+func (i *Integrations) keepBoundaryTransfers(ctx context.Context, since time.Time, transactions []akahu.Transaction, transfers map[string]bool) error {
+	if since.IsZero() {
+		return nil
+	}
+	boundary := since.Add(transferWindow)
+	var unpaired []string
+	for _, tx := range transactions {
+		if !transfers[tx.Id] && tx.Date.Before(boundary) {
+			unpaired = append(unpaired, tx.Id)
+		}
+	}
+	stored, err := i.store.StoredTransfers(ctx, unpaired)
+	if err != nil {
+		return err
+	}
+	for id := range stored {
+		transfers[id] = true
+	}
+	return nil
 }
 
 func (i *Integrations) PutAkahuSettings(ctx context.Context, settings models.IntegrationAkahuSettings) error {
