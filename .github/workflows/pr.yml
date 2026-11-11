@@ -37,6 +37,9 @@ jobs:
       - uses: golangci/golangci-lint-action@v9
         with:
           install-mode: goinstall
-          version: latest
+          # A pinned version, so a new linter's new checks arrive in a
+          # Renovate PR rather than failing whatever PR runs next.
+          # renovate: datasource=github-releases depName=golangci/golangci-lint
+          version: v2.15.0
           # The browser tests are built only with the e2e tag.
           args: --build-tags e2e

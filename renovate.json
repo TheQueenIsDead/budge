@@ -17,6 +17,14 @@
       "matchStrings": [
         "// renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n[^\\n]*\"[^\"]+:(?<currentValue>[^\"]+)\""
       ]
+    },
+    {
+      "description": "Tools workflows install by version, such as the linter, named on the line under a renovate comment.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n\\s*version: (?<currentValue>\\S+)"
+      ]
     }
   ],
   "packageRules": [
