@@ -5,8 +5,9 @@
   ],
   "osvVulnerabilityAlerts": true,
   "vulnerabilityAlerts": {
-    "description": "Security fixes are committed as fix(deps), whatever the dependency, so Release Please cuts a release that carries them. Otherwise an indirect dependency's fix is a chore and waits for the next release.",
-    "semanticCommitType": "fix"
+    "description": "Security fixes are committed as fix(deps), whatever the dependency, so Release Please cuts a release that carries them. Otherwise an indirect dependency's fix is a chore and waits for the next release. They are proposed at once, rather than after the few days other releases wait, which Renovate does by default and is said here so that it stays so.",
+    "semanticCommitType": "fix",
+    "minimumReleaseAge": null
   },
   "postUpdateOptions": ["gomodTidy"],
   "customManagers": [
