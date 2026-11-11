@@ -1,4 +1,4 @@
-# On push to main, aggregate a release PR.
+# On push to main, test main in a browser, then aggregate a release PR.
 # If the release PR is merged and a tag created, a new image will be pushed to GHCR.
 name: Main
 
@@ -7,8 +7,17 @@ on:
     branches: [ "main" ]
 
 jobs:
+  # Every push to main, in a browser. Release Please waits on it, so the
+  # release PR only takes in commits that pass, and a release, with its tag,
+  # is only made once its own commit has passed too.
+  e2e:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/_e2e.yml
+
   # Run release-please to aggregate changes and handle semantic versioning via conventional commits
   release:
+    needs: e2e
     permissions:
       contents: write
       pull-requests: write
@@ -21,18 +30,10 @@ jobs:
       - id: release
         uses: googleapis/release-please-action@v5
 
-  # A new release's image in a browser, before it is published.
-  e2e:
-    needs: release
-    if: ${{ needs.release.outputs.release_created }}
-    permissions:
-      contents: read
-    uses: ./.github/workflows/_e2e.yml
-
-  # Publish (only if a new release was created and its browser tests pass),
-  # tested and built the same way as on a PR.
+  # Publish (only if a new release was created), tested and built the same
+  # way as on a PR.
   publish:
-    needs: [release, e2e]
+    needs: release
     if: ${{ needs.release.outputs.release_created }}
     permissions:
       contents: read
