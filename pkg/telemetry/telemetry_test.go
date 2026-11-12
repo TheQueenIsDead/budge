@@ -234,3 +234,14 @@ func TestRequestsOutlastTheirQueries(t *testing.T) {
 	assert.Len(t, tel.Spans.Requests(), 3, "ninety queries do not push three requests out")
 	assert.Len(t, tel.Spans.Recent(nil), 43)
 }
+
+func TestBuildVersionTakesAStampedRevision(t *testing.T) {
+	saved := stampedRevision
+	t.Cleanup(func() { stampedRevision = saved })
+
+	// A test binary records no checkout, as an image's build doesn't.
+	stampedRevision = "7ba22f9c0ffee"
+	version, revision := BuildVersion("1.21.0")
+	assert.Equal(t, "1.21.0", version)
+	assert.Equal(t, "7ba22f9", revision)
+}

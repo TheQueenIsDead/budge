@@ -35,10 +35,12 @@ RUN go test -race ./...
 
 FROM source AS build
 
-# The release's version, which the admin page and the telemetry file record
-# for each run.
+# The release's version and commit, which the admin page and the telemetry
+# file record for each run. The commit is given, as .git is left out of the
+# build.
 ARG VERSION=""
-RUN CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION}" -o /go/bin/budge ./cmd/budge/...
+ARG REVISION=""
+RUN CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION} -X github.com/TheQueenIsDead/budge/pkg/telemetry.stampedRevision=${REVISION}" -o /go/bin/budge ./cmd/budge/...
 
 FROM gcr.io/distroless/static-debian12
 

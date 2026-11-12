@@ -1,13 +1,19 @@
+# What the image's build doesn't need. Git's history among it, so the build
+# has no checkout to read as modified; the Dockerfile is given the commit.
+.git/
 .github/
 .run/
 .idea/
+.claude/
 tmp/
 .air.toml
 .gitignore
 .release-please-manifest.json
+release-please-config.json
+renovate.json
 *.db
+*.db.bak-*
 *.exe
 *.md
-release-please-config.json
 web/node_modules
 _artifacts

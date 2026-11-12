@@ -368,13 +368,21 @@ func (t *Telemetry) Runs() []Run {
 	return runs
 }
 
+// stampedRevision is the commit an image was built from, stamped in with
+// -ldflags "-X github.com/TheQueenIsDead/budge/pkg/telemetry.stampedRevision=...".
+// The image's build is given no git checkout to read it from: one with files
+// left out of the build would read as modified.
+var stampedRevision string
+
 // BuildVersion is the version budge was built as: the one given, stamped in
-// at release, or else what Go recorded from the module and its checkout.
+// at release, or else what Go recorded from the module and its checkout. The
+// revision is what Go recorded from the checkout, or else the one stamped in.
 func BuildVersion(given string) (version, revision string) {
 	version = given
+	revision = stampedRevision[:min(len(stampedRevision), 7)]
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
-		return cmp.Or(version, "dev"), ""
+		return cmp.Or(version, "dev"), revision
 	}
 	if version == "" && info.Main.Version != "(devel)" {
 		version = info.Main.Version

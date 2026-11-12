@@ -74,6 +74,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
+            REVISION=${{ github.event.pull_request.head.sha || github.sha }}
             GO_VERSION=${{ steps.versions.outputs.go }}
             PNPM_VERSION=${{ steps.versions.outputs.pnpm }}
           cache-from: type=gha
