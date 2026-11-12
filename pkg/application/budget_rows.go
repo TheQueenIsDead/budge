@@ -229,18 +229,26 @@ func splitRow(category models.BudgetCategory, subRows []CategoryTargetRow, netWe
 		Per:            frequencyPer("weekly"),
 		WindowWeeks:    untargetedWindowWeeks,
 	}
+	// The row shows everything the category spends, but is judged only on
+	// what has a target, against those targets, as the tracking summary
+	// judges it. Spending with no target has nothing to be over, so it is
+	// not counted against the targets of the parts that do.
+	var targetedWeekly float64
 	for _, sub := range subRows {
 		row.ActualWeekly += sub.ActualWeekly
 		row.TargetWeekly += sub.TargetWeekly
+		if sub.HasTarget {
+			targetedWeekly += sub.ActualWeekly
+		}
 	}
 	row.ActualDisplay = row.ActualWeekly
 	row.TargetDisplay = row.TargetWeekly
 	row.Target = row.TargetWeekly
 	row.HasTarget = row.TargetWeekly > 0
 	row.NeedsTarget = !row.HasTarget && row.ActualWeekly > 0
-	row.IsOver = row.HasTarget && row.ActualWeekly > row.TargetWeekly+overToleranceWeekly
+	row.IsOver = row.HasTarget && targetedWeekly > row.TargetWeekly+overToleranceWeekly
 	if row.HasTarget {
-		row.Percentage = row.ActualWeekly / row.TargetWeekly
+		row.Percentage = targetedWeekly / row.TargetWeekly
 		if netWeekly > 0 {
 			row.PctOfIncome = row.TargetWeekly / netWeekly
 		}

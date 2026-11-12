@@ -562,7 +562,14 @@ func TestSplitCategoryIsJudgedPartByPart(t *testing.T) {
 	html := renderTemplate(t, "budget.setup.row", split)
 	heading := html[:indexOf(t, html, "</summary>")]
 	assert.NotContains(t, heading, "b-target-bar", "no bar for a split category: its parts each have their own")
-	assert.Contains(t, heading, "$90 a week")
+	assert.Contains(t, heading, "$90 a week", "it shows everything it spends, the general bucket's too")
+
+	// The row agrees with the summary: the targeted parts are under their
+	// targets, so it is not marked over for what has no target.
+	assert.False(t, split.IsOver, "$74 against $75; the general $16 has no target to be over")
+	assert.NotContains(t, html[:indexOf(t, html, "<details")], "b-target-over")
+	assert.InDelta(t, 74.0/75, split.Percentage, 0.001)
+	assert.InDelta(t, 90, split.ActualWeekly, 0.001)
 
 	summary := buildTrackingSummary([]CategoryTargetRow{split})
 	assert.InDelta(t, 74, summary.Actual, 0.001, "only what has a target is measured against targets")
