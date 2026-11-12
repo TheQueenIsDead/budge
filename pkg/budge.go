@@ -146,7 +146,8 @@ func telemetryOptions(version string) (telemetry.Options, error) {
 		dir = "."
 	}
 	opts.Path = filepath.Join(dir, "budge.telemetry.db")
-	if value, ok := os.LookupEnv("BUDGE_TELEMETRY_RETENTION"); ok {
+	// Left empty, as BUDGE_TELEMETRY may be, it is as good as unset.
+	if value, ok := os.LookupEnv("BUDGE_TELEMETRY_RETENTION"); ok && strings.TrimSpace(value) != "" {
 		retention, err := parseRetention(value)
 		if err != nil {
 			return opts, fmt.Errorf("BUDGE_TELEMETRY_RETENTION: %w", err)
@@ -164,6 +165,11 @@ func parseRetention(value string) (time.Duration, error) {
 		n, err := strconv.Atoi(days)
 		if err != nil || n < 0 {
 			return 0, fmt.Errorf("%q is not a number of days", value)
+		}
+		// Past about 292 years a duration wraps negative, which would read
+		// as no retention and quietly keep telemetry in memory only.
+		if n > int((1<<63-1)/(24*time.Hour)) {
+			return 0, fmt.Errorf("%q is more days than can be kept", value)
 		}
 		return time.Duration(n) * 24 * time.Hour, nil
 	}

@@ -21,10 +21,20 @@ func TestParseRetention(t *testing.T) {
 		require.NoError(t, err, value)
 		assert.Equal(t, want, got, value)
 	}
-	for _, value := range []string{"week", "-1h", "1.5d", ""} {
+	for _, value := range []string{"week", "-1h", "1.5d", "", "106752d"} {
 		_, err := parseRetention(value)
 		assert.Error(t, err, value)
 	}
+	most, err := parseRetention("106751d")
+	require.NoError(t, err, "the most days a duration holds")
+	assert.Positive(t, most)
+}
+
+func TestAnEmptyRetentionKeepsTheDefault(t *testing.T) {
+	t.Setenv("BUDGE_TELEMETRY_RETENTION", " ")
+	opts, err := telemetryOptions("")
+	require.NoError(t, err)
+	assert.Equal(t, 7*24*time.Hour, opts.Retention)
 }
 
 func TestTelemetryKeptBesideTheDatabase(t *testing.T) {
