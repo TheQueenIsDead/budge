@@ -173,7 +173,10 @@ func FilterRecentTransactions(transactions []models.Transaction, now time.Time) 
 // out as not spending, but each of them still moved the balance.
 func BuildCards(accounts []models.Account, moved, last, current []models.Transaction) (balance, spend, income, savings CardData) {
 
-	if len(accounts) == 0 || len(last) == 0 || len(current) == 0 {
+	// Only the deltas need the earlier window. With none, as in the first
+	// month of history, each is left at zero, guarded below by its previous
+	// total, while the totals still say where things stand.
+	if len(accounts) == 0 {
 		return
 	}
 

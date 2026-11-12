@@ -45,6 +45,31 @@ func TestBuildCardsSavingsDeltaFromALoss(t *testing.T) {
 	assert.InDelta(t, 2.0, savings.Delta, 0.0001, "up by twice the loss, not down")
 }
 
+// TestBuildCardsWithNothingBefore covers the first month of history: with no
+// earlier window to compare against, the cards still show where things
+// stand, only without a change.
+func TestBuildCardsWithNothingBefore(t *testing.T) {
+	var account models.Account
+	account.Balance.Current = 1000
+	current := []models.Transaction{{Amount: 3000}, {Amount: -1200}}
+
+	balance, spend, income, savings := BuildCards([]models.Account{account}, current, nil, current)
+	assert.Equal(t, 1000.0, balance.Total, "the balance needs no earlier window")
+	assert.Equal(t, -800.0, balance.PreviousTotal, "and is still wound back over the last 30 days")
+	assert.Equal(t, -1200.0, spend.Total)
+	assert.Equal(t, 3000.0, income.Total)
+	assert.Equal(t, 1800.0, savings.Total)
+	for _, card := range []CardData{spend, income, savings} {
+		assert.Zero(t, card.PreviousTotal)
+		assert.Zero(t, card.Delta, "nothing to compare against")
+	}
+
+	balance, spend, _, _ = BuildCards([]models.Account{account}, nil, nil, nil)
+	assert.Equal(t, 1000.0, balance.Total, "nor any transactions at all")
+	assert.Zero(t, balance.Delta)
+	assert.Zero(t, spend.Total)
+}
+
 // TestDashboardWindsTheBalanceBackOverEverything checks the previous balance
 // undoes every transaction of the last 30 days. Loan interest and transfers
 // are left out of the spending cards, but they still moved the balance.
