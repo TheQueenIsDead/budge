@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
@@ -38,4 +39,19 @@ func TestPutAkahuSettingsKeepsATokenLeftBlank(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "app_old", settings.AppToken, "a blank field keeps what is saved")
 	assert.Equal(t, "user_new", settings.UserToken, "a typed token replaces it")
+}
+
+func TestRemovingSyncedDataKeepsTheButton(t *testing.T) {
+	page := renderTemplate(t, "settings", map[string]interface{}{
+		"accounts": []models.Account{}, "sync": SyncStatus{}, "schedule": buildScheduleView(models.ScheduleSettings{}),
+	})
+	button := page[strings.Index(page, `hx-post="/settings/danger/remove/synced"`):]
+	button = button[:strings.Index(button, ">")]
+	assert.Contains(t, button, `hx-swap="none"`, "the empty answer must not blank the button's label")
+
+	app := newTestApp(t)
+	c, rec := postForm(t, app, url.Values{})
+	require.NoError(t, app.SettingsDeleteSynced(c))
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Header().Get("Hx-Trigger"), "All synced data removed.")
 }

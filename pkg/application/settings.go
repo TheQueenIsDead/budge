@@ -85,8 +85,9 @@ func (app *Application) SettingsDeleteSynced(c *echo.Context) error {
 	}
 	_ = app.store.ResetAkahuLastSync(ctx)
 
+	// The button swaps nothing, so the toast is the whole answer.
 	app.Toast(c, "Success", "All synced data removed.")
-	return nil
+	return c.NoContent(http.StatusOK)
 }
 
 func (app *Application) PutAkahuSettings(c *echo.Context) error {
