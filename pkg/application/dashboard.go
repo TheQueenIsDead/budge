@@ -166,7 +166,12 @@ func FilterRecentTransactions(transactions []models.Transaction, now time.Time) 
 	return
 }
 
-func BuildCards(accounts []models.Account, last, current []models.Transaction) (balance, spend, income, savings CardData) {
+// BuildCards compares the last 30 days with the 30 before them. last and
+// current are what the spend, income and savings cards count. moved is every
+// transaction of the last 30 days, savings, loan interest and transfers
+// among them, which the balance is wound back over: the cards leave those
+// out as not spending, but each of them still moved the balance.
+func BuildCards(accounts []models.Account, moved, last, current []models.Transaction) (balance, spend, income, savings CardData) {
 
 	if len(accounts) == 0 || len(last) == 0 || len(current) == 0 {
 		return
@@ -183,7 +188,7 @@ func BuildCards(accounts []models.Account, last, current []models.Transaction) (
 
 	// Figure out the balance for last month by winding back transactions
 	lastBalance := balance.Total
-	for _, tx := range current {
+	for _, tx := range moved {
 		lastBalance -= tx.Amount
 	}
 
@@ -420,6 +425,9 @@ func (app *Application) Dashboard(c *echo.Context) error {
 		app.Toast(c, "Error", "Could not load dashboard data.")
 		return c.NoContent(http.StatusInternalServerError)
 	}
+	// The balance is wound back over everything that moved it, before what
+	// is not spending is dropped for the rest of the page.
+	_, moved := FilterRecentTransactions(transactions, now)
 	transactions = spendingOnly(transactions)
 
 	// Transfers move money between the owner's own accounts, so counting them
@@ -440,7 +448,7 @@ func (app *Application) Dashboard(c *echo.Context) error {
 	pastTransactions, recentTransactions := FilterRecentTransactions(lastSixMonths, now)
 
 	// Build cards based on differences between the last 30 days, and the 30 days prior to that
-	balance, spend, income, savings := BuildCards(accounts, pastTransactions, recentTransactions)
+	balance, spend, income, savings := BuildCards(accounts, moved, pastTransactions, recentTransactions)
 
 	return c.Render(http.StatusOK, "dashboard", DashboardData{
 		BalanceCard:     balance,
