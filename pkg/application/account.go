@@ -386,7 +386,7 @@ func BuildAccountBalanceHistory(account models.Account, transactions []models.Tr
 	// zero - so anchoring the history to it charts a balance the account never had.
 	balanceAtEndDate := account.Balance.Current
 	for _, t := range transactions {
-		if t.Date.After(endDate) && (t.Date.Before(account.Refreshed.Balance) || t.Date.Equal(account.Refreshed.Balance)) {
+		if !t.Date.Before(endDate) && (t.Date.Before(account.Refreshed.Balance) || t.Date.Equal(account.Refreshed.Balance)) {
 			balanceAtEndDate -= t.Amount
 		}
 	}

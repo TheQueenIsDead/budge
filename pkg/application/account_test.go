@@ -355,6 +355,21 @@ func TestBuildAccountBalanceHistory(t *testing.T) {
 		assert.InDelta(t, 39105.70, stats.HighestBalance, 0.001)
 	})
 
+	t.Run("winds back a transaction on the stroke of the new year", func(t *testing.T) {
+		// One at exactly midnight is in the next year, so it is undone to
+		// find where this one ended. It was in neither, and was never undone.
+		var acct models.Account
+		acct.Id = "acct"
+		acct.Balance.Current = 1000
+		acct.Refreshed.Balance = time.Date(2027, time.February, 1, 0, 0, 0, 0, time.UTC)
+		newYear := models.Transaction{Account: "acct", Amount: 200, Date: time.Date(2027, time.January, 1, 0, 0, 0, 0, time.UTC)}
+
+		graph, _ := BuildAccountBalanceHistory(acct, []models.Transaction{month(time.May, 100), newYear}, viewDate)
+
+		require.NotEmpty(t, graph.Data)
+		assert.InDelta(t, 800, graph.Data[len(graph.Data)-1], 0.001)
+	})
+
 	t.Run("reports a real high for an account that is never in credit", func(t *testing.T) {
 		var loan models.Account
 		loan.Id = "acct"
