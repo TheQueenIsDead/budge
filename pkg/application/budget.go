@@ -193,9 +193,12 @@ func (app *Application) buildSetupData(ctx context.Context) (CategorySetupData, 
 	}
 	targets := budgetTargets(items)
 
-	// spend[key][weeks] is the total within that many weeks back; every window
-	// a transaction falls inside counts it, so each is a plain total. Keys are
-	// categories, and subcategories for the split under each row.
+	// spend[key][weeks] is the total over that many whole weeks before this
+	// one; every window a transaction falls inside counts it, so each is a
+	// plain total. This week is left out, being only partly spent: counting
+	// it on top of whole weeks and dividing by their number overstated every
+	// average. Keys are categories, and subcategories for the split under
+	// each row.
 	spend := make(map[string]map[int]float64)
 	merchantSpend := make(map[string]map[string]float64)
 	windows := []int{4, 8, 13, 26, 52}
@@ -228,7 +231,7 @@ func (app *Application) buildSetupData(ctx context.Context) (CategorySetupData, 
 			}
 		}
 		for _, weeks := range windows {
-			if tx.Date.After(weekStart.AddDate(0, 0, -7*weeks)) {
+			if !tx.Date.Before(weekStart.AddDate(0, 0, -7*weeks)) && tx.Date.Before(weekStart) {
 				add(category.Key, weeks, amt)
 				add(filed, weeks, amt)
 			}
@@ -335,18 +338,12 @@ func spendingOnly(txs []models.Transaction) []models.Transaction {
 	return kept
 }
 
-// isoWeekStart returns the Monday of the ISO week containing t, normalised to
-// UTC midnight so that map keys from transaction dates (UTC) and time.Now()
-// (local) always compare equal for the same calendar week.
+// isoWeekStart returns local midnight on the Monday of the week containing t,
+// the same week the spend charts use. A week lived in Auckland starts on its
+// Monday there, so counting it in UTC, where Monday morning is still Sunday,
+// started the week a whole week early until midday.
 func isoWeekStart(t time.Time) time.Time {
-	t = t.UTC()
-	y, m, d := t.Date()
-	t0 := time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
-	wd := int(t0.Weekday())
-	if wd == 0 {
-		wd = 7
-	}
-	return t0.AddDate(0, 0, -(wd - 1))
+	return periodStart(t.In(time.Local), CadenceWeekly)
 }
 
 // sanitizeID converts a string to a safe HTML id, prefixed with "sc-" (subcategory rows).

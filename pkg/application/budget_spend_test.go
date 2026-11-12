@@ -57,7 +57,7 @@ func TestSpendMerchantFallsBackToCleanedDescription(t *testing.T) {
 // weekly chart counted uncategorised debits that the table silently dropped.
 func TestBudgetCountsUncategorisedSpend(t *testing.T) {
 	app := newTestApp(t)
-	recent := time.Now().Add(-48 * time.Hour)
+	recent := lastWeek()
 	for _, tx := range []models.Transaction{
 		spendTx("groceries", "EFTPOS", "Food", "Supermarkets and grocery stores", "Countdown", "", -120, recent),
 		spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -410, recent),
@@ -115,7 +115,7 @@ func TestUnbudgetedRowsCarryNoTarget(t *testing.T) {
 
 func TestSubcategorySpend(t *testing.T) {
 	app := newTestApp(t)
-	recent := time.Now().Add(-48 * time.Hour)
+	recent := lastWeek()
 	for _, tx := range []models.Transaction{
 		spendTx("power", "DIRECT DEBIT", "Utilities", "Electricity services", "Mercury", "", -130, recent),
 		spendTx("net", "DIRECT DEBIT", "Utilities", "Internet services", "Voyager", "", -65, recent),
@@ -155,6 +155,10 @@ func countedTotal(t *testing.T, app *Application) float64 {
 }
 
 // rowByKey returns a category's row, failing the test if there is none.
+// lastWeek is a time in the last whole week. The budget averages whole weeks
+// only, so spending earlier this week is not in it yet.
+func lastWeek() time.Time { return isoWeekStart(time.Now()).AddDate(0, 0, -3) }
+
 func rowByKey(t *testing.T, setup CategorySetupData, key string) CategoryTargetRow {
 	t.Helper()
 	for _, row := range setup.Rows {

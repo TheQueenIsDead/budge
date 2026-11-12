@@ -129,6 +129,30 @@ func TestSuggestedTargets(t *testing.T) {
 	})
 }
 
+// TestWeeklyAveragesCountWholeWeeks keeps this week out of the averages: it
+// is only partly spent, so adding it to whole weeks and dividing by their
+// number overstated every category.
+func TestWeeklyAveragesCountWholeWeeks(t *testing.T) {
+	app := newTestApp(t)
+	weekStart := isoWeekStart(time.Now())
+	// $100 in each of the last 4 whole weeks, and $400 already this week,
+	// at its very start so it is never in the future.
+	for i := 1; i <= 4; i++ {
+		require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("food"+string(rune('a'+i)), "EFTPOS", "Food", "Supermarkets and grocery stores", "", "", -100, weekStart.AddDate(0, 0, -7*i))))
+	}
+	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("now", "EFTPOS", "Food", "Supermarkets and grocery stores", "", "", -400, weekStart)))
+	require.NoError(t, app.store.CreateBudgetItem(t.Context(), models.BudgetItem{ID: "food", BudgetCategory: "groceries", Amount: 100, Frequency: "weekly"}))
+
+	setup, err := app.buildSetupData(t.Context())
+	require.NoError(t, err)
+
+	groceries := rowByKey(t, setup, "groceries")
+	assert.Equal(t, 4, groceries.WindowWeeks)
+	assert.InDelta(t, 100, groceries.ActualWeekly, 0.001, "four whole weeks of $100, and nothing from this one")
+	assert.False(t, groceries.IsOver, "a big start to the week does not put it over")
+	assert.Empty(t, setup.Tracking.Over, "nor raise a notification")
+}
+
 func TestBudgetSaveTarget(t *testing.T) {
 	app := newTestApp(t)
 
@@ -200,7 +224,7 @@ func openAttr(html, id string) bool {
 // hand. An edit now answers with just its row, which stays where it is drawn.
 func TestTargetEditsUpdateTheRowInPlace(t *testing.T) {
 	app := newTestApp(t)
-	recent := time.Now().Add(-48 * time.Hour)
+	recent := lastWeek()
 	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("diy", "EFTPOS", "Household", "Building supplies", "Bunnings", "", -390, recent)))
 	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("fuel", "EFTPOS", "Transport", "Fuel stations", "", "", -40, recent)))
 	require.NoError(t, app.store.CreateBudgetItem(t.Context(), models.BudgetItem{ID: "car", BudgetCategory: "transport", Amount: 60, Frequency: "weekly"}))
@@ -333,7 +357,7 @@ func TestBudgetNote(t *testing.T) {
 
 func TestBuildSetupDataGathersTheNote(t *testing.T) {
 	app := newTestApp(t)
-	recent := time.Now().Add(-48 * time.Hour)
+	recent := lastWeek()
 	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("vet", "EFTPOS", "Health", "Veterinary services", "", "", -10, recent)))
 	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("pharm", "EFTPOS", "Health", "Pharmacies", "", "", -26, recent)))
 	require.NoError(t, app.store.CreateBudgetItem(t.Context(), models.BudgetItem{ID: "pets", BudgetCategory: "pets", Amount: 150, Frequency: "weekly"}))
@@ -346,7 +370,7 @@ func TestBuildSetupDataGathersTheNote(t *testing.T) {
 
 func TestSplitCategory(t *testing.T) {
 	app := newTestApp(t)
-	recent := time.Now().Add(-48 * time.Hour)
+	recent := lastWeek()
 	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("rates", "DIRECT DEBIT", "Housing", "Local government", "CCC", "", -860, recent)))
 	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("mortgage", models.TypeCountedTransfer, "Housing", "Mortgage", "", "AP#1 TO D J KING", -1284, recent)))
 	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("other", "DEBIT", "Housing", "Housing", "Body corp", "", -130, recent)))

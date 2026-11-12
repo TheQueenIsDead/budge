@@ -16,7 +16,7 @@ import (
 
 func TestCategoryRulesEndToEnd(t *testing.T) {
 	app := newTestApp(t)
-	recent := time.Now().Add(-48 * time.Hour)
+	recent := lastWeek()
 	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("interest", "LOAN", "", "", "", "LOAN INTEREST", -400, recent)))
 	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("rates", "DEBIT", "Housing", "Local government", "CCC", "", -860, recent)))
 
@@ -271,7 +271,7 @@ func TestRulesTellPaymentsApartByAmount(t *testing.T) {
 
 func TestTransferRuleBudgetsMortgageRepayments(t *testing.T) {
 	app := newTestApp(t)
-	recent := time.Now().Add(-48 * time.Hour)
+	recent := lastWeek()
 	for _, tx := range []models.Transaction{
 		spendTx("out", "TRANSFER", "Transfer", "Transfer", "", "AP#19781426 TO D J KING", -641, recent),
 		spendTx("in", "TRANSFER", "Transfer", "Transfer", "", "AP#19781426 FROM D J KING", 641, recent),
@@ -328,7 +328,7 @@ func TestRenamingASubcategoryRedrawsItsNameEverywhere(t *testing.T) {
 func TestEditingBudgetCategories(t *testing.T) {
 	app := newTestApp(t)
 	t.Cleanup(func() { models.UseBudgetCategories(models.BudgetCategorySettings{}) })
-	recent := time.Now().Add(-48 * time.Hour)
+	recent := lastWeek()
 	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("cafe", "EFTPOS", "Lifestyle", "Cafes and restaurants", "Fat Sallys", "", -30, recent)))
 	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("pak", "EFTPOS", "Food", "Supermarkets and grocery stores", "PAK'nSAVE", "", -120, recent)))
 	require.NoError(t, app.store.CreateBudgetItem(t.Context(), models.BudgetItem{ID: "out", BudgetCategory: "eating-out", Amount: 50, Frequency: "weekly"}))

@@ -11,7 +11,7 @@ import (
 
 func TestBudgetNotifications(t *testing.T) {
 	app := newTestApp(t)
-	recent := time.Now().Add(-48 * time.Hour)
+	recent := lastWeek()
 	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("cafe", "EFTPOS", "Lifestyle", "Cafes and restaurants", "Valhalla", "", -916, recent)))
 	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("diy", "EFTPOS", "Household", "Building supplies", "Bunnings", "", -702, recent)))
 	require.NoError(t, app.store.CreateTransaction(t.Context(), spendTx("pak", "EFTPOS", "Food", "Supermarkets and grocery stores", "", "", -400, recent)))
