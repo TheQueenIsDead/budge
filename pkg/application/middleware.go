@@ -46,8 +46,18 @@ func StaticCaching() echo.MiddlewareFunc {
 // browser's Sec-Fetch-Site header, falls back to comparing Origin with Host,
 // and lets GET, HEAD and OPTIONS through, as they change nothing. htmx's
 // requests come from budge's own pages, so they are same-origin and pass.
-func CrossOriginProtection() echo.MiddlewareFunc {
+//
+// Over plain HTTP, other than to localhost, browsers send no Sec-Fetch-Site,
+// and a proxy that rewrites Host makes budge's own pages look like another
+// site's. trusted names the origins budge is reached at, such as
+// http://budge.lan, for that case; an origin that isn't one is an error.
+func CrossOriginProtection(trusted ...string) (echo.MiddlewareFunc, error) {
 	protection := http.NewCrossOriginProtection()
+	for _, origin := range trusted {
+		if err := protection.AddTrustedOrigin(origin); err != nil {
+			return nil, err
+		}
+	}
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			if err := protection.Check(c.Request()); err != nil {
@@ -55,7 +65,7 @@ func CrossOriginProtection() echo.MiddlewareFunc {
 			}
 			return next(c)
 		}
-	}
+	}, nil
 }
 
 // cspNonceKey is where a request's nonce is kept, for the templates to mark

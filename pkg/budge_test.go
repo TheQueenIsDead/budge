@@ -74,3 +74,11 @@ func TestTelemetryToggle(t *testing.T) {
 	_, err := telemetryEnabled()
 	assert.Error(t, err, "a value that is neither is a mistake worth stopping for")
 }
+
+func TestTrustedOrigins(t *testing.T) {
+	t.Setenv("BUDGE_TRUSTED_ORIGINS", "http://budge.lan, https://budge.example.com\thttp://192.168.1.20:1337")
+	assert.Equal(t, []string{"http://budge.lan", "https://budge.example.com", "http://192.168.1.20:1337"}, trustedOrigins())
+
+	t.Setenv("BUDGE_TRUSTED_ORIGINS", "")
+	assert.Empty(t, trustedOrigins())
+}

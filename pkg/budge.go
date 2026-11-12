@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/TheQueenIsDead/budge/pkg/application"
 	"github.com/TheQueenIsDead/budge/pkg/database"
@@ -65,6 +66,7 @@ func NewBudge(version string) (*Budge, error) {
 		store,
 		integrations.NewIntegrations(store),
 		tel,
+		trustedOrigins(),
 	)
 	if err != nil {
 		logger.With("error", err).Error("could not initialise application")
@@ -109,6 +111,15 @@ func (b *Budge) Teardown(reason string) error {
 			return b.Telemetry.Shutdown(ctx)
 		}(),
 	)
+}
+
+// trustedOrigins reads BUDGE_TRUSTED_ORIGINS: the origins budge is reached
+// at, separated by commas or spaces, that it should take changes from when
+// the browser's request can't show it came from budge's own page.
+func trustedOrigins() []string {
+	return strings.FieldsFunc(os.Getenv("BUDGE_TRUSTED_ORIGINS"), func(r rune) bool {
+		return r == ',' || unicode.IsSpace(r)
+	})
 }
 
 // telemetryEnabled reads whether telemetry runs: unless BUDGE_TELEMETRY

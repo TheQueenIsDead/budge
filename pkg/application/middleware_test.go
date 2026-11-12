@@ -88,7 +88,9 @@ func TestSecurityHeaders(t *testing.T) {
 
 func TestCrossOriginProtection(t *testing.T) {
 	e := echo.New()
-	e.Use(CrossOriginProtection())
+	crossOrigin, err := CrossOriginProtection("http://budge.lan")
+	require.NoError(t, err)
+	e.Use(crossOrigin)
 	e.POST("/settings/danger/remove/synced", func(c *echo.Context) error { return c.NoContent(http.StatusOK) })
 	e.GET("/settings", func(c *echo.Context) error { return c.NoContent(http.StatusOK) })
 
@@ -115,7 +117,16 @@ func TestCrossOriginProtection(t *testing.T) {
 		assert.Equal(t, http.StatusOK, send(http.MethodPost, remove, nil))
 	})
 
+	t.Run("an origin named as budge's own is taken, as a proxy rewriting Host needs", func(t *testing.T) {
+		assert.Equal(t, http.StatusOK, send(http.MethodPost, remove, map[string]string{"Origin": "http://budge.lan"}))
+	})
+
 	t.Run("reading is never refused", func(t *testing.T) {
 		assert.Equal(t, http.StatusOK, send(http.MethodGet, "/settings", map[string]string{"Sec-Fetch-Site": "cross-site"}))
 	})
+}
+
+func TestCrossOriginProtectionRefusesAnOriginItCannotRead(t *testing.T) {
+	_, err := CrossOriginProtection("budge.lan")
+	assert.Error(t, err, "an origin needs its scheme")
 }

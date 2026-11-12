@@ -37,7 +37,7 @@ func TestServeStatic(t *testing.T) {
 	store, err := database.NewStore()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
-	app, err := NewApplication(store, nil, nil)
+	app, err := NewApplication(store, nil, nil, nil)
 	require.NoError(t, err)
 
 	get := func(target string) *httptest.ResponseRecorder {

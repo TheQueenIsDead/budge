@@ -19,7 +19,7 @@ func TestUnknownIdsAreNotFound(t *testing.T) {
 	store, err := database.NewStore()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
-	app, err := NewApplication(store, nil, nil)
+	app, err := NewApplication(store, nil, nil, nil)
 	require.NoError(t, err)
 
 	// Asked by htmx, so the answer is the status itself rather than the

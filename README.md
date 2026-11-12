@@ -40,6 +40,15 @@ Budge is configured with environment variables, all optional.
 | `BUDGE_TELEMETRY_RETENTION` | `7d` | How long metrics, logs and traces are kept in `budge.telemetry.db`, such as `36h` or `14d`. `0` keeps them in memory only, until a restart. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | | Also sends telemetry to an OpenTelemetry collector, along with the other standard `OTEL_*` variables. |
 | `AKAHU_USER_TOKEN`, `AKAHU_APP_TOKEN` | | Akahu tokens to use until some are saved in settings. |
+| `BUDGE_TRUSTED_ORIGINS` | | The addresses Budge is reached at, such as `http://budge.lan`, separated by commas, to take changes from. Only needed behind a proxy that rewrites `Host`, over plain HTTP; see below. |
+
+Budge refuses changes, such as saving settings, sent from other websites'
+pages. Browsers say where a request came from, but over plain HTTP, other
+than to `localhost`, they leave that out, and Budge compares the page's
+address with the `Host` it was asked for. A proxy that rewrites `Host` makes
+the two differ, and every change is refused. Either have the proxy pass `Host`
+through (nginx's `proxy_set_header Host $host;`) or name the address in
+`BUDGE_TRUSTED_ORIGINS`.
 
 > **Note:** Budge was previously published to Docker Hub. That repository is no
 > longer updated, so please switch to `ghcr.io/thequeenisdead/budge`.

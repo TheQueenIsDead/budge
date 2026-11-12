@@ -144,7 +144,9 @@ type Application struct {
 	telemetry  *telemetry.Telemetry
 }
 
-func NewApplication(store *database.Store, integrations *integrations.Integrations, tel *telemetry.Telemetry) (*Application, error) {
+// trustedOrigins are the origins, other than its own, that budge takes
+// changes from; see CrossOriginProtection.
+func NewApplication(store *database.Store, integrations *integrations.Integrations, tel *telemetry.Telemetry, trustedOrigins []string) (*Application, error) {
 
 	app := new(Application)
 
@@ -254,7 +256,11 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	// handler to record and answer.
 	app.http.Use(middleware.Recover())
 	app.http.Use(SecurityHeaders())
-	app.http.Use(CrossOriginProtection())
+	crossOrigin, err := CrossOriginProtection(trustedOrigins...)
+	if err != nil {
+		return nil, fmt.Errorf("BUDGE_TRUSTED_ORIGINS: %w", err)
+	}
+	app.http.Use(crossOrigin)
 
 	// General
 	app.http.GET("/", app.Dashboard)

@@ -39,7 +39,7 @@ func instrumentedAppKeeping(t *testing.T, path string) (*Application, *telemetry
 	store, err := database.NewStore()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
-	app, err := NewApplication(store, nil, tel)
+	app, err := NewApplication(store, nil, tel, nil)
 	require.NoError(t, err)
 	return app, tel
 }
@@ -253,7 +253,7 @@ func TestWithoutTelemetryThereIsNoAdmin(t *testing.T) {
 	store, err := database.NewStore()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
-	without, err := NewApplication(store, nil, nil)
+	without, err := NewApplication(store, nil, nil, nil)
 	require.NoError(t, err)
 	with, _ := instrumentedApp(t)
 
