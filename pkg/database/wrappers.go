@@ -644,22 +644,44 @@ func (s *Store) ResetAkahuLastSync(ctx context.Context) error {
 	settings.DataThrough = time.Time{}
 	return Update[models.IntegrationAkahuSettings](ctx, s.db, settings)
 }
+
+// DeleteSynced removes everything a sync brought in and forgets how far it
+// reached, so the next sync reads the whole history again. It is one
+// transaction: deleting the buckets in one and making them again in another
+// left a moment with no buckets, which a sync writing then would crash on,
+// and left them gone for good if the second failed.
 func (s *Store) DeleteSynced(ctx context.Context) error {
-	err := update(ctx, s.db, "synced", func(tx *bolt.Tx) error {
-		accountErr := tx.DeleteBucket(buckets.AccountBucket)
-		merchantErr := tx.DeleteBucket(buckets.MerchantBucket)
-		transactionErr := tx.DeleteBucket(buckets.TransactionBucket)
-		return errors.Join(accountErr, merchantErr, transactionErr)
-	})
-	if err != nil {
-		return err
-	}
 	return update(ctx, s.db, "synced", func(tx *bolt.Tx) error {
-		_, accountErr := tx.CreateBucket(buckets.AccountBucket)
-		_, merchantErr := tx.CreateBucket(buckets.MerchantBucket)
-		_, transactionErr := tx.CreateBucket(buckets.TransactionBucket)
-		return errors.Join(accountErr, merchantErr, transactionErr)
+		for _, bucket := range [][]byte{buckets.AccountBucket, buckets.MerchantBucket, buckets.TransactionBucket} {
+			if err := tx.DeleteBucket(bucket); err != nil && !errors.Is(err, bolt.ErrBucketNotFound) {
+				return err
+			}
+			if _, err := tx.CreateBucket(bucket); err != nil {
+				return err
+			}
+		}
+		return changeAkahuSettings(tx, func(settings *models.IntegrationAkahuSettings) {
+			settings.LastSync = time.Time{}
+			settings.DataThrough = time.Time{}
+		})
 	})
+}
+
+// changeAkahuSettings reads the Akahu settings, changes them and writes them
+// back within an open transaction, so nothing else can write in between.
+func changeAkahuSettings(tx *bolt.Tx, change func(*models.IntegrationAkahuSettings)) error {
+	var settings models.IntegrationAkahuSettings
+	b := tx.Bucket(settings.Bucket())
+	if b == nil {
+		return fmt.Errorf("bucket %s not found", settings.Bucket())
+	}
+	if buf := b.Get(settings.Key()); buf != nil {
+		if err := json.Unmarshal(buf, &settings); err != nil {
+			return err
+		}
+	}
+	change(&settings)
+	return putAll(tx, []models.IntegrationAkahuSettings{settings})
 }
 
 /* Categories */

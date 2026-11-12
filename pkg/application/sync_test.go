@@ -2,9 +2,11 @@ package application
 
 import (
 	"errors"
+	"net/http"
 	"testing"
 	"time"
 
+	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,6 +29,40 @@ func TestSyncRunnerAllowsOneAtATime(t *testing.T) {
 	require.True(t, runner.begin(), "a finished sync frees the runner")
 	assert.Empty(t, runner.status().Error, "a new run starts clean")
 	assert.Zero(t, runner.status().Fetched)
+}
+
+func TestSyncRunnerHoldKeepsSyncsOut(t *testing.T) {
+	var runner syncRunner
+	runner.end(errors.New("boom"))
+
+	require.True(t, runner.hold())
+	assert.False(t, runner.begin(), "no sync starts while held")
+	assert.False(t, runner.hold())
+	assert.Equal(t, "boom", runner.status().Error, "holding leaves the last sync's status alone")
+	runner.release()
+	require.True(t, runner.begin())
+	assert.False(t, runner.hold(), "nothing is held while a sync runs")
+}
+
+func TestDeleteSyncedRefusesWhileASyncRuns(t *testing.T) {
+	app := newTestApp(t)
+	require.NoError(t, app.store.SaveSynced(t.Context(), nil, []models.Transaction{{Id: "tx"}}, nil))
+	require.True(t, app.akahuSync.begin())
+
+	c, rec := postForm(t, app, nil)
+	require.NoError(t, app.SettingsDeleteSynced(c))
+	assert.Equal(t, http.StatusConflict, rec.Code)
+	count, err := app.store.CountTransactions(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, 1, count, "nothing deleted")
+
+	app.akahuSync.end(nil)
+	c, _ = postForm(t, app, nil)
+	require.NoError(t, app.SettingsDeleteSynced(c))
+	count, err = app.store.CountTransactions(t.Context())
+	require.NoError(t, err)
+	assert.Zero(t, count)
+	assert.True(t, app.akahuSync.begin(), "the runner is released afterwards")
 }
 
 func TestRenderSyncProgress(t *testing.T) {

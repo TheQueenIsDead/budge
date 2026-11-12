@@ -143,6 +143,9 @@ func Delete[T Storable](ctx context.Context, db *bolt.DB, id []byte) error {
 func putAll[T Storable](tx *bolt.Tx, items []T) error {
 	t := *(new(T))
 	b := tx.Bucket(t.Bucket())
+	if b == nil {
+		return fmt.Errorf("bucket %s not found", t.Bucket())
+	}
 	for _, item := range items {
 		value, err := json.Marshal(&item)
 		if err != nil {

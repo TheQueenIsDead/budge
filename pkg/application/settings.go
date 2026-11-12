@@ -79,11 +79,18 @@ func (app *Application) Settings(c *echo.Context) error {
 func (app *Application) SettingsDeleteSynced(c *echo.Context) error {
 	ctx := c.Request().Context()
 
-	err := app.store.DeleteSynced(ctx)
-	if err != nil {
+	// A sync writing while the buckets are emptied would put back some of
+	// what was deleted, so the delete waits for none to be running.
+	if !app.akahuSync.hold() {
+		app.Toast(c, "Error", "A sync is running. Try again once it has finished.")
+		return c.NoContent(http.StatusConflict)
+	}
+	defer app.akahuSync.release()
+
+	// This also forgets how far syncs had reached, in the same commit.
+	if err := app.store.DeleteSynced(ctx); err != nil {
 		return err
 	}
-	_ = app.store.ResetAkahuLastSync(ctx)
 
 	// The button swaps nothing, so the toast is the whole answer.
 	app.Toast(c, "Success", "All synced data removed.")

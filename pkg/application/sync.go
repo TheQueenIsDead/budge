@@ -25,6 +25,7 @@ import (
 type syncRunner struct {
 	mu       sync.Mutex
 	running  bool
+	held     bool
 	fetched  int
 	started  time.Time
 	finished time.Time
@@ -51,12 +52,32 @@ func (s SyncStatus) StartedKey() string {
 func (r *syncRunner) begin() bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.running {
+	if r.running || r.held {
 		return false
 	}
 	r.running, r.fetched, r.err = true, 0, nil
 	r.started = time.Now()
 	return true
+}
+
+// hold keeps any sync from starting until release, for work that must not
+// run alongside one, such as deleting what syncs have stored. It reports
+// false when a sync is already going or the runner is already held. Unlike
+// begin, it leaves the last sync's status alone.
+func (r *syncRunner) hold() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.running || r.held {
+		return false
+	}
+	r.held = true
+	return true
+}
+
+func (r *syncRunner) release() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.held = false
 }
 
 func (r *syncRunner) progress(fetched int) {
