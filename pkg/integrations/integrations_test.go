@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database"
+	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/TheQueenIsDead/budge/pkg/integrations/akahu"
 	"github.com/TheQueenIsDead/budge/pkg/telemetry"
 	"github.com/stretchr/testify/assert"
@@ -61,7 +62,9 @@ func testIntegrations(t *testing.T, baseURL string) (*Integrations, *database.St
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 
-	return &Integrations{store: store, akahu: akahu.NewClient(akahu.WithBaseURL(baseURL))}, store
+	i := &Integrations{store: store}
+	i.akahu.Store(akahu.NewClient(akahu.WithBaseURL(baseURL)))
+	return i, store
 }
 
 func TestSyncAkahuFullHistory(t *testing.T) {
@@ -239,8 +242,8 @@ func TestAFreshInstanceTakesAkahuTokensFromTheEnvironment(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 
 	i := NewIntegrations(store)
-	assert.Equal(t, "user-from-env", i.akahu.UserToken)
-	assert.Equal(t, "app-from-env", i.akahu.AppToken)
+	assert.Equal(t, "user-from-env", i.akahu.Load().UserToken)
+	assert.Equal(t, "app-from-env", i.akahu.Load().AppToken)
 	saved, err := store.GetAkahuSettings(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "user-from-env", saved.UserToken, "saved, so settings shows them")
@@ -248,7 +251,7 @@ func TestAFreshInstanceTakesAkahuTokensFromTheEnvironment(t *testing.T) {
 	saved.UserToken, saved.AppToken = "user-saved", "app-saved"
 	require.NoError(t, store.UpdateAkahuSettings(t.Context(), saved))
 	again := NewIntegrations(store)
-	assert.Equal(t, "user-saved", again.akahu.UserToken, "saved tokens win over the environment")
+	assert.Equal(t, "user-saved", again.akahu.Load().UserToken, "saved tokens win over the environment")
 }
 
 // TestAnIncrementalSyncKeepsATransferSplitByItsWindow covers a transfer whose
@@ -298,4 +301,27 @@ func TestAnIncrementalSyncKeepsATransferSplitByItsWindow(t *testing.T) {
 	assert.Equal(t, "TRANSFER", typeOf("in"), "the leg inside the window stays a transfer")
 	assert.Equal(t, "TRANSFER", typeOf("out"))
 	assert.Equal(t, "EFTPOS", typeOf("groceries"), "nothing else becomes one")
+}
+
+// TestSavingTokensDuringASyncIsSafe runs under -race: the sync reads the
+// client's tokens while new ones are saved.
+func TestSavingTokensDuringASyncIsSafe(t *testing.T) {
+	var starts []string
+	server := fakeAkahu(t, 200, &starts)
+	defer server.Close()
+	integrations, _ := testIntegrations(t, server.URL)
+
+	done := make(chan error)
+	go func() {
+		_, err := integrations.SyncAkahu(t.Context(), time.Time{}, nil)
+		done <- err
+	}()
+	for n := range 20 {
+		require.NoError(t, integrations.PutAkahuSettings(t.Context(), models.IntegrationAkahuSettings{
+			UserToken: fmt.Sprintf("user-%d", n), AppToken: "app",
+		}))
+	}
+	require.NoError(t, <-done)
+	assert.Equal(t, "user-19", integrations.akahu.Load().UserToken)
+	assert.Equal(t, server.URL, integrations.akahu.Load().BaseURL, "only the tokens change")
 }

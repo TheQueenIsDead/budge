@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database"
@@ -29,7 +30,9 @@ const transferWindow = 24 * time.Hour
 
 type Integrations struct {
 	store *database.Store
-	akahu *akahu.AkahuClient
+	// akahu is swapped whole when the tokens change rather than edited in
+	// place, as a sync running in the background reads it at the same time.
+	akahu atomic.Pointer[akahu.AkahuClient]
 }
 
 type Integration interface {
@@ -65,15 +68,15 @@ func (i *Integrations) RegisterAkahu() {
 			}
 		}
 	}
-	i.akahu = akahu.NewClient(
+	i.akahu.Store(akahu.NewClient(
 		akahu.WithUserToken(settings.UserToken),
 		akahu.WithApptoken(settings.AppToken),
-	)
+	))
 }
 
 func (i *Integrations) Config() map[string]interface{} {
 	return map[string]interface{}{
-		"akahu": i.akahu.Config(),
+		"akahu": i.akahu.Load().Config(),
 	}
 }
 
@@ -85,10 +88,14 @@ func (i *Integrations) Config() map[string]interface{} {
 // for the next sync to start from.
 func (i *Integrations) SyncAkahu(ctx context.Context, dataThrough time.Time, progress func(fetched int)) (time.Time, error) {
 
+	// One client for the whole sync, so tokens saved part way through are
+	// not mixed with the ones it started with.
+	client := i.akahu.Load()
+
 	// Each phase is its own span, so a slow sync shows whether the time went
 	// waiting on Akahu or writing it down.
 	phase, span := tracer().Start(ctx, "fetch accounts")
-	accounts, err := i.AkahuAccounts(phase)
+	accounts, err := client.GetAccounts(phase)
 	end(span, err, attribute.Int("akahu.accounts", len(accounts)))
 	if err != nil {
 		slog.ErrorContext(ctx, "akahu sync failed", "error", err)
@@ -100,7 +107,7 @@ func (i *Integrations) SyncAkahu(ctx context.Context, dataThrough time.Time, pro
 		since = since.AddDate(0, 0, -syncOverlapDays)
 	}
 	phase, span = tracer().Start(ctx, "fetch transactions", trace.WithAttributes(attribute.String("akahu.since", since.Format(time.RFC3339))))
-	transactions, err := i.akahu.GetTransactions(phase, since, true, progress)
+	transactions, err := client.GetTransactions(phase, since, true, progress)
 	end(span, err, attribute.Int("akahu.transactions", len(transactions)))
 	if err != nil {
 		slog.ErrorContext(ctx, "akahu sync failed", "error", err)
@@ -316,13 +323,15 @@ func (i *Integrations) PutAkahuSettings(ctx context.Context, settings models.Int
 	if err != nil {
 		return err
 	}
-	i.akahu.UserToken = settings.UserToken
-	i.akahu.AppToken = settings.AppToken
+	client := *i.akahu.Load()
+	client.UserToken = settings.UserToken
+	client.AppToken = settings.AppToken
+	i.akahu.Store(&client)
 	return nil
 }
 
 func (i *Integrations) AkahuAccounts(ctx context.Context) ([]akahu.Account, error) {
-	return i.akahu.GetAccounts(ctx)
+	return i.akahu.Load().GetAccounts(ctx)
 }
 
 // fromAkahu copies a transaction as Akahu sent it. The model also carries the
