@@ -30,7 +30,8 @@ COPY --from=web /web/node_modules web/node_modules
 # image's stages don't depend on it, so a build by hand skips it.
 FROM source AS test
 
-RUN go test ./...
+# With the race detector, as syncs, the scheduler and requests share state.
+RUN go test -race ./...
 
 FROM source AS build
 
