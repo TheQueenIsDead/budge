@@ -97,40 +97,58 @@ func (s *Store) GetMemory(ctx context.Context, id string) (models.Memory, error)
 // SaveMemory creates or updates a memory, taking its transactions away from
 // any other memory that already held them. A purchase belongs to one memory: the same flight
 // counted towards two trips would inflate both totals. A memory left with
-// nothing in it is removed rather than kept as an empty card.
+// nothing in it is removed rather than kept as an empty card. It is all one
+// transaction, so a failure part way never leaves purchases taken from other
+// memories without the new one saved.
 func (s *Store) SaveMemory(ctx context.Context, memory models.Memory) error {
 	claimed := make(map[string]bool, len(memory.TransactionIDs))
 	for _, id := range memory.TransactionIDs {
 		claimed[id] = true
 	}
 
-	existing, err := Read[models.Memory](ctx, s.db)
-	if err != nil {
-		return err
-	}
-	for _, other := range existing {
-		if other.Id == memory.Id {
-			continue
+	return update(ctx, s.db, bucketOf[models.Memory](), func(tx *bolt.Tx) error {
+		b := tx.Bucket(memory.Bucket())
+		if b == nil {
+			return fmt.Errorf("bucket %s not found", memory.Bucket())
 		}
-		kept := other.TransactionIDs[:0]
-		for _, id := range other.TransactionIDs {
-			if !claimed[id] {
-				kept = append(kept, id)
+		var existing []models.Memory
+		err := b.ForEach(func(_, v []byte) error {
+			var other models.Memory
+			if err := json.Unmarshal(v, &other); err != nil {
+				return err
 			}
-		}
-		switch {
-		case len(kept) == 0:
-			err = Delete[models.Memory](ctx, s.db, other.Key())
-		case len(kept) != len(other.TransactionIDs):
-			other.TransactionIDs = kept
-			err = Update[models.Memory](ctx, s.db, other)
-		}
+			existing = append(existing, other)
+			return nil
+		})
 		if err != nil {
 			return err
 		}
-	}
 
-	return Update[models.Memory](ctx, s.db, memory)
+		var changed []models.Memory
+		for _, other := range existing {
+			if other.Id == memory.Id {
+				continue
+			}
+			kept := other.TransactionIDs[:0]
+			for _, id := range other.TransactionIDs {
+				if !claimed[id] {
+					kept = append(kept, id)
+				}
+			}
+			switch {
+			case len(kept) == 0:
+				// Deleted after the walk over the bucket, which bolt does
+				// not allow changing underneath it.
+				if err := b.Delete(other.Key()); err != nil {
+					return err
+				}
+			case len(kept) != len(other.TransactionIDs):
+				other.TransactionIDs = kept
+				changed = append(changed, other)
+			}
+		}
+		return putAll(tx, append(changed, memory))
+	})
 }
 
 func (s *Store) DeleteMemory(ctx context.Context, id string) error {
