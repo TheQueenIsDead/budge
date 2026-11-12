@@ -171,6 +171,9 @@ func TestAdminPageShowsWhatWasRecorded(t *testing.T) {
 
 	_, body := get("/admin?tab=logs&level=error&q=nothing-matches-this", true)
 	assert.NotContains(t, body, "it broke", "a search narrows the logs")
+	// The panel is swapped out whole as the search is typed, and the layout
+	// puts the cursor back in the field by its id.
+	assert.Contains(t, body, `id="admin-log-search"`)
 
 	var notifications telemetry.Span
 	for _, span := range tel.Spans.Requests() {

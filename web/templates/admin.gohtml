@@ -571,7 +571,7 @@
               hx-target="#admin-panel" hx-select="#admin-panel" hx-swap="outerHTML show:none" hx-push-url="true">
             <input type="hidden" name="tab" value="logs">
             <input type="hidden" name="level" value="{{ .Level }}">
-            <input class="form-control form-control-sm" type="search" name="q" value="{{ .Search }}"
+            <input id="admin-log-search" class="form-control form-control-sm" type="search" name="q" value="{{ .Search }}"
                    placeholder="Search messages and attributes" aria-label="Search logs">
         </form>
         {{ template "admin.log.list" .Records }}
