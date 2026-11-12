@@ -209,7 +209,7 @@ func TestAPanicIsRecordedWithItsStack(t *testing.T) {
 	app, tel := instrumentedApp(t)
 	app.http.GET("/boom", func(*echo.Context) error { return echo.NewHTTPError(http.StatusInternalServerError, "it broke") })
 	app.http.GET("/panic", func(*echo.Context) error { panicHere(); return nil })
-	for _, target := range []string{"/boom", "/panic"} {
+	for _, target := range []string{"/boom?payee=Countdown&amount=42.50", "/panic"} {
 		app.http.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, target, nil))
 	}
 
@@ -226,8 +226,11 @@ func TestAPanicIsRecordedWithItsStack(t *testing.T) {
 
 	var handled int
 	for _, record := range tel.Logs.Recent(otellog.SeverityError) {
-		if record.Message == "request failed" && record.Attrs["uri"] == "/boom" {
+		if record.Message == "request failed" && record.Attrs["path"] == "/boom" {
 			handled++
+		}
+		for _, value := range record.Attrs {
+			assert.NotContains(t, value, "Countdown", "the query, which can name payees and amounts, is not kept")
 		}
 	}
 	assert.Equal(t, 1, handled, "the error is handled inside the span, and only there")

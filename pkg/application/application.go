@@ -199,7 +199,9 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 			span.RecordError(err)
 			span.SetStatus(codes.Error, msg)
 		}
-		slog.Log(ctx, level, "request failed", "error", msg, "status", code, "uri", c.Request().RequestURI)
+		// The path, not the whole URI: a query can carry a search, a payee or
+		// an amount, and the log is kept.
+		slog.Log(ctx, level, "request failed", "error", msg, "status", code, "path", c.Request().URL.Path)
 
 		// A page that is not there is sent to the not found page, and that is
 		// the whole answer. htmx would swap the not found page into whatever
