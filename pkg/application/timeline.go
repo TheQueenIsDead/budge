@@ -1,8 +1,10 @@
 package application
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"net/http"
 	"regexp"
@@ -825,20 +827,28 @@ func nearbyPurchases(memory TimelineEntry, byDay map[string][]models.Transaction
 		}
 	}
 
+	// Days in order and every tie broken, by date and then id, so the same
+	// purchases are offered in the same order each time the memory is drawn,
+	// however many cost the same.
 	var found []models.Transaction
-	for day := range days {
+	for _, day := range slices.Sorted(maps.Keys(days)) {
 		for _, tx := range byDay[day] {
 			if !held[tx.Id] {
 				found = append(found, tx)
 			}
 		}
 	}
+	byDate := func(a, b models.Transaction) int {
+		return cmp.Or(a.Date.Compare(b.Date), strings.Compare(a.Id, b.Id))
+	}
 
-	sort.Slice(found, func(i, j int) bool { return found[i].Amount < found[j].Amount })
+	slices.SortFunc(found, func(a, b models.Transaction) int {
+		return cmp.Or(cmp.Compare(a.Amount, b.Amount), byDate(a, b))
+	})
 	if len(found) > nearbyLimit {
 		found = found[:nearbyLimit]
 	}
-	sort.SliceStable(found, func(i, j int) bool { return found[i].Date.Before(found[j].Date) })
+	slices.SortFunc(found, byDate)
 
 	rows := make([]TimelineContextRow, len(found))
 	for i, tx := range found {

@@ -697,6 +697,38 @@ func TestBuildTimelineNearbyPurchases(t *testing.T) {
 	assert.Equal(t, "/transactions?from=2026-02-28&to=2026-07-11", japan.TransactionsLink())
 }
 
+// TestNearbyPurchasesAreDeterministic checks a memory offers the same
+// purchases in the same order every time it is drawn, when there are more
+// than fit and many cost the same. The days were read from a map and the
+// purchases cut down by an unstable sort, so which ties survived, and the
+// order of those at the same time, could change between renders.
+func TestNearbyPurchasesAreDeterministic(t *testing.T) {
+	hotel := purchase("hotel", "Hotel", 900, time.July, 10)
+	memory := TimelineEntry{Rows: []TransactionRow{BuildTransactionRow(hotel)}}
+	byDay := map[string][]models.Transaction{}
+	for i := range nearbyLimit + 10 {
+		// All the same price, over the three days, several at each time.
+		tx := purchase(fmt.Sprintf("tx%02d", i), "Shop", 20, time.July, 9+i%3)
+		tx.Date = tx.Date.Add(time.Duration(i%4) * time.Hour)
+		day := tx.Date.Format(time.DateOnly)
+		byDay[day] = append(byDay[day], tx)
+	}
+
+	ids := func() []string {
+		var ids []string
+		for _, row := range nearbyPurchases(memory, byDay, nil, time.UTC) {
+			ids = append(ids, row.Id)
+		}
+		return ids
+	}
+	first := ids()
+	require.Len(t, first, nearbyLimit)
+	assert.Equal(t, []string{"tx00", "tx12", "tx24", "tx36"}, first[:4], "the earliest first, by id at the same time")
+	for range 20 {
+		require.Equal(t, first, ids())
+	}
+}
+
 func TestRenderTimelineMemoryEditShowsNearby(t *testing.T) {
 	txs := append(ordinaryYear(),
 		purchase("ring", "Jeweller", 3000, time.September, 9),
