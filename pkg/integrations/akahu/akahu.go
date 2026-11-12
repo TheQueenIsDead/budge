@@ -16,6 +16,16 @@ import (
 // stalls holds the sync open forever, and a scheduled sync never reports back.
 const requestTimeout = 30 * time.Second
 
+// maxBody caps how much of one response is read. A page of transactions is
+// a few hundred kilobytes; anything near this is not one, and reading it
+// whole would only use up memory.
+const maxBody = 32 << 20
+
+// maxPages caps how many pages one read of transactions follows. A full
+// history is dozens; a cursor that never runs out is a fault on Akahu's side
+// and must not keep a sync going forever.
+const maxPages = 10000
+
 type AkahuClient struct {
 	BaseURL   string `json:"baseURL"`
 	UserToken string `json:"userToken"`
@@ -127,20 +137,18 @@ func (a *AkahuClient) GetTransactions(ctx context.Context, since time.Time, pagi
 		query["start"] = since.Format(time.RFC3339)
 	}
 
-	for {
-		res, httpErr := a.get(ctx, "/transactions", query)
-
-		if httpErr != nil {
-			err = httpErr
-			break
+	seen := map[string]bool{}
+	for page := 0; ; page++ {
+		if page == maxPages {
+			return nil, fmt.Errorf("akahu /transactions: gave up after %d pages", maxPages)
 		}
 
-		body, _ := io.ReadAll(res.Body)
-		_ = res.Body.Close()
 		var tr *TransactionsResponse
-		err = json.Unmarshal(body, &tr)
-		if err != nil {
+		if err := a.decode(ctx, "/transactions", query, &tr); err != nil {
 			return nil, err
+		}
+		if tr == nil {
+			return nil, fmt.Errorf("akahu /transactions: empty response")
 		}
 
 		items = append(items, tr.Items...)
@@ -148,14 +156,19 @@ func (a *AkahuClient) GetTransactions(ctx context.Context, since time.Time, pagi
 			onPage(len(items))
 		}
 
-		if paginate && tr.Cursor.Next != "" {
-			query["cursor"] = tr.Cursor.Next
-		} else {
+		next := tr.Cursor.Next
+		if !paginate || next == "" {
 			break
 		}
+		// A cursor that comes round again would read the same pages forever.
+		if seen[next] {
+			return nil, fmt.Errorf("akahu /transactions: cursor %q repeated", next)
+		}
+		seen[next] = true
+		query["cursor"] = next
 	}
 
-	return
+	return items, nil
 }
 
 // TODO: get transactions for a specific account
@@ -163,33 +176,46 @@ func (a *AkahuClient) GetTransactions(ctx context.Context, since time.Time, pagi
 // TIP: To access subsequent pages, simply take the cursor.next value from each response and make a new request, supplying this value using the cursor query parameter. In response, you will receive the next page of results, along with a new cursor.next value.
 
 func (a *AkahuClient) GetAccounts(ctx context.Context) ([]Account, error) {
-	res, err := a.get(ctx, "/accounts", nil)
-	if err != nil {
+	var accounts *AccountsResponse
+	if err := a.decode(ctx, "/accounts", nil, &accounts); err != nil {
 		return nil, err
 	}
-
-	body, _ := io.ReadAll(res.Body)
-	var accounts *AccountsResponse
-	err = json.Unmarshal(body, &accounts)
-	if err != nil {
-		return nil, err
+	if accounts == nil {
+		return nil, fmt.Errorf("akahu /accounts: empty response")
 	}
 	return accounts.Items, nil
-
 }
 
 func (a *AkahuClient) Me(ctx context.Context) (*Me, error) {
-	res, err := a.get(ctx, "/me", nil)
-	if err != nil {
-		return nil, err
-	}
-
-	body, _ := io.ReadAll(res.Body)
 	var me *MeResponse
-	err = json.Unmarshal(body, &me)
-	if err != nil {
+	if err := a.decode(ctx, "/me", nil, &me); err != nil {
 		return nil, err
 	}
-
+	if me == nil {
+		return nil, fmt.Errorf("akahu /me: empty response")
+	}
 	return &me.Item, nil
+}
+
+// decode fetches a path and reads its JSON into v. The body is always
+// closed, so the connection goes back to be reused rather than leaking, and
+// is read no further than maxBody.
+func (a *AkahuClient) decode(ctx context.Context, path string, query map[string]string, v any) error {
+	res, err := a.get(ctx, path, query)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	body, err := io.ReadAll(io.LimitReader(res.Body, maxBody+1))
+	if err != nil {
+		return fmt.Errorf("akahu %s: reading the response: %w", path, err)
+	}
+	if len(body) > maxBody {
+		return fmt.Errorf("akahu %s: response larger than %d bytes", path, maxBody)
+	}
+	if err := json.Unmarshal(body, v); err != nil {
+		return fmt.Errorf("akahu %s: %w", path, err)
+	}
+	return nil
 }
