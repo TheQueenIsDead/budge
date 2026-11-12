@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf16"
+	"unicode/utf8"
 
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/integrations"
@@ -226,11 +228,11 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 				"message": msg,
 			},
 		}
-		buf, err := json.Marshal(event)
+		trigger, err := triggerJSON(event)
 		if err != nil {
 			slog.ErrorContext(ctx, "could not word the error", "error", err)
 		}
-		c.Response().Header().Add("Hx-Trigger", string(buf))
+		c.Response().Header().Add("Hx-Trigger", trigger)
 		c.Response().Header().Add("Hx-Reswap", "none")
 
 		// On error, return JSON with the inherited code
@@ -545,12 +547,37 @@ func (app *Application) Toast(c *echo.Context, level string, message string) {
 			"message": message,
 		},
 	}
-	buf, err := json.Marshal(event)
+	trigger, err := triggerJSON(event)
 	if err != nil {
 		slog.ErrorContext(c.Request().Context(), "request failed", "error", err)
 		return
 	}
-	c.Response().Header().Add("Hx-Trigger", string(buf))
+	c.Response().Header().Add("Hx-Trigger", trigger)
+}
+
+// triggerJSON writes an HX-Trigger event as JSON in ASCII alone. A header's
+// bytes are read by the browser as Latin-1, so text such as the quotes
+// around a memory's name, or a merchant's é, would arrive garbled. Escaped
+// as \u, it is plain ASCII, and htmx's JSON.parse reads back the same text.
+// Outside strings JSON has only ASCII, so only string contents change.
+func triggerJSON(event any) (string, error) {
+	buf, err := json.Marshal(event)
+	if err != nil {
+		return "", err
+	}
+	var b strings.Builder
+	for _, r := range string(buf) {
+		switch {
+		case r < utf8.RuneSelf:
+			b.WriteRune(r)
+		case r > 0xFFFF:
+			high, low := utf16.EncodeRune(r)
+			fmt.Fprintf(&b, `\u%04x\u%04x`, high, low)
+		default:
+			fmt.Fprintf(&b, `\u%04x`, r)
+		}
+	}
+	return b.String(), nil
 }
 
 // fmtWhole rounds to whole dollars, for figures read at a glance where cents

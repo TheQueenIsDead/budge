@@ -178,7 +178,7 @@ func TestFilingTransactionsInBulk(t *testing.T) {
 	c, rec := postForm(t, app, url.Values{"tx": {"roof", "cylinder"}, "category": {"trades"}})
 	require.NoError(t, app.TransactionsSetCategory(c))
 	assert.Equal(t, "true", rec.Header().Get("HX-Refresh"), "the rows can be anywhere, so the page is drawn again")
-	assert.Contains(t, rec.Header().Get("Hx-Trigger"), "Filed 2 under Maintenance › Trades")
+	assert.Contains(t, toastMessage(t, rec.Header().Get("Hx-Trigger")), "Filed 2 under Maintenance › Trades")
 
 	for _, id := range []string{"roof", "cylinder"} {
 		tx, err := app.store.GetTransaction(t.Context(), id)

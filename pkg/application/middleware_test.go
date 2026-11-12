@@ -1,6 +1,7 @@
 package application
 
 import (
+	"encoding/json"
 	"html/template"
 	"net/http"
 	"net/http/httptest"
@@ -129,4 +130,26 @@ func TestCrossOriginProtection(t *testing.T) {
 func TestCrossOriginProtectionRefusesAnOriginItCannotRead(t *testing.T) {
 	_, err := CrossOriginProtection("budge.lan")
 	assert.Error(t, err, "an origin needs its scheme")
+}
+
+func TestTriggerJSONIsASCII(t *testing.T) {
+	event := map[string]any{"toast": map[string]string{"message": "Added to “Honda Grom Exhaust” at Café 🛵."}}
+	trigger, err := triggerJSON(event)
+	require.NoError(t, err)
+
+	for _, r := range trigger {
+		require.Less(t, r, rune(128), "a header's bytes are read as Latin-1, so %q must be escaped", r)
+	}
+	var back map[string]map[string]string
+	require.NoError(t, json.Unmarshal([]byte(trigger), &back))
+	assert.Equal(t, "Added to “Honda Grom Exhaust” at Café 🛵.", back["toast"]["message"])
+}
+
+// toastMessage reads the message of the toast in an HX-Trigger header, as
+// htmx does, for text the header carries escaped.
+func toastMessage(t *testing.T, trigger string) string {
+	t.Helper()
+	var event map[string]map[string]string
+	require.NoError(t, json.Unmarshal([]byte(trigger), &event))
+	return event["toast"]["message"]
 }
