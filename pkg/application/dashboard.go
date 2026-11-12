@@ -223,7 +223,10 @@ func BuildCards(accounts []models.Account, last, current []models.Transaction) (
 	savings.Total = currentIn + currentOut
 	lastSavings := lastIn + lastOut
 	if lastSavings != 0 {
-		savings.Delta = (savings.Total - lastSavings) / lastSavings
+		// Last window's savings can be a loss. Dividing by its size, as the
+		// balance does, keeps the sign saying which way things went: a loss
+		// turned into savings is up, not down.
+		savings.Delta = (savings.Total - lastSavings) / math.Abs(lastSavings)
 	}
 	savings.PreviousTotal = lastSavings
 

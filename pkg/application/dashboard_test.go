@@ -24,3 +24,20 @@ func TestFilterRecentTransactionsCountsWholeDays(t *testing.T) {
 	assert.Equal(t, []models.Transaction{firstMorning}, recent, "the whole of the first of the 30 days, today among them")
 	assert.Equal(t, []models.Transaction{dayBefore, pastFirst}, past, "and the 30 whole days before")
 }
+
+func TestBuildCardsSavingsDeltaFromALoss(t *testing.T) {
+	var account models.Account
+	account.Balance.Current = 1000
+	amounts := func(amounts ...float64) []models.Transaction {
+		var txs []models.Transaction
+		for _, amount := range amounts {
+			txs = append(txs, models.Transaction{Amount: amount})
+		}
+		return txs
+	}
+	// $500 short last time, $500 saved this time.
+	_, _, _, savings := BuildCards([]models.Account{account}, amounts(1000, -1500), amounts(1500, -1000))
+	assert.Equal(t, 500.0, savings.Total)
+	assert.Equal(t, -500.0, savings.PreviousTotal)
+	assert.InDelta(t, 2.0, savings.Delta, 0.0001, "up by twice the loss, not down")
+}
