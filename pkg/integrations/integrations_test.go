@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/telemetry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	bolt "go.etcd.io/bbolt"
 	"go.opentelemetry.io/otel"
 )
 
@@ -301,6 +303,34 @@ func TestAnIncrementalSyncKeepsATransferSplitByItsWindow(t *testing.T) {
 	assert.Equal(t, "TRANSFER", typeOf("in"), "the leg inside the window stays a transfer")
 	assert.Equal(t, "TRANSFER", typeOf("out"))
 	assert.Equal(t, "EFTPOS", typeOf("groceries"), "nothing else becomes one")
+}
+
+func TestUnreadableAkahuSettingsAreNotSavedOver(t *testing.T) {
+	t.Setenv("AKAHU_USER_TOKEN", "user-from-env")
+	t.Setenv("AKAHU_APP_TOKEN", "app-from-env")
+	dir := t.TempDir()
+	t.Setenv("BUDGE_BOLT_PATH", dir)
+	store, err := database.NewStore()
+	require.NoError(t, err)
+	require.NoError(t, store.Close())
+
+	// The settings are spoiled behind the store's back.
+	db, err := bolt.Open(filepath.Join(dir, "budge.bolt.db"), 0600, nil)
+	require.NoError(t, err)
+	settings := models.IntegrationAkahuSettings{}
+	require.NoError(t, db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(settings.Bucket()).Put(settings.Key(), []byte("{not json"))
+	}))
+	require.NoError(t, db.Close())
+
+	store, err = database.NewStore()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+
+	i := NewIntegrations(store)
+	assert.Equal(t, "user-from-env", i.akahu.Load().UserToken, "the environment still stands in")
+	_, err = store.GetAkahuSettings(t.Context())
+	assert.Error(t, err, "the unreadable settings are left as they were")
 }
 
 // TestSavingTokensDuringASyncIsSafe runs under -race: the sync reads the

@@ -58,11 +58,13 @@ func (i *Integrations) RegisterAkahu() {
 		slog.Warn("could not read the akahu settings, falling back to the environment", "error", err)
 	}
 	// Tokens from the environment stand in until some are saved, as on a
-	// fresh instance, and are saved so settings shows them.
+	// fresh instance, and are saved so settings shows them. Settings that
+	// could not be read are not saved over: they may hold tokens of their
+	// own, and the owner can still put right whatever is wrong with them.
 	if settings.UserToken == "" && settings.AppToken == "" {
 		settings.UserToken = os.Getenv("AKAHU_USER_TOKEN")
 		settings.AppToken = os.Getenv("AKAHU_APP_TOKEN")
-		if settings.UserToken != "" || settings.AppToken != "" {
+		if err == nil && (settings.UserToken != "" || settings.AppToken != "") {
 			if err := i.store.UpdateAkahuSettings(ctx, settings); err != nil {
 				slog.Warn("could not save the akahu tokens from the environment", "error", err)
 			}
