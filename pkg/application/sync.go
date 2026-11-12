@@ -2,7 +2,10 @@ package application
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"net/http"
+	"runtime/debug"
 	"strconv"
 	"sync"
 	"time"
@@ -103,12 +106,24 @@ func (r *syncRunner) status() SyncStatus {
 	return status
 }
 
-// runAkahuSync syncs and records when it last succeeded. The runner must
-// already be claimed; it is released here.
-func (app *Application) runAkahuSync(ctx context.Context) error {
+// runAkahuSync syncs and records when it last succeeded. full forgets how
+// far the last sync reached first, so the whole history is read again. The
+// runner must already be claimed; it is released here, even if the sync
+// panics, which is recorded as the sync failing.
+func (app *Application) runAkahuSync(ctx context.Context, full bool) error {
 	ctx, span := tracer().Start(ctx, "akahu sync")
 	defer span.End()
-	err := func() error {
+	err := func() (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				err = panicked(ctx, r)
+			}
+		}()
+		if full {
+			if err := app.store.ResetAkahuLastSync(ctx); err != nil {
+				return err
+			}
+		}
 		settings, err := app.store.GetAkahuSettings(ctx)
 		if err != nil {
 			return err
@@ -131,6 +146,46 @@ func (app *Application) runAkahuSync(ctx context.Context) error {
 	return err
 }
 
+// panicked logs a recovered panic with its stack, and makes an error of it.
+func panicked(ctx context.Context, r any) error {
+	slog.ErrorContext(ctx, "akahu sync panicked", "panic", r, "stack", string(debug.Stack()))
+	return fmt.Errorf("sync panicked: %v", r)
+}
+
+// inBackground runs a sync that outlives the request that started it. Close
+// waits for it, so the store is not closed underneath it, and a panic is
+// logged rather than taking the whole process down.
+func (app *Application) inBackground(ctx context.Context, run func(context.Context)) {
+	// The sync keeps the request's trace but not its cancellation.
+	ctx = context.WithoutCancel(ctx)
+	app.background.Add(1)
+	go func() {
+		defer app.background.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				_ = panicked(ctx, r)
+			}
+		}()
+		run(ctx)
+	}()
+}
+
+// waitForBackground waits up to grace for syncs running in the background
+// to finish, reporting whether they did.
+func (app *Application) waitForBackground(grace time.Duration) bool {
+	done := make(chan struct{})
+	go func() {
+		app.background.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return true
+	case <-time.After(grace):
+		return false
+	}
+}
+
 // syncStatus is the runner's state alongside when the last sync landed.
 func (app *Application) syncStatus(ctx context.Context) SyncStatus {
 	status := app.akahuSync.status()
@@ -146,16 +201,13 @@ func (app *Application) syncStatus(ctx context.Context) SyncStatus {
 func (app *Application) SyncAkahu(c *echo.Context) error {
 	ctx := c.Request().Context()
 	if app.akahuSync.begin() {
-		// The sync outlives the request, so it keeps the request's trace but
-		// not its cancellation.
-		background := context.WithoutCancel(ctx)
-		go func() {
-			if err := app.runAkahuSync(background); err != nil {
+		app.inBackground(ctx, func(ctx context.Context) {
+			if err := app.runAkahuSync(ctx, false); err != nil {
 				// Recorded as well as shown: the page that started this may be
 				// long closed by the time it fails.
-				app.Notify(background, models.NotificationError, SourceAkahuSync, "Sync failed", err.Error())
+				app.Notify(ctx, models.NotificationError, SourceAkahuSync, "Sync failed", err.Error())
 			}
-		}()
+		})
 	}
 	return c.Render(http.StatusOK, "settings.integrations.sync", app.syncStatus(ctx))
 }
@@ -168,18 +220,11 @@ func (app *Application) SyncAkahu(c *echo.Context) error {
 func (app *Application) ResyncAkahu(c *echo.Context) error {
 	ctx := c.Request().Context()
 	if app.akahuSync.begin() {
-		background := context.WithoutCancel(ctx)
-		go func() {
-			err := app.store.ResetAkahuLastSync(background)
-			if err != nil {
-				app.akahuSync.end(err)
-			} else {
-				err = app.runAkahuSync(background)
+		app.inBackground(ctx, func(ctx context.Context) {
+			if err := app.runAkahuSync(ctx, true); err != nil {
+				app.Notify(ctx, models.NotificationError, SourceAkahuSync, "Full resync failed", err.Error())
 			}
-			if err != nil {
-				app.Notify(background, models.NotificationError, SourceAkahuSync, "Full resync failed", err.Error())
-			}
-		}()
+		})
 	}
 	return c.Render(http.StatusOK, "settings.integrations.sync", app.syncStatus(ctx))
 }

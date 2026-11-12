@@ -1,8 +1,10 @@
 package application
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -63,6 +65,55 @@ func TestDeleteSyncedRefusesWhileASyncRuns(t *testing.T) {
 	require.NoError(t, err)
 	assert.Zero(t, count)
 	assert.True(t, app.akahuSync.begin(), "the runner is released afterwards")
+}
+
+func TestAPanickingSyncIsRecordedAsFailed(t *testing.T) {
+	app := newTestApp(t)
+	// With no integrations, the sync dereferences nil.
+	require.True(t, app.akahuSync.begin())
+
+	err := app.runAkahuSync(t.Context(), false)
+	require.Error(t, err)
+	status := app.akahuSync.status()
+	assert.False(t, status.Running, "the runner is released")
+	assert.Contains(t, status.Error, "panicked")
+}
+
+func TestAPanicInTheBackgroundIsContained(t *testing.T) {
+	app := newTestApp(t)
+	app.inBackground(t.Context(), func(context.Context) { panic("boom") })
+	assert.True(t, app.waitForBackground(5*time.Second), "the process carries on")
+}
+
+func TestCloseWaitsForSyncsInTheBackground(t *testing.T) {
+	app := newTestApp(t)
+	release := make(chan struct{})
+	var finished atomic.Bool
+	app.inBackground(t.Context(), func(context.Context) {
+		<-release
+		finished.Store(true)
+	})
+
+	closed := make(chan error)
+	go func() { closed <- app.Close() }()
+	select {
+	case <-closed:
+		t.Fatal("Close returned with a sync still running")
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(release)
+	require.NoError(t, <-closed)
+	assert.True(t, finished.Load())
+
+	t.Run("not forever", func(t *testing.T) {
+		app := newTestApp(t)
+		defer func(grace time.Duration) { backgroundGrace = grace }(backgroundGrace)
+		backgroundGrace = 50 * time.Millisecond
+		stuck := make(chan struct{})
+		defer close(stuck)
+		app.inBackground(t.Context(), func(context.Context) { <-stuck })
+		assert.NoError(t, app.Close())
+	})
 }
 
 func TestRenderSyncProgress(t *testing.T) {

@@ -13,6 +13,7 @@ import (
 	"math"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database"
@@ -137,7 +138,10 @@ type Application struct {
 	integrations *integrations.Integrations
 	scheduler    *scheduler
 	akahuSync    syncRunner
-	telemetry    *telemetry.Telemetry
+	// background tracks the syncs started from the settings page, which
+	// outlive their requests, so Close can wait for them.
+	background sync.WaitGroup
+	telemetry  *telemetry.Telemetry
 }
 
 func NewApplication(store *database.Store, integrations *integrations.Integrations, tel *telemetry.Telemetry) (*Application, error) {
@@ -398,18 +402,35 @@ func (app *Application) Start() error {
 	return app.server.ListenAndServe()
 }
 
+// backgroundGrace is how long Close waits for syncs started from the
+// settings page to finish.
+var backgroundGrace = 20 * time.Second
+
+// Close stops everything that could write to the store, so the store can be
+// closed after it.
 func (app *Application) Close() error {
-	// Stop the scheduler first and wait for any job in flight, so shutdown does
-	// not cut a sync off midway through writing.
-	app.scheduler.stop()
-	// Requests under way are let finish, for a while, before the server
-	// closes.
-	if app.server == nil {
-		return nil
+	// Stop the scheduler first, cancelling any job in flight and waiting for
+	// it to return; see scheduler.stop.
+	if app.scheduler != nil {
+		app.scheduler.stop()
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	return app.server.Shutdown(ctx)
+	// Requests under way are let finish, for a while, before the server
+	// closes. Once it has, nothing can start another sync.
+	var err error
+	if app.server != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		err = app.server.Shutdown(ctx)
+	}
+	// A sync started from the settings page is not tied to its request, so
+	// it is waited for here, before the store closes under it. Not forever:
+	// one stuck on Akahu should not hold the process open. Past the wait,
+	// bolt lets a write already under way finish before it closes, and any
+	// after that fails rather than being half written.
+	if !app.waitForBackground(backgroundGrace) {
+		slog.Warn("stopping with a sync still running", "waited", backgroundGrace)
+	}
+	return err
 }
 
 type Template struct {

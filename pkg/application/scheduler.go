@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -61,14 +62,27 @@ func (s *scheduler) start() {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				s.runDue(ctx)
+				s.runDueSafely(ctx)
 			}
 		}
 	}()
 }
 
-// stop ends the loop and waits for a job in flight to finish, so shutdown does
-// not cut a sync off midway through writing.
+// runDueSafely is runDue, with a panic logged rather than ending the loop, or
+// the process with it. The next tick tries again.
+func (s *scheduler) runDueSafely(ctx context.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.ErrorContext(ctx, "scheduled job panicked", "panic", r, "stack", string(debug.Stack()))
+		}
+	}()
+	s.runDue(ctx)
+}
+
+// stop ends the loop, cancelling a job in flight, and waits for it to
+// return. It does not wait for the job to finish its work: a cancelled sync
+// gives up reading from Akahu, and as a sync writes everything in one commit
+// at the end, it either lands whole or not at all, never half written.
 func (s *scheduler) stop() {
 	if s.cancel == nil {
 		return
@@ -150,7 +164,7 @@ func (s *scheduler) runAkahu(ctx context.Context) {
 	if !s.app.akahuSync.begin() {
 		return
 	}
-	if err := s.app.runAkahuSync(ctx); err != nil {
+	if err := s.app.runAkahuSync(ctx, false); err != nil {
 		s.app.Notify(ctx, models.NotificationError, SourceAkahuSync,
 			"Scheduled sync failed", err.Error())
 	}

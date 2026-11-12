@@ -90,6 +90,8 @@ func (b *Budge) Start() error {
 // noting why. Every component is closed even if one fails to, and what
 // failed is reported together.
 func (b *Budge) Teardown(reason string) error {
+	// The application closes before the store, as it waits for syncs in the
+	// background, which write to it. errors.Join's arguments run in order.
 	if b.Telemetry == nil {
 		slog.Info("budge stopping", "reason", reason)
 		return errors.Join(b.Application.Close(), b.Store.Close())
