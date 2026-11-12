@@ -33,6 +33,43 @@ func TestAkahuSettingsThatCannotBeReadAreAnError(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestSavingTokensAndRecordingASyncKeepEachOthersChanges(t *testing.T) {
+	store := tempStore(t)
+	ctx := t.Context()
+	through := time.Now().Add(-time.Hour)
+	require.NoError(t, store.RecordAkahuSync(ctx, through))
+
+	// A settings page read before the sync above finished still holds the
+	// old position; saving its tokens must not put that back.
+	require.NoError(t, store.UpdateAkahuSettings(ctx, models.IntegrationAkahuSettings{UserToken: "new-user", AppToken: "new-app"}))
+	settings, err := store.GetAkahuSettings(ctx)
+	require.NoError(t, err)
+	assert.True(t, settings.DataThrough.Equal(through), "the sync's position is kept")
+
+	// And a sync finishing after the tokens changed keeps the new ones.
+	require.NoError(t, store.RecordAkahuSync(ctx, through.Add(time.Minute)))
+	settings, err = store.GetAkahuSettings(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "new-user", settings.UserToken)
+	assert.Equal(t, "new-app", settings.AppToken)
+
+	require.NoError(t, store.ResetAkahuLastSync(ctx))
+	settings, err = store.GetAkahuSettings(ctx)
+	require.NoError(t, err)
+	assert.True(t, settings.DataThrough.IsZero())
+	assert.Equal(t, "new-user", settings.UserToken)
+}
+
+func TestChangingUnreadableAkahuSettingsLeavesThemAlone(t *testing.T) {
+	store := tempStore(t)
+	key := models.IntegrationAkahuSettings{}.Key()
+	require.NoError(t, store.db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(models.IntegrationAkahuSettings{}.Bucket()).Put(key, []byte("{not json"))
+	}))
+	assert.Error(t, store.UpdateAkahuSettings(t.Context(), models.IntegrationAkahuSettings{UserToken: "user"}))
+	assert.Error(t, store.RecordAkahuSync(t.Context(), time.Now()))
+}
+
 func TestDeleteSyncedEmptiesTheBucketsAndForgetsTheSync(t *testing.T) {
 	store := tempStore(t)
 	ctx := t.Context()

@@ -617,32 +617,45 @@ func (s *Store) GetAkahuSettings(ctx context.Context) (models.IntegrationAkahuSe
 	settings, _, err := GetOptional[models.IntegrationAkahuSettings](ctx, s.db, models.IntegrationAkahuSettings{}.Key())
 	return settings, err
 }
+
+// UpdateAkahuSettings saves the tokens. Only the tokens: how far syncs have
+// reached is the sync's to record, and writing back what a caller read
+// earlier could undo a sync that finished in between.
 func (s *Store) UpdateAkahuSettings(ctx context.Context, settings models.IntegrationAkahuSettings) error {
-	return Update[models.IntegrationAkahuSettings](ctx, s.db, settings)
+	return s.changeAkahuSettings(ctx, func(saved *models.IntegrationAkahuSettings) {
+		saved.UserToken = settings.UserToken
+		saved.AppToken = settings.AppToken
+	})
 }
 
 // RecordAkahuSync notes a successful sync, and how fresh Akahu's data was at
 // the time, which is where the next sync starts reading.
 func (s *Store) RecordAkahuSync(ctx context.Context, dataThrough time.Time) error {
-	settings, err := s.GetAkahuSettings(ctx)
-	if err != nil {
-		return err
-	}
-	settings.LastSync = time.Now()
-	settings.DataThrough = dataThrough
-	return Update[models.IntegrationAkahuSettings](ctx, s.db, settings)
+	return s.changeAkahuSettings(ctx, func(settings *models.IntegrationAkahuSettings) {
+		settings.LastSync = time.Now()
+		settings.DataThrough = dataThrough
+	})
 }
 
 // ResetAkahuLastSync forgets how far the synced data reaches, so the next
 // sync reads the whole history again.
 func (s *Store) ResetAkahuLastSync(ctx context.Context) error {
-	settings, err := s.GetAkahuSettings(ctx)
-	if err != nil {
-		return err
-	}
+	return s.changeAkahuSettings(ctx, resetAkahuPosition)
+}
+
+// resetAkahuPosition forgets how far syncs have reached.
+func resetAkahuPosition(settings *models.IntegrationAkahuSettings) {
 	settings.LastSync = time.Time{}
 	settings.DataThrough = time.Time{}
-	return Update[models.IntegrationAkahuSettings](ctx, s.db, settings)
+}
+
+// changeAkahuSettings changes the Akahu settings within one transaction. A
+// read and a separate write let a sync finishing in between put back the
+// tokens it read when it started, over ones saved since.
+func (s *Store) changeAkahuSettings(ctx context.Context, change func(*models.IntegrationAkahuSettings)) error {
+	return update(ctx, s.db, bucketOf[models.IntegrationAkahuSettings](), func(tx *bolt.Tx) error {
+		return changeAkahuSettings(tx, change)
+	})
 }
 
 // DeleteSynced removes everything a sync brought in and forgets how far it
@@ -660,10 +673,7 @@ func (s *Store) DeleteSynced(ctx context.Context) error {
 				return err
 			}
 		}
-		return changeAkahuSettings(tx, func(settings *models.IntegrationAkahuSettings) {
-			settings.LastSync = time.Time{}
-			settings.DataThrough = time.Time{}
-		})
+		return changeAkahuSettings(tx, resetAkahuPosition)
 	})
 }
 
