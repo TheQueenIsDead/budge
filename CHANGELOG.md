@@ -1,5 +1,44 @@
 # Changelog
 
+## [1.21.0](https://github.com/TheQueenIsDead/budge/compare/v1.20.1...v1.21.0) (2026-11-12)
+
+
+### Features
+
+* name the addresses budge is reached at with BUDGE_TRUSTED_ORIGINS ([1b0b842](https://github.com/TheQueenIsDead/budge/commit/1b0b842e8f3fb6e759e4615978d5f46c0994027b))
+
+
+### Bug Fixes
+
+* **account:** wind back a transaction at exactly the new year ([c64e8df](https://github.com/TheQueenIsDead/budge/commit/c64e8df111ba072318da16cea206d8a518889ad1))
+* **admin:** keep the log search focused while typing ([66bbec1](https://github.com/TheQueenIsDead/budge/commit/66bbec133df50c187182e523ac95ff1d39258039))
+* **akahu:** harden the Akahu client ([e32c5e2](https://github.com/TheQueenIsDead/budge/commit/e32c5e2d9c618b6173a3c3763dc116baeb3c6914))
+* **akahu:** never save the environment's tokens over unreadable settings ([815a87c](https://github.com/TheQueenIsDead/budge/commit/815a87c61d7eb28995ce73a57284adf78ab7822a))
+* **akahu:** swap the client whole when its tokens change ([9b64f97](https://github.com/TheQueenIsDead/budge/commit/9b64f97b916b94acf02cbf68a9df2c8e215f106d))
+* answer a not found request once ([730d98e](https://github.com/TheQueenIsDead/budge/commit/730d98e70b7ac488a3b11ae368194b3e776ec5e6))
+* answer an unknown id with not found ([9e0774c](https://github.com/TheQueenIsDead/budge/commit/9e0774c8ee81ac1d6de49e923f713e0a8380ab78))
+* **budget:** average weekly spending over whole local weeks ([7b5b825](https://github.com/TheQueenIsDead/budge/commit/7b5b8257b0375eaabf44ccc400b2a31f96f2b609))
+* **budget:** give the yearly chart a bar for every month ([355cce0](https://github.com/TheQueenIsDead/budge/commit/355cce0606f71b259a6aa63ec50dbb7500879c36))
+* **budget:** judge a split category on its targeted spending ([8909c87](https://github.com/TheQueenIsDead/budge/commit/8909c87a863445786c2d189764a80527c7f50037))
+* **dashboard:** keep the savings delta's sign when last month was a loss ([53f6883](https://github.com/TheQueenIsDead/budge/commit/53f6883cfc0f862b44d636eb1138f70f35a526fb))
+* **dashboard:** show the cards when there is no earlier month to compare ([992c8fe](https://github.com/TheQueenIsDead/budge/commit/992c8feff5825b251237d4c8b1ebfe19efa14047))
+* **dashboard:** wind the previous balance back over every transaction ([f35d660](https://github.com/TheQueenIsDead/budge/commit/f35d660efa1aec24a2302dd31d3d769546d368ec))
+* log a failed request's path, not its query ([57d324a](https://github.com/TheQueenIsDead/budge/commit/57d324a5937aa2fe6c4761e910aa15c5c0fd37e9))
+* refuse state-changing requests from other sites ([8875e3d](https://github.com/TheQueenIsDead/budge/commit/8875e3db25dcb96d3eb692c074a61260c22d6afc))
+* **settings:** change the Akahu settings in one transaction ([695e5f0](https://github.com/TheQueenIsDead/budge/commit/695e5f0537c147db20effa5ff591ed7b3471b396))
+* **settings:** delete synced data in one commit, and not during a sync ([2695961](https://github.com/TheQueenIsDead/budge/commit/2695961db7cf4fa3334e316b0abbe6b014538215))
+* **settings:** keep the remove synced data button's label ([d520631](https://github.com/TheQueenIsDead/budge/commit/d5206315d8132b80497c760994c7e273c74cc21b))
+* **settings:** stop sending the saved akahu tokens to the browser ([67869a6](https://github.com/TheQueenIsDead/budge/commit/67869a63cc6cd116111cd1c1597d91f5b1da6288))
+* **sync:** keep a transfer whose legs straddle the sync window ([c3b6f28](https://github.com/TheQueenIsDead/budge/commit/c3b6f28cdbda0062e004af6c5c5306071502dd5f))
+* **sync:** wait for background syncs before closing the store ([d6d316a](https://github.com/TheQueenIsDead/budge/commit/d6d316af637053afb030735b66c670a90a1f708c))
+* **telemetry:** cap logs and spans waiting on a failing disk ([d552501](https://github.com/TheQueenIsDead/budge/commit/d552501c48161d22de1d2cb1f9b4fbeacd468c11))
+* **telemetry:** decide OTLP export for each signal on its own ([ac68751](https://github.com/TheQueenIsDead/budge/commit/ac68751f6f95c6bb7a48950316e0003120f6a7c9))
+* **telemetry:** give up on a file a compaction could not reopen ([44e3582](https://github.com/TheQueenIsDead/budge/commit/44e3582d22d10ae4d8c565fb8a058c9a3ba9aa92))
+* **telemetry:** treat an empty retention as unset and reject overflowing days ([282ebd8](https://github.com/TheQueenIsDead/budge/commit/282ebd8415d8fa1e7f82d01a6af86979ce9f1f93))
+* **timeline:** keep the first day of "Last 12 months" on a leap day ([9884e43](https://github.com/TheQueenIsDead/budge/commit/9884e435a289e35ec74e41fc87ac9564ab36a19f))
+* **timeline:** offer a memory's nearby purchases in a fixed order ([80df6db](https://github.com/TheQueenIsDead/budge/commit/80df6db4773f6e891b5e1787c77feaedd97bceee))
+* **timeline:** save a memory in one transaction ([70500c3](https://github.com/TheQueenIsDead/budge/commit/70500c3b2fc279962588677db56e392f4962e3de))
+
 ## [1.20.1](https://github.com/TheQueenIsDead/budge/compare/v1.20.0...v1.20.1) (2026-11-09)
 
 
