@@ -106,5 +106,18 @@
         }
     });
 
+    // afterSwap runs draw once the swap that brought a chart's script in is
+    // done. A canvas marked hx-preserve keeps its chart across a swap, but
+    // where browsers have moveBefore, htmx sets the kept canvas aside, swaps
+    // the new content in, runs its scripts, and only then puts the kept
+    // canvas back in place of the new one. Drawn at once, a chart lands on
+    // the new canvas, which is about to be dropped, while the kept one goes
+    // on showing what it showed before. The swap finishes before anything
+    // queued after it, so the kept canvas is back by the time draw runs. A
+    // full page load has nothing set aside, and draws the same.
+    budge.afterSwap = function (draw) {
+        queueMicrotask(draw);
+    };
+
     window.budge = budge;
 })();

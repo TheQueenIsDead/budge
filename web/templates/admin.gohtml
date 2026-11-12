@@ -215,7 +215,7 @@
                 <canvas id="{{ .id }}" hx-preserve="true"></canvas>
             </div>
             <script nonce="{{ nonce }}">
-                (function () {
+                window.budge.afterSwap(function () {
                     const canvas = document.getElementById({{ .id }});
                     if (!canvas || typeof Chart === "undefined" || !window.budge) {
                         return;
@@ -352,7 +352,7 @@
                         }
                     });
                     made.$axis = data;
-                })();
+                });
             </script>
         </div>
     </div>

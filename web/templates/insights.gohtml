@@ -143,7 +143,7 @@
             </div>
 
             <script nonce="{{ nonce }}">
-                (function () {
+                window.budge.afterSwap(function () {
                     const canvas = document.getElementById("insightsChart");
                     if (!canvas || typeof Chart === "undefined") {
                         return;
@@ -238,7 +238,7 @@
                         }
                     });
                     chart.$links = links;
-                })();
+                });
             </script>
         </div>
     </div>

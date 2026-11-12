@@ -245,7 +245,7 @@
     {{ end }}
 
     <script nonce="{{ nonce }}">
-        (function () {
+        window.budge.afterSwap(function () {
             const canvas = document.getElementById("txSeriesChart");
             if (!canvas || typeof Chart === "undefined" || !window.budge) {
                 return;
@@ -332,7 +332,7 @@
                     }
                 }
             });
-        })();
+        });
     </script>
 
 {{ end }}
