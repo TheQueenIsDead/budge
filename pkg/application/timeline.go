@@ -874,7 +874,9 @@ func timelinePeriods(transactions []models.Transaction, now time.Time) []Timelin
 	periods := []TimelinePeriod{{
 		Key:   "",
 		Label: "Last 12 months",
-		Start: today.AddDate(-1, 0, 1),
+		// monthsBack rather than AddDate, which on 29 February overflows
+		// to 2 March a year ago and loses the 1st.
+		Start: monthsBack(today, 12),
 		End:   today.AddDate(0, 0, 1),
 	}}
 

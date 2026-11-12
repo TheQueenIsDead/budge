@@ -256,6 +256,13 @@ func TestTimelinePeriods(t *testing.T) {
 	assert.Equal(t, time.Date(2025, time.October, 16, 0, 0, 0, 0, time.UTC), periods[0].Start)
 	assert.Equal(t, time.Date(2026, time.October, 16, 0, 0, 0, 0, time.UTC), periods[0].End)
 	assert.Equal(t, []string{"2026", "2024"}, []string{periods[1].Key, periods[2].Key})
+
+	t.Run("a leap day keeps the day a year ago", func(t *testing.T) {
+		// A year before 29 February is 1 March, as there is no 29th; the
+		// day after that overflowed to 2 March and lost a day.
+		periods := timelinePeriods(nil, time.Date(2028, time.February, 29, 9, 0, 0, 0, time.UTC))
+		assert.Equal(t, time.Date(2027, time.March, 1, 0, 0, 0, 0, time.UTC), periods[0].Start)
+	})
 }
 
 func TestRenderTimeline(t *testing.T) {
