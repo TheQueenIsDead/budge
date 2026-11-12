@@ -498,6 +498,16 @@ func (t *Template) Render(c *echo.Context, w io.Writer, name string, data any) e
 
 }
 
+// lookupError answers a lookup by id that failed. Nothing under the id, as
+// from a bad link or one to something since removed, is not found, with the
+// message given; anything else is the store failing, a server error.
+func lookupError(err error, message string) error {
+	if errors.Is(err, database.ErrNotFound) {
+		return echo.NewHTTPError(http.StatusNotFound, message)
+	}
+	return err
+}
+
 func (app *Application) Toast(c *echo.Context, level string, message string) {
 	// Set an HTMX Error even via headers
 	event := map[string]interface{}{

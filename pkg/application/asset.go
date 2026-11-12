@@ -330,7 +330,7 @@ func (app *Application) Asset(c *echo.Context) error {
 
 	asset, err := app.store.GetAsset(ctx, c.Param("id"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "asset not found")
+		return lookupError(err, "asset not found")
 	}
 
 	// Newest first: the most recent valuation is the one being checked.
@@ -380,7 +380,7 @@ func (app *Application) AssetUpdatePurchase(c *echo.Context) error {
 	ctx := c.Request().Context()
 	asset, err := app.store.GetAsset(ctx, c.Param("id"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "asset not found")
+		return lookupError(err, "asset not found")
 	}
 
 	price := parseAssetAmount(c.FormValue("purchase_price"))
@@ -451,7 +451,7 @@ func (app *Application) AssetRefreshEstimate(c *echo.Context) error {
 	id := c.Param("id")
 	asset, err := app.store.GetAsset(ctx, id)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "asset not found")
+		return lookupError(err, "asset not found")
 	}
 
 	if !asset.Trackable() {

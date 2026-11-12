@@ -70,7 +70,7 @@ func (app *Application) addToMemory(c *echo.Context, ids []string) (models.Memor
 	if id := c.FormValue("memory"); id != "" {
 		existing, err := app.store.GetMemory(ctx, id)
 		if err != nil {
-			return memory, echo.NewHTTPError(http.StatusNotFound, "That memory no longer exists.")
+			return memory, lookupError(err, "That memory no longer exists.")
 		}
 		memory = existing
 		memory.TransactionIDs = uniqueValues(append(memory.TransactionIDs, ids...))

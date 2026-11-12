@@ -4,8 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+
 	bolt "go.etcd.io/bbolt"
 )
+
+// ErrNotFound is what Get answers for a key that is not there, so a caller
+// can tell a missing document, often a bad link, from one that could not be
+// read.
+var ErrNotFound = errors.New("not found")
 
 // Create inserts a new Storable object and returns an error if the Key already exists.
 func Create[T Storable](ctx context.Context, db *bolt.DB, item T) error {
@@ -28,7 +35,7 @@ func Count[T Storable](ctx context.Context, db *bolt.DB) (int, error) {
 	err := view(ctx, db, bucketOf[T](), func(tx *bolt.Tx) error {
 		b := tx.Bucket(result.Bucket())
 		if b == nil {
-			return errors.New("no account bucket")
+			return fmt.Errorf("no %s bucket", result.Bucket())
 		}
 		count = b.Stats().KeyN
 		return nil
@@ -37,12 +44,15 @@ func Count[T Storable](ctx context.Context, db *bolt.DB) (int, error) {
 }
 
 // Get retrieves a Storable of type T given an identifier. The identifier should correspond to the returned value
-// of the Storable.Key() method.
+// of the Storable.Key() method. An identifier with nothing saved under it is ErrNotFound.
 func Get[T Storable](ctx context.Context, db *bolt.DB, id []byte) (T, error) {
 	var result T
 	err := view(ctx, db, bucketOf[T](), func(tx *bolt.Tx) error {
 		b := tx.Bucket(result.Bucket())
 		buf := b.Get(id)
+		if buf == nil {
+			return ErrNotFound
+		}
 		return json.Unmarshal(buf, &result)
 	})
 	return result, err

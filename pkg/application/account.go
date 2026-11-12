@@ -318,8 +318,7 @@ func (app *Application) Account(c *echo.Context) error {
 	accountId := c.Param("id")
 	account, err := app.store.GetAccount(ctx, []byte(accountId))
 	if err != nil {
-		slog.ErrorContext(ctx, "request failed", "error", err)
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to fetch accounts")
+		return lookupError(err, "account not found")
 	}
 
 	year := c.QueryParam("year")

@@ -105,8 +105,9 @@ func (app *Application) PutAkahuSettings(c *echo.Context) error {
 	if token := strings.TrimSpace(c.FormValue("akahuUserToken")); token != "" {
 		settings.UserToken = token
 	}
+	// A token that does not look like one is the owner's to fix, not a fault.
 	if err := settings.Validate(); err != nil {
-		return err
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
 	err = app.integrations.PutAkahuSettings(ctx, settings)

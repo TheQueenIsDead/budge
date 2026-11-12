@@ -86,7 +86,7 @@ func (app *Application) TransactionCategoryForm(c *echo.Context) error {
 	ctx := c.Request().Context()
 	tx, err := app.store.GetTransaction(ctx, c.Param("id"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "Transaction not found.")
+		return lookupError(err, "Transaction not found.")
 	}
 	source, overridden := categorySource(tx)
 	return c.Render(http.StatusOK, "transactions.category.form", TransactionCategoryView{
@@ -108,7 +108,7 @@ func (app *Application) TransactionSetCategory(c *echo.Context) error {
 	ctx := c.Request().Context()
 	tx, err := app.store.GetTransaction(ctx, c.Param("id"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "Transaction not found.")
+		return lookupError(err, "Transaction not found.")
 	}
 	settings, err := app.store.GetCategorySettings(ctx)
 	if err != nil {
