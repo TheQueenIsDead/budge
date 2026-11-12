@@ -66,7 +66,12 @@ func rollingBounds(frequency string, now time.Time) (start, end time.Time, step 
 	end = time.Date(y, m, d, 0, 0, 0, 0, now.Location()).AddDate(0, 0, 1)
 	day := func(t time.Time) time.Time { return t.AddDate(0, 0, 1) }
 	week := func(t time.Time) time.Time { return t.AddDate(0, 0, 7) }
-	month := func(t time.Time) time.Time { return t.AddDate(0, 1, 0) }
+	// The first of the next month, so each bar after the first is a whole
+	// month. Adding a month to a start late in one overflows instead: 30
+	// January and a month is 2 March, and February had no bar.
+	month := func(t time.Time) time.Time {
+		return time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, t.Location())
+	}
 
 	today := end.AddDate(0, 0, -1)
 	switch frequency {
@@ -78,7 +83,9 @@ func rollingBounds(frequency string, now time.Time) (start, end time.Time, step 
 		// By week: ninety-odd daily bars are too thin to read.
 		return monthsBack(today, 3), end, week, "2 Jan", "the last 3 months"
 	case "yearly":
-		return monthsBack(today, 12), end, month, "Jan", "the last 12 months"
+		// Labelled with the year: unless today ends a month, the first and
+		// last bars are the same month a year apart.
+		return monthsBack(today, 12), end, month, "Jan 06", "the last 12 months"
 	}
 	return end.AddDate(0, 0, -7), end, day, "Mon 2", "the last 7 days"
 }

@@ -22,7 +22,7 @@ func TestRollingBounds(t *testing.T) {
 		{"fortnightly", time.Date(2026, 10, 19, 0, 0, 0, 0, time.UTC), 14, "the last 14 days"},
 		{"monthly", time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC), 31, "the last month"},
 		{"quarterly", time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC), 14, "the last 3 months"},
-		{"yearly", time.Date(2025, 11, 2, 0, 0, 0, 0, time.UTC), 12, "the last 12 months"},
+		{"yearly", time.Date(2025, 11, 2, 0, 0, 0, 0, time.UTC), 13, "the last 12 months"}, // the rest of November, then by month to today
 	}
 	for _, tt := range tests {
 		t.Run(tt.frequency, func(t *testing.T) {
@@ -37,6 +37,26 @@ func TestRollingBounds(t *testing.T) {
 			assert.Equal(t, tt.bars, bars)
 		})
 	}
+}
+
+// TestYearlyBarsMissNoMonth steps a year that starts late in a month. Adding
+// a month to 30 January overflows to 2 March, which left February out.
+func TestYearlyBarsMissNoMonth(t *testing.T) {
+	now := time.Date(2027, time.January, 29, 15, 0, 0, 0, time.UTC)
+	start, end, step, format, _ := rollingBounds("yearly", now)
+	require.Equal(t, time.Date(2026, time.January, 30, 0, 0, 0, 0, time.UTC), start)
+
+	var labels []string
+	var bounds []time.Time
+	for at := start; at.Before(end); at = step(at) {
+		bounds = append(bounds, at)
+		labels = append(labels, at.Format(format))
+	}
+	assert.Equal(t, []string{
+		"Jan 26", "Feb 26", "Mar 26", "Apr 26", "May 26", "Jun 26", "Jul 26",
+		"Aug 26", "Sep 26", "Oct 26", "Nov 26", "Dec 26", "Jan 27",
+	}, labels, "the first bar is the end of a month, the last the start of one, and every month between is whole")
+	assert.Equal(t, time.Date(2026, time.February, 1, 0, 0, 0, 0, time.UTC), bounds[1])
 }
 
 func TestBuildPeriodCharts(t *testing.T) {
@@ -100,8 +120,9 @@ func TestBuildPeriodCharts(t *testing.T) {
 		charts := BuildPeriodCharts([]models.Transaction{bike, old}, yearly, now)
 		require.Len(t, charts, 1)
 		assert.Equal(t, "Yearly", charts[0].Title)
-		assert.Equal(t, "Nov", charts[0].Labels[0], "from this month last year")
-		require.Len(t, charts[0].Spent, 12)
+		assert.Equal(t, "Nov 25", charts[0].Labels[0], "from this month last year")
+		require.Len(t, charts[0].Spent, 13)
+		assert.Equal(t, "Nov 26", charts[0].Labels[12], "to this month, told apart by its year")
 		assert.Equal(t, 5490.0, charts[0].Total, "a purchase over a year ago has dropped out")
 	})
 
