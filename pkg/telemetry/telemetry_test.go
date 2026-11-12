@@ -31,6 +31,37 @@ func noCollector(t *testing.T) {
 	}
 }
 
+func TestEachSignalIsExportedOnItsOwn(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		env  map[string]string
+		want exports
+	}{
+		{"nothing set", nil, exports{}},
+		{"the generic endpoint", map[string]string{"OTEL_EXPORTER_OTLP_ENDPOINT": "http://collector:4318"}, exports{true, true, true}},
+		{"a traces endpoint alone", map[string]string{"OTEL_EXPORTER_OTLP_TRACES_ENDPOINT": "http://tempo:4318/v1/traces"}, exports{traces: true}},
+		{"a logs endpoint alone", map[string]string{"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT": "http://loki:4318/v1/logs"}, exports{logs: true}},
+		{"the generic endpoint, metrics turned off", map[string]string{
+			"OTEL_EXPORTER_OTLP_ENDPOINT": "http://collector:4318",
+			"OTEL_METRICS_EXPORTER":       " None ",
+		}, exports{traces: true, logs: true}},
+		{"an exporter named with nowhere to send", map[string]string{"OTEL_TRACES_EXPORTER": "otlp"}, exports{}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			noCollector(t)
+			for _, signal := range []string{"TRACES", "METRICS", "LOGS"} {
+				t.Setenv("OTEL_"+signal+"_EXPORTER", "")
+			}
+			for name, value := range c.env {
+				t.Setenv(name, value)
+			}
+			got := otlpExports()
+			assert.Equal(t, c.want, got)
+			assert.Equal(t, c.want != exports{}, got.any())
+		})
+	}
+}
+
 func setup(t *testing.T, runtime bool) *Telemetry {
 	t.Helper()
 	noCollector(t)

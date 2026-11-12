@@ -14,6 +14,7 @@ import (
 	goruntime "runtime"
 	"runtime/debug"
 	"slices"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
@@ -83,7 +84,7 @@ type Telemetry struct {
 	Logs    *LogStore
 	Metrics *MetricStore
 
-	// Exporting is whether the same data is also sent to a collector.
+	// Exporting is whether any of the same data is also sent to a collector.
 	Exporting bool
 
 	// SampleEvery is how often metrics are sampled, and Window how far back
@@ -123,6 +124,7 @@ func Setup(ctx context.Context, opts Options) (*Telemetry, error) {
 		return nil, err
 	}
 
+	exports := otlpExports()
 	hostname, _ := os.Hostname()
 	t := &Telemetry{
 		Run: Event{
@@ -133,7 +135,7 @@ func Setup(ctx context.Context, opts Options) (*Telemetry, error) {
 		Started:    time.Now(),
 		Spans:      newSpanStore(opts.Spans),
 		Logs:       newLogStore(opts.Logs),
-		Exporting:  otlpConfigured(),
+		Exporting:  exports.any(),
 
 		SampleEvery: opts.SampleEvery,
 		Window:      opts.Window,
@@ -151,21 +153,25 @@ func Setup(ctx context.Context, opts Options) (*Telemetry, error) {
 		sdklog.WithProcessor(sdklog.NewSimpleProcessor(t.Logs)),
 	}
 
-	if t.Exporting {
+	if exports.traces {
 		traces, err := otlptracehttp.New(ctx)
 		if err != nil {
 			return nil, err
 		}
+		tracerOpts = append(tracerOpts, sdktrace.WithBatcher(traces))
+	}
+	if exports.metrics {
 		metrics, err := otlpmetrichttp.New(ctx)
 		if err != nil {
 			return nil, err
 		}
+		meterOpts = append(meterOpts, sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metrics)))
+	}
+	if exports.logs {
 		logs, err := otlploghttp.New(ctx)
 		if err != nil {
 			return nil, err
 		}
-		tracerOpts = append(tracerOpts, sdktrace.WithBatcher(traces))
-		meterOpts = append(meterOpts, sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metrics)))
 		loggerOpts = append(loggerOpts, sdklog.WithProcessor(sdklog.NewBatchProcessor(logs)))
 	}
 
@@ -428,20 +434,26 @@ func (t *Telemetry) Storage() Storage {
 	return s
 }
 
-// otlpConfigured reports whether any of the standard OTLP endpoint variables
-// are set, which is what turns exporting on.
-func otlpConfigured() bool {
-	for _, name := range []string{
-		"OTEL_EXPORTER_OTLP_ENDPOINT",
-		"OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
-		"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
-		"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
-	} {
-		if os.Getenv(name) != "" {
-			return true
+// exports is which signals are sent to a collector.
+type exports struct {
+	traces, metrics, logs bool
+}
+
+func (e exports) any() bool { return e.traces || e.metrics || e.logs }
+
+// otlpExports reads which signals to export from the standard variables. A
+// collector that takes only traces is often named by the traces endpoint
+// alone, so each signal is exported only when an endpoint names somewhere
+// for it, its own or the generic one, and its OTEL_*_EXPORTER is not "none".
+func otlpExports() exports {
+	generic := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") != ""
+	exported := func(signal string) bool {
+		if os.Getenv("OTEL_EXPORTER_OTLP_"+signal+"_ENDPOINT") == "" && !generic {
+			return false
 		}
+		return strings.ToLower(strings.TrimSpace(os.Getenv("OTEL_"+signal+"_EXPORTER"))) != "none"
 	}
-	return false
+	return exports{traces: exported("TRACES"), metrics: exported("METRICS"), logs: exported("LOGS")}
 }
 
 // fanout hands every log record to each of its handlers.
