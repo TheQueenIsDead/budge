@@ -406,7 +406,7 @@
 {{ end }}
 
 {{ define "transactions.category.form" }}
-<form class="d-flex flex-wrap gap-2" hx-post="/transactions/{{ .ID }}/category" hx-target="this" hx-swap="none">
+<form class="b-actions" hx-post="/transactions/{{ .ID }}/category" hx-target="this" hx-swap="none">
     <div class="b-txmem-head">
         {{ .Current }}{{ if .Source }}<span class="fw-normal text-muted"> · from {{ .Source }}</span>{{ end }}
     </div>
@@ -431,7 +431,7 @@
     </div>
     {{ end }}
     {{/* The way to the rules on the left, then Save last, on the right. */}}
-    <a class="small me-auto align-self-center" href="/settings#categories">Categories &amp; rules</a>
+    <a class="small b-actions-status" href="/settings#categories">Categories &amp; rules</a>
     {{ if .Overridden }}
     <button class="btn btn-sm btn-outline-secondary" name="clear" value="1">Undo my change</button>
     {{ end }}

@@ -48,7 +48,7 @@
 
                 {{/* Actions on the right, the sync's status on the left: the
                      status is drawn with the sync button, and put first. */}}
-                <div class="col-12 d-flex align-items-center justify-content-end flex-wrap gap-2 mt-2">
+                <div class="col-12 b-actions mt-2">
                     <button class="btn btn-outline-secondary btn-sm" hx-post="/integrations/akahu/save"
                             hx-disabled-elt="this" hx-swap="none">
                         Save tokens
@@ -144,7 +144,7 @@
                         Akahu tokens are not included, so the file is safe to keep. Enter them again on
                         the new instance, then sync.
                     </p>
-                    <form action="/settings/backup" method="get" class="d-flex justify-content-end">
+                    <form action="/settings/backup" method="get" class="b-actions">
                         <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i>Download</button>
                     </form>
                 </div>
@@ -158,7 +158,7 @@
                     </p>
                     <form hx-post="/settings/backup" hx-encoding="multipart/form-data" hx-target="#main"
                           hx-confirm="Import this backup into this instance?"
-                          class="d-flex flex-wrap align-items-center justify-content-end gap-2">
+                          class="b-actions">
                         <input class="form-control form-control-sm w-auto" type="file" name="backup"
                                accept="application/json,.json" required aria-label="Backup file">
                         <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-upload"></i>Import</button>
@@ -206,7 +206,7 @@
                 Drops every transaction, merchant and account. Assets and budget targets are
                 left alone, and a sync repopulates the rest.
             </p>
-            <div class="d-flex justify-content-end">
+            <div class="b-actions">
                 <button class="btn btn-outline-danger btn-sm"
                         hx-post="/settings/danger/remove/synced"
                         hx-confirm="Remove all synced data?" hx-disabled-elt="this" hx-swap="none">
@@ -230,7 +230,7 @@
         <button type="button" class="btn btn-primary btn-sm htmx-request" disabled>
             <i class="bi bi-arrow-repeat"></i> Syncing&hellip;
         </button>
-        <span class="b-delta-note order-first me-auto">
+        <span class="b-delta-note order-first b-actions-status">
             {{ if .Fetched }}Fetched {{ .Fetched }} transactions&hellip;{{ else }}Contacting Akahu&hellip;{{ end }}
         </span>
     {{ else }}
@@ -238,7 +238,7 @@
                 hx-target="#akahu-sync" hx-swap="outerHTML" hx-disabled-elt="this">
             <i class="bi bi-arrow-repeat"></i> Sync now
         </button>
-        <span class="b-delta-note order-first me-auto">
+        <span class="b-delta-note order-first b-actions-status">
             {{ if .Error }}<span class="text-danger">Last sync failed.</span>{{ end }}
             {{ if .LastSync.IsZero }}Never synced{{ else }}Last sync {{ .LastSync | fmtRelative }}{{ end }}
             {{ if not .LastSync.IsZero }}
@@ -441,7 +441,7 @@
                                     </div>
                                 </div>
                                 {{ end }}
-                                <div class="col-12 d-flex justify-content-end">
+                                <div class="col-12 b-actions">
                                     <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg"></i>Add rule</button>
                                 </div>
                             </form>
@@ -459,7 +459,7 @@
          ready to be named and dressed, just above the button. The page is
          left where it is: scrolling to the new category threw the reader to
          the bottom of the page. */}}
-    <div class="d-flex justify-content-end mt-3">
+    <div class="b-actions mt-3">
         <button type="button" class="btn btn-outline-secondary btn-sm"
                 hx-post="/settings/budget-categories" hx-vals='{"label": "New category"}'
                 hx-target="#categories" hx-swap="morph">
@@ -709,7 +709,7 @@
                 </div>
             </div>
 
-            <div class="col-12 d-flex justify-content-end">
+            <div class="col-12 b-actions">
                 <button type="submit" class="btn btn-primary btn-sm">Save schedule</button>
             </div>
         </div>

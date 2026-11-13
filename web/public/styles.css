@@ -119,6 +119,204 @@ main.container {
 }
 
 /* ==========================================================================
+   Base classes
+
+   The shapes most components are made of. A component either carries the
+   class in its markup or, where it was written before the class was, is
+   named beside it here, so each look is set in one place.
+   ========================================================================== */
+
+/* A card: a raised white surface. -sm is a row-sized card in a list,
+   -sunken a box set into a card rather than raised from it, and
+   -interactive one that lifts when it can be opened. */
+.b-card,
+.b-stat,
+.b-highlight,
+.b-choice,
+.table-container {
+    background: var(--b-surface);
+    border: 1px solid var(--b-border);
+    border-radius: var(--b-radius);
+    box-shadow: var(--b-shadow);
+}
+
+.b-card-sm,
+.b-tx,
+.b-tl-item {
+    padding: var(--b-row-py);
+    background: var(--b-surface);
+    border: 1px solid var(--b-border);
+    border-radius: var(--b-radius-sm);
+    box-shadow: var(--b-shadow);
+}
+
+.b-card-sunken,
+.b-sched {
+    background: var(--b-surface-2);
+    border: 1px solid var(--b-border);
+    border-radius: var(--b-radius-sm);
+    box-shadow: none;
+}
+
+.b-card-interactive,
+.b-highlight,
+.b-choice {
+    color: inherit;
+    text-decoration: none;
+    transition: box-shadow var(--b-dur) var(--b-ease), border-color var(--b-dur) var(--b-ease), transform var(--b-dur) var(--b-ease);
+}
+
+.b-card-interactive:hover,
+.b-card-interactive:focus-visible,
+.b-highlight:hover,
+.b-highlight:focus-visible,
+.b-choice:hover,
+.b-choice:focus-visible {
+    box-shadow: var(--b-shadow-lift);
+    transform: translateY(-1px);
+    color: inherit;
+}
+
+.b-card-interactive:focus-visible,
+.b-highlight:focus-visible,
+.b-choice:focus-visible {
+    box-shadow: var(--b-focus-ring), var(--b-shadow-lift);
+}
+
+/* Something floating over the page: a suggestion list, a row's popover
+   form, the selection bar. Its edge is the strong border, so it reads
+   as on top of the cards under it. */
+.b-popover,
+.b-suggest,
+.b-txmem-form,
+.b-tl-groupbar {
+    background: var(--b-surface);
+    border: 1px solid var(--b-border-strong);
+    border-radius: var(--b-radius-sm);
+    box-shadow: var(--b-shadow-lift);
+}
+
+/* A row that opens something, greying on hover. -bleed lets the grey
+   reach past the row's content into the card's padding without moving
+   the content. */
+.b-row-link,
+.b-rank-link,
+.b-tl-open,
+a.b-acct,
+.b-admin-list a {
+    color: inherit;
+    text-decoration: none;
+    transition: background-color var(--b-dur) var(--b-ease);
+}
+
+.b-row-link:hover,
+.b-row-link:focus-visible,
+.b-rank-link:hover,
+.b-rank-link:focus-visible,
+.b-tl-open:hover,
+.b-tl-open:focus-visible,
+a.b-acct:hover,
+a.b-acct:focus-visible,
+.b-admin-list a:hover {
+    background: var(--b-hover-bg);
+    color: inherit;
+}
+
+.b-row-link-bleed,
+.b-rank-link,
+.b-tl-open {
+    border-radius: var(--b-radius-sm);
+    margin-inline: calc(-1 * var(--b-bleed));
+    padding-inline: var(--b-bleed);
+}
+
+/* One of a row of choices, its input hidden inside: a colour, an icon or a
+   kind, ringed when picked. --inner-r is the radius of what it wraps, and
+   the ring's corners sit out from it by the padding and border, so the two
+   curves run together. */
+.b-pick,
+.b-kind-pick,
+.b-accent-pick,
+.b-icon-pick {
+    --inner-r: var(--b-radius-chip);
+    display: inline-flex;
+    align-items: center;
+    margin: 0;
+    padding: 2px;
+    border: 2px solid transparent;
+    border-radius: calc(var(--inner-r) + 4px);
+    cursor: pointer;
+}
+
+.b-pick:has(:checked),
+.b-kind-pick:has(:checked),
+.b-accent-pick:has(:checked),
+.b-icon-pick:has(:checked) {
+    border-color: var(--b-primary);
+}
+
+/* Small text. Meta is the quiet line under a row's name; an eyebrow the
+   capitalised label over a figure, a field or a column; a subhead the
+   heading of a section inside a card. */
+.b-meta,
+.b-rank-meta,
+.b-delta-note,
+.b-admin-meta,
+.b-highlight-period,
+.b-tx-meta,
+.b-acct-meta {
+    color: var(--b-muted);
+    font-size: var(--b-fs-xs);
+}
+
+.b-eyebrow,
+.b-field-label,
+.b-tx-day,
+.b-stat-label,
+.b-tl-sameday-label,
+.table-container .table > thead > tr > th {
+    color: var(--b-muted);
+    font-size: var(--b-fs-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: var(--b-tracking-caps);
+}
+
+.b-subhead,
+.b-cat-section-title,
+.b-txmem-head,
+.b-tl-count::before {
+    color: var(--b-ink-2);
+    font-size: var(--b-fs-sm);
+    font-weight: 600;
+}
+
+/* A rail: a coloured edge down the left of a row, for what wants
+   attention. Drawn as an inset shadow, so it takes no room and follows the
+   row's corners. --rail picks its colour; it is the accent otherwise. */
+.b-rail,
+.b-note-unread,
+.b-admin-log,
+.b-admin-exception {
+    box-shadow: inset var(--b-rail) 0 0 var(--rail, var(--accent, var(--b-border-strong)));
+}
+
+/* A row of actions: right-aligned, the main one last. Anything that
+   reports on them, or a quieter action set apart, takes .b-actions-status
+   and sits on the left. */
+.b-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--b-space-2);
+}
+
+.b-actions-status {
+    margin-right: auto;
+}
+
+/* ==========================================================================
    Page header
    ========================================================================== */
 
@@ -149,13 +347,6 @@ main.container {
 /* ==========================================================================
    Cards
    ========================================================================== */
-
-.b-card {
-    background: var(--b-surface);
-    border: 1px solid var(--b-border);
-    border-radius: var(--b-radius);
-    box-shadow: var(--b-shadow);
-}
 
 .b-card-pad {
     padding: var(--b-space-4);
@@ -228,10 +419,6 @@ main.container {
     gap: 0.375rem;
     height: 100%;
     padding: 0.875rem;
-    background: var(--b-surface);
-    border: 1px solid var(--b-border);
-    border-radius: var(--b-radius);
-    box-shadow: var(--b-shadow);
 }
 
 .b-stat-label {
@@ -239,11 +426,6 @@ main.container {
     align-items: center;
     justify-content: space-between;
     gap: var(--b-space-2);
-    color: var(--b-muted);
-    font-size: var(--b-fs-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: var(--b-tracking-caps);
 }
 
 .b-stat-label i {
@@ -300,11 +482,6 @@ main.container {
     color: var(--b-muted);
 }
 
-.b-delta-note {
-    color: var(--b-muted);
-    font-size: var(--b-fs-xs);
-}
-
 /* ==========================================================================
    Sparkline. A CSS bar chart, so the dashboard tiles carry history without
    spinning up a canvas per tile on a phone.
@@ -352,24 +529,6 @@ main.container {
     flex-direction: column;
     height: 100%;
     padding: 0.875rem;
-    background: var(--b-surface);
-    border: 1px solid var(--b-border);
-    border-radius: var(--b-radius);
-    box-shadow: var(--b-shadow);
-    text-decoration: none;
-    color: inherit;
-    transition: box-shadow var(--b-dur) var(--b-ease), transform var(--b-dur) var(--b-ease);
-}
-
-.b-highlight:hover,
-.b-highlight:focus-visible {
-    box-shadow: var(--b-shadow-lift);
-    transform: translateY(-1px);
-    color: inherit;
-}
-
-.b-highlight:focus-visible {
-    box-shadow: var(--b-focus-ring), var(--b-shadow-lift);
 }
 
 .b-highlight-head {
@@ -383,11 +542,6 @@ main.container {
     font-size: var(--b-fs-base);
     font-weight: 600;
     color: var(--b-ink-2);
-}
-
-.b-highlight-period {
-    font-size: var(--b-fs-2xs);
-    color: var(--b-muted);
 }
 
 .b-highlight-value {
@@ -423,23 +577,6 @@ main.container {
     padding: 0.625rem 0;
 }
 
-/* A ranked row that opens the transactions behind its number. The negative
-   margin lets the hover state bleed to the card padding rather than stopping
-   short of it. */
-.b-rank-link {
-    color: inherit;
-    text-decoration: none;
-    border-radius: var(--b-radius-sm);
-    margin-inline: calc(-1 * var(--b-space-2));
-    padding-inline: var(--b-space-2);
-    transition: background-color var(--b-dur) var(--b-ease);
-}
-
-.b-rank-link:hover,
-.b-rank-link:focus-visible {
-    background: var(--b-surface-2);
-    color: inherit;
-}
 
 .b-rank-go {
     flex: 0 0 auto;
@@ -493,11 +630,6 @@ main.container {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-
-.b-rank-meta {
-    color: var(--b-muted);
-    font-size: var(--b-fs-xs);
 }
 
 .b-rank-value {
@@ -632,7 +764,7 @@ main.container {
 }
 
 .b-nav-link:hover {
-    background: var(--b-surface-3);
+    background: var(--b-hover-bg-strong);
     color: var(--b-ink);
 }
 
@@ -706,10 +838,6 @@ main.container {
    ========================================================================== */
 
 .table-container {
-    background: var(--b-surface);
-    border: 1px solid var(--b-border);
-    border-radius: var(--b-radius);
-    box-shadow: var(--b-shadow);
     overflow: hidden;
 }
 
@@ -720,11 +848,6 @@ main.container {
 .table-container .table > thead > tr > th {
     background: var(--b-surface-2);
     border-bottom: 1px solid var(--b-border);
-    color: var(--b-muted);
-    font-size: var(--b-fs-2xs);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: var(--b-tracking-caps);
     padding: var(--b-space-3) var(--b-space-4);
 }
 
@@ -752,11 +875,6 @@ main.container {
     display: flex;
     align-items: center;
     gap: var(--b-space-3);
-    padding: var(--b-space-3);
-    background: var(--b-surface);
-    border: 1px solid var(--b-border);
-    border-radius: var(--b-radius-sm);
-    box-shadow: var(--b-shadow);
 }
 
 .b-tx-body {
@@ -777,8 +895,6 @@ main.container {
     align-items: center;
     gap: 0.375rem;
     margin-top: 0.2rem;
-    color: var(--b-muted);
-    font-size: var(--b-fs-xs);
     white-space: nowrap;
     overflow: hidden;
 }
@@ -802,11 +918,6 @@ main.container {
     gap: var(--b-space-2);
     padding: var(--b-space-3) var(--b-space-1) 0.375rem;
     background: var(--b-bg);
-    color: var(--b-muted);
-    font-size: var(--b-fs-xs);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: var(--b-tracking-caps);
 }
 
 /* Sticky filter bar, so search and account stay reachable down a long list. */
@@ -908,15 +1019,6 @@ main.container {
     align-items: center;
     gap: var(--b-space-3);
     padding: 0.875rem var(--b-space-4);
-    color: inherit;
-    text-decoration: none;
-    transition: background-color var(--b-dur) var(--b-ease);
-}
-
-a.b-acct:hover,
-a.b-acct:focus-visible {
-    background: var(--b-surface-2);
-    color: inherit;
 }
 
 /* An account with no history is shown but not offered as a link. */
@@ -945,8 +1047,6 @@ a.b-acct:focus-visible {
     align-items: center;
     gap: 0.375rem;
     margin-top: 0.3rem;
-    color: var(--b-muted);
-    font-size: var(--b-fs-xs);
 }
 
 .b-acct-figures {
@@ -968,11 +1068,6 @@ a.b-acct:focus-visible {
 .b-field-label {
     display: block;
     margin-bottom: var(--b-space-1);
-    color: var(--b-muted);
-    font-size: var(--b-fs-2xs);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: var(--b-tracking-caps);
 }
 
 /* Forms outside the sticky filter bar need the same treatment it gets: 16px
@@ -997,10 +1092,6 @@ a.b-acct:focus-visible {
     left: calc(var(--bs-gutter-x, 1.5rem) * 0.5);
     right: calc(var(--bs-gutter-x, 1.5rem) * 0.5);
     margin-top: var(--b-space-1);
-    background: var(--b-surface);
-    border: 1px solid var(--b-border);
-    border-radius: var(--b-radius-sm);
-    box-shadow: var(--b-shadow-lift);
     overflow: hidden;
 }
 
@@ -1033,25 +1124,12 @@ a.b-acct:focus-visible {
     gap: var(--b-space-3);
     height: 100%;
     padding: var(--b-space-4);
-    background: var(--b-surface);
-    border: 1px solid var(--b-border);
-    border-radius: var(--b-radius);
-    box-shadow: var(--b-shadow);
-    color: inherit;
-    text-decoration: none;
-    transition: box-shadow var(--b-dur) var(--b-ease), border-color var(--b-dur) var(--b-ease), transform var(--b-dur) var(--b-ease);
 }
 
+/* A choice takes its accent at its edge as it lifts. */
 .b-choice:hover,
 .b-choice:focus-visible {
     border-color: var(--accent, var(--b-border-strong));
-    box-shadow: var(--b-shadow-lift);
-    transform: translateY(-1px);
-    color: inherit;
-}
-
-.b-choice:focus-visible {
-    box-shadow: var(--b-focus-ring), var(--b-shadow-lift);
 }
 
 .b-choice-body {
@@ -1103,7 +1181,6 @@ a.b-acct:focus-visible {
    uses a rail, which is what makes it read as "not dealt with yet". */
 .b-note-unread {
     background: var(--accent-soft, var(--b-surface-2));
-    box-shadow: inset 3px 0 0 var(--accent, var(--b-border-strong));
 }
 
 .b-note-message {
@@ -1120,9 +1197,6 @@ a.b-acct:focus-visible {
 .b-sched {
     height: 100%;
     padding: 0.875rem;
-    background: var(--b-surface-2);
-    border: 1px solid var(--b-border);
-    border-radius: var(--b-radius-sm);
 }
 
 /* ==========================================================================
@@ -1148,7 +1222,7 @@ a.b-acct:focus-visible {
 
 .badge-link:hover,
 .badge-link:focus-visible {
-    background: var(--b-surface-3);
+    background: var(--b-hover-bg-strong);
     border-color: var(--b-border-strong);
     color: var(--b-ink);
 }
@@ -1246,8 +1320,8 @@ a.b-acct:focus-visible {
 }
 
 .date-reset-link:hover {
-    background-color: var(--b-ink);
-    color: var(--b-surface);
+    background-color: var(--b-hover-bg-strong);
+    color: var(--b-ink);
     cursor: pointer;
 }
 
@@ -1320,14 +1394,6 @@ a.b-acct:focus-visible {
     margin-bottom: var(--b-space-3);
 }
 
-.b-tl-item {
-    padding: var(--b-space-3);
-    background: var(--b-surface);
-    border: 1px solid var(--b-border);
-    border-radius: var(--b-radius-sm);
-    box-shadow: var(--b-shadow);
-}
-
 .b-tl-row {
     display: flex;
     align-items: center;
@@ -1338,23 +1404,14 @@ a.b-acct:focus-visible {
    rows on Insights do. The margin lets the grey reach past the content
    without moving it. */
 .b-tl-open {
-    color: inherit;
-    text-decoration: none;
-    border-radius: var(--b-radius-sm);
-    margin: -0.375rem calc(-1 * var(--b-space-2));
-    padding: 0.375rem var(--b-space-2);
-    transition: background-color var(--b-dur) var(--b-ease);
-}
-
-.b-tl-open:hover,
-.b-tl-open:focus-visible {
-    background: var(--b-surface-2);
-    color: inherit;
+    margin-block: calc(-1 * var(--b-row-py-dense));
+    padding-block: var(--b-row-py-dense);
 }
 
 /* A memory is the point of the page, so it carries its colour down the edge. */
 .b-tl-memory {
-    border-left: 4px solid var(--accent);
+    border-left-color: var(--accent);
+    box-shadow: inset var(--b-rail) 0 0 var(--accent), var(--b-shadow);
 }
 
 /* A suggestion is the app's guess, not yet the owner's word, so it is drawn
@@ -1478,10 +1535,8 @@ a.b-acct:focus-visible {
     max-width: 640px;
     margin-inline: auto;
     padding: 0.625rem var(--b-space-3);
-    background: var(--b-surface);
-    border: 1px solid var(--b-border-strong);
+    /* Wider than a popover, so the card's corners. */
     border-radius: var(--b-radius);
-    box-shadow: var(--b-shadow-lift);
 }
 
 .b-tl-feed:has(.b-tl-select:checked) .b-tl-groupbar,
@@ -1499,9 +1554,6 @@ a.b-acct:focus-visible {
 
 .b-tl-count::before {
     content: counter(picked) " selected";
-    font-size: var(--b-fs-sm);
-    font-weight: 600;
-    color: var(--b-ink-2);
 }
 
 @media (min-width: 768px) {
@@ -1556,13 +1608,6 @@ a.b-acct:focus-visible {
     padding: 0 0 0 calc(1.15rem + 38px + var(--b-space-6));
     color: var(--b-muted);
     font-size: var(--b-fs-xs);
-}
-
-.b-tl-sameday-label {
-    font-weight: 600;
-    font-size: var(--b-fs-2xs);
-    text-transform: uppercase;
-    letter-spacing: var(--b-tracking-caps);
 }
 
 .b-tl-ctx {
@@ -1638,17 +1683,14 @@ a.b-acct:focus-visible {
 
 .b-txmem-toggle:hover,
 .b-txmem[open] > .b-txmem-toggle {
-    background: var(--b-surface-3);
+    background: var(--b-hover-bg-strong);
     color: var(--b-ink-2);
 }
 
-/* Already in a memory: still muted, but filled so it can be told apart. */
+/* Already in a memory: a link to the memory's page, still muted, but
+   filled so it can be told apart. */
 .b-txmem-in {
     color: var(--b-muted);
-}
-
-/* A link to the memory's page. */
-.b-txmem-in {
     text-decoration: none;
 }
 
@@ -1666,10 +1708,6 @@ a.b-acct:focus-visible {
     width: min(20rem, calc(100vw - 2rem));
     margin-top: 0;
     padding: var(--b-space-3);
-    background: var(--b-surface);
-    border: 1px solid var(--b-border-strong);
-    border-radius: var(--b-radius-sm);
-    box-shadow: var(--b-shadow-lift);
 }
 
 .b-txmem-form .form-control,
@@ -1691,9 +1729,6 @@ a.b-acct:focus-visible {
 
 .b-txmem-head {
     flex: 1 1 100%;
-    color: var(--b-ink-2);
-    font-size: var(--b-fs-sm);
-    font-weight: 600;
 }
 
 /* A row's icon is also its tick box. Hovering hints at it; ticking any row
@@ -1832,7 +1867,7 @@ a.b-acct:focus-visible {
 }
 
 .b-target-line:hover {
-    background: var(--b-surface-2);
+    background: var(--b-hover-bg);
 }
 
 /* The category's chip, then its name, which is cut short before it pushes
@@ -2012,7 +2047,7 @@ a.b-acct:focus-visible {
 }
 
 .b-merchant a:hover {
-    background: var(--b-surface-3);
+    background: var(--b-hover-bg-strong);
     color: var(--b-primary-ink);
 }
 
@@ -2088,7 +2123,7 @@ a.b-acct:focus-visible {
 }
 
 .b-track-link:hover {
-    color: var(--b-primary);
+    color: var(--b-primary-ink);
 }
 
 .b-tracking-bar {
@@ -2147,9 +2182,6 @@ a.b-acct:focus-visible {
 
 .b-cat-section-title {
     margin-bottom: var(--b-space-2);
-    color: var(--b-ink-2);
-    font-size: var(--b-fs-sm);
-    font-weight: 600;
 }
 
 /* Subcategories side by side once there is room. */
@@ -2168,19 +2200,11 @@ a.b-acct:focus-visible {
    icon is. The ring's corners follow the chip's, out by the padding and
    border between them, so the two curves run together. */
 .b-kind-pick {
-    display: inline-flex;
-    align-items: center;
+    --inner-r: var(--b-radius-chip-sm);
     gap: 0.375rem;
-    margin: 0;
-    padding: 2px 0.625rem 2px 2px;
-    cursor: pointer;
-    border: 2px solid var(--b-border);
-    border-radius: calc(9px + 2px + 2px);
+    padding-right: 0.625rem;
+    border-color: var(--b-border);
     font-size: var(--b-fs-base);
-}
-
-.b-kind-pick:has(:checked) {
-    border-color: var(--b-primary);
 }
 
 /* A memory's page lines everything up on one edge: the header card, the
@@ -2224,18 +2248,14 @@ a.b-acct:focus-visible {
     gap: 0.375rem;
 }
 
-.b-accent-pick,
-.b-icon-pick {
-    margin: 0;
-    cursor: pointer;
-    border-radius: var(--b-radius-chip);
-    padding: 2px;
-    border: 2px solid transparent;
+/* A colour wraps a swatch and an icon a small chip, so each ring follows
+   the corners of what it holds. */
+.b-accent-pick {
+    --inner-r: var(--b-radius-xs);
 }
 
-.b-accent-pick:has(:checked),
-.b-icon-pick:has(:checked) {
-    border-color: var(--b-primary);
+.b-icon-pick {
+    --inner-r: var(--b-radius-chip-sm);
 }
 
 .b-swatch {
@@ -2295,11 +2315,6 @@ a.b-acct:focus-visible {
     letter-spacing: 0.02em;
 }
 
-.b-admin-meta {
-    color: var(--b-muted);
-    font-size: var(--b-fs-xs);
-}
-
 /* A row per request, query or span: what it was, a line of detail, and how
    long it took on the right. */
 .b-admin-list {
@@ -2318,13 +2333,7 @@ a.b-acct:focus-visible {
     grid-template-areas: "name time" "meta time";
     column-gap: var(--b-space-3);
     padding: var(--b-space-2) 0;
-    color: var(--b-ink);
-    text-decoration: none;
     font-size: var(--b-fs-sm);
-}
-
-.b-admin-list a:hover {
-    background: var(--b-surface-2);
 }
 
 .b-admin-list .b-admin-name {
@@ -2356,8 +2365,8 @@ a.b-acct:focus-visible {
 }
 
 .b-admin-log {
-    padding: 0.4rem 0 0.4rem 0.6rem;
-    border-left: 3px solid var(--b-border);
+    --rail: var(--b-border);
+    padding: 0.4rem 0 0.4rem calc(var(--b-rail) + 0.6rem);
 }
 
 .b-admin-log + .b-admin-log {
@@ -2365,11 +2374,11 @@ a.b-acct:focus-visible {
 }
 
 .b-admin-log-warn {
-    border-left-color: var(--b-warning);
+    --rail: var(--b-warning);
 }
 
 .b-admin-log-error {
-    border-left-color: var(--b-negative);
+    --rail: var(--b-negative);
     background: var(--b-negative-soft);
 }
 
@@ -2585,8 +2594,8 @@ a.b-acct:focus-visible {
 
 .b-admin-exception {
     margin-top: var(--b-space-1);
-    padding: 0.35rem var(--b-space-2);
-    border-left: 3px solid var(--b-negative);
+    --rail: var(--b-negative);
+    padding: 0.35rem var(--b-space-2) 0.35rem calc(var(--b-rail) + var(--b-space-2));
     background: var(--b-negative-soft);
     border-radius: var(--b-radius-bar);
     color: var(--b-ink);
@@ -2626,6 +2635,7 @@ a.b-acct:focus-visible {
 .form-control:focus,
 .form-select:focus,
 .form-check-input:focus,
+.b-pick:has(:focus-visible),
 .b-kind-pick:has(:focus-visible),
 .b-accent-pick:has(:focus-visible),
 .b-icon-pick:has(:focus-visible),

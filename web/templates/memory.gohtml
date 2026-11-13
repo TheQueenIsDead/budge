@@ -74,9 +74,9 @@
 
         {{/* Saving last, at the bottom right where the eye ends up; deleting
              apart from it, on the left. */}}
-        <div class="d-flex flex-wrap align-items-center justify-content-end gap-2">
+        <div class="b-actions">
             {{ if not .New }}
-                <button type="button" class="btn btn-link text-muted px-0 me-auto"
+                <button type="button" class="btn btn-link text-muted px-0 b-actions-status"
                         hx-delete="/memories/{{ .Memory.Id }}" hx-vals='{{ dict "return" .Return | toJSON }}'
                         hx-confirm="Delete “{{ .Memory.Title }}”? Its purchases go back on the timeline.">
                     <i class="bi bi-trash"></i>Delete

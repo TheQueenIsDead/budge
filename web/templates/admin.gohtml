@@ -47,7 +47,7 @@
     <div hx-get="/admin?tab=overview&range={{ .Range.Key }}" hx-trigger="every {{ .SampleEvery }}"
          hx-target="#admin-panel" hx-select="#admin-panel" hx-swap="outerHTML show:none">
 
-        <div class="d-flex justify-content-end mb-2">
+        <div class="b-actions mb-2">
             <div class="b-segment">
                 {{ range .Ranges }}
                     <a href="/admin?tab=overview&range={{ .Key }}" class="{{ if eq .Key $.Range.Key }}active{{ end }}">{{ .Key }}</a>
