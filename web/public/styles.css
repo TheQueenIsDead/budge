@@ -777,6 +777,16 @@ main.container {
     padding: 0.5rem 0.75rem;
 }
 
+/* The search field's magnifier, sat inside the field's left padding. */
+.b-search-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--b-muted);
+    pointer-events: none;
+}
+
 .b-summary-bar {
     display: flex;
     flex-wrap: wrap;
@@ -1252,9 +1262,27 @@ a.b-acct:focus-visible {
     min-width: 0;
 }
 
+/* A connection's logo set in a line of text, nudged up to sit on its
+   middle rather than its baseline. */
 .account-logo {
+    margin-top: -3px;
     object-fit: contain;
     background-color: var(--b-surface-3);
+}
+
+/* The savings goal's amount, wide enough for a weekly figure and no more. */
+.b-goal-amount {
+    width: 9rem;
+}
+
+/* A thin share bar, quieter than Bootstrap's default progress. */
+.b-progress {
+    height: 5px;
+}
+
+/* A toast's title is the level it was raised at, which comes in lower case. */
+.toast-header {
+    text-transform: capitalize;
 }
 
 /* ==========================================================================
@@ -1634,7 +1662,8 @@ a.b-acct:focus-visible {
 }
 
 .b-txmem-form .form-control,
-.b-txmem-form .form-select {
+.b-txmem-form .form-select,
+.b-txmem-form .form-check {
     flex: 1 1 100%;
 }
 

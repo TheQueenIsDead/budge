@@ -152,7 +152,7 @@
                 <p class="b-card-sub mb-0">What you want left over once your targets are met.</p>
             </div>
             <div class="d-flex gap-2">
-                <div class="input-group input-group-sm" style="width:9rem;">
+                <div class="input-group input-group-sm b-goal-amount">
                     <span class="input-group-text">$</span>
                     <input type="number" name="savings_goal" class="form-control text-end"
                            placeholder="Goal" min="0" step="0.01" aria-label="Savings goal amount"
@@ -342,7 +342,7 @@
             {{end}}
         </span>
     </div>
-    <div class="progress" style="height:5px;" role="progressbar"
+    <div class="progress b-progress" role="progressbar"
          aria-label="Share of take-home pay allocated to targets"
          aria-valuenow="{{printf "%.0f" .PctAllocatedCss}}" aria-valuemin="0" aria-valuemax="100">
         <div class="progress-bar {{if .IsOverAllocated}}bg-danger{{else}}bg-success{{end}}"

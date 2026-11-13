@@ -23,8 +23,7 @@
             <div class="row g-2">
                 <div class="col-12 col-sm-6">
                     <div class="position-relative">
-                        <i class="bi bi-search position-absolute text-muted"
-                           style="left: 0.75rem; top: 50%; transform: translateY(-50%);"></i>
+                        <i class="bi bi-search b-search-icon" aria-hidden="true"></i>
                         <input id="search" type="search" name="search"
                                class="form-control ps-5"
                                placeholder="Search merchants, categories&hellip;"
@@ -424,7 +423,7 @@
         {{ end }}
     </select>
     {{ if .RuleText }}
-    <div class="form-check small mb-0" style="flex: 1 1 100%;">
+    <div class="form-check small mb-0">
         <input class="form-check-input" type="checkbox" id="txcat-like-{{ .Layout }}-{{ .ID }}" name="scope" value="like">
         <label class="form-check-label" for="txcat-like-{{ .Layout }}-{{ .ID }}">
             All transactions containing “{{ .RuleText }}”, as a rule
