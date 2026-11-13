@@ -1,8 +1,5 @@
 {{define "budget"}}
-    <div class="b-page-head">
-        <h2>Budget</h2>
-        <p class="b-page-sub">How spending is tracking against your targets, each measured over its own period.</p>
-    </div>
+    {{template "pageHead" (dict "Title" "Budget" "Sub" "How spending is tracking against your targets, each measured over its own period.")}}
 
     {{with .SetupData.Tracking}}
     {{/* The headline is per week across every category, but each category is
@@ -71,16 +68,8 @@
 {{end}}
 
 {{define "budget.income"}}
-    <div class="b-page-head d-flex align-items-start justify-content-between gap-3">
-        <div class="min-width-0">
-            <h2>Income</h2>
-            <p class="b-page-sub">What you earn and what comes out of it before it reaches your account.</p>
-        </div>
-        <a href="/budget" class="btn btn-sm btn-outline-secondary flex-shrink-0"
-           hx-boost="true" hx-target="#main" aria-label="Back to budget">
-            <i class="bi bi-arrow-left"></i>
-        </a>
-    </div>
+    {{template "pageHead" (dict "Title" "Income" "Sub" "What you earn and what comes out of it before it reaches your account."
+        "Back" "/budget" "BackLabel" "Back to budget")}}
 
     <!-- Income -->
     <div class="b-card b-card-pad mb-3"
@@ -89,39 +78,27 @@
          hx-include="this"
          hx-swap="none"
          hx-on::after-request="if (event.detail.successful) { flashSaved(this); htmx.trigger(document.body, 'refreshSummary') }">
-        <h3 class="b-card-title mb-3">
-            <i class="bi bi-cash-coin me-2"></i>Income
-            <span class="badge-success rounded-pill px-2 ms-2 budge-flash" data-saved-flash aria-live="polite">Saved</span>
-        </h3>
+        <div class="b-card-head">
+            {{template "cardTitle" (dict "Title" "Income" "Chip" "bi-cash-coin" "Accent" "sage")}}
+            {{template "savedFlash"}}
+        </div>
         <div class="row g-3 align-items-end">
             <div class="col-12 col-md-5">
-                <label class="form-label fw-semibold" for="salaryAmount">Salary</label>
-                <div class="input-group">
-                    <span class="input-group-text">$</span>
-                    <input type="number" name="salary" id="salaryAmount" class="form-control"
-                           placeholder="0.00" min="0" step="0.01"
-                           {{if gt .Salary.Salary 0.0}}value="{{.Salary.Salary | printf "%.2f"}}"{{end}}>
-                </div>
+                {{$salary := ""}}{{if gt .Salary.Salary 0.0}}{{$salary = printf "%.2f" .Salary.Salary}}{{end}}
+                {{template "moneyInput" (dict "ID" "salaryAmount" "Label" "Salary" "Name" "salary" "Value" $salary)}}
             </div>
             <div class="col-6 col-md-3">
-                <label class="form-label fw-semibold" for="salaryFrequency">Frequency</label>
-                <select name="salary_frequency" id="salaryFrequency" class="form-select">
-                    <option value="yearly"      {{if eq .Salary.SalaryFrequency "yearly"}}selected{{end}}>Yearly</option>
-                    <option value="monthly"     {{if eq .Salary.SalaryFrequency "monthly"}}selected{{end}}>Monthly</option>
-                    <option value="fortnightly" {{if eq .Salary.SalaryFrequency "fortnightly"}}selected{{end}}>Fortnightly</option>
-                </select>
+                {{template "select" (dict "ID" "salaryFrequency" "Label" "Frequency" "Name" "salary_frequency"
+                    "Selected" .Salary.SalaryFrequency
+                    "Options" (list (dict "Key" "yearly" "Label" "Yearly") (dict "Key" "monthly" "Label" "Monthly")
+                        (dict "Key" "fortnightly" "Label" "Fortnightly")))}}
             </div>
             <div class="col-6 col-md-2">
-                <label class="form-label fw-semibold" for="kiwiSaverRate">KiwiSaver</label>
-                <select name="kiwisaver_rate" id="kiwiSaverRate" class="form-select">
-                    <option value="0"   {{if eq .Salary.KiwiSaverRate 0.0}}selected{{end}}>None</option>
-                    <option value="3"   {{if eq .Salary.KiwiSaverRate 3.0}}selected{{end}}>3%</option>
-                    <option value="3.5" {{if eq .Salary.KiwiSaverRate 3.5}}selected{{end}}>3.5%</option>
-                    <option value="4"   {{if eq .Salary.KiwiSaverRate 4.0}}selected{{end}}>4%</option>
-                    <option value="6"   {{if eq .Salary.KiwiSaverRate 6.0}}selected{{end}}>6%</option>
-                    <option value="8"   {{if eq .Salary.KiwiSaverRate 8.0}}selected{{end}}>8%</option>
-                    <option value="10"  {{if eq .Salary.KiwiSaverRate 10.0}}selected{{end}}>10%</option>
-                </select>
+                {{template "select" (dict "ID" "kiwiSaverRate" "Label" "KiwiSaver" "Name" "kiwisaver_rate"
+                    "Selected" (printf "%g" .Salary.KiwiSaverRate)
+                    "Options" (list (dict "Key" "0" "Label" "None") (dict "Key" "3" "Label" "3%") (dict "Key" "3.5" "Label" "3.5%")
+                        (dict "Key" "4" "Label" "4%") (dict "Key" "6" "Label" "6%") (dict "Key" "8" "Label" "8%")
+                        (dict "Key" "10" "Label" "10%")))}}
             </div>
             <div class="col-12 col-md-2 d-flex align-items-end gap-3 pb-1">
                 <div class="form-check">
@@ -143,27 +120,17 @@
     <form class="b-card b-card-pad mb-3"
           hx-post="/budget/savings-goal" hx-trigger="change" hx-swap="none"
           hx-on::after-request="if (event.detail.successful) { flashSaved(this); htmx.trigger(document.body, 'refreshSummary') }">
-        <div class="d-flex align-items-end justify-content-between gap-3 flex-wrap">
-            <div class="min-width-0">
-                <h3 class="b-card-title">
-                    <i class="bi bi-piggy-bank me-2" aria-hidden="true"></i>Savings goal
-                    <span class="badge-success rounded-pill px-2 ms-2 budge-flash" data-saved-flash aria-live="polite">Saved</span>
-                </h3>
-                <p class="b-card-sub mb-0">What you want left over once your targets are met.</p>
-            </div>
-            <div class="d-flex gap-2">
-                <div class="input-group input-group-sm" style="width:9rem;">
-                    <span class="input-group-text">$</span>
-                    <input type="number" name="savings_goal" class="form-control text-end"
-                           placeholder="Goal" min="0" step="0.01" aria-label="Savings goal amount"
-                           {{if gt .Salary.SavingsGoal 0.0}}value="{{.Salary.SavingsGoal | printf "%.2f"}}"{{end}}>
-                </div>
-                <select name="savings_goal_frequency" class="form-select form-select-sm w-auto" aria-label="Savings goal frequency">
-                    <option value="weekly"      {{if or (eq .Salary.SavingsGoalFrequency "weekly") (eq .Salary.SavingsGoalFrequency "")}}selected{{end}}>Weekly</option>
-                    <option value="fortnightly" {{if eq .Salary.SavingsGoalFrequency "fortnightly"}}selected{{end}}>Fortnightly</option>
-                    <option value="monthly"     {{if eq .Salary.SavingsGoalFrequency "monthly"}}selected{{end}}>Monthly</option>
-                    <option value="yearly"      {{if eq .Salary.SavingsGoalFrequency "yearly"}}selected{{end}}>Yearly</option>
-                </select>
+        <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+            {{template "cardTitle" (dict "Title" "Savings goal" "Sub" "What you want left over once your targets are met." "Chip" "bi-piggy-bank" "Accent" "slate")}}
+            <div class="d-flex align-items-center gap-2">
+                {{template "savedFlash"}}
+                {{$goal := ""}}{{if gt .Salary.SavingsGoal 0.0}}{{$goal = printf "%.2f" .Salary.SavingsGoal}}{{end}}
+                {{template "moneyInput" (dict "Name" "savings_goal" "AriaLabel" "Savings goal amount" "Size" "sm"
+                    "Placeholder" "Goal" "Class" "text-end" "GroupClass" "b-goal-amount" "Value" $goal)}}
+                {{template "select" (dict "Name" "savings_goal_frequency" "AriaLabel" "Savings goal frequency" "Size" "sm" "Class" "w-auto"
+                    "Selected" (or .Salary.SavingsGoalFrequency "weekly")
+                    "Options" (list (dict "Key" "weekly" "Label" "Weekly") (dict "Key" "fortnightly" "Label" "Fortnightly")
+                        (dict "Key" "monthly" "Label" "Monthly") (dict "Key" "yearly" "Label" "Yearly")))}}
             </div>
         </div>
     </form>
@@ -210,7 +177,7 @@
 {{define "budget.summary"}}
     <!-- Income Breakdown -->
     <div class="b-card b-card-pad mb-3">
-        <h3 class="b-card-title mb-3"><i class="bi bi-graph-up-arrow me-2"></i>Income Breakdown</h3>
+        {{template "cardHead" (dict "Title" "Income Breakdown" "Chip" "bi-graph-up-arrow" "Accent" "slate")}}
         <div class="table-responsive">
             <table class="table table-sm table-borderless mb-0">
                 <thead>
@@ -287,19 +254,15 @@
 {{define "budget.cards"}}
 <div class="row g-2 g-md-3 mb-3">
     <div class="col-12 col-md-4">
-        <div class="b-stat b-accent-sage">
-            <div class="b-stat-label"><span>Net Income</span><i class="bi bi-wallet2"></i></div>
-            <div class="b-stat-value text-success">{{.NetWeekly | fmtCurrency}}</div>
-            <div class="b-delta-note">Take-home per week</div>
-        </div>
+        {{template "stat" (dict "Label" "Net Income" "Icon" "bi-wallet2" "Accent" "sage"
+            "Value" (fmtCurrency .NetWeekly) "Tone" "text-success" "Note" "Take-home per week")}}
     </div>
     <div class="col-6 col-md-4">
-        <div class="b-stat b-accent-brick">
-            <div class="b-stat-label"><span>Expenses</span><i class="bi bi-bullseye"></i></div>
-            <div class="b-stat-value text-danger">{{.TotalWeeklyExpenses | fmtCurrency}}</div>
-            <div class="b-delta-note">Budgeted targets</div>
-        </div>
+        {{template "stat" (dict "Label" "Expenses" "Icon" "bi-bullseye" "Accent" "brick"
+            "Value" (fmtCurrency .TotalWeeklyExpenses) "Tone" "text-danger" "Note" "Budgeted targets")}}
     </div>
+    {{/* Savings stays written out: its note marks a shortfall in red within
+         the sentence, which a stat's plain note cannot. */}}
     <div class="col-6 col-md-4">
         <div class="b-stat {{if .HasDeficit}}b-accent-brick{{else}}b-accent-slate{{end}}">
             <div class="b-stat-label">
@@ -342,7 +305,7 @@
             {{end}}
         </span>
     </div>
-    <div class="progress" style="height:5px;" role="progressbar"
+    <div class="progress b-progress" role="progressbar"
          aria-label="Share of take-home pay allocated to targets"
          aria-valuenow="{{printf "%.0f" .PctAllocatedCss}}" aria-valuemin="0" aria-valuemax="100">
         <div class="progress-bar {{if .IsOverAllocated}}bg-danger{{else}}bg-success{{end}}"
@@ -374,12 +337,11 @@
     </details>
     {{end}}
 {{else}}
-    <div class="b-card b-card-pad mb-3">
-        <div class="b-empty">
-            <i class="bi bi-bank2"></i>
-            <h4>No transactions yet</h4>
-            <p>Sync your accounts from <a href="/settings">Settings</a> to start setting targets.</p>
-        </div>
+    {{/* Written out rather than drawn with empty, for its link. */}}
+    <div class="b-empty mb-3">
+        <i class="bi bi-bank2" aria-hidden="true"></i>
+        <h4>No transactions yet</h4>
+        <p>Sync your accounts from <a href="/settings">Settings</a> to start setting targets.</p>
     </div>
 {{end}}
 
@@ -460,13 +422,9 @@
                   hx-target="#{{$swap}}" hx-swap="outerHTML">
                 <input type="hidden" name="category" value="{{.Key}}">
                 <div class="col-6 col-md-3">
-                    <label class="b-field-label" for="target-{{.RowID}}">Target</label>
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text">$</span>
-                        <input type="number" id="target-{{.RowID}}" name="target_amount" class="form-control text-end"
-                               placeholder="—" min="0" step="0.01"
-                               {{if gt .Target 0.0}}value="{{.Target | printf "%.2f"}}"{{end}}>
-                    </div>
+                    {{$target := ""}}{{if gt .Target 0.0}}{{$target = printf "%.2f" .Target}}{{end}}
+                    {{template "moneyInput" (dict "ID" (printf "target-%s" .RowID) "Label" "Target" "Name" "target_amount"
+                        "Size" "sm" "Class" "text-end" "Placeholder" "—" "Value" $target)}}
                 </div>
                 <div class="col-6 col-md-3">
                     <label class="b-field-label" for="frequency-{{.RowID}}">Per</label>
@@ -485,7 +443,7 @@
             {{if and .NeedsTarget .Suggested}}
             {{/* The usual answer one click away, in the frequency the picker
                  above shows, so the two agree. */}}
-            <form class="mb-3" hx-post="/budget/targets" hx-target="#{{$swap}}" hx-swap="outerHTML">
+            <form class="b-actions mb-3" hx-post="/budget/targets" hx-target="#{{$swap}}" hx-swap="outerHTML">
                 <input type="hidden" name="category" value="{{.Key}}">
                 <input type="hidden" name="target_amount" value="{{printf "%.0f" .Suggested}}">
                 <input type="hidden" name="target_frequency" value="{{.SuggestedFrequency}}">

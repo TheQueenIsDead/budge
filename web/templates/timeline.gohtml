@@ -1,59 +1,43 @@
 {{ define "timeline" }}
 
-    <div class="b-page-head">
-        <h2>Timeline</h2>
-        <p class="b-page-sub">The purchases that stood out, and the memories they made.</p>
-    </div>
+    {{ template "pageHead" (dict "Title" "Timeline" "Sub" "The purchases that stood out, and the memories they made.") }}
 
     <!-- Period and view are plain links, kept outside the actions below so they
          do not inherit the state those actions carry. -->
     <div hx-boost="true" hx-target="#main">
         <div class="b-pills">
             {{ range .Periods }}
-                <a class="b-pill{{ if eq .Key $.Period.Key }} b-pill-active{{ end }}"
-                   href="/timeline?period={{ .Key }}&view={{ $.View }}">{{ .Label }}</a>
+                {{ template "pill" (dict "Href" (printf "/timeline?period=%s&view=%s" .Key $.View) "Label" .Label
+                    "Active" (eq .Key $.Period.Key)) }}
             {{ end }}
         </div>
     </div>
 
     <div class="row g-2 mb-3">
         <div class="col-4">
-            <div class="b-stat b-accent-sage">
-                <div class="b-stat-label"><span>Memories</span><i class="bi bi-bookmark-star"></i></div>
-                <div class="b-stat-value">{{ len .Memories }}</div>
-                <div class="b-delta-note">{{ fmtLower .Period.Label }}</div>
-            </div>
+            {{ template "stat" (dict "Label" "Memories" "Icon" "bi-bookmark-star" "Accent" "sage"
+                "Value" (len .Memories) "Note" (fmtLower .Period.Label)) }}
         </div>
         <div class="col-4">
-            <div class="b-stat b-accent-clay">
-                <div class="b-stat-label"><span>Spent on them</span><i class="bi bi-piggy-bank"></i></div>
-                <div class="b-stat-value">{{ .MemoryTotal | fmtCurrency }}</div>
-                <div class="b-delta-note">across every memory</div>
-            </div>
+            {{ template "stat" (dict "Label" "Spent on them" "Icon" "bi-piggy-bank" "Accent" "clay"
+                "Value" (fmtCurrency .MemoryTotal) "Note" "across every memory") }}
         </div>
         <div class="col-4">
-            <div class="b-stat b-accent-plum">
-                <div class="b-stat-label"><span>Biggest</span><i class="bi bi-stars"></i></div>
-                {{ with .Biggest }}
-                    <div class="b-stat-value">{{ .Total | fmtCurrency }}</div>
-                    <div class="b-delta-note text-truncate">{{ .Title }}</div>
-                {{ else }}
-                    <div class="b-stat-value">&mdash;</div>
-                    <div class="b-delta-note">nothing yet</div>
-                {{ end }}
-            </div>
+            {{ with .Biggest }}
+                {{ template "stat" (dict "Label" "Biggest" "Icon" "bi-stars" "Accent" "plum"
+                    "Value" (fmtCurrency .Total) "Note" .Title "Truncate" true) }}
+            {{ else }}
+                {{ template "stat" (dict "Label" "Biggest" "Icon" "bi-stars" "Accent" "plum"
+                    "Value" "—" "Note" "nothing yet") }}
+            {{ end }}
         </div>
     </div>
 
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2" hx-boost="true" hx-target="#main">
-        <div class="b-segment">
-            <a href="/timeline?period={{ .Period.Key }}&view=all"
-               class="{{ if eq .View "all" }}active{{ end }}">Everything</a>
-            <a href="/timeline?period={{ .Period.Key }}&view=memories"
-               class="{{ if eq .View "memories" }}active{{ end }}">Memories</a>
-            <a href="/timeline?period={{ .Period.Key }}&view=hidden"
-               class="{{ if eq .View "hidden" }}active{{ end }}">Hidden</a>
-        </div>
+        {{ template "segment" (dict "Items" (list
+            (dict "Href" (printf "/timeline?period=%s&view=all" .Period.Key) "Label" "Everything" "Active" (eq .View "all"))
+            (dict "Href" (printf "/timeline?period=%s&view=memories" .Period.Key) "Label" "Memories" "Active" (eq .View "memories"))
+            (dict "Href" (printf "/timeline?period=%s&view=hidden" .Period.Key) "Label" "Hidden" "Active" (eq .View "hidden")))) }}
         {{ if eq .View "all" }}
             <span class="b-delta-note">Notable means {{ .Threshold | fmtCurrency }} or more, excluding regular bills</span>
         {{ end }}
@@ -78,18 +62,12 @@
 
             {{ if .HiddenMerchants }}
                 <div class="b-card mb-3">
-                    <div class="b-conn"><h3 class="b-conn-name">Hidden merchants</h3></div>
+                    {{ template "listHead" (dict "Title" "Hidden merchants") }}
                     <ul class="b-acct-list">
                         {{ range .HiddenMerchants }}
                             <li>
-                                <div class="b-acct b-acct-static">
-                                    <span class="b-chip b-chip-sm fw-bold">{{ slice . 0 1 }}</span>
-                                    <div class="b-acct-body"><div class="b-acct-name">{{ . }}</div></div>
-                                    <button class="btn btn-sm btn-outline-secondary"
-                                            hx-post="/timeline/restore" hx-vals='{{ dict "merchant" . | toJSON }}'>
-                                        <i class="bi bi-eye"></i>Restore
-                                    </button>
-                                </div>
+                                {{ template "listRow" (dict "ChipText" (slice . 0 1) "ChipSm" true "Title" .
+                                    "Action" (dict "Post" "/timeline/restore" "Vals" (dict "merchant" .) "Icon" "bi-eye" "Label" "Restore")) }}
                             </li>
                         {{ end }}
                     </ul>
@@ -98,32 +76,19 @@
 
             {{ if .Hidden }}
                 <div class="b-card mb-3">
-                    <div class="b-conn"><h3 class="b-conn-name">Hidden purchases</h3></div>
+                    {{ template "listHead" (dict "Title" "Hidden purchases") }}
                     <ul class="b-acct-list">
                         {{ range .Hidden }}
                             <li>
-                                <div class="b-acct b-acct-static{{ if .Accent }} b-accent-{{ .Accent }}{{ end }}">
-                                    <span class="b-chip b-chip-sm"><i class="bi {{ .Icon }}"></i></span>
-                                    <div class="b-acct-body">
-                                        <div class="b-acct-name">{{ .Title }}</div>
-                                        <div class="b-acct-meta">{{ .Date.Format "2 Jan 2006" }}</div>
-                                    </div>
-                                    <span class="fw-semibold b-num">{{ .Amount | fmtCurrencyAbs }}</span>
-                                    <button class="btn btn-sm btn-outline-secondary"
-                                            hx-post="/timeline/restore" hx-vals='{{ dict "tx" .Id | toJSON }}'>
-                                        <i class="bi bi-eye"></i>Restore
-                                    </button>
-                                </div>
+                                {{ template "listRow" (dict "Accent" .Accent "Chip" .Icon "ChipSm" true "Title" .Title
+                                    "Meta" (.Date.Format "2 Jan 2006") "Figure" (fmtCurrencyAbs .Amount)
+                                    "Action" (dict "Post" "/timeline/restore" "Vals" (dict "tx" .Id) "Icon" "bi-eye" "Label" "Restore")) }}
                             </li>
                         {{ end }}
                     </ul>
                 </div>
             {{ else if not (or .Dismissed .HiddenMerchants) }}
-                <div class="b-empty">
-                    <i class="bi bi-eye-slash"></i>
-                    <h4>Nothing hidden</h4>
-                    <p>Purchases you hide from the timeline will be listed here, so you can bring them back.</p>
-                </div>
+                {{ template "empty" (dict "Icon" "bi-eye-slash" "Title" "Nothing hidden" "Text" "Purchases you hide from the timeline will be listed here, so you can bring them back.") }}
             {{ end }}
 
         {{ else if .Months }}
@@ -212,8 +177,7 @@
                                                 </span>
                                             {{ end }}
                                             <span>{{ .Span }}</span>
-                                            {{ range $row.CategoryTags }}<a class="badge-category badge-link" href="/transactions?group={{ .Key }}"
-                                                hx-boost="true" hx-params="none" title="Show only {{ .Label }}">{{ .Label }}</a>{{ end }}
+                                            {{ template "transactions.tags" (dict "Tags" $row.CategoryTags "Plain" true) }}
                                         </div>
                                     </div>
                                     <div class="b-tx-amount">{{ .Total | fmtCurrency }}</div>
@@ -289,17 +253,9 @@
             </form>
 
         {{ else if eq .View "memories" }}
-            <div class="b-empty">
-                <i class="bi bi-bookmark-star"></i>
-                <h4>No memories yet</h4>
-                <p>Add a purchase to a memory, or tick a few and add them together, to remember what they were for.</p>
-            </div>
+            {{ template "empty" (dict "Icon" "bi-bookmark-star" "Title" "No memories yet" "Text" "Add a purchase to a memory, or tick a few and add them together, to remember what they were for.") }}
         {{ else }}
-            <div class="b-empty">
-                <i class="bi bi-clock-history"></i>
-                <h4>Nothing notable</h4>
-                <p>Purchases that stand out from your usual spending will appear here once an account is synced.</p>
-            </div>
+            {{ template "empty" (dict "Icon" "bi-clock-history" "Title" "Nothing notable" "Text" "Purchases that stand out from your usual spending will appear here once an account is synced.") }}
         {{ end }}
     </div>
 
@@ -325,7 +281,7 @@
                                 hx-delete="/timeline/memories/{{ $entry.Key }}/transactions/{{ .Id }}"
                                 hx-vals='{{ dict "open" $entry.Key | toJSON }}'
                                 title="Take this out of the memory" aria-label="Take {{ .Title }} out of this memory">
-                            <i class="bi bi-x-lg"></i>
+                            <i class="bi bi-x-lg" aria-hidden="true"></i>
                         </button>
                     {{ end }}
                 </li>

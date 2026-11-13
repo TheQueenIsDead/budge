@@ -9,20 +9,15 @@
          hx-select="#insights-panel"
          hx-swap="outerHTML show:none">
 
-        <div class="b-page-head">
-            <h2>Insights</h2>
-            <p class="b-page-sub">What the regular things cost, and whether that is moving.</p>
-        </div>
+        {{ template "pageHead" (dict "Title" "Insights" "Sub" "What the regular things cost, and whether that is moving.") }}
 
         <div id="insights-panel">
 
             <!-- Category selector -->
             <div class="b-pills">
                 {{ range .Groups }}
-                    <a class="b-pill b-accent-{{ .Accent }}{{ if eq .Key $.Selected.Key }} b-pill-active{{ end }}"
-                       href="/insights?group={{ .Key }}&cadence={{ .Cadence }}">
-                        <i class="bi {{ .Icon }}"></i>{{ .Label }}
-                    </a>
+                    {{ template "pill" (dict "Href" (printf "/insights?group=%s&cadence=%s" .Key .Cadence)
+                        "Label" .Label "Icon" .Icon "Accent" .Accent "Active" (eq .Key $.Selected.Key)) }}
                 {{ end }}
             </div>
 
@@ -30,62 +25,37 @@
             <div class="b-card b-card-pad mb-3 b-accent-{{ .Selected.Accent }}">
 
                 <div class="b-card-head flex-wrap">
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="b-chip"><i class="bi {{ .Selected.Icon }}"></i></span>
-                        <div>
-                            <h3 class="b-card-title">{{ .Selected.Label }}</h3>
-                            <p class="b-card-sub">{{ .Selected.Blurb }}</p>
-                        </div>
-                    </div>
+                    {{ template "cardTitle" (dict "Title" .Selected.Label "Sub" .Selected.Blurb "Chip" .Selected.Icon) }}
 
-                    <div class="b-segment">
-                        <a href="/insights?group={{ .Selected.Key }}&cadence=weekly"
-                           class="{{ if eq .Cadence "weekly" }}active{{ end }}">Weekly</a>
-                        <a href="/insights?group={{ .Selected.Key }}&cadence=monthly"
-                           class="{{ if eq .Cadence "monthly" }}active{{ end }}">Monthly</a>
-                    </div>
+                    {{ template "segment" (dict "Items" (list
+                        (dict "Href" (printf "/insights?group=%s&cadence=weekly" .Selected.Key) "Label" "Weekly" "Active" (eq .Cadence "weekly"))
+                        (dict "Href" (printf "/insights?group=%s&cadence=monthly" .Selected.Key) "Label" "Monthly" "Active" (eq .Cadence "monthly")))) }}
                 </div>
 
                 <!-- The three numbers worth knowing: now, last, and typical. -->
                 <div class="row g-2 mb-3">
                     <!-- This period and the last open the transactions behind
                          them, as the bars do. -->
+                    {{/* The pill under last period's figure is this period against it,
+                         so far, which is why it waits while this period is empty. */}}
+                    {{ $change := dict "Note" "No history" }}
+                    {{ if .Summary.Awaiting }}
+                        {{ $change = dict "Note" .Summary.AwaitingLabel "Icon" "bi-hourglass" }}
+                    {{ else if .Summary.HasPrevious }}
+                        {{ $change = dict "Value" .Summary.Delta "Title" (printf "This %s so far, against the last" .Cadence.Label) }}
+                    {{ end }}
                     <div class="col-4">
-                        <a class="b-stat d-block text-reset text-decoration-none" href="{{ .CurrentLink }}"
-                           hx-boost="false" title="See these transactions">
-                            <div class="b-stat-label"><span>This {{ .Cadence.Label }}</span></div>
-                            <div class="b-stat-value">{{ .Summary.Current | fmtCurrency }}</div>
-                            <div class="b-delta-note">{{ if .Summary.Awaiting }}nothing yet{{ else }}so far{{ end }}</div>
-                        </a>
+                        {{ template "stat" (dict "Label" (printf "This %s" .Cadence.Label) "Value" (fmtCurrency .Summary.Current)
+                            "Note" (or (and .Summary.Awaiting "nothing yet") "so far")
+                            "Href" .CurrentLink "LinkTitle" "See these transactions") }}
                     </div>
                     <div class="col-4">
-                        <a class="b-stat d-block text-reset text-decoration-none" href="{{ .PreviousLink }}"
-                           hx-boost="false" title="See these transactions">
-                            <div class="b-stat-label"><span>Last {{ .Cadence.Label }}</span></div>
-                            <div class="b-stat-value">{{ .Summary.Previous | fmtCurrency }}</div>
-                            <div>
-                                {{ if .Summary.Awaiting }}
-                                    <span class="b-delta b-delta-flat"><i class="bi bi-hourglass"></i>{{ .Summary.AwaitingLabel }}</span>
-                                {{ else if .Summary.HasPrevious }}
-                                    {{ if gt .Summary.Delta 0.0 }}
-                                        <span class="b-delta b-delta-bad"><i class="bi bi-arrow-up-short"></i>{{ .Summary.Delta | fmtPercent }}</span>
-                                    {{ else if lt .Summary.Delta 0.0 }}
-                                        <span class="b-delta b-delta-good"><i class="bi bi-arrow-down-short"></i>{{ .Summary.Delta | fmtPercent }}</span>
-                                    {{ else }}
-                                        <span class="b-delta b-delta-flat"><i class="bi bi-dash"></i>Level</span>
-                                    {{ end }}
-                                {{ else }}
-                                    <span class="b-delta b-delta-flat">No history</span>
-                                {{ end }}
-                            </div>
-                        </a>
+                        {{ template "stat" (dict "Label" (printf "Last %s" .Cadence.Label) "Value" (fmtCurrency .Summary.Previous)
+                            "Delta" $change "Href" .PreviousLink "LinkTitle" "See these transactions") }}
                     </div>
                     <div class="col-4">
-                        <div class="b-stat">
-                            <div class="b-stat-label"><span>Typical</span></div>
-                            <div class="b-stat-value">{{ .Summary.Average | fmtCurrency }}</div>
-                            <div class="b-delta-note">per {{ .Cadence.Label }}</div>
-                        </div>
+                        {{ template "stat" (dict "Label" "Typical" "Value" (fmtCurrency .Summary.Average)
+                            "Note" (printf "per %s" .Cadence.Label)) }}
                     </div>
                 </div>
 
@@ -104,12 +74,8 @@
                  "power is Mercury", without any manual tagging. Each row opens the
                  transactions behind the number. -->
             <div class="b-card b-card-pad mb-3 b-accent-{{ .Selected.Accent }}">
-                <div class="b-card-head">
-                    <div>
-                        <h3 class="b-card-title">{{ .Selected.Label }} merchants</h3>
-                        <p class="b-card-sub">Who you paid, since {{ .WindowStart.Format "2 Jan 2006" }}</p>
-                    </div>
-                </div>
+                {{ template "cardHead" (dict "Title" (printf "%s merchants" .Selected.Label)
+                    "Sub" (printf "Who you paid, since %s" (.WindowStart.Format "2 Jan 2006"))) }}
 
                 {{ if .Merchants }}
                     {{ $top := (index .Merchants 0).Total }}
@@ -134,11 +100,8 @@
                         {{ end }}
                     </ul>
                 {{ else }}
-                    <div class="b-empty">
-                        <i class="bi {{ .Selected.Icon }}"></i>
-                        <h4>Nothing here yet</h4>
-                        <p>No {{ .Selected.Label }} spending in this window.</p>
-                    </div>
+                    {{ template "empty" (dict "Icon" .Selected.Icon "Title" "Nothing here yet"
+                        "Text" (printf "No %s spending in this window." .Selected.Label)) }}
                 {{ end }}
             </div>
 

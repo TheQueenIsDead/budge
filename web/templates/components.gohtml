@@ -1,0 +1,439 @@
+{{/* Components: pieces of markup that appear on more than one page, each
+     drawn here once so every copy looks and behaves the same. html/template
+     has no slots, so each takes a dict of plain values, built with dict at
+     the call, and a part that needs markup of its own stays with its page. */}}
+
+{{/* A change against a previous figure, as a pill: an arrow and the change,
+     green when it went the good way and red when it did not. Whether up is
+     good is the caller's to say, as more spending is bad and more savings is
+     not. Exactly level reads "Level" rather than as a nought with an arrow.
+
+     Value     float64, the change; its sign is the direction.
+     Text      what to show for it; the Value as a percentage when empty.
+     UpIsGood  true when a rise is good news.
+     Title     a tooltip naming what it is against, such as "Previously $40".
+     Placement where the tooltip opens: top unless given.
+
+     A pill that is not a change, such as "No history", takes Note in place
+     of Value, with an optional Icon and a Tone of good, bad or flat (the
+     default). */}}
+{{ define "delta" }}
+{{- if .Note -}}
+<span class="b-delta b-delta-{{ or .Tone "flat" }}"{{ with .Title }} data-bs-toggle="tooltip" data-bs-placement="{{ or $.Placement "top" }}" title="{{ . }}"{{ end }}>
+    {{- with .Icon }}<i class="bi {{ . }}" aria-hidden="true"></i>{{ end }}{{ .Note -}}
+</span>
+{{- else -}}
+{{- $up := gt .Value 0.0 -}}
+{{- $down := lt .Value 0.0 -}}
+{{- $tone := "flat" -}}
+{{- if or (and $up .UpIsGood) (and $down (not .UpIsGood)) }}{{ $tone = "good" }}{{ else if or $up $down }}{{ $tone = "bad" }}{{ end -}}
+<span class="b-delta b-delta-{{ $tone }}"{{ with .Title }} data-bs-toggle="tooltip" data-bs-placement="{{ or $.Placement "top" }}" title="{{ . }}"{{ end }}>
+    {{- if $up }}<i class="bi bi-arrow-up-short" aria-hidden="true"></i>{{ or .Text (.Value | fmtPercent) }}
+    {{- else if $down }}<i class="bi bi-arrow-down-short" aria-hidden="true"></i>{{ or .Text (.Value | fmtPercent) }}
+    {{- else }}<i class="bi bi-dash" aria-hidden="true"></i>Level{{ end -}}
+</span>
+{{- end -}}
+{{ end }}
+
+{{/* A stat tile: a capitalised label, one big figure, and a line under it,
+     either a note or a delta pill. One that opens something is a link, and
+     lifts as a card that opens does.
+
+     Label     what the figure is.
+     Icon      an icon beside the label, in the tile's accent.
+     Accent    the tile's colour, such as sage.
+     Value     the figure, already formatted.
+     Tone      a class for the figure, such as text-danger.
+     Note      the line under it, as text.
+     Truncate  true to cut the note to one line, for a name that may run long.
+     Delta     a dict for the delta pill under it, in place of a note.
+     Href      where the tile leads, with LinkTitle saying what is there. */}}
+{{ define "stat" }}
+{{- if .Href }}
+<a class="b-stat b-card-interactive{{ with .Accent }} b-accent-{{ . }}{{ end }}" href="{{ .Href }}" hx-boost="false"{{ with .LinkTitle }} title="{{ . }}"{{ end }}>
+{{- else }}
+<div class="b-stat{{ with .Accent }} b-accent-{{ . }}{{ end }}">
+{{- end }}
+    <div class="b-stat-label"><span>{{ .Label }}</span>{{ with .Icon }}<i class="bi {{ . }}" aria-hidden="true"></i>{{ end }}</div>
+    <div class="b-stat-value{{ with .Tone }} {{ . }}{{ end }}">{{ .Value }}</div>
+    {{- with .Delta }}
+    <div>{{ template "delta" . }}</div>
+    {{- else with .Note }}
+    <div class="b-delta-note{{ if $.Truncate }} text-truncate{{ end }}">{{ . }}</div>
+    {{- end }}
+{{ if .Href }}</a>{{ else }}</div>{{ end }}
+{{- end }}
+
+{{/* A page's heading: its title and a line under it. A page reached from
+     another has a back button on the right, and may lead with a chip, and
+     its title is cut short rather than pushing the button off the row.
+
+     Title      the page's name.
+     Sub        the line under it, as text.
+     Back       where the back button goes; no button without it.
+     BackLabel  what the back button says to a screen reader, naming where
+                it goes, such as "Back to portfolio".
+     Chip       an icon to lead with, such as bi-house.
+     Accent     the chip's colour. */}}
+{{ define "pageHead" }}
+{{- if .Back }}
+<div class="b-page-head d-flex align-items-start justify-content-between gap-3">
+    <div class="min-width-0{{ if .Chip }} d-flex align-items-center gap-2{{ end }}">
+        {{- with .Chip }}
+        <span class="b-chip{{ with $.Accent }} b-accent-{{ . }}{{ end }}"><i class="bi {{ . }}" aria-hidden="true"></i></span>
+        <div class="min-width-0">
+        {{- end }}
+        <h2 class="text-truncate">{{ .Title }}</h2>
+        {{- with .Sub }}
+        <p class="b-page-sub">{{ . }}</p>
+        {{- end }}
+        {{- if .Chip }}
+        </div>
+        {{- end }}
+    </div>
+    <a href="{{ .Back }}" class="btn btn-sm btn-outline-secondary flex-shrink-0"
+       hx-boost="true" hx-target="#main" aria-label="{{ .BackLabel }}">
+        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+    </a>
+</div>
+{{- else }}
+<div class="b-page-head">
+    <h2>{{ .Title }}</h2>
+    {{- with .Sub }}
+    <p class="b-page-sub">{{ . }}</p>
+    {{- end }}
+</div>
+{{- end }}
+{{ end }}
+
+{{/* The left of a card's head: its title, a line under it, and a chip to
+     lead with. A head with something on its right, a button or a toggle,
+     wraps this in its own .b-card-head and adds it; cardHead is the head
+     with nothing more.
+
+     Title   the card's name.
+     Sub     the line under it, as text.
+     Chip    an icon to lead with, such as bi-tags.
+     Accent  the chip's colour, when it is not the card's own. */}}
+{{ define "cardTitle" }}
+{{- if .Chip }}
+<div class="d-flex align-items-center gap-2 min-width-0">
+    <span class="b-chip{{ with .Accent }} b-accent-{{ . }}{{ end }}"><i class="bi {{ .Chip }}" aria-hidden="true"></i></span>
+    <div class="min-width-0">
+        <h3 class="b-card-title">{{ .Title }}</h3>
+        {{- with .Sub }}
+        <p class="b-card-sub">{{ . }}</p>
+        {{- end }}
+    </div>
+</div>
+{{- else }}
+<div class="min-width-0">
+    <h3 class="b-card-title">{{ .Title }}</h3>
+    {{- with .Sub }}
+    <p class="b-card-sub">{{ . }}</p>
+    {{- end }}
+</div>
+{{- end }}
+{{ end }}
+
+{{/* A card's head with nothing on its right. It takes cardTitle's keys. */}}
+{{ define "cardHead" }}
+<div class="b-card-head">
+    {{- template "cardTitle" . }}
+</div>
+{{ end }}
+
+{{/* What a list or a chart shows when there is nothing in it: an icon, a
+     line saying so, and what would put something there.
+
+     Icon   the icon, bi-inbox unless given.
+     Title  the line saying there is nothing.
+     Text   what would put something there. */}}
+{{ define "empty" }}
+<div class="b-empty">
+    <i class="bi {{ or .Icon "bi-inbox" }}" aria-hidden="true"></i>
+    <h4>{{ .Title }}</h4>
+    {{- with .Text }}
+    <p>{{ . }}</p>
+    {{- end }}
+</div>
+{{ end }}
+
+{{/* "Saved", shown for a moment once a form that saves as it changes has
+     saved. flashSaved in budget.js finds it within the form it is given. */}}
+{{ define "savedFlash" }}
+<span class="badge-success rounded-pill px-2 budge-flash" data-saved-flash aria-live="polite">Saved</span>
+{{ end }}
+
+{{/* The head of a list inside a card: a logo or chip, the list's name, and
+     its total or count on the right, with a button to add to it.
+
+     Title     the list's name.
+     Logo      an image to lead with, such as a bank's logo, with LogoAlt.
+     Chip      an icon to lead with, in a small chip, with its Accent.
+     Total     the figure on the right, already formatted, so a count of
+               nought still shows.
+     TotalTone a class for the figure, such as text-danger.
+     AddHref   where adding to the list goes, with AddLabel saying what. */}}
+{{ define "listHead" }}
+<div class="b-conn">
+    {{- with .Logo }}
+    <img class="b-conn-logo" width="30" height="30" src="{{ . }}" alt="{{ $.LogoAlt }}"/>
+    {{- end }}
+    {{- with .Chip }}
+    <span class="b-chip b-chip-sm{{ with $.Accent }} b-accent-{{ . }}{{ end }}"><i class="bi {{ . }}" aria-hidden="true"></i></span>
+    {{- end }}
+    <h3 class="b-conn-name">{{ .Title }}</h3>
+    {{- with .Total }}
+    <div class="b-conn-total{{ with $.TotalTone }} {{ . }}{{ end }}">{{ . }}</div>
+    {{- end }}
+    {{- with .AddHref }}
+    <a class="btn btn-sm btn-outline-secondary flex-shrink-0" href="{{ . }}" hx-boost="true" hx-target="#main"
+       title="{{ $.AddLabel }}" aria-label="{{ $.AddLabel }}">
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+    </a>
+    {{- end }}
+</div>
+{{ end }}
+
+{{/* A row in a list inside a card: a chip or logo, a name with a line of
+     detail under it, figures on the right, and one thing to do with it. A
+     row with somewhere to go is a link, and one without says so by not
+     being one.
+
+     Href       where the row leads; a link with a chevron when given.
+     Accent     the row's colour; Class any further classes for it.
+     Chip       an icon in its chip, or ChipText a letter; ChipSm for the
+                small chip, ChipAccent for a colour of its own.
+     Logo       an image in place of a chip, with LogoAlt.
+     Title      the row's name.
+     Message    a line of text under the name, for a notification.
+     Badge      a category badge in the detail line.
+     Mono       an account number or such in the detail line, set mono.
+     Meta       further detail, with MetaIcon before it and MetaTitle as
+                its tooltip.
+     New        true to mark the row as not seen yet.
+     Figure     the figure on the right, already formatted, in FigureTone.
+     Delta      a dict for a delta pill under the figure.
+     Remove     a dict to take the row out of its list with a cross: URL to
+                delete, Label for a screen reader, Title, Confirm to ask
+                first, and Trigger, an event to raise on the page after.
+     Action     a dict for a button on the right: Post, Vals, Icon, Label. */}}
+{{ define "listRow" }}
+{{- if .Href }}
+<a class="b-acct{{ with .Accent }} b-accent-{{ . }}{{ end }}{{ with .Class }} {{ . }}{{ end }}" href="{{ .Href }}" hx-boost="true" hx-target="#main">
+{{- else }}
+<div class="b-acct b-acct-static{{ with .Accent }} b-accent-{{ . }}{{ end }}{{ with .Class }} {{ . }}{{ end }}">
+{{- end }}
+    {{- if .Logo }}
+    <img class="b-conn-logo" width="30" height="30" src="{{ .Logo }}" alt="{{ .LogoAlt }}"/>
+    {{- else if or .Chip .ChipText }}
+    <span class="b-chip{{ if .ChipSm }} b-chip-sm{{ end }}{{ with .ChipAccent }} b-accent-{{ . }}{{ end }}{{ if .ChipText }} fw-bold{{ end }}">
+        {{- with .Chip }}<i class="bi {{ . }}" aria-hidden="true"></i>{{ else }}{{ .ChipText }}{{ end -}}
+    </span>
+    {{- end }}
+    <div class="b-acct-body">
+        <div class="b-acct-name">{{ .Title }}</div>
+        {{- with .Message }}
+        <div class="b-note-message">{{ . }}</div>
+        {{- end }}
+        {{- if or .Badge .Mono .Meta .New }}
+        <div class="b-acct-meta">
+            {{- with .Badge }}<span class="badge-category">{{ . }}</span>{{ end }}
+            {{- with .Mono }}<span class="font-monospace">{{ . }}</span>{{ end }}
+            {{- with .Meta }}<span{{ with $.MetaTitle }} title="{{ . }}"{{ end }}>{{ with $.MetaIcon }}<i class="bi {{ . }}" aria-hidden="true"></i> {{ end }}{{ . }}</span>{{ end }}
+            {{- if .New }}{{ template "delta" (dict "Note" "New") }}{{ end }}
+        </div>
+        {{- end }}
+    </div>
+    {{- if or .Figure .Delta }}
+    <div class="b-acct-figures">
+        {{- with .Figure }}
+        <div class="b-acct-balance{{ with $.FigureTone }} {{ . }}{{ end }}">{{ . }}</div>
+        {{- end }}
+        {{- with .Delta }}{{ template "delta" . }}{{ end }}
+    </div>
+    {{- end }}
+    {{- with .Remove }}
+    <button class="btn btn-sm btn-link text-muted p-0 flex-shrink-0"
+            hx-delete="{{ .URL }}" hx-target="#main" hx-swap="innerHTML"
+            {{- with .Confirm }} hx-confirm="{{ . }}"{{ end }}
+            {{- with .Trigger }} hx-on::after-request="htmx.trigger(document.body, '{{ . }}')"{{ end }}
+            title="{{ or .Title .Label }}" aria-label="{{ .Label }}">
+        <i class="bi bi-x-lg" aria-hidden="true"></i>
+    </button>
+    {{- end }}
+    {{- with .Action }}
+    <button class="btn btn-sm btn-outline-secondary flex-shrink-0"
+            hx-post="{{ .Post }}"{{ with .Vals }} hx-vals='{{ . | toJSON }}'{{ end }}>
+        {{- with .Icon }}<i class="bi {{ . }}" aria-hidden="true"></i>{{ end }}{{ .Label -}}
+    </button>
+    {{- end }}
+    {{- if .Href }}
+    <i class="bi bi-chevron-right b-rank-go d-none d-sm-block" aria-hidden="true"></i>
+</a>
+    {{- else }}
+</div>
+    {{- end }}
+{{ end }}
+
+{{/* A dollar amount: a field with a $ in front, which takes cents and asks
+     a phone for its number pad.
+
+     ID          the field's id; with Label, the label above it names it.
+     Label       a label above the field. AriaLabel names it where there is
+                 no room for one.
+     Name        the form field's name.
+     Value       what it holds, already formatted, or nothing for empty.
+     Placeholder what it shows when empty, 0.00 unless given.
+     Min         the least it takes, 0 unless given.
+     Required    true when it must be filled in.
+     Size        sm for the small field.
+     Class       further classes for the field, such as text-end.
+     GroupClass  further classes for the group, such as a fixed width. */}}
+{{ define "moneyInput" }}
+{{- with .Label }}
+<label class="b-field-label" for="{{ $.ID }}">{{ . }}</label>
+{{- end }}
+<div class="input-group{{ with .Size }} input-group-{{ . }}{{ end }}{{ with .GroupClass }} {{ . }}{{ end }}">
+    <span class="input-group-text">$</span>
+    <input type="number" class="form-control{{ with .Class }} {{ . }}{{ end }}"{{ with .ID }} id="{{ . }}"{{ end }} name="{{ .Name }}"
+           min="{{ or .Min "0" }}" step="0.01" inputmode="decimal" placeholder="{{ or .Placeholder "0.00" }}"
+           {{- with .AriaLabel }} aria-label="{{ . }}"{{ end }}{{ with .Value }} value="{{ . }}"{{ end }}{{ if .Required }} required{{ end }}>
+</div>
+{{ end }}
+
+{{/* A labelled text or date field.
+
+     ID           the field's id, which its label names.
+     Label        the label above it; Optional adds "(optional)".
+     Name         the form field's name.
+     Type         text unless given, such as date.
+     Value        what it holds.
+     Placeholder  what it shows when empty.
+     Required     true when it must be filled in.
+     Size         sm for the small field.
+     List         the id of a datalist to suggest from, which also turns
+                  the browser's own suggestions off. */}}
+{{ define "field" }}
+<label class="b-field-label" for="{{ .ID }}">{{ .Label }}{{ if .Optional }} <span class="fw-normal text-lowercase">(optional)</span>{{ end }}</label>
+<input id="{{ .ID }}" name="{{ .Name }}" type="{{ or .Type "text" }}" class="form-control{{ with .Size }} form-control-{{ . }}{{ end }}"
+       {{- with .Value }} value="{{ . }}"{{ end }}{{ with .Placeholder }} placeholder="{{ . }}"{{ end }}
+       {{- with .List }} list="{{ . }}" autocomplete="off"{{ end }}{{ if .Required }} required{{ end }}>
+{{ end }}
+
+{{/* A labelled choice from a list.
+
+     ID        the select's id, which its label names.
+     Label     the label above it. AriaLabel names it where there is none.
+     Name      the form field's name.
+     Options   what to choose from, each with a Key and a Label: a list of
+               dicts written in place, or a page's own.
+     Selected  the Key chosen, compared as text.
+     Size      sm for the small select.
+     Class     further classes for it, such as w-auto. */}}
+{{ define "select" }}
+{{- with .Label }}
+<label class="b-field-label" for="{{ $.ID }}">{{ . }}</label>
+{{- end }}
+<select class="form-select{{ with .Size }} form-select-{{ . }}{{ end }}{{ with .Class }} {{ . }}{{ end }}"{{ with .ID }} id="{{ . }}"{{ end }} name="{{ .Name }}"
+        {{- with .AriaLabel }} aria-label="{{ . }}"{{ end }}>
+    {{- range .Options }}
+    <option value="{{ .Key }}"{{ if eq (print .Key) (print $.Selected) }} selected{{ end }}>{{ .Label }}</option>
+    {{- end }}
+</select>
+{{ end }}
+
+{{/* A segmented control: two to four links, one of them the view on show,
+     raised out of the track. They are links, not buttons, so each view has
+     an address of its own, and the one on show says so to a screen reader.
+
+     Items  a list of dicts, each one link: Href, Label, and Active for the
+            view on show. A control drawn from a page's own data ranges
+            over it and draws each with segment.item, inside a .b-segment. */}}
+{{ define "segment" }}
+<div class="b-segment">
+    {{- range .Items }}{{ template "segment.item" . }}{{ end }}
+</div>
+{{ end }}
+
+{{/* One link of a segmented control, taking an item's keys. */}}
+{{ define "segment.item" }}
+<a href="{{ .Href }}"{{ if .Active }} class="active" aria-current="page"{{ end }}>{{ .Label }}</a>
+{{- end }}
+
+{{/* One pill in a row of them, inside a .b-pills, for choosing what a page
+     is about: a category, a period, a tab. The one chosen is filled, in its
+     accent where it has one, and says so to a screen reader.
+
+     Href    where it leads.
+     Label   its name.
+     Icon    an icon before the name, in the accent.
+     Accent  its colour, such as sage.
+     Active  true for the one chosen. */}}
+{{ define "pill" }}
+<a class="b-pill{{ with .Accent }} b-accent-{{ . }}{{ end }}{{ if .Active }} b-pill-active{{ end }}" href="{{ .Href }}"
+   {{- if .Active }} aria-current="page"{{ end }}>
+    {{- with .Icon }}<i class="bi {{ . }}" aria-hidden="true"></i>{{ end }}{{ .Label -}}
+</a>
+{{- end }}
+
+{{/* A row of choices drawn as chips, one of them picked: a colour, an icon
+     or a memory's kind. Each is a radio button hidden in its label, so the
+     row works from the keyboard as any radio group does, and the picked one
+     is ringed.
+
+     Type      accent for colours, icon for icons, or kind for choices that
+               each have a Key, Accent, Icon and Label.
+     Name      the form field's name.
+     Label     what the group is choosing, for a screen reader.
+     Options   the colours' names, the icons' classes, or the kinds.
+     Selected  the one picked, compared as text.
+     Model     the Alpine property the choice is bound to, if any. */}}
+{{ define "chipPicker" }}
+<div class="b-pick-row" role="radiogroup" aria-label="{{ .Label }}">
+    {{- range .Options }}
+    {{- if eq $.Type "kind" }}
+    <label class="b-kind-pick b-accent-{{ .Accent }}">
+        <input type="radio" class="visually-hidden" name="{{ $.Name }}" value="{{ .Key }}"
+               {{- if eq (print .Key) (print $.Selected) }} checked{{ end }}{{ with $.Model }} x-model="{{ . }}"{{ end }}>
+        <span class="b-chip b-chip-sm"><i class="bi {{ .Icon }}" aria-hidden="true"></i></span>{{ .Label }}
+    </label>
+    {{- else if eq $.Type "icon" }}
+    <label class="b-icon-pick" title="{{ iconName . }}">
+        <input type="radio" class="visually-hidden" name="{{ $.Name }}" value="{{ . }}"
+               {{- if eq (print .) (print $.Selected) }} checked{{ end }}{{ with $.Model }} x-model="{{ . }}"{{ end }}>
+        <span class="b-chip b-chip-sm"><i class="bi {{ . }}" aria-hidden="true"></i></span><span class="visually-hidden">{{ iconName . }}</span>
+    </label>
+    {{- else }}
+    <label class="b-accent-pick b-accent-{{ . }}" title="{{ fmtTitle (print .) }}">
+        <input type="radio" class="visually-hidden" name="{{ $.Name }}" value="{{ . }}"
+               {{- if eq (print .) (print $.Selected) }} checked{{ end }}{{ with $.Model }} x-model="{{ . }}"{{ end }}>
+        <span class="b-swatch"></span><span class="visually-hidden">{{ fmtTitle (print .) }}</span>
+    </label>
+    {{- end }}
+    {{- end }}
+</div>
+{{ end }}
+
+{{/* A notice across the top of a list: something worth knowing before
+     reading on, with an icon, and a way to act on it on the right.
+
+     Tone       the Bootstrap alert it is drawn as, warning unless given.
+     Role       status unless given; alert for something that went wrong
+                just now, which a screen reader reads out at once.
+     Icon       the icon before it, bi-info-circle unless given.
+     Lead       its opening words, in bold.
+     Text       the rest of it, after the lead.
+     LinkHref   where acting on it goes, with LinkLabel saying what. */}}
+{{ define "notice" }}
+<div class="alert alert-{{ or .Tone "warning" }} d-flex align-items-start gap-2 mb-3" role="{{ or .Role "status" }}">
+    <i class="bi {{ or .Icon "bi-info-circle" }}" aria-hidden="true"></i>
+    <div class="flex-grow-1">
+        {{- with .Lead }}<span class="fw-semibold">{{ . }}</span>{{ end }}{{ .Text -}}
+    </div>
+    {{- with .LinkHref }}
+    <a class="text-nowrap" href="{{ . }}" hx-boost="true" hx-target="#main">{{ $.LinkLabel }}</a>
+    {{- end }}
+</div>
+{{ end }}

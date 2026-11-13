@@ -108,11 +108,19 @@ func startMemory(p *page) {
 	})
 }
 
-// name names the memory on the page and makes it.
+// name names the memory on the page and makes it, waiting until it is made:
+// the page is left only once the memory is saved, and a test that moved on
+// sooner could find it not there yet.
 func name(p *page, title string) {
 	p.t.Helper()
 	p.click("#memory-title")
 	p.typeText(title)
 	p.clickText("button.btn-primary", "Make memory")
 	p.settle()
+	p.eventually(func() error {
+		if at := eval[string](p, `location.pathname`); at == "/memories/new" {
+			return fmt.Errorf("the memory isn't made yet")
+		}
+		return nil
+	})
 }

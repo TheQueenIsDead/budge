@@ -74,6 +74,13 @@ func TestScreenshots(t *testing.T) {
 				}); err != nil {
 					t.Fatal(err)
 				}
+				// Asking for less motion draws each chart at once, rather than
+				// leaving it to be pictured partway through growing into place.
+				if _, err := chromedp.Call(p.ctx, emulation.SetEmulatedMedia, emulation.SetEmulatedMediaParams{
+					Features: []*emulation.MediaFeature{{Name: "prefers-reduced-motion", Value: "reduce"}},
+				}); err != nil {
+					t.Fatal(err)
+				}
 				path := pg.path
 				if pg.name == "new-memory" {
 					p.visit("/transactions?search=Z%20Energy")
@@ -93,9 +100,7 @@ func TestScreenshots(t *testing.T) {
 	}
 }
 
-// still readies a page for its picture, the same every time. Charts animate
-// as they draw, and the page is ready before they finish, so each is drawn
-// at its end at once. The caret blinks, so nothing keeps the focus. The
+// still readies a page for its picture, the same every time. The caret blinks, so nothing keeps the focus. The
 // phone's tab bar stays put at the foot of the screen, which a picture of the
 // whole page would show halfway down, over what it covers, so for the
 // picture it sits at the end of the page instead.
@@ -104,7 +109,6 @@ func still(p *page) {
 	// It resolves two frames on, once the page has been laid out again,
 	// as the picture's size is read straight after.
 	eval[bool](p, `new Promise(done => {
-		if (window.Chart) Object.values(Chart.instances).forEach(chart => chart.update('none'));
 		document.activeElement?.blur();
 		const style = document.createElement('style');
 		style.textContent = '.b-tabbar { position: static !important; }';

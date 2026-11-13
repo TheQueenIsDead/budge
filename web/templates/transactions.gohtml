@@ -1,9 +1,6 @@
 {{ define "transactions" }}
 
-    <div class="b-page-head">
-        <h2>Transactions</h2>
-        <p class="b-page-sub">Everything that moved, newest first.</p>
-    </div>
+    {{ template "pageHead" (dict "Title" "Transactions" "Sub" "Everything that moved, newest first.") }}
 
     <!-- Filters. Sticky, so search stays reachable well down a long list. -->
     <div class="b-filters">
@@ -23,8 +20,7 @@
             <div class="row g-2">
                 <div class="col-12 col-sm-6">
                     <div class="position-relative">
-                        <i class="bi bi-search position-absolute text-muted"
-                           style="left: 0.75rem; top: 50%; transform: translateY(-50%);"></i>
+                        <i class="bi bi-search b-search-icon" aria-hidden="true"></i>
                         <input id="search" type="search" name="search"
                                class="form-control ps-5"
                                placeholder="Search merchants, categories&hellip;"
@@ -83,6 +79,8 @@
     {{/* Uncategorised spending all counts as unbudgeted, so it is called out
          until it is filed, with a way straight to it. */}}
     {{ if .uncategorisedOnly }}
+        {{/* Written out rather than drawn with notice, for the tag button
+             it shows inline. */}}
         <div class="alert alert-warning d-flex align-items-start gap-2 mb-3" role="status">
             <i class="bi bi-funnel" aria-hidden="true"></i>
             <div class="flex-grow-1">
@@ -94,15 +92,11 @@
             <a class="text-nowrap" href="/transactions" hx-boost="true" hx-target="#main">Show everything</a>
         </div>
     {{ else if .uncategorisedCount }}
-        <div class="alert alert-warning d-flex align-items-start gap-2 mb-3" role="status">
-            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-            <div class="flex-grow-1">
-                <span class="fw-semibold">{{ .uncategorisedCount }} payment{{ if ne .uncategorisedCount 1 }}s{{ end }} in the last {{ .uncategorisedWeeks }} weeks
-                {{ if eq .uncategorisedCount 1 }}has{{ else }}have{{ end }} no category</span>, {{ .uncategorisedTotal | fmtWhole }} in all.
-                Until they are filed, the budget can only lump them together under Uncategorised.
-            </div>
-            <a class="text-nowrap" href="/transactions?uncategorised=1" hx-boost="true" hx-target="#main">Show them</a>
-        </div>
+        {{ $lead := printf "%d payments in the last %d weeks have no category" .uncategorisedCount .uncategorisedWeeks }}
+        {{ if eq .uncategorisedCount 1 }}{{ $lead = printf "1 payment in the last %d weeks has no category" .uncategorisedWeeks }}{{ end }}
+        {{ template "notice" (dict "Icon" "bi-exclamation-triangle" "Lead" $lead
+            "Text" (printf ", %s in all. Until they are filed, the budget can only lump them together under Uncategorised." (fmtWhole .uncategorisedTotal))
+            "LinkHref" "/transactions?uncategorised=1" "LinkLabel" "Show them") }}
     {{ end }}
 
     <!-- Spend behind the results. Stacked by the same categories that colour the
@@ -110,13 +104,10 @@
     {{ if .series.HasData }}
         <div class="b-card b-card-pad mb-3">
             <div class="b-card-head mb-1">
-                <div>
-                    <h3 class="b-card-title">Spend over time</h3>
-                    <p class="b-card-sub">
-                        Last 12 months of these results{{ if .series.Split }} by category{{ end }}.
-                        Transfers, money in and savings are left out.
-                    </p>
-                </div>
+                {{ $split := "" }}
+                {{ if .series.Split }}{{ $split = " by category" }}{{ end }}
+                {{ template "cardTitle" (dict "Title" "Spend over time"
+                    "Sub" (printf "Last 12 months of these results%s. Transfers, money in and savings are left out." $split)) }}
                 <div class="text-end flex-shrink-0">
                     <div class="fw-bold b-num">{{ .series.Total | fmtCurrency }}</div>
                     <div class="b-delta-note">total spend</div>
@@ -146,11 +137,11 @@
                 <div class="b-tx-list mb-2">
                     {{ range .Rows }}
                         <div class="b-tx{{ if .Accent }} b-accent-{{ .Accent }}{{ end }}">
-                            {{ template "transactions.pick" (dict "Row" . "Size" "") }}
+                            {{ template "transactions.pick" (dict "Row" . "Form" "tx-group") }}
                             <div class="b-tx-body">
                                 <div class="b-tx-name">{{ .Title }}</div>
                                 <div class="b-tx-meta" id="txcats-m-{{ .Id }}">
-                                    {{ template "transactions.tags" .CategoryTags }}
+                                    {{ template "transactions.tags" (dict "Tags" .CategoryTags) }}
                                 </div>
                             </div>
                             <div class="b-tx-amount {{ if gt .Amount 0.0 }}text-success{{ else }}text-danger{{ end }}">
@@ -183,13 +174,13 @@
                         <tr>
                             <td>
                                 <div class="d-flex align-items-center gap-2{{ if .Accent }} b-accent-{{ .Accent }}{{ end }}">
-                                    {{ template "transactions.pick" (dict "Row" . "Size" "b-chip-sm") }}
+                                    {{ template "transactions.pick" (dict "Row" . "Size" "b-chip-sm" "Form" "tx-group") }}
                                     <span class="fw-semibold">{{ .Title }}</span>
                                 </div>
                             </td>
                             <td>
                                 <span id="txcats-d-{{ .Id }}">
-                                    {{ template "transactions.tags" .CategoryTags }}
+                                    {{ template "transactions.tags" (dict "Tags" .CategoryTags) }}
                                 </span>
                             </td>
                             <td class="text-muted">{{ $date.Format "2 Jan 2006" }}</td>
@@ -231,17 +222,9 @@
         </div>
 
     {{ else }}
-        <div class="b-empty">
-            <i class="bi bi-search"></i>
-            <h4>No transactions found</h4>
-            <p>
-                {{ if or .search .account .dated }}
-                    Nothing matches those filters. Try a broader search.
-                {{ else }}
-                    Sync an account from settings to see your transactions here.
-                {{ end }}
-            </p>
-        </div>
+        {{ $why := "Sync an account from settings to see your transactions here." }}
+        {{ if or .search .account .dated }}{{ $why = "Nothing matches those filters. Try a broader search." }}{{ end }}
+        {{ template "empty" (dict "Icon" "bi-search" "Title" "No transactions found" "Text" $why) }}
     {{ end }}
 
     <script nonce="{{ nonce }}">
@@ -381,14 +364,25 @@
 
 {{/* A row's icon doubles as its tick box, so selecting needs no extra
      column. Once anything is ticked every icon turns into a box, so it is
-     plain which rows are in and which are not. */}}
+     plain which rows are in and which are not. A memory's page uses it too,
+     for the purchases in the memory and those it could take.
+
+     Row      the transaction row, for its id, title and icon.
+     Size     b-chip-sm for the small chip, in the table.
+     Form     the id of the form the tick belongs to, when it is not the
+              one the row sits in, such as the selection bar's.
+     Checked  true to draw it ticked.
+     Title    its tooltip, "Select" unless given.
+     Label    what it does, for a screen reader: "Select" and the row's
+              title unless given. */}}
 {{ define "transactions.pick" }}
-<label class="b-tx-pick" title="Select">
+<label class="b-tx-pick" title="{{ or .Title "Select" }}">
     <input type="checkbox" class="b-tl-select visually-hidden" name="tx" value="{{ .Row.Id }}"
-           form="tx-group" aria-label="Select {{ .Row.Title }}">
-    <span class="b-chip {{ .Size }}">
-        <i class="bi {{ .Row.Icon }} b-tx-pick-icon"></i>
-        <i class="bi bi-check-lg b-tx-pick-tick"></i>
+           {{- with .Form }} form="{{ . }}"{{ end }}{{ if .Checked }} checked{{ end }}
+           aria-label="{{ or .Label (printf "Select %s" .Row.Title) }}">
+    <span class="b-chip{{ with .Size }} {{ . }}{{ end }}">
+        <i class="bi {{ .Row.Icon }} b-tx-pick-icon" aria-hidden="true"></i>
+        <i class="bi bi-check-lg b-tx-pick-tick" aria-hidden="true"></i>
     </span>
 </label>
 {{ end }}
@@ -407,7 +401,7 @@
 {{ end }}
 
 {{ define "transactions.category.form" }}
-<form class="d-flex flex-wrap gap-2" hx-post="/transactions/{{ .ID }}/category" hx-target="this" hx-swap="none">
+<form class="b-actions" hx-post="/transactions/{{ .ID }}/category" hx-target="this" hx-swap="none">
     <div class="b-txmem-head">
         {{ .Current }}{{ if .Source }}<span class="fw-normal text-muted"> · from {{ .Source }}</span>{{ end }}
     </div>
@@ -424,36 +418,44 @@
         {{ end }}
     </select>
     {{ if .RuleText }}
-    <div class="form-check small mb-0" style="flex: 1 1 100%;">
+    <div class="form-check small mb-0">
         <input class="form-check-input" type="checkbox" id="txcat-like-{{ .Layout }}-{{ .ID }}" name="scope" value="like">
         <label class="form-check-label" for="txcat-like-{{ .Layout }}-{{ .ID }}">
             All transactions containing “{{ .RuleText }}”, as a rule
         </label>
     </div>
     {{ end }}
-    <button class="btn btn-sm btn-primary">Save</button>
+    {{/* The way to the rules on the left, then Save last, on the right. */}}
+    <a class="small b-actions-status" href="/settings#categories">Categories &amp; rules</a>
     {{ if .Overridden }}
     <button class="btn btn-sm btn-outline-secondary" name="clear" value="1">Undo my change</button>
     {{ end }}
-    <a class="small ms-auto align-self-center" href="/settings#categories">Categories &amp; rules</a>
+    <button class="btn btn-sm btn-primary">Save</button>
 </form>
 {{ end }}
 
 {{/* A transaction's category badges. Each narrows the list to its category,
      keeping the search, account and dates, so a tag on a drill-down narrows
-     that drill-down. The href alone opens the category on its own. */}}
+     that drill-down. The href alone opens the category on its own.
+
+     Tags   the row's category tags, each with a Key and a Label.
+     Plain  true where there is no transactions list to narrow, as on the
+            timeline: each is then a plain link to its category, carrying
+            none of the page's own state with it. */}}
 {{ define "transactions.tags" }}
-    {{ range . }}<a class="badge-category badge-link" href="/transactions?group={{ .Key }}"
+    {{- $plain := .Plain }}
+    {{ range .Tags }}<a class="badge-category badge-link" href="/transactions?group={{ .Key }}"
+        {{- if $plain }} hx-boost="true" hx-params="none"{{ else }}
         hx-get="/transactions?group={{ .Key }}" hx-include="#search, #account, #filter-from, #filter-to"
-        hx-target="#main" hx-push-url="true" title="Show only {{ .Label }}">{{ .Label }}</a>{{ end }}
+        hx-target="#main" hx-push-url="true"{{ end }} title="Show only {{ .Label }}">{{ .Label }}</a>{{ end }}
 {{ end }}
 
 {{ define "transactions.category.updated" }}
 <div class="b-tx-meta" id="txcats-m-{{ .ID }}" hx-swap-oob="true">
-    {{ template "transactions.tags" .Categories }}
+    {{ template "transactions.tags" (dict "Tags" .Categories) }}
 </div>
 <span id="txcats-d-{{ .ID }}" hx-swap-oob="true">
-    {{ template "transactions.tags" .Categories }}
+    {{ template "transactions.tags" (dict "Tags" .Categories) }}
 </span>
 {{ range .Popovers }}{{ template "transactions.category" . }}{{ end }}
 {{ end }}
