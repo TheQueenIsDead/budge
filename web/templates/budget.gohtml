@@ -32,14 +32,9 @@
              out as it is, as rows in a list. Neither needs doing, so it is
              said here rather than raised as a notification. */}}
         {{with $.SetupData.Note}}
-        <div class="d-flex align-items-center gap-3 b-tracking-row">
-            <span class="b-chip b-accent-slate"><i class="bi bi-lightbulb"></i></span>
-            <div class="min-width-0 flex-grow-1">
-                <div class="b-card-title">{{.}}</div>
-                <div class="b-card-sub">Nothing needs doing, but the budget would read truer.</div>
-            </div>
-            <a class="b-track-link text-nowrap" href="#budget-setup">Review targets</a>
-        </div>
+        {{template "overviewRow" (dict "Icon" "bi-lightbulb" "Accent" "slate" "Title" .
+            "Sub" "Nothing needs doing, but the budget would read truer."
+            "LinkHref" "#budget-setup" "LinkLabel" "Review targets" "InPage" true)}}
         {{end}}
     </div>
     {{end}}

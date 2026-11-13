@@ -416,6 +416,44 @@
 </div>
 {{ end }}
 
+{{/* A row of an overview card: a chip, a line saying what is worth knowing
+     with a line under it, and one thing to do about it on the right. It is
+     drawn as the budget's headline card draws its rows, so something to
+     act on reads the same wherever it is raised.
+
+     Icon       the icon in its chip, with Accent its colour.
+     Title      what is worth knowing.
+     Sub        a line under it.
+     LinkHref   where acting on it goes, with LinkLabel saying what.
+     InPage     true when LinkHref is a place on this page, such as
+                "#budget-setup", which is scrolled to rather than fetched.
+     Card       true to draw it as a card of its own, whose link drops
+                under the text on a phone; otherwise it is a further row
+                of the card it sits in, under a divider.
+     Role       a role for it, such as status, for a card of its own. */}}
+{{ define "overviewRow" }}
+{{- if .Card }}
+<div class="b-card b-card-pad mb-3"{{ with .Role }} role="{{ . }}"{{ end }}>
+    <div class="d-flex align-items-center gap-3 b-overview-row">
+{{- else }}
+    <div class="d-flex align-items-center gap-3 b-tracking-row">
+{{- end }}
+        <span class="b-chip{{ with .Accent }} b-accent-{{ . }}{{ end }}"><i class="bi {{ .Icon }}" aria-hidden="true"></i></span>
+        <div class="min-width-0 flex-grow-1">
+            <div class="b-card-title">{{ .Title }}</div>
+            {{- with .Sub }}
+            <div class="b-card-sub">{{ . }}</div>
+            {{- end }}
+        </div>
+        {{- with .LinkHref }}
+        <a class="b-track-link text-nowrap" href="{{ . }}"{{ if not $.InPage }} hx-boost="true" hx-target="#main"{{ end }}>{{ $.LinkLabel }}</a>
+        {{- end }}
+    </div>
+{{- if .Card }}
+</div>
+{{- end }}
+{{ end }}
+
 {{/* A notice across the top of a list: something worth knowing before
      reading on, with an icon, and a way to act on it on the right.
 
