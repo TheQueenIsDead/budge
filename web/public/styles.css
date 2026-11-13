@@ -2180,6 +2180,63 @@ a.b-acct:focus-visible {
 }
 
 /* Picking a colour or an icon: a row of choices, the chosen one ringed. */
+/* A memory's kind: its icon and name, ringed when picked, as a category's
+   icon is. */
+.b-kind-pick {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin: 0;
+    padding: 2px 0.625rem 2px 2px;
+    cursor: pointer;
+    border: 2px solid var(--b-border);
+    border-radius: var(--b-radius-pill);
+    font-size: 0.875rem;
+}
+
+.b-kind-pick:has(:checked) {
+    border-color: var(--b-primary);
+}
+
+.b-kind-pick:has(:focus-visible) {
+    box-shadow: 0 0 0 3px var(--b-primary-ring);
+}
+
+/* A memory's page lines everything up on one edge: the header card, the
+   section headings and the rows all start their content where a row does,
+   inside its padding and border. */
+.b-memory-card {
+    padding: 0.75rem;
+}
+
+.b-memory .b-tx-day {
+    padding-inline: calc(0.75rem + 1px);
+}
+
+/* A memory's name, written in its header where the timeline shows it, its
+   text in line with the dates under it. */
+.b-memory-title {
+    padding: 0;
+    font-weight: 600;
+    font-size: 1.125rem;
+    border: 0;
+    border-bottom: 1px dashed var(--b-border);
+    border-radius: 0;
+    background: transparent;
+}
+
+.b-memory-title:hover,
+.b-memory-title:focus {
+    border-bottom-color: var(--b-border-strong);
+    background: transparent;
+    box-shadow: none;
+}
+
+/* A purchase already in another memory, shown for context but not picked. */
+.b-tx-claimed {
+    opacity: 0.6;
+}
+
 .b-pick-row {
     display: flex;
     flex-wrap: wrap;

@@ -49,7 +49,7 @@ func TestMakeAMemory(t *testing.T) {
 	})
 	p.click("a.b-txmem-in#txmem-d-" + id)
 	p.settle()
-	p.eventually(p.contains("#main h2", "Road trip"))
+	p.eventually(p.is("#memory-title", "Road trip", p.value))
 
 	p.visit("/timeline?view=memories")
 	p.eventually(p.contains("#main", "Road trip"))

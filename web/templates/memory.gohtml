@@ -1,92 +1,113 @@
-{{/* A memory on a page of its own, to make one or change one. Every purchase
-     is a tick box, in the one form with the name, so the memory holds what is
-     ticked when it is saved: untick one to take it out, tick one bought around
-     then to add it. Saving goes back to wherever the page was opened from. */}}
+{{/* A memory on a page of its own, to make one or change one. Its header is
+     the timeline's memory card, named and dressed in place, and its purchases
+     are the transactions list's rows, each icon a tick box. They are all in
+     the one form, so the memory holds what is ticked when it is saved: untick
+     one to take it out, tick one bought around then to add it. Saving goes
+     back to wherever the page was opened from. */}}
 {{ define "memory" }}
 
     <div class="b-page-head">
-        <h2>{{ if .New }}New memory{{ else }}{{ .Memory.Title }}{{ end }}</h2>
+        <h2>{{ if .New }}New memory{{ else }}Edit memory{{ end }}</h2>
         <p class="b-page-sub">
-            {{ if .New }}What the ticked purchases were for, and anything else that went with them.
+            {{ if .New }}What these were for, and anything else that went with them.
             {{ else }}Its name, and the purchases that went into it.{{ end }}
         </p>
     </div>
 
-    <form class="b-card b-card-pad mb-3" hx-swap="none"
-          {{ if .New }}hx-post="/memories"{{ else }}hx-post="/memories/{{ .Memory.Id }}"{{ end }}>
+    <form class="b-tx-feed b-memory" hx-swap="none"
+          {{ if .New }}hx-post="/memories"{{ else }}hx-post="/memories/{{ .Memory.Id }}"{{ end }}
+          x-data='{{ dict "kind" .Kind.Key "looks" .Looks | toJSON }}'>
         <input type="hidden" name="return" value="{{ .Return }}">
 
-        <div class="row g-2 mb-3">
-            <div class="col-12 col-md-5">
-                <label class="b-field-label" for="memory-title">Name</label>
-                <input class="form-control form-control-sm" id="memory-title" name="title" value="{{ .Memory.Title }}"
-                       placeholder="Japan, the new deck, an engagement" {{ if not .New }}required{{ end }}>
+        {{/* The colour and icon follow the kind as it is picked, as a
+             category's do in settings. */}}
+        <div class="b-card b-memory-card mb-4 b-accent-{{ .Kind.Accent }}"
+             x-effect="[...$el.classList].filter(c => c.startsWith('b-accent-')).forEach(c => $el.classList.remove(c)); $el.classList.add('b-accent-' + looks[kind].accent)">
+            <div class="b-tl-row mb-3">
+                <span class="b-chip"><i class="bi {{ .Kind.Icon }}" x-effect="$el.className = 'bi ' + looks[kind].icon"></i></span>
+                <div class="b-tx-body">
+                    <input class="form-control b-memory-title" id="memory-title" name="title" value="{{ .Memory.Title }}"
+                           placeholder="Name this memory" aria-label="Name" {{ if not .New }}required{{ end }}>
+                    <div class="b-tx-meta">{{ .Span }}</div>
+                </div>
+                <div class="b-tx-amount">{{ .Total | fmtCurrency }}</div>
             </div>
-            <div class="col-12 col-md-3">
-                <span class="b-field-label">Kind</span>
-                {{ template "timeline.kinds" (dict "Kinds" .Kinds "Selected" .Memory.Kind) }}
+
+            <span class="b-field-label">Kind</span>
+            <div class="b-pick-row mb-3" role="radiogroup" aria-label="What kind of memory">
+                {{ range .Kinds }}
+                    <label class="b-kind-pick b-accent-{{ .Accent }}">
+                        <input type="radio" class="visually-hidden" name="kind" value="{{ .Key }}"
+                               {{ if eq .Key $.Kind.Key }}checked{{ end }} x-model="kind">
+                        <span class="b-chip b-chip-sm"><i class="bi {{ .Icon }}"></i></span>{{ .Label }}
+                    </label>
+                {{ end }}
             </div>
-            <div class="col-12 col-md-4">
-                <label class="b-field-label" for="memory-note">Note</label>
-                <input class="form-control form-control-sm" id="memory-note" name="note" value="{{ .Memory.Note }}"
-                       placeholder="A note, if you like">
-            </div>
+
+            <label class="b-field-label" for="memory-note">Note</label>
+            <input class="form-control form-control-sm" id="memory-note" name="note" value="{{ .Memory.Note }}"
+                   placeholder="A note, if you like">
         </div>
 
-        <div class="b-card-head">
-            <h3 class="b-card-title">In this memory</h3>
-            <span class="b-num fw-semibold">{{ .Total | fmtCurrency }}</span>
+        <div class="b-tx-day">
+            <span>In this memory</span>
+            <span class="b-num">{{ len .Rows }} purchase{{ if ne (len .Rows) 1 }}s{{ end }}</span>
         </div>
-        <ul class="b-tl-sameday mb-3" aria-label="In this memory">
-            {{ range .Rows }}
-                <li>
-                    <label class="b-tl-ctx">
-                        <input type="checkbox" class="form-check-input b-tl-pick" name="tx" value="{{ .Id }}" checked
-                               aria-label="Keep {{ .Title }}">
-                        <span class="b-tl-ctx-date">{{ .Date.Format "2 Jan 2006" }}</span>
-                        <span class="b-tl-ctx-name">{{ .Title }}</span>
-                        <span class="b-num {{ if gt .Amount 0.0 }}text-success{{ end }}">{{ .Amount | fmtCurrencyAbs }}</span>
-                    </label>
-                </li>
-            {{ end }}
-        </ul>
+        <div class="b-tx-list mb-4">
+            {{ range .Rows }}{{ template "memory.row" (dict "Row" . "Tags" .CategoryTags "Ticked" true) }}{{ end }}
+        </div>
 
         {{ if .Nearby }}
-            <div class="b-card-head">
-                <h3 class="b-card-title">Bought around then</h3>
+            <div class="b-tx-day">
+                <span>Bought around then</span>
             </div>
-            <p class="b-card-sub">The days either side of each purchase, in case anything went with them.</p>
-            <ul class="b-tl-sameday mb-3" aria-label="Bought around then">
-                {{ range .Nearby }}
-                    <li>
-                        <label class="b-tl-ctx{{ if .Claimed }} b-tl-ctx-claimed{{ end }}"
-                               {{ if .Claimed }}title="Already in another memory"{{ end }}>
-                            {{ if .Claimed }}
-                                <i class="bi bi-bookmark-check b-tl-ctx-mark"></i>
-                            {{ else }}
-                                <input type="checkbox" class="form-check-input b-tl-pick" name="tx" value="{{ .Id }}"
-                                       aria-label="Add {{ .Title }}">
-                            {{ end }}
-                            <span class="b-tl-ctx-date">{{ .Date.Format "2 Jan" }}</span>
-                            <span class="b-tl-ctx-name">{{ .Title }}</span>
-                            <span class="b-num">{{ .Amount | fmtCurrencyAbs }}</span>
-                        </label>
-                    </li>
-                {{ end }}
-            </ul>
+            <div class="b-tx-list mb-4">
+                {{ range .Nearby }}{{ template "memory.row" (dict "Row" .TransactionRow "Tags" .TransactionRow.CategoryTags "Claimed" .Claimed) }}{{ end }}
+            </div>
         {{ end }}
 
-        <div class="d-flex flex-wrap align-items-center gap-2">
-            <button class="btn btn-sm btn-primary">{{ if .New }}Make memory{{ else }}Save{{ end }}</button>
-            <a class="btn btn-sm btn-outline-secondary" href="{{ .Return }}" hx-boost="true" hx-target="#main">Cancel</a>
+        {{/* Saving last, at the bottom right where the eye ends up; deleting
+             apart from it, on the left. */}}
+        <div class="d-flex flex-wrap align-items-center justify-content-end gap-2">
             {{ if not .New }}
-                <button type="button" class="btn btn-sm btn-link text-muted ms-auto"
+                <button type="button" class="btn btn-link text-muted px-0 me-auto"
                         hx-delete="/memories/{{ .Memory.Id }}" hx-vals='{{ dict "return" .Return | toJSON }}'
                         hx-confirm="Delete “{{ .Memory.Title }}”? Its purchases go back on the timeline.">
                     <i class="bi bi-trash"></i>Delete
                 </button>
             {{ end }}
+            <a class="btn btn-outline-secondary" href="{{ .Return }}" hx-boost="true" hx-target="#main">Cancel</a>
+            <button class="btn btn-primary">{{ if .New }}Make memory{{ else }}Save{{ end }}</button>
         </div>
     </form>
 
+{{ end }}
+
+{{/* A purchase on a memory's page: the transactions list's row, its icon the
+     tick box. One already in another memory says so, and is left alone. Its
+     tags are worked out by the caller, where the row can be pointed at. */}}
+{{ define "memory.row" }}
+{{ $row := .Row }}
+<div class="b-tx{{ if $row.Accent }} b-accent-{{ $row.Accent }}{{ end }}{{ if .Claimed }} b-tx-claimed{{ end }}">
+    {{ if .Claimed }}
+        <span class="b-chip" title="Already in another memory"><i class="bi bi-bookmark-check"></i></span>
+    {{ else }}
+        <label class="b-tx-pick" title="{{ if .Ticked }}In this memory{{ else }}Add to this memory{{ end }}">
+            <input type="checkbox" class="b-tl-select visually-hidden" name="tx" value="{{ $row.Id }}"{{ if .Ticked }} checked{{ end }}
+                   aria-label="{{ if .Ticked }}Keep{{ else }}Add{{ end }} {{ $row.Title }}">
+            <span class="b-chip">
+                <i class="bi {{ $row.Icon }} b-tx-pick-icon"></i>
+                <i class="bi bi-check-lg b-tx-pick-tick"></i>
+            </span>
+        </label>
+    {{ end }}
+    <div class="b-tx-body">
+        <div class="b-tx-name">{{ $row.Title }}</div>
+        <div class="b-tx-meta">
+            <span>{{ $row.Date.Format "Mon 2 Jan" }}</span>
+            {{ if .Claimed }}<span>in another memory</span>{{ else }}{{ template "transactions.tags" .Tags }}{{ end }}
+        </div>
+    </div>
+    <div class="b-tx-amount {{ if gt $row.Amount 0.0 }}text-success{{ end }}">{{ $row.Amount | fmtCurrencyAbs }}</div>
+</div>
 {{ end }}

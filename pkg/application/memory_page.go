@@ -39,6 +39,29 @@ func (p MemoryPage) Total() float64 {
 	return total
 }
 
+// Kind is what the memory is, which its header wears.
+func (p MemoryPage) Kind() models.MemoryKind {
+	return models.MemoryKindByKey(p.Memory.Kind)
+}
+
+// Looks is each kind's icon and colour, for the header to follow the kind
+// picked before it is saved.
+func (p MemoryPage) Looks() map[string]map[string]string {
+	looks := make(map[string]map[string]string, len(p.Kinds))
+	for _, kind := range p.Kinds {
+		looks[kind.Key] = map[string]string{"icon": kind.Icon, "accent": kind.Accent}
+	}
+	return looks
+}
+
+// Span is the days the memory's purchases fall on, as the timeline says it.
+func (p MemoryPage) Span() string {
+	if len(p.Rows) == 0 {
+		return ""
+	}
+	return TimelineEntry{Start: p.Rows[0].Date, End: p.Rows[len(p.Rows)-1].Date}.Span()
+}
+
 // memoriesHome is where a memory's page goes back to when it was opened from
 // nowhere it can return to.
 const memoriesHome = "/timeline?view=memories"
