@@ -223,7 +223,7 @@ func (app *Application) Transactions(c *echo.Context) error {
 		"series":     series,
 		"days":       days,
 		"memories":   memories,
-		"categories": categoryPicker(),
+		"categories": bulkCategoryPicker(),
 		"search":     search,
 		"account":    account,
 		"from":       c.QueryParam("from"),
@@ -272,8 +272,12 @@ type TransactionGroup struct {
 }
 
 // Matches reports whether a transaction is spending filed under the group,
-// the same spending the budget and insights count for it.
+// the same spending the budget and insights count for it, or for Income,
+// money earned.
 func (g TransactionGroup) Matches(tx models.Transaction) bool {
+	if g.category == models.CategoryIncome {
+		return tx.IsIncome()
+	}
 	if !tx.IsDebit() {
 		return false
 	}

@@ -119,7 +119,7 @@ func TestSettingsCategoriesRenders(t *testing.T) {
 		assert.Contains(t, transport, `<option value="fuel">Fuel</option>`, "or one of its subcategories")
 		assert.Contains(t, transport, `from:#rule-contains-transport`)
 		assert.Contains(t, transport, `hx-target="this"`, "the preview must not inherit the form's target and replace the card")
-		assert.Contains(t, section("groceries"), `<input type="hidden" name="category" value="groceries">`, "with nothing finer, no picker")
+		assert.Contains(t, section("groceries"), `<input type="hidden" id="rule-category-groceries" name="category" value="groceries">`, "with nothing finer, no picker")
 	})
 
 	t.Run("uncategorised takes no rules of its own", func(t *testing.T) {

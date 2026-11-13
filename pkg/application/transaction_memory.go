@@ -173,7 +173,7 @@ func (app *Application) renderMemoryControls(c *echo.Context, ids []string, used
 	return c.Render(http.StatusOK, "transactions.memory.swap", map[string]interface{}{
 		"Controls":   controls,
 		"Bar":        used == "",
-		"Categories": categoryPicker(),
+		"Categories": bulkCategoryPicker(),
 		"Options":    options,
 	})
 }

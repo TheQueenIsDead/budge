@@ -172,9 +172,22 @@ func (t Transaction) IsDebit() bool {
 	return t.Amount < 0 && t.Type != "TRANSFER"
 }
 
+// IsCredit reports whether money came in from somewhere else: not a payment
+// out, nor money moving between the owner's own accounts. Of money coming
+// in, only income is filed.
+func (t Transaction) IsCredit() bool {
+	return t.Amount > 0 && !t.IsTransfer()
+}
+
+// IsIncome reports whether money came in that was earned, filed under Income.
+func (t Transaction) IsIncome() bool {
+	return t.IsCredit() && t.BudgetCategory() == CategoryIncome
+}
+
 // Categories names where the transaction is filed, for its badges: the
-// category, then the subcategory when it has one. Money coming in and moving
-// between the owner's accounts is not filed anywhere.
+// category, then the subcategory when it has one. Money moving between the
+// owner's accounts is not filed anywhere, nor is money coming in that is not
+// income.
 func (t *Transaction) Categories() (labels []string) {
 	for _, tag := range t.CategoryTags() {
 		labels = append(labels, tag.Label)
@@ -191,6 +204,10 @@ type CategoryTag struct {
 
 // CategoryTags are the categories behind the badges Categories names.
 func (t *Transaction) CategoryTags() (tags []CategoryTag) {
+	if t.IsIncome() {
+		income := TopBudgetCategory(CategoryIncome)
+		return []CategoryTag{{Key: income.Key, Label: income.Label}}
+	}
 	if !t.IsDebit() {
 		return nil
 	}

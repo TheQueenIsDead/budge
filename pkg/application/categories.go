@@ -36,6 +36,9 @@ type SettingsCategoryView struct {
 	// MoveTo are the categories its transactions can go to if it is deleted.
 	MoveTo []CategoryPickerOption
 	Fixed  bool // Uncategorised, which can be neither moved nor deleted
+	// Income is budge's own category for money coming in, not one of the
+	// owner's: it has only rules, nothing to rename, split or delete.
+	Income bool
 	Open   bool
 }
 
@@ -154,6 +157,9 @@ func (app *Application) buildCategoriesView(ctx context.Context, open string) (C
 		if category, ok := debitCategory(tx); ok {
 			filed[category.Key]++
 		}
+		if tx.IsIncome() {
+			filed[models.CategoryIncome]++
+		}
 		if tx.Type != "" && !tx.IsTransfer() {
 			types[tx.Type] = true
 		}
@@ -203,6 +209,18 @@ func (app *Application) buildCategoriesView(ctx context.Context, open string) (C
 				MoveTo:         moveTo,
 				Fixed:          category.Key == models.CategoryUncategorised,
 				Open:           category.Key == open,
+			})
+		}
+		if !onBudget {
+			income := models.TopBudgetCategory(models.CategoryIncome)
+			section.Categories = append(section.Categories, SettingsCategoryView{
+				BudgetCategory: income,
+				Count:          filed[income.Key],
+				Rules:          rules[income.Key],
+				Options:        []CategoryPickerOption{{Key: income.Key, Label: income.Label}},
+				Fixed:          true,
+				Income:         true,
+				Open:           income.Key == open,
 			})
 		}
 		view.Groups = append(view.Groups, section)
@@ -432,6 +450,8 @@ func (app *Application) SettingsPreviewRule(c *echo.Context) error {
 		Contains:         strings.TrimSpace(c.QueryParam("contains")),
 		Type:             c.QueryParam("type"),
 		IncludeTransfers: c.QueryParam("include_transfers") != "",
+		// Where it files decides which way the money it matches goes.
+		Category: c.QueryParam("category"),
 	}
 	rule.AtLeast, rule.AtMost = ruleAmounts(c.QueryParam("at_least"), c.QueryParam("at_most"))
 	if rule.Contains == "" {

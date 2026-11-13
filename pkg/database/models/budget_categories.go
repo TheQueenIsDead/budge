@@ -59,7 +59,25 @@ type BudgetCategory struct {
 const (
 	CategoryUncategorised = "uncategorised"
 	CategoryOther         = "other"
+	CategoryIncome        = "income"
 )
+
+// incomeCategory files money coming in that was earned: pay, and anything
+// sold. Every other category files money going out, so Income is not in the
+// owner's list to rename, split or delete, nor counted anywhere spending is;
+// it is off budget, and always there.
+var incomeCategory = BudgetCategory{
+	Key:         CategoryIncome,
+	Label:       "Income",
+	Icon:        "bi-cash-coin",
+	Accent:      "sage",
+	Blurb:       "Pay, sales and anything else earned",
+	OffBudget:   true,
+	NotSpending: true,
+}
+
+// IncomeCategory is the category money earned is filed under.
+func IncomeCategory() BudgetCategory { return incomeCategory }
 
 // Groups a category could sit under before budge had on and off budget,
 // read only to carry a saved list over.
@@ -189,6 +207,12 @@ func UseBudgetCategories(settings BudgetCategorySettings) {
 		}
 		category.NotSpending = category.OffBudget && category.Key != CategoryUncategorised
 		index[category.Key] = category
+	}
+	// Income is found by key like any other, but kept out of the list, which
+	// is spending's. A category of the owner's own that was given its key
+	// first is left as theirs.
+	if _, ok := index[CategoryIncome]; !ok {
+		index[CategoryIncome] = incomeCategory
 	}
 
 	budgetCategoryRegistry.Lock()
@@ -411,9 +435,15 @@ func AkahuBudgetCategory(broad, specific, txType string) string {
 // BudgetCategory is where the transaction is filed: by the owner, a rule or
 // Akahu, in that order. Reading through the store files it; a transaction
 // made any other way falls back to Akahu's category.
+//
+// Money coming in is income only when filed there, or when sync named it
+// salary; anything else coming in, such as a refund, is filed nowhere.
 func (t Transaction) BudgetCategory() string {
 	if t.Filed != "" {
 		return ResolveBudgetCategory(t.Filed)
+	}
+	if t.IsCredit() && t.Category.Name == "Salary" {
+		return ResolveBudgetCategory(CategoryIncome)
 	}
 	return ResolveBudgetCategory(AkahuBudgetCategory(t.Category.Groups.PersonalFinance.Name, t.Category.Name, t.Type))
 }
@@ -496,7 +526,7 @@ func (bs BudgetCategorySettings) newKey(label string) string {
 	taken := func(key string) bool {
 		_, merged := bs.Merged[key]
 		_, builtin := defaultIndex[key]
-		return bs.find(key) >= 0 || merged || builtin
+		return bs.find(key) >= 0 || merged || builtin || key == CategoryIncome
 	}
 	key := base
 	for n := 2; taken(key); n++ {

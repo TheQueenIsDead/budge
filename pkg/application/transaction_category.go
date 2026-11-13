@@ -67,6 +67,40 @@ func categoryPicker() []CategoryPickerGroup {
 	return groups
 }
 
+// incomePicker offers the one category money coming in is filed under.
+func incomePicker() []CategoryPickerGroup {
+	income := models.TopBudgetCategory(models.CategoryIncome)
+	return []CategoryPickerGroup{{Key: income.Key, Label: income.Label}}
+}
+
+// pickerFor is what a transaction can be filed under: Income for money
+// coming in, and the spending categories for anything else.
+func pickerFor(tx models.Transaction) []CategoryPickerGroup {
+	if tx.IsCredit() {
+		return incomePicker()
+	}
+	return categoryPicker()
+}
+
+// bulkCategoryPicker is the picker for ticked transactions, which can be
+// going either way: the spending categories, then Income.
+func bulkCategoryPicker() []CategoryPickerGroup {
+	return append(categoryPicker(), incomePicker()...)
+}
+
+// fileable reports whether a transaction can go under a category, and if
+// not, why. Income is money coming in, and every other category money going
+// out.
+func fileable(tx models.Transaction, category models.BudgetCategory) (bool, string) {
+	switch income := models.TopBudgetCategory(category.Key).Key == models.CategoryIncome; {
+	case income && !tx.IsCredit():
+		return false, "Only money coming in can be filed as income."
+	case !income && tx.IsCredit():
+		return false, "Money coming in can only be filed as income."
+	}
+	return true, ""
+}
+
 // categorySource says what filed a transaction, and whether it was the owner.
 func categorySource(tx models.Transaction) (string, bool) {
 	switch tx.FiledBy {
@@ -97,7 +131,7 @@ func (app *Application) TransactionCategoryForm(c *echo.Context) error {
 		Source:     source,
 		Overridden: overridden,
 		RuleText:   strings.TrimSpace(spendMerchant(tx)),
-		Groups:     categoryPicker(),
+		Groups:     pickerFor(tx),
 	})
 }
 
@@ -131,6 +165,9 @@ func (app *Application) TransactionSetCategory(c *echo.Context) error {
 		target, ok := models.BudgetCategoryByKey(c.FormValue("category"))
 		if !ok {
 			return echo.NewHTTPError(http.StatusBadRequest, "Pick a category to file it under.")
+		}
+		if ok, why := fileable(tx, target); !ok {
+			return echo.NewHTTPError(http.StatusBadRequest, why)
 		}
 		switch scope {
 		case "like":
@@ -188,6 +225,28 @@ func (app *Application) TransactionsSetCategory(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Pick a category to file them under.")
 	}
 
+	// Ticked transactions can be going either way, so only those the
+	// category suits are filed, and the rest are said to be left.
+	var filing []string
+	var why string
+	for _, id := range ids {
+		tx, err := app.store.GetTransaction(ctx, id)
+		if err != nil {
+			return lookupError(err, "A ticked transaction no longer exists.")
+		}
+		ok, reason := fileable(tx, target)
+		if !ok {
+			why = reason
+			continue
+		}
+		filing = append(filing, id)
+	}
+	if len(filing) == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, why)
+	}
+	skipped := len(ids) - len(filing)
+	ids = filing
+
 	settings, err := app.store.GetCategorySettings(ctx)
 	if err != nil {
 		return err
@@ -210,7 +269,11 @@ func (app *Application) TransactionsSetCategory(c *echo.Context) error {
 		return err
 	}
 
-	app.Toast(c, "Saved", fmt.Sprintf("Filed %d under %s.", len(ids), strings.Join(append([]string{models.TopBudgetCategory(target.Key).Label}, subLabel(target)...), " › ")))
+	message := fmt.Sprintf("Filed %d under %s.", len(ids), strings.Join(append([]string{models.TopBudgetCategory(target.Key).Label}, subLabel(target)...), " › "))
+	if skipped > 0 {
+		message += fmt.Sprintf(" %d left as they were: %s", skipped, why)
+	}
+	app.Toast(c, "Saved", message)
 	c.Response().Header().Set("HX-Refresh", "true")
 	return c.NoContent(http.StatusOK)
 }

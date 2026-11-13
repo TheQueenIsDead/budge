@@ -56,3 +56,29 @@ func TestFileATransaction(t *testing.T) {
 	p.visit("/transactions?search=energy")
 	assert.Contains(t, p.text(badges), "Health", "the filing is saved")
 }
+
+// TestFileIncome files money coming in, which is offered Income alone.
+func TestFileIncome(t *testing.T) {
+	p := open(t)
+	p.visit("/transactions?search=salary")
+	id := eval[string](p, `document.querySelector('details.b-txcat[id^="txcat-d-"]').id.slice('txcat-d-'.length)`)
+	picker, badges := "#txcat-d-"+id, "#txcats-d-"+id
+
+	assert.NotContains(t, p.text(badges), "Income", "it starts filed nowhere")
+	p.click(picker + " > summary")
+	p.eventually(func() error {
+		if !eval[bool](p, fmt.Sprintf(`!!document.querySelector(%s)`, quote(picker+" select[name=category]"))) {
+			return fmt.Errorf("the category picker hasn't loaded")
+		}
+		return nil
+	})
+	assert.Equal(t, `["","income"]`, eval[string](p, fmt.Sprintf(`JSON.stringify([...document.querySelectorAll(%s)].map(o => o.value))`, quote(picker+" select[name=category] option"))),
+		"money coming in is offered Income alone")
+	p.choose(picker+" select[name=category]", "income")
+	p.click(picker + " button.btn-primary")
+	p.settle()
+	p.eventually(p.contains(badges, "Income"))
+
+	p.visit("/transactions?search=salary")
+	assert.Contains(t, p.text(badges), "Income", "the filing is saved")
+}

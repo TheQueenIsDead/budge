@@ -74,6 +74,12 @@ func (r CategoryRule) Matches(tx Transaction) bool {
 	if tx.IsTransfer() && (!r.IncludeTransfers || tx.Amount >= 0) {
 		return false
 	}
+	// Income is money coming in, and every other category money going out,
+	// so a rule files only the one way: one filing a sale on TradeMe as
+	// income leaves what is bought there as spending.
+	if (r.Target() == CategoryIncome) != tx.IsCredit() {
+		return false
+	}
 	if r.Type != "" && !strings.EqualFold(r.Type, tx.Type) {
 		return false
 	}

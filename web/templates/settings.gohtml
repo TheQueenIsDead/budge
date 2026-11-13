@@ -313,8 +313,16 @@
                     </summary>
 
                     <div class="b-cat-body">
-                        {{ template "settings.category.details" (dict "Category" . "Root" $root) }}
-                        {{ template "settings.category.subs" . }}
+                        {{ if .Income }}
+                            <p class="b-card-sub mb-0">
+                                Money coming in that was earned. Pay is filed here as it syncs; file anything
+                                else, such as a sale, from its transaction, or with a rule below. Only money
+                                coming in is filed here, so a rule leaves what is bought from the same place as spending.
+                            </p>
+                        {{ else }}
+                            {{ template "settings.category.details" (dict "Category" . "Root" $root) }}
+                            {{ template "settings.category.subs" . }}
+                        {{ end }}
 
                         <div class="b-cat-section">
                         <div class="b-cat-section-title">Rules</div>
@@ -383,7 +391,7 @@
                                         {{/* One place to file: the category, or its only
                                              subcategory, said rather than picked. */}}
                                         {{ $only := index .Options 0 }}
-                                        <input type="hidden" name="category" value="{{ $only.Key }}">
+                                        <input type="hidden" id="rule-category-{{ .Key }}" name="category" value="{{ $only.Key }}">
                                         {{ if ne $only.Key .Key }}<div class="b-delta-note pb-1">Files under {{ $only.Label }}</div>{{ end }}
                                     {{ end }}
                                 </div>
@@ -410,10 +418,11 @@
                                      would otherwise inherit the form's, and replace the card. */}}
                                 <div class="col-12" aria-live="polite"
                                      hx-get="/settings/rules/preview"
-                                     hx-trigger="input changed delay:300ms from:#rule-contains-{{ .Key }}, change from:#rule-type-{{ .Key }}, change from:#rule-transfers-{{ .Key }}, input changed delay:300ms from:#rule-atleast-{{ .Key }}, input changed delay:300ms from:#rule-atmost-{{ .Key }}"
-                                     hx-include="#rule-contains-{{ .Key }}, #rule-type-{{ .Key }}, #rule-transfers-{{ .Key }}, #rule-atleast-{{ .Key }}, #rule-atmost-{{ .Key }}"
+                                     hx-trigger="input changed delay:300ms from:#rule-contains-{{ .Key }}, change from:#rule-type-{{ .Key }}, change from:#rule-transfers-{{ .Key }}, input changed delay:300ms from:#rule-atleast-{{ .Key }}, input changed delay:300ms from:#rule-atmost-{{ .Key }}, change from:#rule-category-{{ .Key }}"
+                                     hx-include="#rule-contains-{{ .Key }}, #rule-type-{{ .Key }}, #rule-transfers-{{ .Key }}, #rule-atleast-{{ .Key }}, #rule-atmost-{{ .Key }}, #rule-category-{{ .Key }}"
                                      hx-target="this"
                                      hx-swap="innerHTML"></div>
+                                {{ if not .Income }}
                                 <div class="col-12">
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="rule-transfers-{{ .Key }}" name="include_transfers" value="1">
@@ -426,6 +435,7 @@
                                         </label>
                                     </div>
                                 </div>
+                                {{ end }}
                                 <div class="col-12">
                                     <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg"></i>Add rule</button>
                                 </div>
