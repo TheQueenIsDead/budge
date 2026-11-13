@@ -2197,7 +2197,8 @@ a.b-acct:focus-visible {
 
 /* Picking a colour or an icon: a row of choices, the chosen one ringed. */
 /* A memory's kind: its icon and name, ringed when picked, as a category's
-   icon is. */
+   icon is. The ring's corners follow the chip's, out by the padding and
+   border between them, so the two curves run together. */
 .b-kind-pick {
     display: inline-flex;
     align-items: center;
@@ -2206,7 +2207,7 @@ a.b-acct:focus-visible {
     padding: 2px 0.625rem 2px 2px;
     cursor: pointer;
     border: 2px solid var(--b-border);
-    border-radius: var(--b-radius-pill);
+    border-radius: calc(9px + 2px + 2px);
     font-size: 0.875rem;
 }
 
