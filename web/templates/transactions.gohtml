@@ -79,6 +79,8 @@
     {{/* Uncategorised spending all counts as unbudgeted, so it is called out
          until it is filed, with a way straight to it. */}}
     {{ if .uncategorisedOnly }}
+        {{/* Written out rather than drawn with notice, for the tag button
+             it shows inline. */}}
         <div class="alert alert-warning d-flex align-items-start gap-2 mb-3" role="status">
             <i class="bi bi-funnel" aria-hidden="true"></i>
             <div class="flex-grow-1">
@@ -90,15 +92,11 @@
             <a class="text-nowrap" href="/transactions" hx-boost="true" hx-target="#main">Show everything</a>
         </div>
     {{ else if .uncategorisedCount }}
-        <div class="alert alert-warning d-flex align-items-start gap-2 mb-3" role="status">
-            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-            <div class="flex-grow-1">
-                <span class="fw-semibold">{{ .uncategorisedCount }} payment{{ if ne .uncategorisedCount 1 }}s{{ end }} in the last {{ .uncategorisedWeeks }} weeks
-                {{ if eq .uncategorisedCount 1 }}has{{ else }}have{{ end }} no category</span>, {{ .uncategorisedTotal | fmtWhole }} in all.
-                Until they are filed, the budget can only lump them together under Uncategorised.
-            </div>
-            <a class="text-nowrap" href="/transactions?uncategorised=1" hx-boost="true" hx-target="#main">Show them</a>
-        </div>
+        {{ $lead := printf "%d payments in the last %d weeks have no category" .uncategorisedCount .uncategorisedWeeks }}
+        {{ if eq .uncategorisedCount 1 }}{{ $lead = printf "1 payment in the last %d weeks has no category" .uncategorisedWeeks }}{{ end }}
+        {{ template "notice" (dict "Icon" "bi-exclamation-triangle" "Lead" $lead
+            "Text" (printf ", %s in all. Until they are filed, the budget can only lump them together under Uncategorised." (fmtWhole .uncategorisedTotal))
+            "LinkHref" "/transactions?uncategorised=1" "LinkLabel" "Show them") }}
     {{ end }}
 
     <!-- Spend behind the results. Stacked by the same categories that colour the

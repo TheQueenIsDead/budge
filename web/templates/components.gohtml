@@ -415,3 +415,25 @@
     {{- end }}
 </div>
 {{ end }}
+
+{{/* A notice across the top of a list: something worth knowing before
+     reading on, with an icon, and a way to act on it on the right.
+
+     Tone       the Bootstrap alert it is drawn as, warning unless given.
+     Role       status unless given; alert for something that went wrong
+                just now, which a screen reader reads out at once.
+     Icon       the icon before it, bi-info-circle unless given.
+     Lead       its opening words, in bold.
+     Text       the rest of it, after the lead.
+     LinkHref   where acting on it goes, with LinkLabel saying what. */}}
+{{ define "notice" }}
+<div class="alert alert-{{ or .Tone "warning" }} d-flex align-items-start gap-2 mb-3" role="{{ or .Role "status" }}">
+    <i class="bi {{ or .Icon "bi-info-circle" }}" aria-hidden="true"></i>
+    <div class="flex-grow-1">
+        {{- with .Lead }}<span class="fw-semibold">{{ . }}</span>{{ end }}{{ .Text -}}
+    </div>
+    {{- with .LinkHref }}
+    <a class="text-nowrap" href="{{ . }}" hx-boost="true" hx-target="#main">{{ $.LinkLabel }}</a>
+    {{- end }}
+</div>
+{{ end }}

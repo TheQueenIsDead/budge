@@ -205,7 +205,7 @@
      stay open. Repeated items carry a key, so morphing matches them up. */}}
 <div id="categories">
 {{ if .Error }}
-<div class="alert alert-warning py-2 small mb-3" role="alert">{{ .Error }}</div>
+{{ template "notice" (dict "Role" "alert" "Icon" "bi-exclamation-triangle" "Text" .Error) }}
 {{ end }}
 
 <div class="b-card b-card-pad mb-3 b-accent-clay">
