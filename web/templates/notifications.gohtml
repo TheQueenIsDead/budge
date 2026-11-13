@@ -64,11 +64,7 @@
             </ul>
         </div>
     {{ else }}
-        <div class="b-empty">
-            <i class="bi bi-bell"></i>
-            <h4>Nothing to report</h4>
-            <p>Sync failures and other background problems will show up here.</p>
-        </div>
+        {{ template "empty" (dict "Icon" "bi-bell" "Title" "Nothing to report" "Text" "Sync failures and other background problems will show up here.") }}
     {{ end }}
 
 {{ end }}

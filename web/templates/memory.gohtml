@@ -6,13 +6,11 @@
      back to wherever the page was opened from. */}}
 {{ define "memory" }}
 
-    <div class="b-page-head">
-        <h2>{{ if .New }}New memory{{ else }}Edit memory{{ end }}</h2>
-        <p class="b-page-sub">
-            {{ if .New }}What these were for, and anything else that went with them.
-            {{ else }}Its name, and the purchases that went into it.{{ end }}
-        </p>
-    </div>
+    {{ if .New }}
+        {{ template "pageHead" (dict "Title" "New memory" "Sub" "What these were for, and anything else that went with them.") }}
+    {{ else }}
+        {{ template "pageHead" (dict "Title" "Edit memory" "Sub" "Its name, and the purchases that went into it.") }}
+    {{ end }}
 
     <form class="b-tx-feed b-memory" hx-swap="none"
           {{ if .New }}hx-post="/memories"{{ else }}hx-post="/memories/{{ .Memory.Id }}"{{ end }}

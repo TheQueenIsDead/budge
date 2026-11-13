@@ -20,10 +20,7 @@
 
         <div class="b-card b-card-pad mb-3 b-accent-slate">
             <div class="b-card-head flex-wrap">
-                <div>
-                    <h3 class="b-card-title">Balance History</h3>
-                    <p class="b-card-sub">End of month balance across {{ .Date.Format "2006" }}</p>
-                </div>
+                {{ template "cardTitle" (dict "Title" "Balance History" "Sub" (printf "End of month balance across %s" (.Date.Format "2006"))) }}
 
                 <div class="d-flex align-items-center gap-1">
                     <a href="?year={{ .PrevYear }}" class="btn btn-sm btn-outline-secondary"
@@ -54,11 +51,8 @@
                     <canvas id="{{ .Account.Id }}" hx-preserve="true"></canvas>
                 </div>
             {{ else }}
-                <div class="b-empty">
-                    <i class="bi bi-calendar-x"></i>
-                    <h4>Nothing in {{ .Date.Format "2006" }}</h4>
-                    <p>This account has no transactions for the selected year.</p>
-                </div>
+                {{ template "empty" (dict "Icon" "bi-calendar-x" "Title" (printf "Nothing in %s" (.Date.Format "2006"))
+                    "Text" "This account has no transactions for the selected year.") }}
             {{ end }}
         </div>
 

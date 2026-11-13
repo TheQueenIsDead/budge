@@ -200,8 +200,9 @@
 
 
     {{ else }}
+        {{/* Written out rather than drawn with empty, for its two ways in. */}}
         <div class="b-empty">
-            <i class="bi bi-bank2"></i>
+            <i class="bi bi-bank2" aria-hidden="true"></i>
             <h4>Nothing here yet</h4>
             <p>Connect a provider to see your balances, or track something you own.</p>
             <div class="mt-3 d-flex gap-2 justify-content-center">

@@ -1,9 +1,6 @@
 {{define "dashboard"}}
 
-    <div class="b-page-head">
-        <h2>Dashboard</h2>
-        <p class="b-page-sub">Where your money went, and how that compares.</p>
-    </div>
+    {{ template "pageHead" (dict "Title" "Dashboard" "Sub" "Where your money went, and how that compares.") }}
 
     <!-- Spend highlights. The questions asked most often, answered before any
          tapping: what the shop cost, what petrol cost, what power cost. -->
@@ -79,12 +76,7 @@
     <div class="row g-2 g-md-3 mb-3">
         <div class="col-12 col-lg-6">
             <div class="b-card b-card-pad h-100">
-                <div class="b-card-head">
-                    <div>
-                        <h3 class="b-card-title">Monthly Spending</h3>
-                        <p class="b-card-sub">Your spending over the past 6 months</p>
-                    </div>
-                </div>
+                {{ template "cardHead" (dict "Title" "Monthly Spending" "Sub" "Your spending over the past 6 months") }}
                 <div class="b-chart b-chart-short">
                     <canvas id="barChart"></canvas>
                 </div>
@@ -93,12 +85,7 @@
 
         <div class="col-12 col-lg-6">
             <div class="b-card b-card-pad h-100">
-                <div class="b-card-head">
-                    <div>
-                        <h3 class="b-card-title">Spending by Category</h3>
-                        <p class="b-card-sub">Where it goes, as a share of the total</p>
-                    </div>
-                </div>
+                {{ template "cardHead" (dict "Title" "Spending by Category" "Sub" "Where it goes, as a share of the total") }}
                 <div class="b-chart b-chart-short">
                     <canvas id="doughnutChart"></canvas>
                 </div>
@@ -110,13 +97,7 @@
     <div class="row g-2 g-md-3 mb-3">
         <div class="col-12 col-lg-6">
             <div class="b-card b-card-pad h-100 b-accent-slate">
-                <div class="b-card-head">
-                    <div>
-                        <h3 class="b-card-title">Top Merchants</h3>
-                        <p class="b-card-sub">Most paid over the last 30 days</p>
-                    </div>
-
-                </div>
+                {{ template "cardHead" (dict "Title" "Top Merchants" "Sub" "Most paid over the last 30 days") }}
 
                 {{ if .TopMerchants }}
                     {{ $top := (index .TopMerchants 0).Total }}
@@ -158,11 +139,7 @@
                         {{ end }}
                     </ul>
                 {{ else }}
-                    <div class="b-empty">
-                        <i class="bi bi-shop"></i>
-                        <h4>No merchant activity</h4>
-                        <p>Nothing was spent with a named merchant in the last 30 days.</p>
-                    </div>
+                    {{ template "empty" (dict "Icon" "bi-shop" "Title" "No merchant activity" "Text" "Nothing was spent with a named merchant in the last 30 days.") }}
                 {{ end }}
             </div>
         </div>
@@ -170,12 +147,9 @@
         <div class="col-12 col-lg-6">
             <div class="b-card b-card-pad h-100 b-accent-brick">
                 <div class="b-card-head">
-                    <div>
-                        <h3 class="b-card-title">Biggest Transactions</h3>
-                        <p class="b-card-sub">Largest single payments in the last 30 days</p>
-                    </div>
-                    <a class="b-pill" href="/transactions" hx-boost="true" hx-target="#main">
-                        All <i class="bi bi-arrow-right"></i>
+                    {{ template "cardTitle" (dict "Title" "Biggest Transactions" "Sub" "Largest single payments in the last 30 days") }}
+                    <a class="b-pill flex-shrink-0" href="/transactions" hx-boost="true" hx-target="#main">
+                        All <i class="bi bi-arrow-right" aria-hidden="true"></i>
                     </a>
                 </div>
 
@@ -203,11 +177,7 @@
                         {{ end }}
                     </ul>
                 {{ else }}
-                    <div class="b-empty">
-                        <i class="bi bi-receipt"></i>
-                        <h4>Nothing to show</h4>
-                        <p>No outgoing transactions in the last 30 days.</p>
-                    </div>
+                    {{ template "empty" (dict "Icon" "bi-receipt" "Title" "Nothing to show" "Text" "No outgoing transactions in the last 30 days.") }}
                 {{ end }}
             </div>
         </div>

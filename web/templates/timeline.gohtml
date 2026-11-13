@@ -1,9 +1,6 @@
 {{ define "timeline" }}
 
-    <div class="b-page-head">
-        <h2>Timeline</h2>
-        <p class="b-page-sub">The purchases that stood out, and the memories they made.</p>
-    </div>
+    {{ template "pageHead" (dict "Title" "Timeline" "Sub" "The purchases that stood out, and the memories they made.") }}
 
     <!-- Period and view are plain links, kept outside the actions below so they
          do not inherit the state those actions carry. -->
@@ -110,11 +107,7 @@
                     </ul>
                 </div>
             {{ else if not (or .Dismissed .HiddenMerchants) }}
-                <div class="b-empty">
-                    <i class="bi bi-eye-slash"></i>
-                    <h4>Nothing hidden</h4>
-                    <p>Purchases you hide from the timeline will be listed here, so you can bring them back.</p>
-                </div>
+                {{ template "empty" (dict "Icon" "bi-eye-slash" "Title" "Nothing hidden" "Text" "Purchases you hide from the timeline will be listed here, so you can bring them back.") }}
             {{ end }}
 
         {{ else if .Months }}
@@ -280,17 +273,9 @@
             </form>
 
         {{ else if eq .View "memories" }}
-            <div class="b-empty">
-                <i class="bi bi-bookmark-star"></i>
-                <h4>No memories yet</h4>
-                <p>Add a purchase to a memory, or tick a few and add them together, to remember what they were for.</p>
-            </div>
+            {{ template "empty" (dict "Icon" "bi-bookmark-star" "Title" "No memories yet" "Text" "Add a purchase to a memory, or tick a few and add them together, to remember what they were for.") }}
         {{ else }}
-            <div class="b-empty">
-                <i class="bi bi-clock-history"></i>
-                <h4>Nothing notable</h4>
-                <p>Purchases that stand out from your usual spending will appear here once an account is synced.</p>
-            </div>
+            {{ template "empty" (dict "Icon" "bi-clock-history" "Title" "Nothing notable" "Text" "Purchases that stand out from your usual spending will appear here once an account is synced.") }}
         {{ end }}
     </div>
 

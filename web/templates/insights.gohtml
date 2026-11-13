@@ -9,10 +9,7 @@
          hx-select="#insights-panel"
          hx-swap="outerHTML show:none">
 
-        <div class="b-page-head">
-            <h2>Insights</h2>
-            <p class="b-page-sub">What the regular things cost, and whether that is moving.</p>
-        </div>
+        {{ template "pageHead" (dict "Title" "Insights" "Sub" "What the regular things cost, and whether that is moving.") }}
 
         <div id="insights-panel">
 
@@ -30,13 +27,7 @@
             <div class="b-card b-card-pad mb-3 b-accent-{{ .Selected.Accent }}">
 
                 <div class="b-card-head flex-wrap">
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="b-chip"><i class="bi {{ .Selected.Icon }}"></i></span>
-                        <div>
-                            <h3 class="b-card-title">{{ .Selected.Label }}</h3>
-                            <p class="b-card-sub">{{ .Selected.Blurb }}</p>
-                        </div>
-                    </div>
+                    {{ template "cardTitle" (dict "Title" .Selected.Label "Sub" .Selected.Blurb "Chip" .Selected.Icon) }}
 
                     <div class="b-segment">
                         <a href="/insights?group={{ .Selected.Key }}&cadence=weekly"
@@ -88,12 +79,8 @@
                  "power is Mercury", without any manual tagging. Each row opens the
                  transactions behind the number. -->
             <div class="b-card b-card-pad mb-3 b-accent-{{ .Selected.Accent }}">
-                <div class="b-card-head">
-                    <div>
-                        <h3 class="b-card-title">{{ .Selected.Label }} merchants</h3>
-                        <p class="b-card-sub">Who you paid, since {{ .WindowStart.Format "2 Jan 2006" }}</p>
-                    </div>
-                </div>
+                {{ template "cardHead" (dict "Title" (printf "%s merchants" .Selected.Label)
+                    "Sub" (printf "Who you paid, since %s" (.WindowStart.Format "2 Jan 2006"))) }}
 
                 {{ if .Merchants }}
                     {{ $top := (index .Merchants 0).Total }}
@@ -118,11 +105,8 @@
                         {{ end }}
                     </ul>
                 {{ else }}
-                    <div class="b-empty">
-                        <i class="bi {{ .Selected.Icon }}"></i>
-                        <h4>Nothing here yet</h4>
-                        <p>No {{ .Selected.Label }} spending in this window.</p>
-                    </div>
+                    {{ template "empty" (dict "Icon" .Selected.Icon "Title" "Nothing here yet"
+                        "Text" (printf "No %s spending in this window." .Selected.Label)) }}
                 {{ end }}
             </div>
 

@@ -2,16 +2,8 @@
 
     {{ if not .Chosen }}
 
-        <div class="b-page-head d-flex align-items-start justify-content-between gap-3">
-            <div>
-                <h2>Add an asset</h2>
-                <p class="b-page-sub">What are you tracking?</p>
-            </div>
-            <a href="/portfolio" class="btn btn-sm btn-outline-secondary flex-shrink-0"
-               hx-boost="true" hx-target="#main" aria-label="Back to portfolio">
-                <i class="bi bi-arrow-left"></i>
-            </a>
-        </div>
+        {{ template "pageHead" (dict "Title" "Add an asset" "Sub" "What are you tracking?"
+            "Back" "/portfolio" "BackLabel" "Back to portfolio") }}
 
         <!-- Choosing the type first is what lets the next step ask only the
              questions that apply to it. -->
@@ -35,21 +27,10 @@
     {{ else }}
 
         {{ with .Selected }}
-            <div class="b-page-head d-flex align-items-start justify-content-between gap-3">
-                <div class="d-flex align-items-center gap-2 min-width-0">
-                    <span class="b-chip b-accent-{{ if eq .Key "house" }}sage{{ else if eq .Key "vehicle" }}clay{{ else }}slate{{ end }}">
-                        <i class="bi {{ .Icon }}"></i>
-                    </span>
-                    <div class="min-width-0">
-                        <h2 class="text-truncate">New {{ .Label }}</h2>
-                        <p class="b-page-sub">{{ .Blurb }}</p>
-                    </div>
-                </div>
-                <a href="/portfolio/new" class="btn btn-sm btn-outline-secondary flex-shrink-0"
-                   hx-boost="true" hx-target="#main" aria-label="Choose a different type">
-                    <i class="bi bi-arrow-left"></i>
-                </a>
-            </div>
+            {{ $accent := "slate" }}
+            {{ if eq .Key "house" }}{{ $accent = "sage" }}{{ else if eq .Key "vehicle" }}{{ $accent = "clay" }}{{ end }}
+            {{ template "pageHead" (dict "Title" (printf "New %s" .Label) "Sub" .Blurb "Chip" .Icon "Accent" $accent
+                "Back" "/portfolio/new" "BackLabel" "Choose a different type") }}
 
             <div class="b-card b-card-pad mb-3">
                 <!-- The response is the portfolio, so the address bar should say

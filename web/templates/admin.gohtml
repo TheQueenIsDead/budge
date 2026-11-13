@@ -95,12 +95,7 @@
 {{/* Each start and stop budge has marked, newest first. */}}
 {{ define "admin.runs" }}
     <div class="b-card b-card-pad mb-3 b-accent-slate">
-        <div class="b-card-head">
-            <div>
-                <h3 class="b-card-title">Runs</h3>
-                <p class="b-card-sub">Each start, the version it ran and how it ended. A dashed line on the charts marks each start.</p>
-            </div>
-        </div>
+        {{ template "cardHead" (dict "Title" "Runs" "Sub" "Each start, the version it ran and how it ended. A dashed line on the charts marks each start.") }}
         <ul class="b-admin-list">
             {{ range . }}
                 <li>
@@ -192,12 +187,7 @@
 {{ define "admin.chart" }}
     <div class="col-12 col-lg-6">
         <div class="b-card b-card-pad b-accent-{{ .accent }}">
-            <div class="b-card-head">
-                <div>
-                    <h3 class="b-card-title">{{ .title }}</h3>
-                    <p class="b-card-sub">{{ .sub }}</p>
-                </div>
-            </div>
+            {{ template "cardHead" (dict "Title" .title "Sub" .sub) }}
             <div class="b-chart b-chart-short">
                 <canvas id="{{ .id }}" hx-preserve="true"></canvas>
             </div>
@@ -347,12 +337,7 @@
 
 {{ define "admin.requests" }}
     <div class="b-card b-card-pad mb-3 b-accent-slate">
-        <div class="b-card-head">
-            <div>
-                <h3 class="b-card-title">Routes</h3>
-                <p class="b-card-sub">Every request since start, costliest in all first.</p>
-            </div>
-        </div>
+        {{ template "cardHead" (dict "Title" "Routes" "Sub" "Every request since start, costliest in all first.") }}
         {{ if .Routes }}
             <div class="table-responsive">
                 <table class="table table-sm b-admin-table mb-0">
@@ -376,7 +361,7 @@
                 </table>
             </div>
         {{ else }}
-            {{ template "admin.empty" "No requests yet" }}
+            {{ template "empty" (dict "Title" "No requests yet") }}
         {{ end }}
     </div>
 
@@ -391,12 +376,7 @@
 
     {{ if .Jobs }}
         <div class="b-card b-card-pad mb-3 b-accent-clay">
-            <div class="b-card-head">
-                <div>
-                    <h3 class="b-card-title">Background jobs</h3>
-                    <p class="b-card-sub">Syncs and scheduled work, which run outside any request.</p>
-                </div>
-            </div>
+            {{ template "cardHead" (dict "Title" "Background jobs" "Sub" "Syncs and scheduled work, which run outside any request.") }}
             <ul class="b-admin-list">
                 {{ range .Jobs }}
                     <li>
@@ -414,12 +394,7 @@
 
 {{ define "admin.request.list" }}
     <div class="b-card b-card-pad h-100">
-        <div class="b-card-head">
-            <div>
-                <h3 class="b-card-title">{{ .title }}</h3>
-                <p class="b-card-sub">{{ .sub }}</p>
-            </div>
-        </div>
+        {{ template "cardHead" (dict "Title" .title "Sub" .sub) }}
         {{ if .requests }}
             <ul class="b-admin-list">
                 {{ range .requests }}
@@ -440,19 +415,14 @@
                 {{ end }}
             </ul>
         {{ else }}
-            {{ template "admin.empty" "No requests yet" }}
+            {{ template "empty" (dict "Title" "No requests yet") }}
         {{ end }}
     </div>
 {{ end }}
 
 {{ define "admin.database" }}
     <div class="b-card b-card-pad mb-3 b-accent-plum">
-        <div class="b-card-head">
-            <div>
-                <h3 class="b-card-title">Operations</h3>
-                <p class="b-card-sub">Each store method and the bucket it reads or writes, costliest in all first.</p>
-            </div>
-        </div>
+        {{ template "cardHead" (dict "Title" "Operations" "Sub" "Each store method and the bucket it reads or writes, costliest in all first.") }}
         {{ if .Operations }}
             <div class="table-responsive">
                 <table class="table table-sm b-admin-table mb-0">
@@ -477,17 +447,12 @@
                 </table>
             </div>
         {{ else }}
-            {{ template "admin.empty" "No queries yet" }}
+            {{ template "empty" (dict "Title" "No queries yet") }}
         {{ end }}
     </div>
 
     <div class="b-card b-card-pad mb-3 b-accent-slate">
-        <div class="b-card-head">
-            <div>
-                <h3 class="b-card-title">Where queries come from</h3>
-                <p class="b-card-sub">The code outside the store that asked, and what it asked for.</p>
-            </div>
-        </div>
+        {{ template "cardHead" (dict "Title" "Where queries come from" "Sub" "The code outside the store that asked, and what it asked for.") }}
         {{ if .Callers }}
             <div class="table-responsive">
                 <table class="table table-sm b-admin-table mb-0">
@@ -509,17 +474,12 @@
                 </table>
             </div>
         {{ else }}
-            {{ template "admin.empty" "No queries yet" }}
+            {{ template "empty" (dict "Title" "No queries yet") }}
         {{ end }}
     </div>
 
     <div class="b-card b-card-pad mb-3 b-accent-brick">
-        <div class="b-card-head">
-            <div>
-                <h3 class="b-card-title">Slowest queries</h3>
-                <p class="b-card-sub">Of those still kept, with the line that asked. Open one to see its request.</p>
-            </div>
-        </div>
+        {{ template "cardHead" (dict "Title" "Slowest queries" "Sub" "Of those still kept, with the line that asked. Open one to see its request.") }}
         {{ if .Slow }}
             <ul class="b-admin-list">
                 {{ range .Slow }}
@@ -533,7 +493,7 @@
                 {{ end }}
             </ul>
         {{ else }}
-            {{ template "admin.empty" "No queries yet" }}
+            {{ template "empty" (dict "Title" "No queries yet") }}
         {{ end }}
     </div>
 {{ end }}
@@ -541,13 +501,11 @@
 {{ define "admin.logs" }}
     <div class="b-card b-card-pad mb-3 b-accent-slate">
         <div class="b-card-head flex-wrap gap-2">
-            <div>
-                <h3 class="b-card-title">Logs</h3>
-                <p class="b-card-sub">
-                    {{ if gt .Total (len .Records) }}The latest {{ len .Records }} of {{ .Total }}{{ else }}{{ .Total }}{{ end }}
-                    at {{ .Level }} or above{{ with .Search }} matching “{{ . }}”{{ end }}, across everything kept.
-                </p>
-            </div>
+            {{ $shown := printf "%d" .Total }}
+            {{ if gt .Total (len .Records) }}{{ $shown = printf "The latest %d of %d" (len .Records) .Total }}{{ end }}
+            {{ $matching := "" }}
+            {{ with .Search }}{{ $matching = printf " matching “%s”" . }}{{ end }}
+            {{ template "cardTitle" (dict "Title" "Logs" "Sub" (printf "%s at %s or above%s, across everything kept." $shown .Level $matching)) }}
             <div class="b-segment">
                 {{ range .Levels }}
                     <a href="/admin?tab=logs&level={{ . }}&q={{ $.Search }}" class="{{ if eq . $.Level }}active{{ end }}">{{ . | fmtTitle }}</a>
@@ -585,28 +543,18 @@
             {{ end }}
         </ul>
     {{ else }}
-        {{ template "admin.empty" "Nothing logged" }}
+        {{ template "empty" (dict "Title" "Nothing logged") }}
     {{ end }}
 {{ end }}
 
 {{ define "admin.errors" }}
     <div class="b-card b-card-pad mb-3 b-accent-brick">
-        <div class="b-card-head">
-            <div>
-                <h3 class="b-card-title">Errors logged</h3>
-                <p class="b-card-sub">Failed requests, recovered panics and jobs that went wrong, latest first.</p>
-            </div>
-        </div>
+        {{ template "cardHead" (dict "Title" "Errors logged" "Sub" "Failed requests, recovered panics and jobs that went wrong, latest first.") }}
         {{ template "admin.log.list" .Logs }}
     </div>
 
     <div class="b-card b-card-pad mb-3 b-accent-clay">
-        <div class="b-card-head">
-            <div>
-                <h3 class="b-card-title">Failed spans</h3>
-                <p class="b-card-sub">Requests, queries and calls out that ended in an error.</p>
-            </div>
-        </div>
+        {{ template "cardHead" (dict "Title" "Failed spans" "Sub" "Requests, queries and calls out that ended in an error.") }}
         {{ if .Failures }}
             <ul class="b-admin-list">
                 {{ range .Failures }}
@@ -622,7 +570,7 @@
                 {{ end }}
             </ul>
         {{ else }}
-            {{ template "admin.empty" "Nothing has failed" }}
+            {{ template "empty" (dict "Title" "Nothing has failed") }}
         {{ end }}
     </div>
 {{ end }}
@@ -640,11 +588,7 @@
     </div>
 
     <div class="b-card b-card-pad mb-3 b-accent-plum">
-        <div class="b-card-head">
-            <div>
-                <h3 class="b-card-title">Where the time went</h3>
-            </div>
-        </div>
+        {{ template "cardHead" (dict "Title" "Where the time went") }}
         <div class="b-spent-bar" role="img" aria-label="How the trace's time was split">
             {{ range $s := .Spent }}
                 <span class="b-spent-{{ $s.Kind }}" style="width: {{ printf "%.2f" (pctOf $s.Share 1.0) }}%"></span>
@@ -686,11 +630,7 @@
 
     {{ if .Logs }}
         <div class="b-card b-card-pad mb-3">
-            <div class="b-card-head">
-                <div>
-                    <h3 class="b-card-title">Logged along the way</h3>
-                </div>
-            </div>
+            {{ template "cardHead" (dict "Title" "Logged along the way") }}
             {{ template "admin.log.list" .Logs }}
         </div>
     {{ end }}
@@ -707,12 +647,5 @@
                 <pre>{{ . }}</pre>
             </details>
         {{ end }}
-    </div>
-{{ end }}
-
-{{ define "admin.empty" }}
-    <div class="b-empty">
-        <i class="bi bi-inbox"></i>
-        <h4>{{ . }}</h4>
     </div>
 {{ end }}

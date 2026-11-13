@@ -1,9 +1,6 @@
 {{define "settings"}}
 
-    <div class="b-page-head">
-        <h2>Settings</h2>
-        <p class="b-page-sub">Connections, what runs by itself, and the buttons to be careful with.</p>
-    </div>
+    {{ template "pageHead" (dict "Title" "Settings" "Sub" "Connections, what runs by itself, and the buttons to be careful with.") }}
 
     <!-- Akahu -->
     <div class="b-card b-card-pad mb-3 b-accent-slate">
@@ -109,11 +106,7 @@
             </ul>
         {{ else }}
             <div class="b-card-pad">
-                <div class="b-empty">
-                    <i class="bi bi-bank2"></i>
-                    <h4>Nothing connected</h4>
-                    <p>Save your Akahu tokens above, then sync.</p>
-                </div>
+                {{ template "empty" (dict "Icon" "bi-bank2" "Title" "Nothing connected" "Text" "Save your Akahu tokens above, then sync.") }}
             </div>
         {{ end }}
     </div>
@@ -121,18 +114,7 @@
     <!-- Backup. Moving to another instance takes what was set up by hand;
          synced data comes back from Akahu on the first sync there. -->
     <div class="b-card b-card-pad mb-3 b-accent-sage" id="backup">
-        <div class="b-card-head">
-            <div class="d-flex align-items-center gap-2">
-                <span class="b-chip"><i class="bi bi-box-arrow-down"></i></span>
-                <div>
-                    <h3 class="b-card-title">Backup</h3>
-                    <p class="b-card-sub">
-                        Memories, hidden purchases, assets, budget, category rules and schedule, for moving to
-                        another instance. Accounts and transactions come back from Akahu.
-                    </p>
-                </div>
-            </div>
-        </div>
+        {{ template "cardHead" (dict "Title" "Backup" "Sub" "Memories, hidden purchases, assets, budget, category rules and schedule, for moving to another instance. Accounts and transactions come back from Akahu." "Chip" "bi-box-arrow-down") }}
 
         <!-- Side by side once there is room, the way the schedule's options sit. -->
         <div class="row g-3">
@@ -170,35 +152,19 @@
 
     <!-- Admin, when telemetry is running to fill it -->
     {{ if .admin }}
-    <a class="b-card b-card-pad mb-3 b-accent-plum d-block text-reset text-decoration-none" id="admin"
+    <a class="b-card b-card-pad b-card-interactive mb-3 b-accent-plum d-block" id="admin"
        href="/admin" hx-boost="true" hx-target="#main">
         <div class="b-card-head mb-0">
-            <div class="d-flex align-items-center gap-2">
-                <span class="b-chip"><i class="bi bi-activity"></i></span>
-                <div>
-                    <h3 class="b-card-title">Admin</h3>
-                    <p class="b-card-sub">
-                        Uptime, CPU and memory, request and query timings, logs and errors, as
-                        budge has recorded them since it started.
-                    </p>
-                </div>
-            </div>
-            <i class="bi bi-chevron-right text-muted"></i>
+            {{ template "cardTitle" (dict "Title" "Admin" "Chip" "bi-activity"
+                "Sub" "Uptime, CPU and memory, request and query timings, logs and errors, as budge has recorded them since it started.") }}
+            <i class="bi bi-chevron-right text-muted align-self-center" aria-hidden="true"></i>
         </div>
     </a>
     {{ end }}
 
     <!-- Danger -->
     <div class="b-card b-card-pad mb-3 b-accent-brick" id="danger">
-        <div class="b-card-head">
-            <div class="d-flex align-items-center gap-2">
-                <span class="b-chip"><i class="bi bi-exclamation-octagon"></i></span>
-                <div>
-                    <h3 class="b-card-title">Danger</h3>
-                    <p class="b-card-sub">These cannot be undone once performed.</p>
-                </div>
-            </div>
-        </div>
+        {{ template "cardHead" (dict "Title" "Danger" "Sub" "These cannot be undone once performed." "Chip" "bi-exclamation-octagon") }}
 
         <div class="b-sched">
             <div class="fw-semibold">Remove all synced data</div>
@@ -266,19 +232,7 @@
 {{ end }}
 
 <div class="b-card b-card-pad mb-3 b-accent-clay">
-    <div class="b-card-head">
-        <div class="d-flex align-items-center gap-2">
-            <span class="b-chip"><i class="bi bi-tags"></i></span>
-            <div>
-                <h3 class="b-card-title">Categories</h3>
-                <p class="b-card-sub">
-                    Every transaction is filed under one of these. Akahu's categories file most of
-                    it automatically, and rules catch what they miss: the first rule that matches
-                    wins. Open a category to see its rules, or to add one.
-                </p>
-            </div>
-        </div>
-    </div>
+    {{ template "cardHead" (dict "Title" "Categories" "Sub" "Every transaction is filed under one of these. Akahu's categories file most of it automatically, and rules catch what they miss: the first rule that matches wins. Open a category to see its rules, or to add one." "Chip" "bi-tags") }}
 
     <datalist id="rule-suggestions">
         {{ range .Suggestions }}<option value="{{ . }}"></option>{{ end }}
@@ -625,18 +579,7 @@
 
 {{ define "settings.schedule" }}
 <div class="b-card b-card-pad mb-3 b-accent-plum" id="schedule">
-    <div class="b-card-head">
-        <div class="d-flex align-items-center gap-2">
-            <span class="b-chip"><i class="bi bi-clock-history"></i></span>
-            <div>
-                <h3 class="b-card-title">Run on a schedule</h3>
-                <p class="b-card-sub">
-                Anything that fails while this is running is reported under the bell,
-                since there is nobody watching a background job.
-                </p>
-            </div>
-        </div>
-    </div>
+    {{ template "cardHead" (dict "Title" "Run on a schedule" "Sub" "Anything that fails while this is running is reported under the bell, since there is nobody watching a background job." "Chip" "bi-clock-history") }}
 
     <form hx-post="/settings/schedule" hx-target="#schedule" hx-swap="outerHTML">
         <div class="row g-3">

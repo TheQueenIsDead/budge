@@ -63,3 +63,104 @@
     {{- end }}
 {{ if .Href }}</a>{{ else }}</div>{{ end }}
 {{- end }}
+
+{{/* A page's heading: its title and a line under it. A page reached from
+     another has a back button on the right, and may lead with a chip, and
+     its title is cut short rather than pushing the button off the row.
+
+     Title      the page's name.
+     Sub        the line under it, as text.
+     Back       where the back button goes; no button without it.
+     BackLabel  what the back button says to a screen reader, naming where
+                it goes, such as "Back to portfolio".
+     Chip       an icon to lead with, such as bi-house.
+     Accent     the chip's colour. */}}
+{{ define "pageHead" }}
+{{- if .Back }}
+<div class="b-page-head d-flex align-items-start justify-content-between gap-3">
+    <div class="min-width-0{{ if .Chip }} d-flex align-items-center gap-2{{ end }}">
+        {{- with .Chip }}
+        <span class="b-chip{{ with $.Accent }} b-accent-{{ . }}{{ end }}"><i class="bi {{ . }}" aria-hidden="true"></i></span>
+        <div class="min-width-0">
+        {{- end }}
+        <h2 class="text-truncate">{{ .Title }}</h2>
+        {{- with .Sub }}
+        <p class="b-page-sub">{{ . }}</p>
+        {{- end }}
+        {{- if .Chip }}
+        </div>
+        {{- end }}
+    </div>
+    <a href="{{ .Back }}" class="btn btn-sm btn-outline-secondary flex-shrink-0"
+       hx-boost="true" hx-target="#main" aria-label="{{ .BackLabel }}">
+        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+    </a>
+</div>
+{{- else }}
+<div class="b-page-head">
+    <h2>{{ .Title }}</h2>
+    {{- with .Sub }}
+    <p class="b-page-sub">{{ . }}</p>
+    {{- end }}
+</div>
+{{- end }}
+{{ end }}
+
+{{/* The left of a card's head: its title, a line under it, and a chip to
+     lead with. A head with something on its right, a button or a toggle,
+     wraps this in its own .b-card-head and adds it; cardHead is the head
+     with nothing more.
+
+     Title   the card's name.
+     Sub     the line under it, as text.
+     Chip    an icon to lead with, such as bi-tags.
+     Accent  the chip's colour, when it is not the card's own. */}}
+{{ define "cardTitle" }}
+{{- if .Chip }}
+<div class="d-flex align-items-center gap-2 min-width-0">
+    <span class="b-chip{{ with .Accent }} b-accent-{{ . }}{{ end }}"><i class="bi {{ .Chip }}" aria-hidden="true"></i></span>
+    <div class="min-width-0">
+        <h3 class="b-card-title">{{ .Title }}</h3>
+        {{- with .Sub }}
+        <p class="b-card-sub">{{ . }}</p>
+        {{- end }}
+    </div>
+</div>
+{{- else }}
+<div class="min-width-0">
+    <h3 class="b-card-title">{{ .Title }}</h3>
+    {{- with .Sub }}
+    <p class="b-card-sub">{{ . }}</p>
+    {{- end }}
+</div>
+{{- end }}
+{{ end }}
+
+{{/* A card's head with nothing on its right. It takes cardTitle's keys. */}}
+{{ define "cardHead" }}
+<div class="b-card-head">
+    {{- template "cardTitle" . }}
+</div>
+{{ end }}
+
+{{/* What a list or a chart shows when there is nothing in it: an icon, a
+     line saying so, and what would put something there.
+
+     Icon   the icon, bi-inbox unless given.
+     Title  the line saying there is nothing.
+     Text   what would put something there. */}}
+{{ define "empty" }}
+<div class="b-empty">
+    <i class="bi {{ or .Icon "bi-inbox" }}" aria-hidden="true"></i>
+    <h4>{{ .Title }}</h4>
+    {{- with .Text }}
+    <p>{{ . }}</p>
+    {{- end }}
+</div>
+{{ end }}
+
+{{/* "Saved", shown for a moment once a form that saves as it changes has
+     saved. flashSaved in budget.js finds it within the form it is given. */}}
+{{ define "savedFlash" }}
+<span class="badge-success rounded-pill px-2 budge-flash" data-saved-flash aria-live="polite">Saved</span>
+{{ end }}

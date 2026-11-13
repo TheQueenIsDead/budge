@@ -1,22 +1,10 @@
 {{ define "asset" }}
 
-    <div class="b-page-head d-flex align-items-start justify-content-between gap-3">
-        <div class="min-width-0 d-flex align-items-center gap-2">
-            <span class="b-chip {{ if lt .Summary.Change 0.0 }}b-accent-brick{{ else }}b-accent-sage{{ end }}">
-                <i class="bi {{ .Summary.Icon }}"></i>
-            </span>
-            <div class="min-width-0">
-                <h2 class="text-truncate">{{ .Summary.Asset.Name }}</h2>
-                <p class="b-page-sub">
-                    {{ .Summary.TypeLabel }}{{ if .Summary.Asset.Description }} &middot; {{ .Summary.Asset.Description }}{{ end }}
-                </p>
-            </div>
-        </div>
-        <a href="/portfolio" class="btn btn-sm btn-outline-secondary flex-shrink-0"
-           hx-boost="true" hx-target="#main" aria-label="Back to portfolio">
-            <i class="bi bi-arrow-left"></i>
-        </a>
-    </div>
+    {{ $kind := .Summary.TypeLabel }}
+    {{ with .Summary.Asset.Description }}{{ $kind = printf "%s · %s" $kind . }}{{ end }}
+    {{ template "pageHead" (dict "Title" .Summary.Asset.Name "Sub" $kind "Chip" .Summary.Icon
+        "Accent" (or (and (lt .Summary.Change 0.0) "brick") "sage")
+        "Back" "/portfolio" "BackLabel" "Back to portfolio") }}
 
     <div class="row g-2 g-md-3 mb-3">
         <div class="col-12 col-md-4">
@@ -80,35 +68,21 @@
 
     <!-- Value over time -->
     <div class="b-card b-card-pad mb-3 b-accent-slate">
-        <div class="b-card-head">
-            <div>
-                <h3 class="b-card-title">Value over time</h3>
-                <p class="b-card-sub">Purchase price, then every valuation you have recorded</p>
-            </div>
-        </div>
+        {{ template "cardHead" (dict "Title" "Value over time" "Sub" "Purchase price, then every valuation you have recorded") }}
 
         {{ if gt (len .Series.Data) 1 }}
             <div class="b-chart b-chart-tall">
                 <canvas id="assetChart" hx-preserve="true"></canvas>
             </div>
         {{ else }}
-            <div class="b-empty">
-                <i class="bi bi-graph-up"></i>
-                <h4>Not enough to chart</h4>
-                <p>Record a valuation below and the curve will start from what you paid.</p>
-            </div>
+            {{ template "empty" (dict "Icon" "bi-graph-up" "Title" "Not enough to chart" "Text" "Record a valuation below and the curve will start from what you paid.") }}
         {{ end }}
     </div>
 
     <!-- Record a valuation -->
     <div class="b-card b-card-pad mb-3">
         <div class="b-card-head">
-            <div>
-                <h3 class="b-card-title">Record a valuation</h3>
-                <p class="b-card-sub">
-                    A rateable value, an agent's appraisal or your own estimate.
-                </p>
-            </div>
+            {{ template "cardTitle" (dict "Title" "Record a valuation" "Sub" "A rateable value, an agent's appraisal or your own estimate.") }}
             {{ if .Summary.Asset.Trackable }}
                 <!-- The refresh icon is the indicator. A separate spinner element
                      hides with opacity, so it holds its space and leaves a gap in

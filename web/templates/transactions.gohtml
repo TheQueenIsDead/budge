@@ -1,9 +1,6 @@
 {{ define "transactions" }}
 
-    <div class="b-page-head">
-        <h2>Transactions</h2>
-        <p class="b-page-sub">Everything that moved, newest first.</p>
-    </div>
+    {{ template "pageHead" (dict "Title" "Transactions" "Sub" "Everything that moved, newest first.") }}
 
     <!-- Filters. Sticky, so search stays reachable well down a long list. -->
     <div class="b-filters">
@@ -109,13 +106,10 @@
     {{ if .series.HasData }}
         <div class="b-card b-card-pad mb-3">
             <div class="b-card-head mb-1">
-                <div>
-                    <h3 class="b-card-title">Spend over time</h3>
-                    <p class="b-card-sub">
-                        Last 12 months of these results{{ if .series.Split }} by category{{ end }}.
-                        Transfers, money in and savings are left out.
-                    </p>
-                </div>
+                {{ $split := "" }}
+                {{ if .series.Split }}{{ $split = " by category" }}{{ end }}
+                {{ template "cardTitle" (dict "Title" "Spend over time"
+                    "Sub" (printf "Last 12 months of these results%s. Transfers, money in and savings are left out." $split)) }}
                 <div class="text-end flex-shrink-0">
                     <div class="fw-bold b-num">{{ .series.Total | fmtCurrency }}</div>
                     <div class="b-delta-note">total spend</div>
@@ -230,17 +224,9 @@
         </div>
 
     {{ else }}
-        <div class="b-empty">
-            <i class="bi bi-search"></i>
-            <h4>No transactions found</h4>
-            <p>
-                {{ if or .search .account .dated }}
-                    Nothing matches those filters. Try a broader search.
-                {{ else }}
-                    Sync an account from settings to see your transactions here.
-                {{ end }}
-            </p>
-        </div>
+        {{ $why := "Sync an account from settings to see your transactions here." }}
+        {{ if or .search .account .dated }}{{ $why = "Nothing matches those filters. Try a broader search." }}{{ end }}
+        {{ template "empty" (dict "Icon" "bi-search" "Title" "No transactions found" "Text" $why) }}
     {{ end }}
 
     <script nonce="{{ nonce }}">
