@@ -118,6 +118,10 @@ func templateFuncs() template.FuncMap {
 			}
 			return values
 		},
+		// iconName words a Bootstrap icon's class for a person: "bi-cup-hot"
+		// is "Cup hot". A picker of icons names each in its tooltip and to a
+		// screen reader, where the class name means nothing.
+		"iconName": iconName,
 		// list builds a slice of its arguments, so a template can hand a
 		// component a list written out where it is used, such as a select's
 		// options or a segmented control's links.
@@ -596,4 +600,12 @@ func fmtWhole(number float64) string {
 		return p.Sprintf("-$%.0f", math.Abs(number))
 	}
 	return p.Sprintf("$%.0f", number)
+}
+
+func iconName(icon string) string {
+	words := strings.ReplaceAll(strings.TrimPrefix(icon, "bi-"), "-", " ")
+	if words == "" {
+		return ""
+	}
+	return strings.ToUpper(words[:1]) + words[1:]
 }

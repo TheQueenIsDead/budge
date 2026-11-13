@@ -377,3 +377,41 @@
     {{- with .Icon }}<i class="bi {{ . }}" aria-hidden="true"></i>{{ end }}{{ .Label -}}
 </a>
 {{- end }}
+
+{{/* A row of choices drawn as chips, one of them picked: a colour, an icon
+     or a memory's kind. Each is a radio button hidden in its label, so the
+     row works from the keyboard as any radio group does, and the picked one
+     is ringed.
+
+     Type      accent for colours, icon for icons, or kind for choices that
+               each have a Key, Accent, Icon and Label.
+     Name      the form field's name.
+     Label     what the group is choosing, for a screen reader.
+     Options   the colours' names, the icons' classes, or the kinds.
+     Selected  the one picked, compared as text.
+     Model     the Alpine property the choice is bound to, if any. */}}
+{{ define "chipPicker" }}
+<div class="b-pick-row" role="radiogroup" aria-label="{{ .Label }}">
+    {{- range .Options }}
+    {{- if eq $.Type "kind" }}
+    <label class="b-kind-pick b-accent-{{ .Accent }}">
+        <input type="radio" class="visually-hidden" name="{{ $.Name }}" value="{{ .Key }}"
+               {{- if eq (print .Key) (print $.Selected) }} checked{{ end }}{{ with $.Model }} x-model="{{ . }}"{{ end }}>
+        <span class="b-chip b-chip-sm"><i class="bi {{ .Icon }}" aria-hidden="true"></i></span>{{ .Label }}
+    </label>
+    {{- else if eq $.Type "icon" }}
+    <label class="b-icon-pick" title="{{ iconName . }}">
+        <input type="radio" class="visually-hidden" name="{{ $.Name }}" value="{{ . }}"
+               {{- if eq (print .) (print $.Selected) }} checked{{ end }}{{ with $.Model }} x-model="{{ . }}"{{ end }}>
+        <span class="b-chip b-chip-sm"><i class="bi {{ . }}" aria-hidden="true"></i></span><span class="visually-hidden">{{ iconName . }}</span>
+    </label>
+    {{- else }}
+    <label class="b-accent-pick b-accent-{{ . }}" title="{{ fmtTitle (print .) }}">
+        <input type="radio" class="visually-hidden" name="{{ $.Name }}" value="{{ . }}"
+               {{- if eq (print .) (print $.Selected) }} checked{{ end }}{{ with $.Model }} x-model="{{ . }}"{{ end }}>
+        <span class="b-swatch"></span><span class="visually-hidden">{{ fmtTitle (print .) }}</span>
+    </label>
+    {{- end }}
+    {{- end }}
+</div>
+{{ end }}

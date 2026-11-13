@@ -430,25 +430,13 @@
         {{ end }}
         <div class="col-12 col-md-auto">
             <span class="b-field-label">Colour</span>
-            <div class="b-pick-row">
-                {{ range $root.Accents }}
-                <label class="b-accent-pick b-accent-{{ . }}" title="{{ . }}">
-                    <input type="radio" class="visually-hidden" name="accent" value="{{ . }}"{{ if eq . $c.Accent }} checked{{ end }} x-model="accent">
-                    <span class="b-swatch"></span><span class="visually-hidden">{{ . }}</span>
-                </label>
-                {{ end }}
-            </div>
+            {{ template "chipPicker" (dict "Type" "accent" "Name" "accent" "Label" (printf "Colour of %s" $c.Label)
+                "Options" $root.Accents "Selected" $c.Accent "Model" "accent") }}
         </div>
         <div class="col-12 col-md">
             <span class="b-field-label">Icon</span>
-            <div class="b-pick-row">
-                {{ range $root.Icons }}
-                <label class="b-icon-pick" title="{{ . }}">
-                    <input type="radio" class="visually-hidden" name="icon" value="{{ . }}"{{ if eq . $c.Icon }} checked{{ end }} x-model="icon">
-                    <span class="b-chip b-chip-sm"><i class="bi {{ . }}"></i></span><span class="visually-hidden">{{ . }}</span>
-                </label>
-                {{ end }}
-            </div>
+            {{ template "chipPicker" (dict "Type" "icon" "Name" "icon" "Label" (printf "Icon of %s" $c.Label)
+                "Options" $root.Icons "Selected" $c.Icon "Model" "icon") }}
         </div>
     </div>
 </form>

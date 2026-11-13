@@ -38,14 +38,9 @@
             </div>
 
             <span class="b-field-label">Kind</span>
-            <div class="b-pick-row mb-3" role="radiogroup" aria-label="What kind of memory">
-                {{ range .Kinds }}
-                    <label class="b-kind-pick b-accent-{{ .Accent }}">
-                        <input type="radio" class="visually-hidden" name="kind" value="{{ .Key }}"
-                               {{ if eq .Key $.Kind.Key }}checked{{ end }} x-model="kind">
-                        <span class="b-chip b-chip-sm"><i class="bi {{ .Icon }}"></i></span>{{ .Label }}
-                    </label>
-                {{ end }}
+            <div class="mb-3">
+                {{ template "chipPicker" (dict "Type" "kind" "Name" "kind" "Label" "What kind of memory"
+                    "Options" .Kinds "Selected" .Kind.Key "Model" "kind") }}
             </div>
 
             {{ template "field" (dict "ID" "memory-note" "Label" "Note" "Name" "note" "Size" "sm"
