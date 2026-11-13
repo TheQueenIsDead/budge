@@ -5,6 +5,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/database"
@@ -16,6 +17,7 @@ const (
 	EverydayAccount = "acc_seed_everyday"
 	SavingsAccount  = "acc_seed_savings"
 	CreditAccount   = "acc_seed_credit"
+	HomeLoan        = "acc_seed_homeloan"
 	House           = "asset_seed_house"
 )
 
@@ -37,8 +39,19 @@ var spends = []spend{
 	{"Little Bird Cafe", "Lifestyle", "Cafes and restaurants", 23.50, 5},
 }
 
+// The home loan's terms. It starts the seeded history owing loanOwed, and is
+// paid loanRepayment on the first of each month from the everyday account,
+// with interest charged on the 28th at loanRate a year.
+const (
+	loanMonths    = 18
+	loanOwed      = 420_000.00
+	loanRepayment = 3_400.00
+	loanRate      = 5.89
+)
+
 // Seed writes three accounts, the last three months of their transactions
-// counted back from now, two of them filed nowhere, budget targets for
+// counted back from now, two of them filed nowhere, and a home loan with a
+// year and a half of its repayments and interest; budget targets for
 // groceries and transport, a salary, and a house. Given the same now, it
 // writes the same data, and nothing in it points anywhere but budge, so a
 // page drawn from it loads nothing from other sites.
@@ -87,6 +100,10 @@ func Seed(ctx context.Context, store *database.Store, now time.Time) error {
 			transaction("trans_seed_"+day.Format("20060102")+"_windows", EverydayAccount, day, -22.00, "PAYMENT", "PAY K TAYLOR WINDOWS"))
 	}
 
+	loan, loanTransactions := homeLoan(today, from)
+	accounts = append(accounts, loan)
+	transactions = append(transactions, loanTransactions...)
+
 	var merchantList []models.Merchant
 	for i := range spends {
 		merchantList = append(merchantList, merchants[fmt.Sprintf("merchant_seed_%d", i)])
@@ -129,6 +146,43 @@ func Seed(ctx context.Context, store *database.Store, now time.Time) error {
 			{ID: "valuation_seed_1", Date: today.AddDate(-1, 0, 0), Value: 710_000, Note: "Bank valuation"},
 		},
 	})
+}
+
+// homeLoan is a mortgage being paid down: a repayment on the first of each
+// month and interest on the 28th, for loanMonths back from today. It owes
+// money, so, as Akahu signs it, its balance is negative and the repayments
+// are credits. Each repayment is a transfer from the everyday account, whose
+// leg is written only from from, where the everyday account's history starts.
+// Both legs are transfers, which nothing counts as spending or income.
+func homeLoan(today, from time.Time) (models.Account, []models.Transaction) {
+	var transactions []models.Transaction
+	balance := -loanOwed
+	for day := today.AddDate(0, -loanMonths, 0); !day.After(today); day = day.AddDate(0, 0, 1) {
+		date := day.Format("20060102")
+		switch day.Day() {
+		case 1:
+			balance += loanRepayment
+			transactions = append(transactions,
+				transaction("trans_seed_"+date+"_repaid", HomeLoan, day, loanRepayment, "TRANSFER", "TRANSFER FROM EVERYDAY"))
+			if !day.Before(from) {
+				transactions = append(transactions,
+					transaction("trans_seed_"+date+"_repay", EverydayAccount, day, -loanRepayment, "TRANSFER", "TRANSFER TO HOME LOAN"))
+			}
+		case 28:
+			interest := math.Round(-balance*loanRate/100/12*100) / 100
+			balance -= interest
+			transactions = append(transactions,
+				transaction("trans_seed_"+date+"_interest", HomeLoan, day, -interest, "LOAN", "LOAN INTEREST"))
+		}
+	}
+
+	loan := account(HomeLoan, "Home Loan", "LOAN", math.Round(balance*100)/100, today)
+	details := &loan.Meta.LoanDetails
+	details.Purpose, details.Type = "HOME", "TABLE"
+	details.Interest.Type, details.Interest.Rate = "FIXED", loanRate
+	details.Repayment.Frequency, details.Repayment.NextAmount = "MONTHLY", loanRepayment
+	details.Repayment.NextDate = time.Date(today.Year(), today.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+	return loan, transactions
 }
 
 func account(id, name, kind string, balance float64, refreshed time.Time) models.Account {

@@ -52,6 +52,8 @@ func TestScreenshots(t *testing.T) {
 		{"timeline", "/timeline"},
 		{"portfolio", "/portfolio"},
 		{"account", "/portfolio/accounts/" + test.EverydayAccount},
+		{"loan", "/portfolio/accounts/" + test.HomeLoan},
+		{"loan-all-time", "/portfolio/accounts/" + test.HomeLoan + "?range=all"},
 		{"asset", "/portfolio/assets/" + test.House},
 		{"new-asset", "/portfolio/new"},
 		{"notifications", "/notifications"},

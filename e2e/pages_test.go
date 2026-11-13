@@ -26,6 +26,7 @@ func TestPagesLoadClean(t *testing.T) {
 		{"timeline", "/timeline", 0},
 		{"portfolio", "/portfolio", 0},
 		{"account", "/portfolio/accounts/" + test.EverydayAccount, 1},
+		{"loan over all time", "/portfolio/accounts/" + test.HomeLoan + "?range=all", 1},
 		{"asset", "/portfolio/assets/" + test.House, 0},
 		{"new asset", "/portfolio/new", 0},
 		{"notifications", "/notifications", 0},
