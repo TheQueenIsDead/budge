@@ -1,4 +1,4 @@
-# On push to main, test main in a browser, then aggregate a release PR.
+# On push to main, lint main and test it in a browser, then aggregate a release PR.
 # If the release PR is merged and a tag created, a new image will be pushed to GHCR.
 name: Main
 
@@ -7,17 +7,46 @@ on:
     branches: [ "main" ]
 
 jobs:
-  # Every push to main, in a browser. Release Please waits on it, so the
-  # release PR only takes in commits that pass, and a release, with its tag,
-  # is only made once its own commit has passed too.
+  # Every push to main, in a browser. Release Please waits on it and on lint,
+  # so the release PR only takes in commits that pass, and a release, with its
+  # tag, is only made once its own commit has passed too.
   e2e:
     permissions:
       contents: read
     uses: ./.github/workflows/_e2e.yml
 
+  # The same lint as on a PR, so a commit that reaches main another way, or a
+  # finding only main's code has, still fails here. Kept as a job of its own
+  # rather than shared with pr.yml: a shared one would report as "<caller> /
+  # lint", and the ruleset requires "lint" on PRs.
+  lint:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+      # The linter builds the code, which embeds the page's libraries.
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: web/package.json
+      - name: Install the page's libraries
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          install-mode: goinstall
+          # The same version as pr.yml's, bumped by Renovate with it.
+          # renovate: datasource=github-releases depName=golangci/golangci-lint
+          version: v2.15.0
+          # The browser tests are built only with the e2e tag.
+          args: --build-tags e2e
+
   # Run release-please to aggregate changes and handle semantic versioning via conventional commits
   release:
-    needs: e2e
+    needs: [e2e, lint]
     permissions:
       contents: write
       pull-requests: write
