@@ -139,7 +139,12 @@
 
                         {{ if eq .Type "memory" }}
                             <div class="b-tl-item b-tl-memory b-accent-{{ .Accent }}">
-                                <div class="b-tl-row">
+                                <!-- The memory opens on a page of its own, to change or
+                                     delete it and add whatever else was bought around it,
+                                     which comes back here. -->
+                                <a class="b-tl-row b-tl-open"
+                                   href="/memories/{{ .Key }}/edit?return={{ printf "/timeline?period=%s&view=%s" $.Period.Key $.View }}"
+                                   hx-boost="true" hx-params="none" hx-swap="innerHTML show:window:top" title="Open “{{ .Title }}”">
                                     <span class="b-chip"><i class="bi {{ .Icon }}"></i></span>
                                     <div class="b-tx-body">
                                         <div class="b-tx-name">{{ .Title }}</div>
@@ -149,24 +154,15 @@
                                         </div>
                                     </div>
                                     <div class="b-tx-amount">{{ .Total | fmtCurrency }}</div>
-                                </div>
+                                    <i class="bi bi-chevron-right text-muted"></i>
+                                </a>
                                 {{ if .Note }}<p class="b-tl-note">{{ .Note }}</p>{{ end }}
                                 <div class="b-tl-actions">
                                     {{ template "timeline.rows" (dict "Entry" . "Removable" true "Open" (eq $.Open .Key)) }}
-                                    <!-- Changing a memory, and adding whatever else was bought
-                                         around it, has a page of its own, which comes back here. -->
-                                    <a class="btn btn-sm btn-outline-secondary"
-                                       href="/memories/{{ .Key }}/edit?return={{ printf "/timeline?period=%s&view=%s" $.Period.Key $.View }}"
-                                       hx-boost="true" hx-params="none"><i class="bi bi-pencil"></i>Edit</a>
                                     <a class="btn btn-sm btn-link text-muted" href="{{ .TransactionsLink }}"
                                        hx-boost="true" hx-params="none" title="Everything bought over these days">
                                         <i class="bi bi-list-ul"></i>View in transactions
                                     </a>
-                                    <button class="btn btn-sm btn-link text-muted ms-auto"
-                                            hx-delete="/timeline/memories/{{ .Key }}"
-                                            hx-confirm="Delete “{{ .Title }}”? Its purchases go back on the timeline.">
-                                        <i class="bi bi-trash"></i>Delete
-                                    </button>
                                 </div>
                             </div>
 

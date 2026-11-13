@@ -1022,16 +1022,6 @@ func (app *Application) TimelineRemoveFromMemory(c *echo.Context) error {
 	return app.renderTimeline(c)
 }
 
-// TimelineDeleteMemory deletes a memory. Its purchases go back on the timeline
-// rather than being lost with it.
-func (app *Application) TimelineDeleteMemory(c *echo.Context) error {
-	ctx := c.Request().Context()
-	if err := app.store.DeleteMemory(ctx, c.Param("id")); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	return app.renderTimeline(c)
-}
-
 // timelineHideRequest is what a hide or restore names: transactions, a
 // suggestion, or a merchant.
 type timelineHideRequest struct {

@@ -736,5 +736,6 @@ func TestRenderTimelineMemoryLinksToItsPage(t *testing.T) {
 
 	assert.Contains(t, page, `href="/memories/engaged/edit?return=%2ftimeline%3fperiod%3d2026%26view%3dmemories"`)
 	assert.NotContains(t, page, "Bought around then", "what was bought around it is on the memory's page alone")
+	assert.NotContains(t, page, `hx-delete="/timeline/memories/engaged"`, "deleting is on the memory's page too")
 	assert.Contains(t, page, `href="/transactions?from=2026-09-08&amp;to=2026-09-10"`)
 }
