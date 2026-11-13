@@ -296,6 +296,12 @@ func (p *page) value(sel string) string {
 	return eval[string](p, fmt.Sprintf(`document.querySelector(%s)?.value ?? '(nothing matches)'`, quote(sel)))
 }
 
+// attr is an attribute of the first element sel matches.
+func (p *page) attr(sel, name string) string {
+	p.t.Helper()
+	return eval[string](p, fmt.Sprintf(`document.querySelector(%s)?.getAttribute(%s) ?? '(nothing matches)'`, quote(sel), quote(name)))
+}
+
 // eventually retries check until it returns no error, failing the test with
 // its last error if a few seconds pass first. Pages change after an htmx
 // request returns, so a check made at once can come too soon.
