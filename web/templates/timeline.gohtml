@@ -66,18 +66,12 @@
 
             {{ if .HiddenMerchants }}
                 <div class="b-card mb-3">
-                    <div class="b-conn"><h3 class="b-conn-name">Hidden merchants</h3></div>
+                    {{ template "listHead" (dict "Title" "Hidden merchants") }}
                     <ul class="b-acct-list">
                         {{ range .HiddenMerchants }}
                             <li>
-                                <div class="b-acct b-acct-static">
-                                    <span class="b-chip b-chip-sm fw-bold">{{ slice . 0 1 }}</span>
-                                    <div class="b-acct-body"><div class="b-acct-name">{{ . }}</div></div>
-                                    <button class="btn btn-sm btn-outline-secondary"
-                                            hx-post="/timeline/restore" hx-vals='{{ dict "merchant" . | toJSON }}'>
-                                        <i class="bi bi-eye"></i>Restore
-                                    </button>
-                                </div>
+                                {{ template "listRow" (dict "ChipText" (slice . 0 1) "ChipSm" true "Title" .
+                                    "Action" (dict "Post" "/timeline/restore" "Vals" (dict "merchant" .) "Icon" "bi-eye" "Label" "Restore")) }}
                             </li>
                         {{ end }}
                     </ul>
@@ -86,22 +80,13 @@
 
             {{ if .Hidden }}
                 <div class="b-card mb-3">
-                    <div class="b-conn"><h3 class="b-conn-name">Hidden purchases</h3></div>
+                    {{ template "listHead" (dict "Title" "Hidden purchases") }}
                     <ul class="b-acct-list">
                         {{ range .Hidden }}
                             <li>
-                                <div class="b-acct b-acct-static{{ if .Accent }} b-accent-{{ .Accent }}{{ end }}">
-                                    <span class="b-chip b-chip-sm"><i class="bi {{ .Icon }}"></i></span>
-                                    <div class="b-acct-body">
-                                        <div class="b-acct-name">{{ .Title }}</div>
-                                        <div class="b-acct-meta">{{ .Date.Format "2 Jan 2006" }}</div>
-                                    </div>
-                                    <span class="fw-semibold b-num">{{ .Amount | fmtCurrencyAbs }}</span>
-                                    <button class="btn btn-sm btn-outline-secondary"
-                                            hx-post="/timeline/restore" hx-vals='{{ dict "tx" .Id | toJSON }}'>
-                                        <i class="bi bi-eye"></i>Restore
-                                    </button>
-                                </div>
+                                {{ template "listRow" (dict "Accent" .Accent "Chip" .Icon "ChipSm" true "Title" .Title
+                                    "Meta" (.Date.Format "2 Jan 2006") "Figure" (fmtCurrencyAbs .Amount)
+                                    "Action" (dict "Post" "/timeline/restore" "Vals" (dict "tx" .Id) "Icon" "bi-eye" "Label" "Restore")) }}
                             </li>
                         {{ end }}
                     </ul>

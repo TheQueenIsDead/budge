@@ -136,30 +136,14 @@
     <!-- Valuation history -->
     {{ if .History }}
         <div class="b-card mb-3">
-            <div class="b-conn">
-                <h3 class="b-conn-name">Valuation history</h3>
-                <div class="b-conn-total">{{ len .History }}</div>
-            </div>
+            {{ template "listHead" (dict "Title" "Valuation history" "Total" (printf "%d" (len .History))) }}
             <ul class="b-acct-list">
                 {{ range .History }}
                     <li>
-                        <div class="b-acct b-acct-static">
-                            <span class="b-chip b-chip-sm b-accent-slate"><i class="bi bi-tag"></i></span>
-                            <div class="b-acct-body">
-                                <div class="b-acct-name">{{ .Value | fmtCurrency }}</div>
-                                <div class="b-acct-meta">
-                                    <span>{{ .Date.Format "2 Jan 2006" }}</span>
-                                    {{ if .Note }}<span class="badge-category">{{ .Note }}</span>{{ end }}
-                                </div>
-                            </div>
-                            <button class="btn btn-sm btn-link text-muted p-0 flex-shrink-0"
-                                    hx-delete="/portfolio/assets/{{ $.Summary.Asset.Id }}/valuations/{{ .ID }}"
-                                    hx-target="#main" hx-swap="innerHTML"
-                                    hx-confirm="Remove this valuation?"
-                                    title="Remove valuation" aria-label="Remove this valuation">
-                                <i class="bi bi-x-lg" aria-hidden="true"></i>
-                            </button>
-                        </div>
+                        {{ template "listRow" (dict "Chip" "bi-tag" "ChipSm" true "ChipAccent" "slate"
+                            "Title" (fmtCurrency .Value) "Badge" .Note "Meta" (.Date.Format "2 Jan 2006")
+                            "Remove" (dict "URL" (printf "/portfolio/assets/%s/valuations/%s" $.Summary.Asset.Id .ID)
+                                "Title" "Remove valuation" "Label" "Remove this valuation" "Confirm" "Remove this valuation?")) }}
                     </li>
                 {{ end }}
             </ul>

@@ -47,16 +47,8 @@
              after: the bank groups below are the long scrolling stretch. -->
         {{ if .AssetTotals.HasAsset }}
             <div class="b-card mb-3">
-                <div class="b-conn">
-                    <span class="b-chip b-chip-sm b-accent-sage"><i class="bi bi-houses"></i></span>
-                    <h3 class="b-conn-name">Assets</h3>
-                    <div class="b-conn-total">{{ .AssetTotals.Total | fmtCurrency }}</div>
-                    <a class="btn btn-sm btn-outline-secondary flex-shrink-0"
-                       href="/portfolio/new" hx-boost="true" hx-target="#main"
-                       aria-label="Add an asset">
-                        <i class="bi bi-plus-lg"></i>
-                    </a>
-                </div>
+                {{ template "listHead" (dict "Title" "Assets" "Chip" "bi-houses" "Accent" "sage"
+                    "Total" (fmtCurrency .AssetTotals.Total) "AddHref" "/portfolio/new" "AddLabel" "Add an asset") }}
 
                 <ul class="b-acct-list">
                     {{ range .Assets }}
@@ -101,14 +93,8 @@
         <!-- Accounts, grouped by the connection that provides them -->
         {{ range .Groups }}
             <div class="b-card mb-3">
-                <div class="b-conn">
-                    <img class="b-conn-logo" width="30" height="30"
-                         src="{{ .Logo }}" alt="{{ .Connection }}"/>
-                    <h3 class="b-conn-name">{{ .Connection }}</h3>
-                    <div class="b-conn-total {{ if lt .Total 0.0 }}text-danger{{ end }}">
-                        {{ .Total | fmtCurrency }}
-                    </div>
-                </div>
+                {{ template "listHead" (dict "Title" .Connection "Logo" .Logo "LogoAlt" .Connection
+                    "Total" (fmtCurrency .Total) "TotalTone" (and (lt .Total 0.0) "text-danger")) }}
 
                 <ul class="b-acct-list">
                     {{ range .Accounts }}

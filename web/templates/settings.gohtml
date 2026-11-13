@@ -66,41 +66,18 @@
 
     <!-- Connected accounts -->
     <div class="b-card mb-3" id="accounts">
-        <div class="b-conn">
-            <span class="b-chip b-chip-sm b-accent-slate"><i class="bi bi-bank2"></i></span>
-            <h3 class="b-conn-name">Connected accounts</h3>
-            <div class="b-conn-total">{{ len .accounts }}</div>
-        </div>
+        {{ template "listHead" (dict "Title" "Connected accounts" "Chip" "bi-bank2" "Accent" "slate" "Total" (printf "%d" (len .accounts))) }}
 
         {{ if .accounts }}
             <ul class="b-acct-list">
                 {{ range .accounts }}
                     <li>
-                        <div class="b-acct b-acct-static">
-                            <img class="b-conn-logo" width="30" height="30"
-                                 src="{{ .Connection.Logo }}" alt="{{ .Connection.Name }}"/>
-                            <div class="b-acct-body">
-                                <div class="b-acct-name">{{ .Name }}</div>
-                                <div class="b-acct-meta">
-                                    <span class="badge-category">{{ .Connection.Name }}</span>
-                                    {{ if .FormattedAccount }}
-                                        <span class="font-monospace">{{ .FormattedAccount }}</span>
-                                    {{ end }}
-                                    {{ with .Meta.LoanDetails.Interest }}
-                                        {{ if gt .Rate 0.0 }}
-                                            <span><i class="bi bi-percent"></i>{{ printf "%.2f%%" .Rate }}
-                                                {{ if .Type }}{{ .Type | fmtTitle }}{{ end }}</span>
-                                        {{ end }}
-                                    {{ end }}
-                                </div>
-                            </div>
-                            <div class="b-acct-figures">
-                                <div class="b-acct-balance {{ if lt .Balance.Current 0.0 }}text-danger{{ end }}">
-                                    {{ .Balance.Current | fmtCurrency }}
-                                </div>
-                                <span class="b-delta b-delta-flat">{{ .Type | fmtTitle }}</span>
-                            </div>
-                        </div>
+                        {{ $rate := "" }}
+                        {{ with .Meta.LoanDetails.Interest }}{{ if gt .Rate 0.0 }}{{ $rate = printf "%.2f%% %s" .Rate (fmtTitle .Type) }}{{ end }}{{ end }}
+                        {{ template "listRow" (dict "Logo" .Connection.Logo "LogoAlt" .Connection.Name "Title" .Name
+                            "Badge" .Connection.Name "Mono" .FormattedAccount "Meta" $rate "MetaIcon" "bi-percent"
+                            "Figure" (fmtCurrency .Balance.Current) "FigureTone" (and (lt .Balance.Current 0.0) "text-danger")
+                            "Delta" (dict "Note" (fmtTitle .Type))) }}
                     </li>
                 {{ end }}
             </ul>

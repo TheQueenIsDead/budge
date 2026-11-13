@@ -164,3 +164,115 @@
 {{ define "savedFlash" }}
 <span class="badge-success rounded-pill px-2 budge-flash" data-saved-flash aria-live="polite">Saved</span>
 {{ end }}
+
+{{/* The head of a list inside a card: a logo or chip, the list's name, and
+     its total or count on the right, with a button to add to it.
+
+     Title     the list's name.
+     Logo      an image to lead with, such as a bank's logo, with LogoAlt.
+     Chip      an icon to lead with, in a small chip, with its Accent.
+     Total     the figure on the right, already formatted, so a count of
+               nought still shows.
+     TotalTone a class for the figure, such as text-danger.
+     AddHref   where adding to the list goes, with AddLabel saying what. */}}
+{{ define "listHead" }}
+<div class="b-conn">
+    {{- with .Logo }}
+    <img class="b-conn-logo" width="30" height="30" src="{{ . }}" alt="{{ $.LogoAlt }}"/>
+    {{- end }}
+    {{- with .Chip }}
+    <span class="b-chip b-chip-sm{{ with $.Accent }} b-accent-{{ . }}{{ end }}"><i class="bi {{ . }}" aria-hidden="true"></i></span>
+    {{- end }}
+    <h3 class="b-conn-name">{{ .Title }}</h3>
+    {{- with .Total }}
+    <div class="b-conn-total{{ with $.TotalTone }} {{ . }}{{ end }}">{{ . }}</div>
+    {{- end }}
+    {{- with .AddHref }}
+    <a class="btn btn-sm btn-outline-secondary flex-shrink-0" href="{{ . }}" hx-boost="true" hx-target="#main"
+       title="{{ $.AddLabel }}" aria-label="{{ $.AddLabel }}">
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+    </a>
+    {{- end }}
+</div>
+{{ end }}
+
+{{/* A row in a list inside a card: a chip or logo, a name with a line of
+     detail under it, figures on the right, and one thing to do with it. A
+     row with somewhere to go is a link, and one without says so by not
+     being one.
+
+     Href       where the row leads; a link with a chevron when given.
+     Accent     the row's colour; Class any further classes for it.
+     Chip       an icon in its chip, or ChipText a letter; ChipSm for the
+                small chip, ChipAccent for a colour of its own.
+     Logo       an image in place of a chip, with LogoAlt.
+     Title      the row's name.
+     Message    a line of text under the name, for a notification.
+     Badge      a category badge in the detail line.
+     Mono       an account number or such in the detail line, set mono.
+     Meta       further detail, with MetaIcon before it and MetaTitle as
+                its tooltip.
+     New        true to mark the row as not seen yet.
+     Figure     the figure on the right, already formatted, in FigureTone.
+     Delta      a dict for a delta pill under the figure.
+     Remove     a dict to take the row out of its list with a cross: URL to
+                delete, Label for a screen reader, Title, Confirm to ask
+                first, and Trigger, an event to raise on the page after.
+     Action     a dict for a button on the right: Post, Vals, Icon, Label. */}}
+{{ define "listRow" }}
+{{- if .Href }}
+<a class="b-acct{{ with .Accent }} b-accent-{{ . }}{{ end }}{{ with .Class }} {{ . }}{{ end }}" href="{{ .Href }}" hx-boost="true" hx-target="#main">
+{{- else }}
+<div class="b-acct b-acct-static{{ with .Accent }} b-accent-{{ . }}{{ end }}{{ with .Class }} {{ . }}{{ end }}">
+{{- end }}
+    {{- if .Logo }}
+    <img class="b-conn-logo" width="30" height="30" src="{{ .Logo }}" alt="{{ .LogoAlt }}"/>
+    {{- else if or .Chip .ChipText }}
+    <span class="b-chip{{ if .ChipSm }} b-chip-sm{{ end }}{{ with .ChipAccent }} b-accent-{{ . }}{{ end }}{{ if .ChipText }} fw-bold{{ end }}">
+        {{- with .Chip }}<i class="bi {{ . }}" aria-hidden="true"></i>{{ else }}{{ .ChipText }}{{ end -}}
+    </span>
+    {{- end }}
+    <div class="b-acct-body">
+        <div class="b-acct-name">{{ .Title }}</div>
+        {{- with .Message }}
+        <div class="b-note-message">{{ . }}</div>
+        {{- end }}
+        {{- if or .Badge .Mono .Meta .New }}
+        <div class="b-acct-meta">
+            {{- with .Badge }}<span class="badge-category">{{ . }}</span>{{ end }}
+            {{- with .Mono }}<span class="font-monospace">{{ . }}</span>{{ end }}
+            {{- with .Meta }}<span{{ with $.MetaTitle }} title="{{ . }}"{{ end }}>{{ with $.MetaIcon }}<i class="bi {{ . }}" aria-hidden="true"></i> {{ end }}{{ . }}</span>{{ end }}
+            {{- if .New }}{{ template "delta" (dict "Note" "New") }}{{ end }}
+        </div>
+        {{- end }}
+    </div>
+    {{- if or .Figure .Delta }}
+    <div class="b-acct-figures">
+        {{- with .Figure }}
+        <div class="b-acct-balance{{ with $.FigureTone }} {{ . }}{{ end }}">{{ . }}</div>
+        {{- end }}
+        {{- with .Delta }}{{ template "delta" . }}{{ end }}
+    </div>
+    {{- end }}
+    {{- with .Remove }}
+    <button class="btn btn-sm btn-link text-muted p-0 flex-shrink-0"
+            hx-delete="{{ .URL }}" hx-target="#main" hx-swap="innerHTML"
+            {{- with .Confirm }} hx-confirm="{{ . }}"{{ end }}
+            {{- with .Trigger }} hx-on::after-request="htmx.trigger(document.body, '{{ . }}')"{{ end }}
+            title="{{ or .Title .Label }}" aria-label="{{ .Label }}">
+        <i class="bi bi-x-lg" aria-hidden="true"></i>
+    </button>
+    {{- end }}
+    {{- with .Action }}
+    <button class="btn btn-sm btn-outline-secondary flex-shrink-0"
+            hx-post="{{ .Post }}"{{ with .Vals }} hx-vals='{{ . | toJSON }}'{{ end }}>
+        {{- with .Icon }}<i class="bi {{ . }}" aria-hidden="true"></i>{{ end }}{{ .Label -}}
+    </button>
+    {{- end }}
+    {{- if .Href }}
+    <i class="bi bi-chevron-right b-rank-go d-none d-sm-block" aria-hidden="true"></i>
+</a>
+    {{- else }}
+</div>
+    {{- end }}
+{{ end }}

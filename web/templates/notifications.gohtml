@@ -34,31 +34,11 @@
             <ul class="b-acct-list">
                 {{ range .Notifications }}
                     <li>
-                        <div class="b-acct b-acct-static b-accent-{{ .Level.Accent }}{{ if .Unread }} b-note-unread{{ end }}">
-                            <span class="b-chip"><i class="bi {{ .Level.Icon }}"></i></span>
-
-                            <div class="b-acct-body">
-                                <div class="b-acct-name">{{ .Title }}</div>
-                                {{ if .Message }}
-                                    <div class="b-note-message">{{ .Message }}</div>
-                                {{ end }}
-                                <div class="b-acct-meta">
-                                    {{ if .Source }}<span class="badge-category">{{ .Source }}</span>{{ end }}
-                                    <span title="{{ .CreatedAt.Format "2 Jan 2006, 3:04pm" }}">
-                                        {{ .CreatedAt | fmtRelative }}
-                                    </span>
-                                    {{ if .Unread }}<span class="b-delta b-delta-flat">New</span>{{ end }}
-                                </div>
-                            </div>
-
-                            <button class="btn btn-sm btn-link text-muted p-0 flex-shrink-0"
-                                    hx-delete="/notifications/{{ .Id }}"
-                                    hx-target="#main" hx-swap="innerHTML"
-                                    hx-on::after-request="htmx.trigger(document.body, 'notifications')"
-                                    title="Dismiss" aria-label="Dismiss this notification">
-                                <i class="bi bi-x-lg" aria-hidden="true"></i>
-                            </button>
-                        </div>
+                        {{ template "listRow" (dict "Accent" .Level.Accent "Class" (and .Unread "b-note-unread")
+                            "Chip" .Level.Icon "Title" .Title "Message" .Message "Badge" .Source
+                            "Meta" (fmtRelative .CreatedAt) "MetaTitle" (.CreatedAt.Format "2 Jan 2006, 3:04pm") "New" .Unread
+                            "Remove" (dict "URL" (printf "/notifications/%s" .Id) "Title" "Dismiss"
+                                "Label" "Dismiss this notification" "Trigger" "notifications")) }}
                     </li>
                 {{ end }}
             </ul>
