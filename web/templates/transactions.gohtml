@@ -81,7 +81,9 @@
             <span class="b-summary-item text-danger">
                 <i class="bi bi-arrow-up-right"></i>{{ .out | fmtCurrencyAbs }}
             </span>
-            <span class="b-summary-item text-muted ms-auto d-none d-sm-inline-flex">{{ .took }}</span>
+            {{/* data-volatile: how long the list took differs every time it is
+                 drawn, so screenshots leave it out. */}}
+            <span class="b-summary-item text-muted ms-auto d-none d-sm-inline-flex" data-volatile>{{ .took }}</span>
         </div>
     </div>
 

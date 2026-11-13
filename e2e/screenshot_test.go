@@ -25,14 +25,12 @@ var takeScreenshots = flag.Bool("screenshots", false, "draw every page into test
 // screenshots is where each page's picture is kept, one per page and width.
 const screenshots = "testdata/screenshots"
 
-// A page's picture is replaced only once it has changed: a pixel counts as
-// changed past a small difference in colour, and a page once more than a
-// sliver of it has. Below that, drawing the same page again is not a change,
-// and replacing its picture would only make noise in the pull request.
-const (
-	pixelTolerance = 24     // of 255, in any channel
-	pageTolerance  = 0.0025 // of the page's pixels
-)
+// A page's picture is replaced once any pixel of it has changed by more than
+// a small difference in colour. The same page drawn again matches pixel for
+// pixel, so the smallest real change, such as one figure in a total, is kept.
+// The colour allowance is for text smoothed a shade differently by another
+// build of Chrome, which is not a change to the page.
+const pixelTolerance = 24 // of 255, in any channel
 
 // TestScreenshots draws every page, at a desktop's width and a phone's, into
 // testdata/screenshots, replacing each picture whose page has changed. It
@@ -100,7 +98,9 @@ func TestScreenshots(t *testing.T) {
 	}
 }
 
-// still readies a page for its picture, the same every time. The caret blinks, so nothing keeps the focus. The
+// still readies a page for its picture, the same every time. Anything marked
+// data-volatile, such as how long a page took, differs every time and is
+// hidden, keeping its place. The caret blinks, so nothing keeps the focus. The
 // phone's tab bar stays put at the foot of the screen, which a picture of the
 // whole page would show halfway down, over what it covers, so for the
 // picture it sits at the end of the page instead.
@@ -110,6 +110,7 @@ func still(p *page) {
 	// as the picture's size is read straight after.
 	eval[bool](p, `new Promise(done => {
 		document.activeElement?.blur();
+		document.querySelectorAll('[data-volatile]').forEach(el => el.style.visibility = 'hidden');
 		const style = document.createElement('style');
 		style.textContent = '.b-tabbar { position: static !important; }';
 		document.head.appendChild(style);
@@ -135,7 +136,7 @@ func keep(t *testing.T, path string, shot []byte) {
 }
 
 // same reports whether two pictures show the same page: the same size, and
-// no more than a sliver of their pixels apart.
+// no pixel apart by more than the colour allowance.
 func same(a, b []byte) bool {
 	if bytes.Equal(a, b) {
 		return true
@@ -157,7 +158,7 @@ func same(a, b []byte) bool {
 			}
 		}
 	}
-	return float64(changed) <= pageTolerance*float64(bounds.Dx()*bounds.Dy())
+	return changed == 0
 }
 
 // apart reports whether two colours differ by more than the tolerance in
