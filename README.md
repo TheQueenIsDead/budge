@@ -83,7 +83,7 @@ The tests in `e2e/` run Budge's image and drive it in Chrome, both in
 containers, on made-up data. They need Docker or Podman, and an image to test:
 
 ```shell
-docker build -t budge:e2e .
+docker build --build-arg TAGS=e2e -t budge:e2e .
 BUDGE_E2E_IMAGE=budge:e2e go test -tags e2e ./e2e/...
 ```
 
@@ -92,10 +92,23 @@ testcontainers starts to clean up after a crashed run, which expects Docker's
 network names:
 
 ```shell
-podman build -t budge:e2e .
+podman build --build-arg TAGS=e2e -t budge:e2e .
 export DOCKER_HOST=unix://$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')
 export TESTCONTAINERS_RYUK_DISABLED=true
 BUDGE_E2E_IMAGE=budge:e2e go test -tags e2e ./e2e/...
+```
+
+The image is built with the `e2e` tag, which stops budge's clock on a fixed
+day, the day the tests' data is seeded as of, so every page draws the same
+whenever the tests run.
+
+`TestScreenshots` draws every page, at a desktop's width and a phone's, into
+`e2e/testdata/screenshots`, replacing the pictures of any that changed. It
+runs only when asked, as CI does on a pull request that could change a page,
+committing what changed so the pull request shows each page that moved:
+
+```shell
+go test -tags e2e -run TestScreenshots ./e2e/... -screenshots
 ```
 
 Add `-artifacts` to keep a screenshot and the HTML of each page a failed test

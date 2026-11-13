@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/TheQueenIsDead/budge/pkg/clock"
 	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 	"github.com/dustin/go-humanize"
 )
@@ -250,7 +251,7 @@ func (i *Inventory) ISODateString() string {
 }
 
 func (i *Inventory) Purchased() string {
-	if i.Date.Format(time.DateOnly) == time.Now().Format(time.DateOnly) {
+	if i.Date.Format(time.DateOnly) == clock.Now().Format(time.DateOnly) {
 		return "today"
 	}
 	return humanize.Time(i.Date)

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/TheQueenIsDead/budge/pkg/clock"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v5"
 )
@@ -182,7 +183,7 @@ func (app *Application) buildSetupData(ctx context.Context) (CategorySetupData, 
 	}
 	netWeekly := computeNetWeekly(salary)
 
-	txs, err := app.store.ReadTransactionsByDate(ctx, time.Now().AddDate(0, -13, 0), time.Now())
+	txs, err := app.store.ReadTransactionsByDate(ctx, clock.Now().AddDate(0, -13, 0), clock.Now())
 	if err != nil {
 		return CategorySetupData{}, err
 	}
@@ -202,7 +203,7 @@ func (app *Application) buildSetupData(ctx context.Context) (CategorySetupData, 
 	spend := make(map[string]map[int]float64)
 	merchantSpend := make(map[string]map[string]float64)
 	windows := []int{4, 8, 13, 26, 52}
-	weekStart := isoWeekStart(time.Now())
+	weekStart := isoWeekStart(clock.Now())
 	add := func(key string, weeks int, amount float64) {
 		if spend[key] == nil {
 			spend[key] = make(map[int]float64)

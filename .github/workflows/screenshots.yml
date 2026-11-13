@@ -1,0 +1,33 @@
+# Draws every page, for a pull request that could change how one looks, and
+# commits the screenshots of any that changed to it, so the pull request
+# shows each page that moved; see e2e/screenshot_test.go.
+name: Screenshots
+
+on:
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "web/**"
+      - "pkg/application/**"
+      - "pkg/clock/**"
+      - "e2e/**"
+      - ".github/workflows/screenshots.yml"
+      - ".github/workflows/_e2e.yml"
+
+# One run a pull request at a time: a newer push makes an older run's
+# screenshots stale.
+concurrency:
+  group: screenshots-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Renovate's updates are to libraries, not to how budge's pages look, and a
+  # commit to its branch would stop Renovate managing it. A fork's branch is
+  # not this repository's to commit to.
+  screenshots:
+    if: ${{ !startsWith(github.head_ref, 'renovate/') && github.event.pull_request.head.repo.full_name == github.repository }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/_e2e.yml
+    with:
+      screenshots: true

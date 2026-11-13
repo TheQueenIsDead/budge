@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/TheQueenIsDead/budge/pkg/clock"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v5"
 )
@@ -40,7 +41,7 @@ type DashboardData struct {
 // MerchantLink opens a merchant's transactions over the last 30 days, the
 // ones behind its total.
 func (d DashboardData) MerchantLink(merchant string) string {
-	return searchLink(merchant, d.RecentSince, time.Now())
+	return searchLink(merchant, d.RecentSince, clock.Now())
 }
 
 type OutgoingTransaction struct {
@@ -418,7 +419,7 @@ func dashboardMonthsStart(now time.Time) time.Time {
 func (app *Application) Dashboard(c *echo.Context) error {
 	ctx := c.Request().Context()
 
-	now := time.Now()
+	now := clock.Now()
 
 	// The spend highlights compare a year of months, so the dashboard reads
 	// further back than the six months its own charts cover.

@@ -4,12 +4,22 @@ name: _e2e
 
 on:
   workflow_call:
+    inputs:
+      # The pages' screenshots alone, rather than every other browser test,
+      # with any that changed committed to the pull request's branch.
+      screenshots:
+        type: boolean
+        default: false
 
 jobs:
   e2e:
     runs-on: ubuntu-latest
     steps:
+      # For screenshots, the pull request's own branch, to commit to, rather
+      # than the merge GitHub tests a pull request as.
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.screenshots && github.head_ref || '' }}
 
       # The Dockerfile builds with the Go go.mod names and the pnpm
       # web/package.json names, read here to pass in as build args.
@@ -27,7 +37,10 @@ jobs:
           context: .
           load: true
           tags: budge:e2e
+          # e2e stops budge's clock on the day the tests seed their data as
+          # of, so pages draw the same on any day; see pkg/clock.
           build-args: |
+            TAGS=e2e
             GO_VERSION=${{ steps.versions.outputs.go }}
             PNPM_VERSION=${{ steps.versions.outputs.pnpm }}
           cache-from: type=gha
@@ -37,10 +50,34 @@ jobs:
           go-version-file: go.mod
 
       - name: Browser tests
+        if: ${{ !inputs.screenshots }}
         env:
           BUDGE_E2E_IMAGE: budge:e2e
         # -artifacts keeps what failed tests save, in _artifacts.
         run: go test -tags e2e -artifacts ./e2e/...
+
+      - name: Screenshots
+        if: ${{ inputs.screenshots }}
+        env:
+          BUDGE_E2E_IMAGE: budge:e2e
+        run: go test -tags e2e -run TestScreenshots ./e2e/... -screenshots
+
+      # Any page that changed, committed to the pull request, so it shows the
+      # change as GitHub diffs images. A commit pushed with this workflow's
+      # token starts no checks of its own, so for now the pull request is
+      # merged past them.
+      - name: Commit the screenshots that changed
+        if: ${{ inputs.screenshots }}
+        run: |
+          git add e2e/testdata/screenshots
+          if git diff --cached --quiet; then
+            echo "No page changed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "test(e2e): update the screenshots of the pages that changed"
+          git push
 
       # A screenshot and the HTML of each page a failed test was on.
       - if: ${{ failure() }}

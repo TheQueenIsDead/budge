@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/TheQueenIsDead/budge/pkg/clock"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v5"
 )
@@ -54,7 +55,7 @@ const insightsHistory = 14
 func (app *Application) Insights(c *echo.Context) error {
 	ctx := c.Request().Context()
 
-	now := time.Now()
+	now := clock.Now()
 
 	transactions, err := app.store.ReadTransactionsByDate(ctx, now.AddDate(0, -insightsHistory, 0), now)
 	transactions = spendingOnly(transactions)
