@@ -82,3 +82,55 @@ func TestFileIncome(t *testing.T) {
 	p.visit("/transactions?search=salary")
 	assert.Contains(t, p.text(badges), "Income", "the filing is saved")
 }
+
+// TestShowOnlyUncategorised narrows the list to what has no category and
+// back, first with the icon toggle in the filters and then with the link on
+// the row that counts them. The toggle says whether it is pressed, and its
+// tooltip is not left behind over the list it reloaded.
+func TestShowOnlyUncategorised(t *testing.T) {
+	p := open(t)
+	p.visit("/transactions")
+	everything := eval[int](p, `document.querySelectorAll('.b-tx').length`)
+	p.eventually(p.contains("#main .b-card-title", "no category"))
+	assert.Equal(t, "false", p.attr("#uncategorised", "aria-pressed"), "the toggle starts off")
+
+	filtered := func() {
+		p.t.Helper()
+		p.eventually(func() error {
+			if search := eval[string](p, `location.search`); !strings.Contains(search, "uncategorised=1") {
+				return fmt.Errorf("the address is %s, without the filter", search)
+			}
+			return nil
+		})
+		p.settle()
+		p.eventually(p.contains("#main .b-card-title", "Showing only spending with no category"))
+		assert.Equal(t, "true", p.attr("#uncategorised", "aria-pressed"), "the toggle is pressed")
+		assert.True(t, eval[bool](p, `document.querySelector('#uncategorised').checked`))
+		assert.Less(t, eval[int](p, `document.querySelectorAll('.b-tx').length`), everything, "the list narrows")
+	}
+	unfiltered := func() {
+		p.t.Helper()
+		p.eventually(func() error {
+			if search := eval[string](p, `location.search`); strings.Contains(search, "uncategorised=1") {
+				return fmt.Errorf("the address is %s, still filtered", search)
+			}
+			return nil
+		})
+		p.settle()
+		p.eventually(p.contains("#main .b-card-title", "no category"))
+		assert.NotContains(t, p.text("#main .b-card-title"), "Showing only")
+		assert.Equal(t, "false", p.attr("#uncategorised", "aria-pressed"), "the toggle is off again")
+		assert.Equal(t, everything, eval[int](p, `document.querySelectorAll('.b-tx').length`), "everything is back")
+	}
+
+	p.click(`label[for="uncategorised"]`)
+	filtered()
+	assert.Zero(t, eval[int](p, `document.querySelectorAll('.tooltip').length`), "no tooltip is left floating")
+	p.click(`label[for="uncategorised"]`)
+	unfiltered()
+
+	p.clickText("#main .b-track-link", "Show them")
+	filtered()
+	p.clickText("#main .b-track-link", "Show everything")
+	unfiltered()
+}

@@ -28,13 +28,18 @@ func TestSeedFillsAHousehold(t *testing.T) {
 	everyday, err := store.ReadTransactionsByAccount(ctx, EverydayAccount)
 	require.NoError(t, err)
 	filed := map[string]int{}
+	unfiled := 0
 	for _, tx := range everyday {
 		assert.False(t, tx.Date.After(now), "nothing is dated after now")
 		filed[tx.BudgetCategory()]++
+		if tx.Type == "PAYMENT" && tx.Category.Name == "" {
+			unfiled++
+		}
 	}
 	for _, category := range []string{"groceries", "fuel", "power", "internet-mobile"} {
 		assert.Positive(t, filed[category], "some spending is filed under %s", category)
 	}
+	assert.Equal(t, 2, unfiled, "and a little spending is filed nowhere")
 
 	house, err := store.GetAsset(ctx, House)
 	require.NoError(t, err)

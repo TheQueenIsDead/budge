@@ -38,10 +38,10 @@ var spends = []spend{
 }
 
 // Seed writes three accounts, the last three months of their transactions
-// counted back from now, budget targets for groceries and transport, a salary,
-// and a house. Given the same now, it writes the same
-// data, and nothing in it points anywhere but budge, so a page drawn from it
-// loads nothing from other sites.
+// counted back from now, two of them filed nowhere, budget targets for
+// groceries and transport, a salary, and a house. Given the same now, it
+// writes the same data, and nothing in it points anywhere but budge, so a
+// page drawn from it loads nothing from other sites.
 func Seed(ctx context.Context, store *database.Store, now time.Time) error {
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	from := today.AddDate(0, -3, 0)
@@ -77,6 +77,14 @@ func Seed(ctx context.Context, store *database.Store, now time.Time) error {
 				transaction("trans_seed_"+date+"_saved", SavingsAccount, day, 250.00, "TRANSFER", "TRANSFER FROM EVERYDAY"),
 			)
 		}
+	}
+
+	// A window cleaner paid by bank transfer, which nothing files, so the
+	// transactions page has uncategorised spending to call out and filter to.
+	for _, back := range []int{6, 20} {
+		day := today.AddDate(0, 0, -back)
+		transactions = append(transactions,
+			transaction("trans_seed_"+day.Format("20060102")+"_windows", EverydayAccount, day, -22.00, "PAYMENT", "PAY K TAYLOR WINDOWS"))
 	}
 
 	var merchantList []models.Merchant
