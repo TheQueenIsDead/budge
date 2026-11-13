@@ -189,12 +189,12 @@
                                     {{ if .Note }}<span class="badge-category">{{ .Note }}</span>{{ end }}
                                 </div>
                             </div>
-                            <button class="btn btn-sm btn-link text-danger p-0"
+                            <button class="btn btn-sm btn-link text-muted p-0 flex-shrink-0"
                                     hx-delete="/portfolio/assets/{{ $.Summary.Asset.Id }}/valuations/{{ .ID }}"
                                     hx-target="#main" hx-swap="innerHTML"
                                     hx-confirm="Remove this valuation?"
                                     title="Remove valuation" aria-label="Remove this valuation">
-                                <i class="bi bi-x-circle"></i>
+                                <i class="bi bi-x-lg" aria-hidden="true"></i>
                             </button>
                         </div>
                     </li>

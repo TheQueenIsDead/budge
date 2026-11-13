@@ -325,7 +325,7 @@
                                 hx-delete="/timeline/memories/{{ $entry.Key }}/transactions/{{ .Id }}"
                                 hx-vals='{{ dict "open" $entry.Key | toJSON }}'
                                 title="Take this out of the memory" aria-label="Take {{ .Title }} out of this memory">
-                            <i class="bi bi-x-lg"></i>
+                            <i class="bi bi-x-lg" aria-hidden="true"></i>
                         </button>
                     {{ end }}
                 </li>
