@@ -119,5 +119,11 @@
         queueMicrotask(draw);
     };
 
+    // Someone who has asked their device for less motion gets each chart
+    // drawn as it ends, rather than grown into place.
+    if (window.Chart && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        Chart.defaults.animation = false;
+    }
+
     window.budge = budge;
 })();
