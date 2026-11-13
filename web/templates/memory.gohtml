@@ -16,7 +16,13 @@
 
     <form class="b-tx-feed b-memory" hx-swap="none"
           {{ if .New }}hx-post="/memories"{{ else }}hx-post="/memories/{{ .Memory.Id }}"{{ end }}
-          x-data='{{ dict "kind" .Kind.Key "looks" .Looks | toJSON }}'>
+          x-data='{{ dict "kind" .Kind.Key "looks" .Looks "start" "" "changed" false | toJSON }}'
+          x-init="start = new URLSearchParams(new FormData($el)).toString()"
+          @input="changed = new URLSearchParams(new FormData($el)).toString() !== start"
+          @change="changed = new URLSearchParams(new FormData($el)).toString() !== start">
+        {{/* changed is whether anything differs from how the page opened, by
+             the form's own values, so ticking a purchase and unticking it
+             again leaves nothing to save. */}}
         <input type="hidden" name="return" value="{{ .Return }}">
 
         {{/* The colour and icon follow the kind as it is picked, as a
@@ -77,7 +83,13 @@
                 </button>
             {{ end }}
             <a class="btn btn-outline-secondary" href="{{ .Return }}" hx-boost="true" hx-target="#main">Cancel</a>
-            <button class="btn btn-primary">{{ if .New }}Make memory{{ else }}Save{{ end }}</button>
+            {{ if .New }}
+                <button class="btn btn-primary">Make memory</button>
+            {{ else }}
+                {{/* Greyed out until something is changed: disabled as drawn, so
+                     it doesn't show ready for the moment before Alpine starts. */}}
+                <button class="btn btn-primary" disabled :disabled="!changed">Save</button>
+            {{ end }}
         </div>
     </form>
 

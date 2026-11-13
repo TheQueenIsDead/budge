@@ -51,8 +51,26 @@ func TestMakeAMemory(t *testing.T) {
 	p.settle()
 	p.eventually(p.is("#memory-title", "Road trip", p.value))
 
+	// Nothing changed yet, so nothing to save.
+	saveable := func() bool { return !eval[bool](p, `document.querySelector('form.b-memory button.btn-primary').disabled`) }
+	assert.False(t, saveable(), "Save waits for a change")
+	p.click("#memory-note")
+	p.typeText("Mostly petrol")
+	p.eventually(func() error {
+		if !saveable() {
+			return fmt.Errorf("Save is still greyed out after the note changed")
+		}
+		return nil
+	})
+
 	p.visit("/timeline?view=memories")
 	p.eventually(p.contains("#main", "Road trip"))
+	defer func() {
+		// The memory's header opens it.
+		p.click(".b-tl-open")
+		p.settle()
+		p.eventually(p.is("#memory-title", "Road trip", p.value))
+	}()
 	purchases := p.text(".b-tl-memory .b-tl-rows summary")
 	want := fmt.Sprintf("%d purchase", 1+min(nearby, 1))
 	assert.True(t, strings.HasPrefix(purchases, want), "%q, not %q", purchases, want)
