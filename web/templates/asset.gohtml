@@ -20,18 +20,14 @@
 
     <div class="row g-2 g-md-3 mb-3">
         <div class="col-12 col-md-4">
-            <div class="b-stat b-accent-slate">
-                <div class="b-stat-label"><span>Current Value</span><i class="bi bi-cash-stack"></i></div>
-                <div class="b-stat-value">{{ .Summary.Current | fmtCurrency }}</div>
-                <div class="b-delta-note">
-                    {{ if .Summary.Valued }}
-                        Valued {{ .Summary.LastDate.Format "2 Jan 2006" }}
-                    {{ else }}
-                        Still at the purchase price
-                    {{ end }}
-                </div>
-            </div>
+            {{ $valued := "Still at the purchase price" }}
+            {{ if .Summary.Valued }}{{ $valued = printf "Valued %s" (.Summary.LastDate.Format "2 Jan 2006") }}{{ end }}
+            {{ template "stat" (dict "Label" "Current Value" "Icon" "bi-cash-stack" "Accent" "slate"
+                "Value" (fmtCurrency .Summary.Current) "Note" $valued) }}
         </div>
+
+        {{/* What was paid stays written out: its edit popover is a form, which
+             a stat's dict cannot carry. */}}
 
         <div class="col-6 col-md-4">
             <div class="b-stat b-accent-clay">
@@ -68,24 +64,17 @@
         </div>
 
         <div class="col-6 col-md-4">
-            <div class="b-stat {{ if lt .Summary.Change 0.0 }}b-accent-brick{{ else }}b-accent-sage{{ end }}">
-                <div class="b-stat-label">
-                    <span>{{ if lt .Summary.Change 0.0 }}Loss{{ else }}Gain{{ end }}</span>
-                    <i class="bi bi-graph-up-arrow"></i>
-                </div>
-                <div class="b-stat-value {{ if lt .Summary.Change 0.0 }}text-danger{{ else if gt .Summary.Change 0.0 }}text-success{{ end }}">
-                    {{ .Summary.Change | fmtCurrencyAbs }}
-                </div>
-                <div>
-                    {{ if .Summary.Valued }}
-                        <span class="b-delta {{ if gt .Summary.Change 0.0 }}b-delta-good{{ else if lt .Summary.Change 0.0 }}b-delta-bad{{ else }}b-delta-flat{{ end }}">
-                            <i class="bi {{ if gt .Summary.Change 0.0 }}bi-arrow-up-short{{ else if lt .Summary.Change 0.0 }}bi-arrow-down-short{{ else }}bi-dash{{ end }}"></i>{{ .Summary.Delta | fmtPercent }}
-                        </span>
-                    {{ else }}
-                        <span class="b-delta b-delta-flat">No valuation yet</span>
-                    {{ end }}
-                </div>
-            </div>
+            {{ $lost := lt .Summary.Change 0.0 }}
+            {{ $tone := "" }}
+            {{ if $lost }}{{ $tone = "text-danger" }}{{ else if gt .Summary.Change 0.0 }}{{ $tone = "text-success" }}{{ end }}
+            {{ $change := dict "Note" "No valuation yet" }}
+            {{ if .Summary.Valued }}
+                {{ $change = dict "Value" .Summary.Change "Text" (fmtPercent .Summary.Delta) "UpIsGood" true
+                    "Title" (printf "%s against the %s paid" (fmtCurrency .Summary.Change) (fmtCurrency .Summary.Asset.PurchasePrice)) }}
+            {{ end }}
+            {{ template "stat" (dict "Label" (or (and $lost "Loss") "Gain") "Icon" "bi-graph-up-arrow"
+                "Accent" (or (and $lost "brick") "sage")
+                "Value" (fmtCurrencyAbs .Summary.Change) "Tone" $tone "Delta" $change) }}
         </div>
     </div>
 

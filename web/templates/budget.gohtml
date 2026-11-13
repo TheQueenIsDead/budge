@@ -287,19 +287,15 @@
 {{define "budget.cards"}}
 <div class="row g-2 g-md-3 mb-3">
     <div class="col-12 col-md-4">
-        <div class="b-stat b-accent-sage">
-            <div class="b-stat-label"><span>Net Income</span><i class="bi bi-wallet2"></i></div>
-            <div class="b-stat-value text-success">{{.NetWeekly | fmtCurrency}}</div>
-            <div class="b-delta-note">Take-home per week</div>
-        </div>
+        {{template "stat" (dict "Label" "Net Income" "Icon" "bi-wallet2" "Accent" "sage"
+            "Value" (fmtCurrency .NetWeekly) "Tone" "text-success" "Note" "Take-home per week")}}
     </div>
     <div class="col-6 col-md-4">
-        <div class="b-stat b-accent-brick">
-            <div class="b-stat-label"><span>Expenses</span><i class="bi bi-bullseye"></i></div>
-            <div class="b-stat-value text-danger">{{.TotalWeeklyExpenses | fmtCurrency}}</div>
-            <div class="b-delta-note">Budgeted targets</div>
-        </div>
+        {{template "stat" (dict "Label" "Expenses" "Icon" "bi-bullseye" "Accent" "brick"
+            "Value" (fmtCurrency .TotalWeeklyExpenses) "Tone" "text-danger" "Note" "Budgeted targets")}}
     </div>
+    {{/* Savings stays written out: its note marks a shortfall in red within
+         the sentence, which a stat's plain note cannot. */}}
     <div class="col-6 col-md-4">
         <div class="b-stat {{if .HasDeficit}}b-accent-brick{{else}}b-accent-slate{{end}}">
             <div class="b-stat-label">

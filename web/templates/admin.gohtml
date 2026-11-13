@@ -57,33 +57,20 @@
 
         <div class="row g-2 g-md-3 mb-3">
             <div class="col-6 col-lg-3">
-                <div class="b-stat b-accent-slate">
-                    <div class="b-stat-label"><span>Requests</span><i class="bi bi-arrow-left-right"></i></div>
-                    <div class="b-stat-value">{{ .Requests }}</div>
-                    <span class="b-delta {{ if gt .ErrorRate 0.0 }}b-delta-bad{{ else }}b-delta-flat{{ end }}">
-                        {{ .ErrorRate | fmtPercent }} failed</span>
-                </div>
+                {{ template "stat" (dict "Label" "Requests" "Icon" "bi-arrow-left-right" "Accent" "slate" "Value" .Requests
+                    "Delta" (dict "Note" (printf "%s failed" (fmtPercent .ErrorRate)) "Tone" (or (and (gt .ErrorRate 0.0) "bad") "flat"))) }}
             </div>
             <div class="col-6 col-lg-3">
-                <div class="b-stat b-accent-plum">
-                    <div class="b-stat-label"><span>Queries</span><i class="bi bi-database"></i></div>
-                    <div class="b-stat-value">{{ .Queries }}</div>
-                    <span class="b-delta b-delta-flat">{{ .QueryTime | fmtDuration }} in all</span>
-                </div>
+                {{ template "stat" (dict "Label" "Queries" "Icon" "bi-database" "Accent" "plum" "Value" .Queries
+                    "Delta" (dict "Note" (printf "%s in all" (fmtDuration .QueryTime)))) }}
             </div>
             <div class="col-6 col-lg-3">
-                <div class="b-stat b-accent-sage">
-                    <div class="b-stat-label"><span>Memory</span><i class="bi bi-memory"></i></div>
-                    <div class="b-stat-value">{{ .Memory | fmtBytes }}</div>
-                    <span class="b-delta b-delta-flat">{{ printf "%.0f" .Goroutines }} goroutines</span>
-                </div>
+                {{ template "stat" (dict "Label" "Memory" "Icon" "bi-memory" "Accent" "sage" "Value" (fmtBytes .Memory)
+                    "Delta" (dict "Note" (printf "%.0f goroutines" .Goroutines))) }}
             </div>
             <div class="col-6 col-lg-3">
-                <div class="b-stat b-accent-brick">
-                    <div class="b-stat-label"><span>Errors kept</span><i class="bi bi-exclamation-triangle"></i></div>
-                    <div class="b-stat-value">{{ .Errors }}</div>
-                    <span class="b-delta b-delta-flat">CPU {{ printf "%.1f" .CPU }}%</span>
-                </div>
+                {{ template "stat" (dict "Label" "Errors kept" "Icon" "bi-exclamation-triangle" "Accent" "brick" "Value" .Errors
+                    "Delta" (dict "Note" (printf "CPU %.1f%%" .CPU))) }}
             </div>
         </div>
 

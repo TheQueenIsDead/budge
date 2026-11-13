@@ -64,44 +64,34 @@
 
         {{ if .HasData }}
         <div class="row g-2 g-md-3">
+            {{ with .Statistics }}
+            {{ $net := "" }}
+            {{ if gt .NetChange 0.0 }}{{ $net = "text-success" }}{{ else if lt .NetChange 0.0 }}{{ $net = "text-danger" }}{{ end }}
             <div class="col-6 col-lg-4">
-                <div class="b-stat b-accent-sage">
-                    <div class="b-stat-label"><span>Total Inflow</span><i class="bi bi-arrow-down-left"></i></div>
-                    <div class="b-stat-value text-success">{{ .Statistics.TotalInflow | fmtCurrency }}</div>
-                </div>
+                {{ template "stat" (dict "Label" "Total Inflow" "Icon" "bi-arrow-down-left" "Accent" "sage"
+                    "Value" (fmtCurrency .TotalInflow) "Tone" "text-success") }}
             </div>
             <div class="col-6 col-lg-4">
-                <div class="b-stat b-accent-brick">
-                    <div class="b-stat-label"><span>Total Outflow</span><i class="bi bi-arrow-up-right"></i></div>
-                    <div class="b-stat-value text-danger">{{ .Statistics.TotalOutflow | fmtCurrencyAbs }}</div>
-                </div>
+                {{ template "stat" (dict "Label" "Total Outflow" "Icon" "bi-arrow-up-right" "Accent" "brick"
+                    "Value" (fmtCurrencyAbs .TotalOutflow) "Tone" "text-danger") }}
             </div>
             <div class="col-6 col-lg-4">
-                <div class="b-stat b-accent-slate">
-                    <div class="b-stat-label"><span>Net Change</span><i class="bi bi-arrow-left-right"></i></div>
-                    <div class="b-stat-value {{ if gt .Statistics.NetChange 0.0 }}text-success{{ else if lt .Statistics.NetChange 0.0 }}text-danger{{ end }}">
-                        {{ .Statistics.NetChange | fmtCurrency }}
-                    </div>
-                </div>
+                {{ template "stat" (dict "Label" "Net Change" "Icon" "bi-arrow-left-right" "Accent" "slate"
+                    "Value" (fmtCurrency .NetChange) "Tone" $net) }}
             </div>
             <div class="col-6 col-lg-4">
-                <div class="b-stat b-accent-slate">
-                    <div class="b-stat-label"><span>Highest Balance</span><i class="bi bi-graph-up"></i></div>
-                    <div class="b-stat-value">{{ .Statistics.HighestBalance | fmtCurrency }}</div>
-                </div>
+                {{ template "stat" (dict "Label" "Highest Balance" "Icon" "bi-graph-up" "Accent" "slate"
+                    "Value" (fmtCurrency .HighestBalance)) }}
             </div>
             <div class="col-6 col-lg-4">
-                <div class="b-stat b-accent-slate">
-                    <div class="b-stat-label"><span>Lowest Balance</span><i class="bi bi-graph-down"></i></div>
-                    <div class="b-stat-value">{{ .Statistics.LowestBalance | fmtCurrency }}</div>
-                </div>
+                {{ template "stat" (dict "Label" "Lowest Balance" "Icon" "bi-graph-down" "Accent" "slate"
+                    "Value" (fmtCurrency .LowestBalance)) }}
             </div>
             <div class="col-6 col-lg-4">
-                <div class="b-stat b-accent-slate">
-                    <div class="b-stat-label"><span>Average Balance</span><i class="bi bi-dash-lg"></i></div>
-                    <div class="b-stat-value">{{ .Statistics.AverageBalance | fmtCurrency }}</div>
-                </div>
+                {{ template "stat" (dict "Label" "Average Balance" "Icon" "bi-dash-lg" "Accent" "slate"
+                    "Value" (fmtCurrency .AverageBalance)) }}
             </div>
+            {{ end }}
         </div>
         {{ end }}
     </div>

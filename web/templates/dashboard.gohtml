@@ -29,24 +29,12 @@
 
                         <div class="mt-1">
                             {{ if .HasHeadlineDelta }}
-                                {{ if gt .HeadlineDelta 0.0 }}
-                                    <span class="b-delta b-delta-bad">
-                                        <i class="bi bi-arrow-up-short"></i>{{ .HeadlineDelta | fmtPercent }}
-                                    </span>
-                                {{ else if lt .HeadlineDelta 0.0 }}
-                                    <span class="b-delta b-delta-good">
-                                        <i class="bi bi-arrow-down-short"></i>{{ .HeadlineDelta | fmtPercent }}
-                                    </span>
-                                {{ else }}
-                                    <span class="b-delta b-delta-flat">
-                                        <i class="bi bi-dash"></i>Level
-                                    </span>
-                                {{ end }}
+                                {{ template "delta" (dict "Value" .HeadlineDelta "Title" (printf "Previously %s" (fmtCurrency .HeadlinePrevious))) }}
                                 <div class="b-delta-note mt-1 d-none d-sm-block">
                                     vs {{ .HeadlinePrevious | fmtCurrency }} {{ .HeadlineNote }}
                                 </div>
                             {{ else }}
-                                <span class="b-delta b-delta-flat">No history</span>
+                                {{ template "delta" (dict "Note" "No history") }}
                             {{ end }}
                         </div>
 
@@ -66,59 +54,24 @@
     <!-- Headline metrics -->
     <div class="row g-2 g-md-3 mb-3">
         <div class="col-6 col-lg-3">
-            <div class="b-stat b-accent-slate">
-                <div class="b-stat-label"><span>Total Balance</span><i class="bi bi-bank2"></i></div>
-                <div class="b-stat-value">{{ .BalanceCard.Total | fmtCurrency }}</div>
-                <div>
-                    <span class="b-delta {{ if gt .BalanceCard.Delta 0.0 }}b-delta-good{{ else if lt .BalanceCard.Delta 0.0 }}b-delta-bad{{ else }}b-delta-flat{{ end }}"
-                          data-bs-toggle="tooltip" data-bs-placement="top"
-                          title="Previously {{ .BalanceCard.PreviousTotal | fmtCurrency }}">
-                        <i class="bi {{ if gt .BalanceCard.Delta 0.0 }}bi-arrow-up-short{{ else if lt .BalanceCard.Delta 0.0 }}bi-arrow-down-short{{ else }}bi-dash{{ end }}"></i>{{ .BalanceCard.Delta | fmtPercent }}
-                    </span>
-                </div>
-            </div>
+            {{ template "stat" (dict "Label" "Total Balance" "Icon" "bi-bank2" "Accent" "slate"
+                "Value" (fmtCurrency .BalanceCard.Total)
+                "Delta" (dict "Value" .BalanceCard.Delta "UpIsGood" true "Title" (printf "Previously %s" (fmtCurrency .BalanceCard.PreviousTotal)))) }}
         </div>
-
         <div class="col-6 col-lg-3">
-            <div class="b-stat b-accent-brick">
-                <div class="b-stat-label"><span>Spending</span><i class="bi bi-graph-down"></i></div>
-                <div class="b-stat-value">{{ .SpendCard.Total | fmtCurrencyAbs }}</div>
-                <div>
-                    <span class="b-delta {{ if gt .SpendCard.Delta 0.0 }}b-delta-bad{{ else if lt .SpendCard.Delta 0.0 }}b-delta-good{{ else }}b-delta-flat{{ end }}"
-                          data-bs-toggle="tooltip" data-bs-placement="top"
-                          title="Previously {{ .SpendCard.PreviousTotal | fmtCurrencyAbs }}">
-                        <i class="bi {{ if gt .SpendCard.Delta 0.0 }}bi-arrow-up-short{{ else if lt .SpendCard.Delta 0.0 }}bi-arrow-down-short{{ else }}bi-dash{{ end }}"></i>{{ .SpendCard.Delta | fmtPercent }}
-                    </span>
-                </div>
-            </div>
+            {{ template "stat" (dict "Label" "Spending" "Icon" "bi-graph-down" "Accent" "brick"
+                "Value" (fmtCurrencyAbs .SpendCard.Total)
+                "Delta" (dict "Value" .SpendCard.Delta "Title" (printf "Previously %s" (fmtCurrencyAbs .SpendCard.PreviousTotal)))) }}
         </div>
-
         <div class="col-6 col-lg-3">
-            <div class="b-stat b-accent-sage">
-                <div class="b-stat-label"><span>Income</span><i class="bi bi-graph-up"></i></div>
-                <div class="b-stat-value">{{ .IncomeCard.Total | fmtCurrency }}</div>
-                <div>
-                    <span class="b-delta {{ if gt .IncomeCard.Delta 0.0 }}b-delta-good{{ else if lt .IncomeCard.Delta 0.0 }}b-delta-bad{{ else }}b-delta-flat{{ end }}"
-                          data-bs-toggle="tooltip" data-bs-placement="top"
-                          title="Previously {{ .IncomeCard.PreviousTotal | fmtCurrency }}">
-                        <i class="bi {{ if gt .IncomeCard.Delta 0.0 }}bi-arrow-up-short{{ else if lt .IncomeCard.Delta 0.0 }}bi-arrow-down-short{{ else }}bi-dash{{ end }}"></i>{{ .IncomeCard.Delta | fmtPercent }}
-                    </span>
-                </div>
-            </div>
+            {{ template "stat" (dict "Label" "Income" "Icon" "bi-graph-up" "Accent" "sage"
+                "Value" (fmtCurrency .IncomeCard.Total)
+                "Delta" (dict "Value" .IncomeCard.Delta "UpIsGood" true "Title" (printf "Previously %s" (fmtCurrency .IncomeCard.PreviousTotal)))) }}
         </div>
-
         <div class="col-6 col-lg-3">
-            <div class="b-stat b-accent-slate">
-                <div class="b-stat-label"><span>Savings</span><i class="bi bi-piggy-bank"></i></div>
-                <div class="b-stat-value {{ if lt .SavingsCard.Total 0.0 }}text-danger{{ end }}">{{ .SavingsCard.Total | fmtCurrency }}</div>
-                <div>
-                    <span class="b-delta {{ if gt .SavingsCard.Delta 0.0 }}b-delta-good{{ else if lt .SavingsCard.Delta 0.0 }}b-delta-bad{{ else }}b-delta-flat{{ end }}"
-                          data-bs-toggle="tooltip" data-bs-placement="top"
-                          title="Previously {{ .SavingsCard.PreviousTotal | fmtCurrency }}">
-                        <i class="bi {{ if gt .SavingsCard.Delta 0.0 }}bi-arrow-up-short{{ else if lt .SavingsCard.Delta 0.0 }}bi-arrow-down-short{{ else }}bi-dash{{ end }}"></i>{{ .SavingsCard.Delta | fmtPercent }}
-                    </span>
-                </div>
-            </div>
+            {{ template "stat" (dict "Label" "Savings" "Icon" "bi-piggy-bank" "Accent" "slate"
+                "Value" (fmtCurrency .SavingsCard.Total) "Tone" (and (lt .SavingsCard.Total 0.0) "text-danger")
+                "Delta" (dict "Value" .SavingsCard.Delta "UpIsGood" true "Title" (printf "Previously %s" (fmtCurrency .SavingsCard.PreviousTotal)))) }}
         </div>
     </div>
 

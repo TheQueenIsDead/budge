@@ -16,40 +16,28 @@
         <!-- Portfolio position -->
         <div class="row g-2 g-md-3 mb-3">
             <div class="col-12 col-md-4">
-                <div class="b-stat b-accent-slate">
-                    <div class="b-stat-label"><span>Net Worth</span><i class="bi bi-bank2"></i></div>
-                    <div class="b-stat-value {{ if lt .Portfolio.NetWorth 0.0 }}text-danger{{ end }}">
-                        {{ .Portfolio.NetWorth | fmtCurrency }}
-                    </div>
-                    <div class="b-delta-note">
-                        Across {{ .Portfolio.Accounts }} account{{ if ne .Portfolio.Accounts 1 }}s{{ end }}{{ if gt .Portfolio.AssetCount 0 }}
-                            and {{ .Portfolio.AssetCount }} asset{{ if ne .Portfolio.AssetCount 1 }}s{{ end }}{{ end }}
-                    </div>
-                </div>
+                {{ $across := printf "Across %d account" .Portfolio.Accounts }}
+                {{ if ne .Portfolio.Accounts 1 }}{{ $across = printf "%ss" $across }}{{ end }}
+                {{ if gt .Portfolio.AssetCount 0 }}
+                    {{ $across = printf "%s and %d asset" $across .Portfolio.AssetCount }}
+                    {{ if ne .Portfolio.AssetCount 1 }}{{ $across = printf "%ss" $across }}{{ end }}
+                {{ end }}
+                {{ template "stat" (dict "Label" "Net Worth" "Icon" "bi-bank2" "Accent" "slate"
+                    "Value" (fmtCurrency .Portfolio.NetWorth) "Tone" (and (lt .Portfolio.NetWorth 0.0) "text-danger")
+                    "Note" $across) }}
             </div>
 
             <div class="col-6 col-md-4">
-                <div class="b-stat b-accent-sage">
-                    <div class="b-stat-label"><span>Assets</span><i class="bi bi-graph-up"></i></div>
-                    <div class="b-stat-value text-success">{{ .Portfolio.Assets | fmtCurrency }}</div>
-                    <div class="b-delta-note">
-                        {{ if gt .Portfolio.Property 0.0 }}
-                            Includes {{ .Portfolio.Property | fmtCurrency }} of assets
-                        {{ else }}
-                            What you hold
-                        {{ end }}
-                    </div>
-                </div>
+                {{ $held := "What you hold" }}
+                {{ if gt .Portfolio.Property 0.0 }}{{ $held = printf "Includes %s of assets" (fmtCurrency .Portfolio.Property) }}{{ end }}
+                {{ template "stat" (dict "Label" "Assets" "Icon" "bi-graph-up" "Accent" "sage"
+                    "Value" (fmtCurrency .Portfolio.Assets) "Tone" "text-success" "Note" $held) }}
             </div>
 
             <div class="col-6 col-md-4">
-                <div class="b-stat b-accent-brick">
-                    <div class="b-stat-label"><span>Liabilities</span><i class="bi bi-graph-down"></i></div>
-                    <div class="b-stat-value {{ if lt .Portfolio.Liabilities 0.0 }}text-danger{{ end }}">
-                        {{ .Portfolio.Liabilities | fmtCurrency }}
-                    </div>
-                    <div class="b-delta-note">What you owe</div>
-                </div>
+                {{ template "stat" (dict "Label" "Liabilities" "Icon" "bi-graph-down" "Accent" "brick"
+                    "Value" (fmtCurrency .Portfolio.Liabilities) "Tone" (and (lt .Portfolio.Liabilities 0.0) "text-danger")
+                    "Note" "What you owe") }}
             </div>
         </div>
 
@@ -95,13 +83,10 @@
                                 <div class="b-acct-figures">
                                     <div class="b-acct-balance">{{ .Current | fmtCurrency }}</div>
                                     {{ if .Valued }}
-                                        <span class="b-delta {{ if gt .Change 0.0 }}b-delta-good{{ else if lt .Change 0.0 }}b-delta-bad{{ else }}b-delta-flat{{ end }}"
-                                              data-bs-toggle="tooltip" data-bs-placement="left"
-                                              title="{{ .Change | fmtCurrency }} against the {{ .Asset.PurchasePrice | fmtCurrency }} paid">
-                                            <i class="bi {{ if gt .Change 0.0 }}bi-arrow-up-short{{ else if lt .Change 0.0 }}bi-arrow-down-short{{ else }}bi-dash{{ end }}"></i>{{ .Delta | fmtPercent }}
-                                        </span>
+                                        {{ template "delta" (dict "Value" .Change "Text" (fmtPercent .Delta) "UpIsGood" true "Placement" "left"
+                                            "Title" (printf "%s against the %s paid" (fmtCurrency .Change) (fmtCurrency .Asset.PurchasePrice))) }}
                                     {{ else }}
-                                        <span class="b-delta b-delta-flat">At cost</span>
+                                        {{ template "delta" (dict "Note" "At cost") }}
                                     {{ end }}
                                 </div>
 
@@ -188,15 +173,14 @@
                                         {{ .Account.Balance.Current | fmtCurrency }}
                                     </div>
                                     {{ if .HasHistory }}
-                                        <span class="b-delta {{ if gt .Change 0.0 }}b-delta-good{{ else if lt .Change 0.0 }}b-delta-bad{{ else }}b-delta-flat{{ end }}"
-                                              data-bs-toggle="tooltip" data-bs-placement="left"
-                                              title="{{ .Change | fmtCurrency }} over the last 30 days, from {{ .PreviousBalance | fmtCurrency }}">
-                                            {{/* Starting from nothing, there is no percentage to give, so the
-                                                 movement is shown in dollars. */}}
-                                            <i class="bi {{ if gt .Change 0.0 }}bi-arrow-up-short{{ else if lt .Change 0.0 }}bi-arrow-down-short{{ else }}bi-dash{{ end }}"></i>{{ if eq .PreviousBalance 0.0 }}{{ .Change | fmtCurrencyAbs }}{{ else }}{{ .Delta | fmtPercent }}{{ end }}
-                                        </span>
+                                        {{/* Starting from nothing, there is no percentage to give, so the
+                                             movement is shown in dollars. */}}
+                                        {{ $moved := fmtPercent .Delta }}
+                                        {{ if eq .PreviousBalance 0.0 }}{{ $moved = fmtCurrencyAbs .Change }}{{ end }}
+                                        {{ template "delta" (dict "Value" .Change "Text" $moved "UpIsGood" true "Placement" "left"
+                                            "Title" (printf "%s over the last 30 days, from %s" (fmtCurrency .Change) (fmtCurrency .PreviousBalance))) }}
                                     {{ else }}
-                                        <span class="b-delta b-delta-flat">No activity</span>
+                                        {{ template "delta" (dict "Note" "No activity") }}
                                     {{ end }}
                                 </div>
 

@@ -1,0 +1,65 @@
+{{/* Components: pieces of markup that appear on more than one page, each
+     drawn here once so every copy looks and behaves the same. html/template
+     has no slots, so each takes a dict of plain values, built with dict at
+     the call, and a part that needs markup of its own stays with its page. */}}
+
+{{/* A change against a previous figure, as a pill: an arrow and the change,
+     green when it went the good way and red when it did not. Whether up is
+     good is the caller's to say, as more spending is bad and more savings is
+     not. Exactly level reads "Level" rather than as a nought with an arrow.
+
+     Value     float64, the change; its sign is the direction.
+     Text      what to show for it; the Value as a percentage when empty.
+     UpIsGood  true when a rise is good news.
+     Title     a tooltip naming what it is against, such as "Previously $40".
+     Placement where the tooltip opens: top unless given.
+
+     A pill that is not a change, such as "No history", takes Note in place
+     of Value, with an optional Icon and a Tone of good, bad or flat (the
+     default). */}}
+{{ define "delta" }}
+{{- if .Note -}}
+<span class="b-delta b-delta-{{ or .Tone "flat" }}"{{ with .Title }} data-bs-toggle="tooltip" data-bs-placement="{{ or $.Placement "top" }}" title="{{ . }}"{{ end }}>
+    {{- with .Icon }}<i class="bi {{ . }}" aria-hidden="true"></i>{{ end }}{{ .Note -}}
+</span>
+{{- else -}}
+{{- $up := gt .Value 0.0 -}}
+{{- $down := lt .Value 0.0 -}}
+{{- $tone := "flat" -}}
+{{- if or (and $up .UpIsGood) (and $down (not .UpIsGood)) }}{{ $tone = "good" }}{{ else if or $up $down }}{{ $tone = "bad" }}{{ end -}}
+<span class="b-delta b-delta-{{ $tone }}"{{ with .Title }} data-bs-toggle="tooltip" data-bs-placement="{{ or $.Placement "top" }}" title="{{ . }}"{{ end }}>
+    {{- if $up }}<i class="bi bi-arrow-up-short" aria-hidden="true"></i>{{ or .Text (.Value | fmtPercent) }}
+    {{- else if $down }}<i class="bi bi-arrow-down-short" aria-hidden="true"></i>{{ or .Text (.Value | fmtPercent) }}
+    {{- else }}<i class="bi bi-dash" aria-hidden="true"></i>Level{{ end -}}
+</span>
+{{- end -}}
+{{ end }}
+
+{{/* A stat tile: a capitalised label, one big figure, and a line under it,
+     either a note or a delta pill. One that opens something is a link, and
+     lifts as a card that opens does.
+
+     Label     what the figure is.
+     Icon      an icon beside the label, in the tile's accent.
+     Accent    the tile's colour, such as sage.
+     Value     the figure, already formatted.
+     Tone      a class for the figure, such as text-danger.
+     Note      the line under it, as text.
+     Truncate  true to cut the note to one line, for a name that may run long.
+     Delta     a dict for the delta pill under it, in place of a note.
+     Href      where the tile leads, with LinkTitle saying what is there. */}}
+{{ define "stat" }}
+{{- if .Href }}
+<a class="b-stat b-card-interactive{{ with .Accent }} b-accent-{{ . }}{{ end }}" href="{{ .Href }}" hx-boost="false"{{ with .LinkTitle }} title="{{ . }}"{{ end }}>
+{{- else }}
+<div class="b-stat{{ with .Accent }} b-accent-{{ . }}{{ end }}">
+{{- end }}
+    <div class="b-stat-label"><span>{{ .Label }}</span>{{ with .Icon }}<i class="bi {{ . }}" aria-hidden="true"></i>{{ end }}</div>
+    <div class="b-stat-value{{ with .Tone }} {{ . }}{{ end }}">{{ .Value }}</div>
+    {{- with .Delta }}
+    <div>{{ template "delta" . }}</div>
+    {{- else with .Note }}
+    <div class="b-delta-note{{ if $.Truncate }} text-truncate{{ end }}">{{ . }}</div>
+    {{- end }}
+{{ if .Href }}</a>{{ else }}</div>{{ end }}
+{{- end }}

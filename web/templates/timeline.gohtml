@@ -18,30 +18,21 @@
 
     <div class="row g-2 mb-3">
         <div class="col-4">
-            <div class="b-stat b-accent-sage">
-                <div class="b-stat-label"><span>Memories</span><i class="bi bi-bookmark-star"></i></div>
-                <div class="b-stat-value">{{ len .Memories }}</div>
-                <div class="b-delta-note">{{ fmtLower .Period.Label }}</div>
-            </div>
+            {{ template "stat" (dict "Label" "Memories" "Icon" "bi-bookmark-star" "Accent" "sage"
+                "Value" (len .Memories) "Note" (fmtLower .Period.Label)) }}
         </div>
         <div class="col-4">
-            <div class="b-stat b-accent-clay">
-                <div class="b-stat-label"><span>Spent on them</span><i class="bi bi-piggy-bank"></i></div>
-                <div class="b-stat-value">{{ .MemoryTotal | fmtCurrency }}</div>
-                <div class="b-delta-note">across every memory</div>
-            </div>
+            {{ template "stat" (dict "Label" "Spent on them" "Icon" "bi-piggy-bank" "Accent" "clay"
+                "Value" (fmtCurrency .MemoryTotal) "Note" "across every memory") }}
         </div>
         <div class="col-4">
-            <div class="b-stat b-accent-plum">
-                <div class="b-stat-label"><span>Biggest</span><i class="bi bi-stars"></i></div>
-                {{ with .Biggest }}
-                    <div class="b-stat-value">{{ .Total | fmtCurrency }}</div>
-                    <div class="b-delta-note text-truncate">{{ .Title }}</div>
-                {{ else }}
-                    <div class="b-stat-value">&mdash;</div>
-                    <div class="b-delta-note">nothing yet</div>
-                {{ end }}
-            </div>
+            {{ with .Biggest }}
+                {{ template "stat" (dict "Label" "Biggest" "Icon" "bi-stars" "Accent" "plum"
+                    "Value" (fmtCurrency .Total) "Note" .Title "Truncate" true) }}
+            {{ else }}
+                {{ template "stat" (dict "Label" "Biggest" "Icon" "bi-stars" "Accent" "plum"
+                    "Value" "—" "Note" "nothing yet") }}
+            {{ end }}
         </div>
     </div>
 

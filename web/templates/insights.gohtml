@@ -50,42 +50,26 @@
                 <div class="row g-2 mb-3">
                     <!-- This period and the last open the transactions behind
                          them, as the bars do. -->
+                    {{/* The pill under last period's figure is this period against it,
+                         so far, which is why it waits while this period is empty. */}}
+                    {{ $change := dict "Note" "No history" }}
+                    {{ if .Summary.Awaiting }}
+                        {{ $change = dict "Note" .Summary.AwaitingLabel "Icon" "bi-hourglass" }}
+                    {{ else if .Summary.HasPrevious }}
+                        {{ $change = dict "Value" .Summary.Delta "Title" (printf "This %s so far, against the last" .Cadence.Label) }}
+                    {{ end }}
                     <div class="col-4">
-                        <a class="b-stat d-block text-reset text-decoration-none" href="{{ .CurrentLink }}"
-                           hx-boost="false" title="See these transactions">
-                            <div class="b-stat-label"><span>This {{ .Cadence.Label }}</span></div>
-                            <div class="b-stat-value">{{ .Summary.Current | fmtCurrency }}</div>
-                            <div class="b-delta-note">{{ if .Summary.Awaiting }}nothing yet{{ else }}so far{{ end }}</div>
-                        </a>
+                        {{ template "stat" (dict "Label" (printf "This %s" .Cadence.Label) "Value" (fmtCurrency .Summary.Current)
+                            "Note" (or (and .Summary.Awaiting "nothing yet") "so far")
+                            "Href" .CurrentLink "LinkTitle" "See these transactions") }}
                     </div>
                     <div class="col-4">
-                        <a class="b-stat d-block text-reset text-decoration-none" href="{{ .PreviousLink }}"
-                           hx-boost="false" title="See these transactions">
-                            <div class="b-stat-label"><span>Last {{ .Cadence.Label }}</span></div>
-                            <div class="b-stat-value">{{ .Summary.Previous | fmtCurrency }}</div>
-                            <div>
-                                {{ if .Summary.Awaiting }}
-                                    <span class="b-delta b-delta-flat"><i class="bi bi-hourglass"></i>{{ .Summary.AwaitingLabel }}</span>
-                                {{ else if .Summary.HasPrevious }}
-                                    {{ if gt .Summary.Delta 0.0 }}
-                                        <span class="b-delta b-delta-bad"><i class="bi bi-arrow-up-short"></i>{{ .Summary.Delta | fmtPercent }}</span>
-                                    {{ else if lt .Summary.Delta 0.0 }}
-                                        <span class="b-delta b-delta-good"><i class="bi bi-arrow-down-short"></i>{{ .Summary.Delta | fmtPercent }}</span>
-                                    {{ else }}
-                                        <span class="b-delta b-delta-flat"><i class="bi bi-dash"></i>Level</span>
-                                    {{ end }}
-                                {{ else }}
-                                    <span class="b-delta b-delta-flat">No history</span>
-                                {{ end }}
-                            </div>
-                        </a>
+                        {{ template "stat" (dict "Label" (printf "Last %s" .Cadence.Label) "Value" (fmtCurrency .Summary.Previous)
+                            "Delta" $change "Href" .PreviousLink "LinkTitle" "See these transactions") }}
                     </div>
                     <div class="col-4">
-                        <div class="b-stat">
-                            <div class="b-stat-label"><span>Typical</span></div>
-                            <div class="b-stat-value">{{ .Summary.Average | fmtCurrency }}</div>
-                            <div class="b-delta-note">per {{ .Cadence.Label }}</div>
-                        </div>
+                        {{ template "stat" (dict "Label" "Typical" "Value" (fmtCurrency .Summary.Average)
+                            "Note" (printf "per %s" .Cadence.Label)) }}
                     </div>
                 </div>
 
