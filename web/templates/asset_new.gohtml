@@ -55,25 +55,18 @@
                         </div>
 
                         <div class="col-12 col-md-6">
-                            <label class="b-field-label" for="asset-price">Purchase price</label>
-                            <div class="input-group">
-                                <span class="input-group-text">$</span>
-                                <input id="asset-price" name="purchase_price" type="number"
-                                       class="form-control" min="0.01" step="0.01"
-                                       placeholder="0.00" required>
-                            </div>
+                            {{ template "moneyInput" (dict "ID" "asset-price" "Label" "Purchase price" "Name" "purchase_price"
+                                "Min" "0.01" "Required" true) }}
                         </div>
 
                         <div class="col-12 col-md-6">
-                            <label class="b-field-label" for="asset-date">Purchase date</label>
-                            <input id="asset-date" name="purchase_date" type="date" class="form-control"
-                                   value="{{ $.Today }}" required>
+                            {{ template "field" (dict "ID" "asset-date" "Label" "Purchase date" "Name" "purchase_date" "Type" "date"
+                                "Value" $.Today "Required" true) }}
                         </div>
 
                         <div class="col-12">
-                            <label class="b-field-label" for="asset-description">{{ .DetailLabel }} <span class="fw-normal text-lowercase">(optional)</span></label>
-                            <input id="asset-description" name="description" type="text" class="form-control"
-                                   placeholder="{{ .DetailPlaceholder }}">
+                            {{ template "field" (dict "ID" "asset-description" "Label" .DetailLabel "Optional" true
+                                "Name" "description" "Placeholder" .DetailPlaceholder) }}
                         </div>
 
                         <div class="col-12 b-actions mt-2">

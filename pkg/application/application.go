@@ -118,6 +118,12 @@ func templateFuncs() template.FuncMap {
 			}
 			return values
 		},
+		// list builds a slice of its arguments, so a template can hand a
+		// component a list written out where it is used, such as a select's
+		// options or a segmented control's links.
+		"list": func(items ...interface{}) []interface{} {
+			return items
+		},
 		// toJSON encodes a value for an hx-vals attribute. Writing the JSON out
 		// by hand in the markup breaks on the first merchant with a quote in
 		// its name.

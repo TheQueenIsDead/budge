@@ -305,10 +305,8 @@
                             <form hx-post="/settings/rules" hx-target="#categories" hx-swap="morph" class="row g-2 align-items-end"
                                   key="add-rule-{{ .Key }}" hx-on::after-request="if (event.detail.successful) this.reset()">
                                 <div class="col-12 col-md-5">
-                                    <label class="b-field-label" for="rule-contains-{{ .Key }}">Description or merchant contains</label>
-                                    <input class="form-control form-control-sm" id="rule-contains-{{ .Key }}" name="contains"
-                                           list="rule-suggestions" autocomplete="off"
-                                           placeholder="e.g. LOAN INTEREST" required>
+                                    {{ template "field" (dict "ID" (printf "rule-contains-%s" .Key) "Label" "Description or merchant contains"
+                                        "Name" "contains" "Size" "sm" "List" "rule-suggestions" "Placeholder" "e.g. LOAN INTEREST" "Required" true) }}
                                 </div>
                                 <div class="col-6 col-md-3">
                                     <label class="b-field-label" for="rule-type-{{ .Key }}">Type</label>
@@ -319,10 +317,8 @@
                                 </div>
                                 <div class="col-6 col-md-4">
                                     {{ if gt (len .Options) 1 }}
-                                        <label class="b-field-label" for="rule-category-{{ .Key }}">File under</label>
-                                        <select class="form-select form-select-sm" id="rule-category-{{ .Key }}" name="category">
-                                            {{ range .Options }}<option value="{{ .Key }}">{{ .Label }}</option>{{ end }}
-                                        </select>
+                                        {{ template "select" (dict "ID" (printf "rule-category-%s" .Key) "Label" "File under"
+                                            "Name" "category" "Size" "sm" "Options" .Options) }}
                                     {{ else }}
                                         {{/* One place to file: the category, or its only
                                              subcategory, said rather than picked. */}}
@@ -334,20 +330,12 @@
                                 {{/* For payments the text cannot tell apart, such as two
                                      policies paid to the same insurer. */}}
                                 <div class="col-6 col-md-3">
-                                    <label class="b-field-label" for="rule-atleast-{{ .Key }}">Amount at least</label>
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text">$</span>
-                                        <input class="form-control" type="number" id="rule-atleast-{{ .Key }}" name="at_least"
-                                               min="0" step="0.01" inputmode="decimal" placeholder="Any">
-                                    </div>
+                                    {{ template "moneyInput" (dict "ID" (printf "rule-atleast-%s" .Key) "Label" "Amount at least"
+                                        "Name" "at_least" "Size" "sm" "Placeholder" "Any") }}
                                 </div>
                                 <div class="col-6 col-md-3">
-                                    <label class="b-field-label" for="rule-atmost-{{ .Key }}">Amount at most</label>
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text">$</span>
-                                        <input class="form-control" type="number" id="rule-atmost-{{ .Key }}" name="at_most"
-                                               min="0" step="0.01" inputmode="decimal" placeholder="Any">
-                                    </div>
+                                    {{ template "moneyInput" (dict "ID" (printf "rule-atmost-%s" .Key) "Label" "Amount at most"
+                                        "Name" "at_most" "Size" "sm" "Placeholder" "Any") }}
                                 </div>
                                 {{/* Re-rendered with the card, so its "from:" listeners always
                                      bind to the current inputs. hx-target is set here because it
@@ -571,13 +559,8 @@
                     </div>
                     <p class="b-card-sub mb-2">Pull balances and transactions from Akahu.</p>
 
-                    <label class="b-field-label" for="akahu-interval">How often</label>
-                    <select class="form-select form-select-sm" id="akahu-interval" name="akahu_interval">
-                        {{ $current := .Settings.AkahuEvery.Key }}
-                        {{ range .AkahuIntervals }}
-                            <option value="{{ .Key }}" {{ if eq .Key $current }}selected{{ end }}>{{ .Label }}</option>
-                        {{ end }}
-                    </select>
+                    {{ template "select" (dict "ID" "akahu-interval" "Label" "How often" "Name" "akahu_interval" "Size" "sm"
+                        "Options" .AkahuIntervals "Selected" .Settings.AkahuEvery.Key) }}
 
                     <div class="b-delta-note mt-2">
                         {{ if not .Settings.AkahuEnabled }}
@@ -606,13 +589,8 @@
                         Re-fetch every asset that has a valuation source, and report the ones that moved.
                     </p>
 
-                    <label class="b-field-label" for="assets-interval">How often</label>
-                    <select class="form-select form-select-sm" id="assets-interval" name="assets_interval">
-                        {{ $current := .Settings.AssetsEvery.Key }}
-                        {{ range .AssetIntervals }}
-                            <option value="{{ .Key }}" {{ if eq .Key $current }}selected{{ end }}>{{ .Label }}</option>
-                        {{ end }}
-                    </select>
+                    {{ template "select" (dict "ID" "assets-interval" "Label" "How often" "Name" "assets_interval" "Size" "sm"
+                        "Options" .AssetIntervals "Selected" .Settings.AssetsEvery.Key) }}
 
                     <div class="b-delta-note mt-2">
                         {{ if not .Settings.AssetsEnabled }}

@@ -84,33 +84,21 @@
         </div>
         <div class="row g-3 align-items-end">
             <div class="col-12 col-md-5">
-                <label class="form-label fw-semibold" for="salaryAmount">Salary</label>
-                <div class="input-group">
-                    <span class="input-group-text">$</span>
-                    <input type="number" name="salary" id="salaryAmount" class="form-control"
-                           placeholder="0.00" min="0" step="0.01"
-                           {{if gt .Salary.Salary 0.0}}value="{{.Salary.Salary | printf "%.2f"}}"{{end}}>
-                </div>
+                {{$salary := ""}}{{if gt .Salary.Salary 0.0}}{{$salary = printf "%.2f" .Salary.Salary}}{{end}}
+                {{template "moneyInput" (dict "ID" "salaryAmount" "Label" "Salary" "Name" "salary" "Value" $salary)}}
             </div>
             <div class="col-6 col-md-3">
-                <label class="form-label fw-semibold" for="salaryFrequency">Frequency</label>
-                <select name="salary_frequency" id="salaryFrequency" class="form-select">
-                    <option value="yearly"      {{if eq .Salary.SalaryFrequency "yearly"}}selected{{end}}>Yearly</option>
-                    <option value="monthly"     {{if eq .Salary.SalaryFrequency "monthly"}}selected{{end}}>Monthly</option>
-                    <option value="fortnightly" {{if eq .Salary.SalaryFrequency "fortnightly"}}selected{{end}}>Fortnightly</option>
-                </select>
+                {{template "select" (dict "ID" "salaryFrequency" "Label" "Frequency" "Name" "salary_frequency"
+                    "Selected" .Salary.SalaryFrequency
+                    "Options" (list (dict "Key" "yearly" "Label" "Yearly") (dict "Key" "monthly" "Label" "Monthly")
+                        (dict "Key" "fortnightly" "Label" "Fortnightly")))}}
             </div>
             <div class="col-6 col-md-2">
-                <label class="form-label fw-semibold" for="kiwiSaverRate">KiwiSaver</label>
-                <select name="kiwisaver_rate" id="kiwiSaverRate" class="form-select">
-                    <option value="0"   {{if eq .Salary.KiwiSaverRate 0.0}}selected{{end}}>None</option>
-                    <option value="3"   {{if eq .Salary.KiwiSaverRate 3.0}}selected{{end}}>3%</option>
-                    <option value="3.5" {{if eq .Salary.KiwiSaverRate 3.5}}selected{{end}}>3.5%</option>
-                    <option value="4"   {{if eq .Salary.KiwiSaverRate 4.0}}selected{{end}}>4%</option>
-                    <option value="6"   {{if eq .Salary.KiwiSaverRate 6.0}}selected{{end}}>6%</option>
-                    <option value="8"   {{if eq .Salary.KiwiSaverRate 8.0}}selected{{end}}>8%</option>
-                    <option value="10"  {{if eq .Salary.KiwiSaverRate 10.0}}selected{{end}}>10%</option>
-                </select>
+                {{template "select" (dict "ID" "kiwiSaverRate" "Label" "KiwiSaver" "Name" "kiwisaver_rate"
+                    "Selected" (printf "%g" .Salary.KiwiSaverRate)
+                    "Options" (list (dict "Key" "0" "Label" "None") (dict "Key" "3" "Label" "3%") (dict "Key" "3.5" "Label" "3.5%")
+                        (dict "Key" "4" "Label" "4%") (dict "Key" "6" "Label" "6%") (dict "Key" "8" "Label" "8%")
+                        (dict "Key" "10" "Label" "10%")))}}
             </div>
             <div class="col-12 col-md-2 d-flex align-items-end gap-3 pb-1">
                 <div class="form-check">
@@ -136,18 +124,13 @@
             {{template "cardTitle" (dict "Title" "Savings goal" "Sub" "What you want left over once your targets are met." "Chip" "bi-piggy-bank" "Accent" "slate")}}
             <div class="d-flex align-items-center gap-2">
                 {{template "savedFlash"}}
-                <div class="input-group input-group-sm b-goal-amount">
-                    <span class="input-group-text">$</span>
-                    <input type="number" name="savings_goal" class="form-control text-end"
-                           placeholder="Goal" min="0" step="0.01" aria-label="Savings goal amount"
-                           {{if gt .Salary.SavingsGoal 0.0}}value="{{.Salary.SavingsGoal | printf "%.2f"}}"{{end}}>
-                </div>
-                <select name="savings_goal_frequency" class="form-select form-select-sm w-auto" aria-label="Savings goal frequency">
-                    <option value="weekly"      {{if or (eq .Salary.SavingsGoalFrequency "weekly") (eq .Salary.SavingsGoalFrequency "")}}selected{{end}}>Weekly</option>
-                    <option value="fortnightly" {{if eq .Salary.SavingsGoalFrequency "fortnightly"}}selected{{end}}>Fortnightly</option>
-                    <option value="monthly"     {{if eq .Salary.SavingsGoalFrequency "monthly"}}selected{{end}}>Monthly</option>
-                    <option value="yearly"      {{if eq .Salary.SavingsGoalFrequency "yearly"}}selected{{end}}>Yearly</option>
-                </select>
+                {{$goal := ""}}{{if gt .Salary.SavingsGoal 0.0}}{{$goal = printf "%.2f" .Salary.SavingsGoal}}{{end}}
+                {{template "moneyInput" (dict "Name" "savings_goal" "AriaLabel" "Savings goal amount" "Size" "sm"
+                    "Placeholder" "Goal" "Class" "text-end" "GroupClass" "b-goal-amount" "Value" $goal)}}
+                {{template "select" (dict "Name" "savings_goal_frequency" "AriaLabel" "Savings goal frequency" "Size" "sm" "Class" "w-auto"
+                    "Selected" (or .Salary.SavingsGoalFrequency "weekly")
+                    "Options" (list (dict "Key" "weekly" "Label" "Weekly") (dict "Key" "fortnightly" "Label" "Fortnightly")
+                        (dict "Key" "monthly" "Label" "Monthly") (dict "Key" "yearly" "Label" "Yearly")))}}
             </div>
         </div>
     </form>
@@ -439,13 +422,9 @@
                   hx-target="#{{$swap}}" hx-swap="outerHTML">
                 <input type="hidden" name="category" value="{{.Key}}">
                 <div class="col-6 col-md-3">
-                    <label class="b-field-label" for="target-{{.RowID}}">Target</label>
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text">$</span>
-                        <input type="number" id="target-{{.RowID}}" name="target_amount" class="form-control text-end"
-                               placeholder="—" min="0" step="0.01"
-                               {{if gt .Target 0.0}}value="{{.Target | printf "%.2f"}}"{{end}}>
-                    </div>
+                    {{$target := ""}}{{if gt .Target 0.0}}{{$target = printf "%.2f" .Target}}{{end}}
+                    {{template "moneyInput" (dict "ID" (printf "target-%s" .RowID) "Label" "Target" "Name" "target_amount"
+                        "Size" "sm" "Class" "text-end" "Placeholder" "—" "Value" $target)}}
                 </div>
                 <div class="col-6 col-md-3">
                     <label class="b-field-label" for="frequency-{{.RowID}}">Per</label>

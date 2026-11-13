@@ -35,12 +35,8 @@
                               hx-post="/portfolio/assets/{{ .Summary.Asset.Id }}/purchase"
                               hx-target="#main" hx-swap="innerHTML">
                             <div class="b-txmem-head">What you paid</div>
-                            <div class="input-group input-group-sm">
-                                <span class="input-group-text">$</span>
-                                <input name="purchase_price" type="number" class="form-control" min="0" step="0.01"
-                                       aria-label="Purchase price" required
-                                       value="{{ printf "%.2f" .Summary.Asset.PurchasePrice }}">
-                            </div>
+                            {{ template "moneyInput" (dict "Name" "purchase_price" "AriaLabel" "Purchase price" "Size" "sm"
+                                "Required" true "Value" (printf "%.2f" .Summary.Asset.PurchasePrice)) }}
                             <input name="purchase_date" type="date" class="form-control form-control-sm"
                                    aria-label="Purchase date" required
                                    {{ if not .Summary.Asset.PurchaseDate.IsZero }}value="{{ .Summary.Asset.PurchaseDate.Format "2006-01-02" }}"{{ end }}>
@@ -107,22 +103,14 @@
               hx-target="#main" hx-swap="innerHTML">
             <div class="row g-2">
                 <div class="col-6 col-md-3">
-                    <label class="b-field-label" for="valuation-value">Value</label>
-                    <div class="input-group">
-                        <span class="input-group-text">$</span>
-                        <input id="valuation-value" name="value" type="number" class="form-control"
-                               min="0" step="0.01" placeholder="0.00" required>
-                    </div>
+                    {{ template "moneyInput" (dict "ID" "valuation-value" "Label" "Value" "Name" "value" "Required" true) }}
                 </div>
                 <div class="col-6 col-md-3">
-                    <label class="b-field-label" for="valuation-date">Date</label>
-                    <input id="valuation-date" name="date" type="date" class="form-control"
-                           value="{{ .Today }}">
+                    {{ template "field" (dict "ID" "valuation-date" "Label" "Date" "Name" "date" "Type" "date" "Value" .Today) }}
                 </div>
                 <div class="col-12 col-md-6">
-                    <label class="b-field-label" for="valuation-note">Source</label>
-                    <input id="valuation-note" name="note" type="text" class="form-control"
-                           placeholder="e.g. Council RV, agent appraisal">
+                    {{ template "field" (dict "ID" "valuation-note" "Label" "Source" "Name" "note"
+                        "Placeholder" "e.g. Council RV, agent appraisal") }}
                 </div>
                 <div class="col-12 b-actions">
                     <button type="submit" class="btn btn-primary">

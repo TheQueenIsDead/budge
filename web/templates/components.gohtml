@@ -276,3 +276,70 @@
 </div>
     {{- end }}
 {{ end }}
+
+{{/* A dollar amount: a field with a $ in front, which takes cents and asks
+     a phone for its number pad.
+
+     ID          the field's id; with Label, the label above it names it.
+     Label       a label above the field. AriaLabel names it where there is
+                 no room for one.
+     Name        the form field's name.
+     Value       what it holds, already formatted, or nothing for empty.
+     Placeholder what it shows when empty, 0.00 unless given.
+     Min         the least it takes, 0 unless given.
+     Required    true when it must be filled in.
+     Size        sm for the small field.
+     Class       further classes for the field, such as text-end.
+     GroupClass  further classes for the group, such as a fixed width. */}}
+{{ define "moneyInput" }}
+{{- with .Label }}
+<label class="b-field-label" for="{{ $.ID }}">{{ . }}</label>
+{{- end }}
+<div class="input-group{{ with .Size }} input-group-{{ . }}{{ end }}{{ with .GroupClass }} {{ . }}{{ end }}">
+    <span class="input-group-text">$</span>
+    <input type="number" class="form-control{{ with .Class }} {{ . }}{{ end }}"{{ with .ID }} id="{{ . }}"{{ end }} name="{{ .Name }}"
+           min="{{ or .Min "0" }}" step="0.01" inputmode="decimal" placeholder="{{ or .Placeholder "0.00" }}"
+           {{- with .AriaLabel }} aria-label="{{ . }}"{{ end }}{{ with .Value }} value="{{ . }}"{{ end }}{{ if .Required }} required{{ end }}>
+</div>
+{{ end }}
+
+{{/* A labelled text or date field.
+
+     ID           the field's id, which its label names.
+     Label        the label above it; Optional adds "(optional)".
+     Name         the form field's name.
+     Type         text unless given, such as date.
+     Value        what it holds.
+     Placeholder  what it shows when empty.
+     Required     true when it must be filled in.
+     Size         sm for the small field.
+     List         the id of a datalist to suggest from, which also turns
+                  the browser's own suggestions off. */}}
+{{ define "field" }}
+<label class="b-field-label" for="{{ .ID }}">{{ .Label }}{{ if .Optional }} <span class="fw-normal text-lowercase">(optional)</span>{{ end }}</label>
+<input id="{{ .ID }}" name="{{ .Name }}" type="{{ or .Type "text" }}" class="form-control{{ with .Size }} form-control-{{ . }}{{ end }}"
+       {{- with .Value }} value="{{ . }}"{{ end }}{{ with .Placeholder }} placeholder="{{ . }}"{{ end }}
+       {{- with .List }} list="{{ . }}" autocomplete="off"{{ end }}{{ if .Required }} required{{ end }}>
+{{ end }}
+
+{{/* A labelled choice from a list.
+
+     ID        the select's id, which its label names.
+     Label     the label above it. AriaLabel names it where there is none.
+     Name      the form field's name.
+     Options   what to choose from, each with a Key and a Label: a list of
+               dicts written in place, or a page's own.
+     Selected  the Key chosen, compared as text.
+     Size      sm for the small select.
+     Class     further classes for it, such as w-auto. */}}
+{{ define "select" }}
+{{- with .Label }}
+<label class="b-field-label" for="{{ $.ID }}">{{ . }}</label>
+{{- end }}
+<select class="form-select{{ with .Size }} form-select-{{ . }}{{ end }}{{ with .Class }} {{ . }}{{ end }}"{{ with .ID }} id="{{ . }}"{{ end }} name="{{ .Name }}"
+        {{- with .AriaLabel }} aria-label="{{ . }}"{{ end }}>
+    {{- range .Options }}
+    <option value="{{ .Key }}"{{ if eq (print .Key) (print $.Selected) }} selected{{ end }}>{{ .Label }}</option>
+    {{- end }}
+</select>
+{{ end }}

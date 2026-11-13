@@ -48,9 +48,8 @@
                 {{ end }}
             </div>
 
-            <label class="b-field-label" for="memory-note">Note</label>
-            <input class="form-control form-control-sm" id="memory-note" name="note" value="{{ .Memory.Note }}"
-                   placeholder="A note, if you like">
+            {{ template "field" (dict "ID" "memory-note" "Label" "Note" "Name" "note" "Size" "sm"
+                "Value" .Memory.Note "Placeholder" "A note, if you like") }}
         </div>
 
         <div class="b-tx-day">
