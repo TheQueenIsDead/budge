@@ -204,7 +204,7 @@ func BuildAccountGroups(accounts []models.Account, transactions []models.Transac
 			TypeLabel:       AccountTypeLabel(account.Type),
 			Icon:            AccountTypeIcon(account.Type),
 			IsActive:        account.Status == "" || strings.EqualFold(account.Status, "ACTIVE"),
-			IsLoan:          strings.EqualFold(account.Type, "LOAN"),
+			IsLoan:          IsLoanAccount(account.Type),
 			Change:          roundCents(changes[account.Id]),
 			HasHistory:      seen[account.Id],
 			HasTransactions: hasTransactions[account.Id],
