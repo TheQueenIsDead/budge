@@ -134,17 +134,6 @@ main.container {
     margin: 0.125rem 0 0;
 }
 
-/* Bootstrap cards elsewhere in the app inherit the new shape rather than
-   keeping the old square, hard-bordered look. */
-.card {
-    border-color: var(--b-border);
-    border-radius: var(--b-radius);
-}
-
-.card.shadow-sm {
-    box-shadow: var(--b-shadow) !important;
-}
-
 /* ==========================================================================
    Icon chip. A rounded square in the category colour.
    ========================================================================== */
@@ -656,25 +645,6 @@ main.container {
     .b-tabbar {
         display: none;
     }
-}
-
-/* Keep the old nav-pill styling working for any page still using it. */
-.nav-item .nav-link {
-    border: none;
-    border-radius: var(--b-radius-pill);
-    color: var(--b-ink-2);
-    padding: 0.5rem 1rem;
-    font-weight: 600;
-}
-
-.nav-item .nav-link.active {
-    background-color: var(--b-primary-soft);
-    color: var(--b-primary-ink);
-}
-
-.nav-item {
-    border-bottom: none;
-    gap: 0.5rem;
 }
 
 /* ==========================================================================
@@ -1295,15 +1265,6 @@ a.b-acct:focus-visible {
     background-color: var(--b-surface-3);
 }
 
-/* The accounts list sits flush inside a card, so it should not draw its own edges */
-.list-group-flush > .list-group-item:last-child {
-    border-bottom-width: 0;
-}
-
-.list-group-item-action:hover {
-    background-color: var(--b-surface-2);
-}
-
 /* ==========================================================================
    Motion
    ========================================================================== */
@@ -1582,13 +1543,11 @@ a.b-acct:focus-visible {
 }
 
 .b-tl-ctx:hover,
-.b-tl-ctx:has(.b-tl-select:checked),
-.b-tl-ctx:has(.b-tl-pick:checked) {
+.b-tl-ctx:has(.b-tl-select:checked) {
     color: var(--b-ink);
 }
 
 .b-tl-ctx .b-tl-select,
-.b-tl-ctx .b-tl-pick,
 .b-tl-ctx-mark {
     flex: 0 0 auto;
     width: 0.85rem;
@@ -1764,22 +1723,6 @@ a.b-acct:focus-visible {
    the last rows too. */
 .table-container:has(.b-txmem[open]) {
     overflow: visible;
-}
-
-/* Purchases offered while editing a memory sit flush under the edit form,
-   rather than indented under a purchase name the way same-day rows are. Their
-   ticks belong to this form, not to the floating group bar. */
-.b-tl-nearby {
-    margin-top: 0.75rem;
-}
-
-.b-tl-nearby .b-tl-sameday {
-    padding-left: 0;
-}
-
-.b-tl-ctx-date {
-    flex: 0 0 3.25rem;
-    font-variant-numeric: tabular-nums;
 }
 
 /* ==========================================================================
