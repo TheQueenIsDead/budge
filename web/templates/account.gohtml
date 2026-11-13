@@ -18,28 +18,85 @@
 
     <div id="account-details">
 
+        {{ if and .AllTime .IsLoan .HasData }}
+        <!-- What a loan comes down to: what is owed, how much has gone, how
+             fast, and when at that pace it will be gone. -->
+        <div class="row g-2 g-md-3 mb-3" id="loan-overview">
+            {{ with .Loan }}
+            <div class="col-6 col-lg-3">
+                {{ template "stat" (dict "Label" "Owing" "Icon" "bi-house" "Accent" "slate"
+                    "Value" (fmtCurrency .Owing)) }}
+            </div>
+            {{ $paid := "" }}
+            {{ if gt .PaidOff 0.0 }}{{ $paid = "text-success" }}{{ else if lt .PaidOff 0.0 }}{{ $paid = "text-danger" }}{{ end }}
+            <div class="col-6 col-lg-3">
+                {{ template "stat" (dict "Label" "Paid off" "Icon" "bi-check2-circle" "Accent" "sage"
+                    "Value" (fmtCurrency .PaidOff) "Tone" $paid
+                    "Note" (printf "since %s" (.Since.Format "Jan 2006"))) }}
+            </div>
+            <div class="col-6 col-lg-3">
+                {{ if .RateMonths }}
+                    {{ template "stat" (dict "Label" "Monthly repayment" "Icon" "bi-arrow-down-right" "Accent" "clay"
+                        "Value" (fmtCurrency .Rate)
+                        "Note" (printf "average fall over %d months, after interest" .RateMonths)) }}
+                {{ else }}
+                    {{ template "stat" (dict "Label" "Monthly repayment" "Icon" "bi-arrow-down-right" "Accent" "clay"
+                        "Value" "—" "Note" .Note) }}
+                {{ end }}
+            </div>
+            <div class="col-6 col-lg-3">
+                {{ if .HasPayoff }}
+                    {{ template "stat" (dict "Label" "Paid off by" "Icon" "bi-flag" "Accent" "plum"
+                        "Value" (.Payoff.Format "Jan 2006") "Note" "estimate, at the recent rate") }}
+                {{ else if .Settled }}
+                    {{ template "stat" (dict "Label" "Paid off by" "Icon" "bi-flag" "Accent" "plum"
+                        "Value" "Paid off" "Note" .Note) }}
+                {{ else }}
+                    {{ template "stat" (dict "Label" "Paid off by" "Icon" "bi-flag" "Accent" "plum"
+                        "Value" "—" "Note" .Note) }}
+                {{ end }}
+            </div>
+            {{ end }}
+        </div>
+        {{ end }}
+
         <div class="b-card b-card-pad mb-3 b-accent-slate">
             <div class="b-card-head flex-wrap">
-                {{ template "cardTitle" (dict "Title" "Balance History" "Sub" (printf "End of month balance across %s" (.Date.Format "2006"))) }}
+                {{ if not .AllTime }}
+                    {{ template "cardTitle" (dict "Title" "Balance History" "Sub" (printf "End of month balance across %s" (.Date.Format "2006"))) }}
+                {{ else if not .HasData }}
+                    {{ template "cardTitle" (dict "Title" "Balance History" "Sub" "End of month balance, all time") }}
+                {{ else if .IsLoan }}
+                    {{ template "cardTitle" (dict "Title" "Balance History" "Sub" (printf "Owing at the end of each month since %s" (.Since.Format "Jan 2006"))) }}
+                {{ else }}
+                    {{ template "cardTitle" (dict "Title" "Balance History" "Sub" (printf "End of month balance since %s" (.Since.Format "Jan 2006"))) }}
+                {{ end }}
 
-                <div class="d-flex align-items-center gap-1">
-                    <a href="?year={{ .PrevYear }}" class="btn btn-sm btn-outline-secondary"
-                       hx-boost="true" hx-target="#main" aria-label="Previous year">
-                        <i class="bi bi-chevron-left"></i>
-                    </a>
-                    <a href="?" class="date-reset-link" title="Click to reset to current year"
-                       hx-boost="true" hx-target="#main">
-                        <span class="fw-semibold">{{ .Date.Format "2006" }}</span>
-                    </a>
-                    {{ if .IsCurrentYear }}
-                        <span class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true">
-                            <i class="bi bi-chevron-right"></i>
-                        </span>
-                    {{ else }}
-                        <a href="?year={{ .NextYear }}" class="btn btn-sm btn-outline-secondary"
-                           hx-boost="true" hx-target="#main" aria-label="Next year">
-                            <i class="bi bi-chevron-right"></i>
+                <div class="d-flex flex-wrap align-items-center gap-2" hx-boost="true" hx-target="#main">
+                    {{ template "segment" (dict "Items" (list
+                        (dict "Href" "?range=all" "Label" "All time" "Active" .AllTime)
+                        (dict "Href" "?" "Label" "Year" "Active" (not .AllTime)))) }}
+
+                    {{ if not .AllTime }}
+                    <div class="d-flex align-items-center gap-1">
+                        <a href="?year={{ .PrevYear }}" class="btn btn-sm btn-outline-secondary"
+                           aria-label="Previous year">
+                            <i class="bi bi-chevron-left"></i>
                         </a>
+                        <a href="?" class="date-reset-link" title="Click to reset to current year">
+                            <span class="fw-semibold">{{ .Date.Format "2006" }}</span>
+                        </a>
+                        {{ if .IsCurrentYear }}
+                            <span class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true">
+                                <i class="bi bi-chevron-right"></i>
+                            </span>
+                        {{ else }}
+                            <a href="?year={{ .NextYear }}" class="btn btn-sm btn-outline-secondary"
+                               aria-label="Next year">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        {{ end }}
+                    </div>
                     {{ end }}
                 </div>
             </div>
@@ -50,6 +107,9 @@
                 <div class="b-chart b-chart-tall">
                     <canvas id="{{ .Account.Id }}" hx-preserve="true"></canvas>
                 </div>
+            {{ else if .AllTime }}
+                {{ template "empty" (dict "Icon" "bi-calendar-x" "Title" "Nothing to chart"
+                    "Text" "This account has no transactions yet.") }}
             {{ else }}
                 {{ template "empty" (dict "Icon" "bi-calendar-x" "Title" (printf "Nothing in %s" (.Date.Format "2006"))
                     "Text" "This account has no transactions for the selected year.") }}
@@ -107,34 +167,76 @@
             if (!canvas || typeof Chart === "undefined") {
                 return;
             }
-            const labels = {{ .GraphData.Labels }};
-            const data = {{ .GraphData.Data }};
-
-            // hx-preserve keeps this canvas across the year navigation, so the
-            // chart on it is updated rather than torn down and redrawn, which
-            // blanks the card for a frame and reads as a flash.
-            const existing = Chart.getChart(canvas);
-            if (existing) {
-                existing.data.labels = labels;
-                existing.data.datasets[0].data = data;
-                existing.update("none");
-                return;
-            }
-
+            const labels = {{ .GraphData.Labels }} || [];
+            const data = {{ .GraphData.Data }} || [];
+            const allTime = {{ .AllTime }};
+            const loan = {{ .IsLoan }};
+            const projectionLabels = {{ .Projection.Labels }} || [];
+            const projection = {{ .Projection.Data }} || [];
             const ink = window.budge.ink;
 
-            new Chart(canvas, {
-                type: "bar",
-                data: {
-                    labels: labels,
-                    datasets: [{
+            // A year is a dozen bars. All time can be years of months, and a
+            // loan's runs on into its estimate, so it is drawn as a line, the
+            // estimate dashed and paler on from where the history ends.
+            function datasets() {
+                if (!allTime) {
+                    return [{
+                        type: "bar",
                         label: "Balance",
                         data: data,
                         backgroundColor: window.budge.primary,
                         hoverBackgroundColor: window.budge.primaryInk,
                         borderRadius: 6,
                         maxBarThickness: 48
-                    }]
+                    }];
+                }
+                const points = data.length + projection.length > 36 ? 0 : 3;
+                const sets = [{
+                    type: "line",
+                    label: loan ? "Owing" : "Balance",
+                    data: data.concat(projection.map(() => null)),
+                    borderColor: window.budge.primary,
+                    backgroundColor: window.budge.primary,
+                    borderWidth: 2,
+                    pointRadius: points,
+                    pointHoverRadius: 4
+                }];
+                if (projection.length) {
+                    const last = data.length - 1;
+                    sets.push({
+                        type: "line",
+                        label: "Estimate",
+                        data: data.map((v, i) => i === last ? v : null).concat(projection),
+                        borderColor: window.budge.mix("slate", 0.45),
+                        backgroundColor: window.budge.mix("slate", 0.45),
+                        borderWidth: 2,
+                        borderDash: [6, 4],
+                        pointRadius: 0,
+                        pointHoverRadius: 4
+                    });
+                }
+                return sets;
+            }
+
+            // hx-preserve keeps this canvas across the year navigation and the
+            // switch between a year and all time, so the chart on it is updated
+            // rather than torn down and redrawn, which blanks the card for a
+            // frame and reads as a flash. The datasets are replaced whole, as
+            // the switch changes bars for lines.
+            const existing = Chart.getChart(canvas);
+            if (existing) {
+                existing.data.labels = labels.concat(projectionLabels);
+                existing.data.datasets = datasets();
+                existing.options.plugins.legend.display = projection.length > 0;
+                existing.update("none");
+                return;
+            }
+
+            new Chart(canvas, {
+                type: "bar",
+                data: {
+                    labels: labels.concat(projectionLabels),
+                    datasets: datasets()
                 },
                 options: {
                     responsive: true,
@@ -156,10 +258,19 @@
                         }
                     },
                     plugins: {
-                        legend: {display: false},
+                        // Only the estimate needs a key, to say it is one.
+                        legend: {
+                            display: projection.length > 0,
+                            align: "end",
+                            labels: {color: ink, boxWidth: 24, boxHeight: 0}
+                        },
                         tooltip: {
                             callbacks: {
-                                label: ctx => "$" + ctx.parsed.y.toLocaleString(undefined, {minimumFractionDigits: 2})
+                                // A year's bars are all one thing; the lines say which
+                                // is the estimate. Read from the dataset, as this
+                                // chart outlives the view it was made for.
+                                label: ctx => (ctx.dataset.type === "line" ? ctx.dataset.label + " " : "") +
+                                    "$" + ctx.parsed.y.toLocaleString(undefined, {minimumFractionDigits: 2})
                             }
                         }
                     }

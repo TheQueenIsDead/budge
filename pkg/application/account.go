@@ -41,6 +41,19 @@ type AccountsPageProps struct {
 	NextYear      int
 	Date          time.Time
 
+	// AllTime charts every month since the earliest transaction, rather than
+	// one year. It is ?range=all, so the choice survives a reload.
+	AllTime bool
+	// Since is the first month the all time view charts.
+	Since time.Time
+
+	// IsLoan gives the all time view what a loan is: what is owed, how fast
+	// it is coming down, and when it will be paid off. Loan's history and
+	// Projection are in amounts owing, so the chart reads them as positive.
+	IsLoan     bool
+	Loan       LoanOverview
+	Projection AccountTimeseriesData
+
 	// HasData is whether the selected year holds anything to chart. The list
 	// does not link accounts that have no history at all, but a bookmark or a
 	// year with no activity can still land here, and an empty chart above six
@@ -322,62 +335,93 @@ func (app *Application) Account(c *echo.Context) error {
 		return lookupError(err, "account not found")
 	}
 
-	year := c.QueryParam("year")
-	var viewDate time.Time
-	if year != "" {
-		y, err := strconv.Atoi(year)
-		if err != nil {
-			viewDate = clock.Now()
-		} else {
-			viewDate = time.Date(y, time.January, 1, 0, 0, 0, 0, time.UTC)
-		}
-	} else {
-		viewDate = clock.Now()
-	}
-
-	graphData, statistics, err := app.accountBalance(c, account, viewDate)
+	now := clock.Now()
+	transactions, err := app.store.ReadTransactionsByAccount(ctx, account.Id)
 	if err != nil {
+		// The page is still worth showing without its chart.
 		slog.ErrorContext(ctx, "request failed", "error", err)
-		// Continue, maybe graph is not essential
 	}
 
 	props := AccountsPageProps{
-		Account:       account,
-		GraphData:     graphData,
-		Statistics:    statistics,
-		HasData:       len(graphData.Data) > 0,
-		Date:          viewDate,
-		IsCurrentYear: viewDate.Year() == clock.Now().Year(),
-		PrevYear:      viewDate.AddDate(-1, 0, 0).Year(),
-		NextYear:      viewDate.AddDate(1, 0, 0).Year(),
+		Account: account,
+		IsLoan:  IsLoanAccount(account.Type),
+		Date:    now,
 	}
+
+	if c.QueryParam("range") == "all" {
+		props.AllTime = true
+		var balances []MonthBalance
+		props.GraphData, props.Statistics, balances = BuildAccountBalanceAllTime(account, transactions, now)
+		props.HasData = len(balances) > 0
+		if props.HasData {
+			props.Since = balances[0].Month
+		}
+		if props.IsLoan && props.HasData {
+			props.Loan = loanOverview(balances, now)
+			props.GraphData.Data = monthAmounts(props.Loan.History)
+			props.Projection = AccountTimeseriesData{
+				Labels: monthLabels(props.Loan.Projection),
+				Data:   monthAmounts(props.Loan.Projection),
+			}
+		}
+		return c.Render(http.StatusOK, "account", props)
+	}
+
+	if y, err := strconv.Atoi(c.QueryParam("year")); err == nil {
+		props.Date = time.Date(y, time.January, 1, 0, 0, 0, 0, time.UTC)
+	}
+	props.GraphData, props.Statistics = BuildAccountBalanceHistory(account, transactions, props.Date)
+	props.HasData = len(props.GraphData.Data) > 0
+	props.IsCurrentYear = props.Date.Year() == now.Year()
+	props.PrevYear = props.Date.AddDate(-1, 0, 0).Year()
+	props.NextYear = props.Date.AddDate(1, 0, 0).Year()
 
 	return c.Render(http.StatusOK, "account", props)
-}
-
-func (app *Application) accountBalance(c *echo.Context, account models.Account, viewDate time.Time) (AccountTimeseriesData, AccountStatistics, error) {
-	ctx := c.Request().Context()
-
-	// Retrieve all transactions for an account
-	transactions, err := app.store.ReadTransactionsByAccount(ctx, account.Id)
-	if err != nil {
-		slog.ErrorContext(ctx, "request failed", "error", err)
-		return AccountTimeseriesData{}, AccountStatistics{}, err
-	}
-
-	graphData, stats := BuildAccountBalanceHistory(account, transactions, viewDate)
-	return graphData, stats, nil
 }
 
 // BuildAccountBalanceHistory walks an account's balance backwards through the
 // selected year and summarises it. It is split from the handler so the walk can
 // be tested without a store behind it.
 func BuildAccountBalanceHistory(account models.Account, transactions []models.Transaction, viewDate time.Time) (AccountTimeseriesData, AccountStatistics) {
+	startDate := time.Date(viewDate.Year(), time.January, 1, 0, 0, 0, 0, time.UTC)
+	return buildBalanceHistory(account, transactions, startDate, startDate.AddDate(1, 0, 0), false)
+}
 
-	// Filter transactions for the selected year
-	year := viewDate.Year()
-	startDate := time.Date(year, time.January, 1, 0, 0, 0, 0, time.UTC)
-	endDate := startDate.AddDate(1, 0, 0)
+// BuildAccountBalanceAllTime walks an account's balance back over every month
+// from its earliest transaction to the month now falls in, one point a month
+// whether or not anything happened in it, so a quiet month holds its balance
+// rather than vanishing from the chart. The balances come back as months too,
+// for the loan overview to work from.
+func BuildAccountBalanceAllTime(account models.Account, transactions []models.Transaction, now time.Time) (AccountTimeseriesData, AccountStatistics, []MonthBalance) {
+	if len(transactions) == 0 {
+		return AccountTimeseriesData{}, AccountStatistics{}, nil
+	}
+	earliest := transactions[0].Date
+	for _, t := range transactions {
+		if t.Date.Before(earliest) {
+			earliest = t.Date
+		}
+	}
+	earliest, now = earliest.UTC(), now.UTC()
+	startDate := time.Date(earliest.Year(), earliest.Month(), 1, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+	if !startDate.Before(endDate) {
+		return AccountTimeseriesData{}, AccountStatistics{}, nil
+	}
+
+	graph, stats := buildBalanceHistory(account, transactions, startDate, endDate, true)
+	balances := make([]MonthBalance, len(graph.Labels))
+	for i, label := range graph.Labels {
+		month, _ := time.Parse("2006-01", label)
+		balances[i] = MonthBalance{Month: month, Balance: roundCents(graph.Data[i])}
+	}
+	return graph, stats, balances
+}
+
+// buildBalanceHistory walks an account's balance back over the months from
+// startDate up to endDate. With every set, each month between is charted; the
+// yearly view charts only the months that saw a transaction.
+func buildBalanceHistory(account models.Account, transactions []models.Transaction, startDate, endDate time.Time, every bool) (AccountTimeseriesData, AccountStatistics) {
 
 	// Calculate the balance at the end of the selected year by rolling back future
 	// transactions. Current is the account's actual balance and is what the
@@ -417,6 +461,11 @@ func BuildAccountBalanceHistory(account models.Account, transactions []models.Tr
 
 	// Calculate the balance delta per month
 	deltas := make(map[string]float64)
+	if every {
+		for month := startDate; month.Before(endDate); month = month.AddDate(0, 1, 0) {
+			deltas[month.Format("2006-01")] = 0
+		}
+	}
 	for _, t := range recentTransactions {
 		deltas[t.Date.Format("2006-01")] += t.Amount
 	}
@@ -484,4 +533,22 @@ func WalkAccount(balance float64, deltas map[string]float64) map[string]float64 
 	}
 
 	return balances
+}
+
+// monthLabels labels each month as the balance history does.
+func monthLabels(months []MonthBalance) []string {
+	labels := make([]string, len(months))
+	for i, m := range months {
+		labels[i] = m.Month.Format("2006-01")
+	}
+	return labels
+}
+
+// monthAmounts is each month's balance, in order.
+func monthAmounts(months []MonthBalance) []float64 {
+	amounts := make([]float64, len(months))
+	for i, m := range months {
+		amounts[i] = m.Balance
+	}
+	return amounts
 }
