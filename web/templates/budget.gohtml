@@ -485,7 +485,7 @@
             {{if and .NeedsTarget .Suggested}}
             {{/* The usual answer one click away, in the frequency the picker
                  above shows, so the two agree. */}}
-            <form class="mb-3" hx-post="/budget/targets" hx-target="#{{$swap}}" hx-swap="outerHTML">
+            <form class="d-flex justify-content-end mb-3" hx-post="/budget/targets" hx-target="#{{$swap}}" hx-swap="outerHTML">
                 <input type="hidden" name="category" value="{{.Key}}">
                 <input type="hidden" name="target_amount" value="{{printf "%.0f" .Suggested}}">
                 <input type="hidden" name="target_frequency" value="{{.SuggestedFrequency}}">

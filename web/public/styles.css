@@ -1979,6 +1979,7 @@ a.b-acct:focus-visible {
 .b-target-quick {
     display: flex;
     flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 0.5rem;
     padding: 0 1.25rem 0.75rem calc(1.25rem + 30px + 0.5rem);
 }

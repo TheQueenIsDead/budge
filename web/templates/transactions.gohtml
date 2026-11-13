@@ -431,11 +431,12 @@
         </label>
     </div>
     {{ end }}
-    <button class="btn btn-sm btn-primary">Save</button>
+    {{/* The way to the rules on the left, then Save last, on the right. */}}
+    <a class="small me-auto align-self-center" href="/settings#categories">Categories &amp; rules</a>
     {{ if .Overridden }}
     <button class="btn btn-sm btn-outline-secondary" name="clear" value="1">Undo my change</button>
     {{ end }}
-    <a class="small ms-auto align-self-center" href="/settings#categories">Categories &amp; rules</a>
+    <button class="btn btn-sm btn-primary">Save</button>
 </form>
 {{ end }}
 

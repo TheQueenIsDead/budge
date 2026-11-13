@@ -95,12 +95,12 @@
                                    placeholder="{{ .DetailPlaceholder }}">
                         </div>
 
-                        <div class="col-12 d-flex gap-2 mt-2">
+                        <div class="col-12 d-flex flex-wrap justify-content-end gap-2 mt-2">
+                            <a href="/portfolio" class="btn btn-outline-secondary"
+                               hx-boost="true" hx-target="#main">Cancel</a>
                             <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-plus-lg"></i> Add {{ .Label | fmtLower }}
                             </button>
-                            <a href="/portfolio" class="btn btn-outline-secondary"
-                               hx-boost="true" hx-target="#main">Cancel</a>
                         </div>
                     </div>
                 </form>

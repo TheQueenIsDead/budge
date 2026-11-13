@@ -156,13 +156,13 @@
                     <input id="valuation-date" name="date" type="date" class="form-control"
                            value="{{ .Today }}">
                 </div>
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-6">
                     <label class="b-field-label" for="valuation-note">Source</label>
                     <input id="valuation-note" name="note" type="text" class="form-control"
                            placeholder="e.g. Council RV, agent appraisal">
                 </div>
-                <div class="col-12 col-md-2 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary w-100">
+                <div class="col-12 d-flex justify-content-end">
+                    <button type="submit" class="btn btn-primary">
                         <i class="bi bi-plus-lg"></i> Add
                     </button>
                 </div>
@@ -203,8 +203,8 @@
         </div>
     {{ end }}
 
-    <div class="text-end mb-3">
-        <button class="btn btn-sm btn-outline-secondary"
+    <div class="d-flex justify-content-end mb-3">
+        <button class="btn btn-sm btn-outline-danger"
                 hx-delete="/portfolio/assets/{{ .Summary.Asset.Id }}"
                 hx-target="#main" hx-swap="innerHTML"
                 hx-confirm="Remove {{ .Summary.Asset.Name }} and all its valuations?">
