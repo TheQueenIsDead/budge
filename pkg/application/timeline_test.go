@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"testing"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/stretchr/testify/assert"
@@ -625,43 +626,126 @@ func TestTimelineMemoryEditing(t *testing.T) {
 }
 
 func TestMemoryContext(t *testing.T) {
-	flights := purchase("flights", "Air NZ", 1400, time.March, 1)
-	txs := append(ordinaryYear(),
-		flights,
-		purchase("hotel", "Hotel", 900, time.July, 10),
-		purchase("taxi", "Taxi", 60, time.July, 11),            // the day after: offered
-		purchase("museum", "Museum", 25, time.July, 9),         // the day before: offered
-		purchase("far", "Shop", 500, time.July, 20),            // well after: not offered
-		purchase("groceries", "PAK'nSAVE", 120, time.April, 2), // between bookings and trip: not offered
-		purchase("claimed", "Souvenirs", 40, time.July, 10),
-	)
-	memories := []models.Memory{
-		{Id: "japan", Title: "Japan", Kind: "trip", TransactionIDs: []string{"flights", "hotel"}},
-		{Id: "gifts", Title: "Gifts", TransactionIDs: []string{"claimed"}},
+	t.Run("a long memory offers its own days, not the months between", func(t *testing.T) {
+		flights := purchase("flights", "Air NZ", 1400, time.March, 1)
+		txs := append(ordinaryYear(),
+			flights,
+			purchase("hotel", "Hotel", 900, time.July, 10),
+			purchase("taxi", "Taxi", 60, time.July, 11),            // the day after: offered
+			purchase("museum", "Museum", 25, time.July, 9),         // the day before: offered
+			purchase("far", "Shop", 500, time.July, 20),            // well after: not offered
+			purchase("groceries", "PAK'nSAVE", 120, time.April, 2), // between bookings and trip: not offered
+			purchase("claimed", "Souvenirs", 40, time.July, 10),
+		)
+		memories := []models.Memory{
+			{Id: "japan", Title: "Japan", Kind: "trip", TransactionIDs: []string{"flights", "hotel"}},
+			{Id: "gifts", Title: "Gifts", TransactionIDs: []string{"claimed"}},
+		}
+
+		rows, nearby := memoryContext(txs, memories, []string{"flights", "hotel"}, "japan", time.UTC)
+		require.Len(t, rows, 2)
+		assert.Equal(t, "flights", rows[0].Id, "its own purchases, by date")
+
+		var ids []string
+		claimed := map[string]bool{}
+		for _, row := range nearby {
+			ids = append(ids, row.Id)
+			claimed[row.Id] = row.Claimed
+		}
+
+		assert.Contains(t, ids, "taxi")
+		assert.Contains(t, ids, "museum")
+		assert.Contains(t, ids, "claimed")
+		assert.True(t, claimed["claimed"], "already in another memory")
+		assert.NotContains(t, ids, "hotel", "never what the memory already holds")
+		assert.NotContains(t, ids, "far")
+		assert.NotContains(t, ids, "groceries", "only the memory's own days, not the months between")
+
+		for i := 1; i < len(nearby); i++ {
+			assert.False(t, nearby[i].Date.Before(nearby[i-1].Date), "listed by date")
+		}
+	})
+
+	t.Run("a short memory offers everything over its days", func(t *testing.T) {
+		txs := []models.Transaction{
+			purchase("before", "Shop", 30, time.July, 7), // two days before: not offered
+			purchase("eve", "Petrol", 80, time.July, 8),  // the day before: offered
+			purchase("motel", "Motel", 300, time.July, 9),
+			purchase("dinner", "Restaurant", 120, time.July, 13), // between its purchases: offered
+			purchase("lunch", "Cafe", 25, time.July, 13),
+			purchase("ferry", "Ferry", 200, time.July, 16),
+			purchase("home", "Groceries", 90, time.July, 17), // the day after: offered
+			purchase("after", "Shop", 30, time.July, 18),     // two days after: not offered
+		}
+
+		rows, nearby := memoryContext(txs, nil, []string{"ferry", "motel"}, "", time.UTC)
+		require.Len(t, rows, 2)
+		assert.Equal(t, []string{"motel", "ferry"}, []string{rows[0].Id, rows[1].Id}, "its own purchases, by date")
+
+		var ids []string
+		for _, row := range nearby {
+			ids = append(ids, row.Id)
+		}
+		assert.Equal(t, []string{"eve", "dinner", "lunch", "home"}, ids,
+			"by date, and by id on the same day, without what it holds")
+	})
+}
+
+func TestNearbyDays(t *testing.T) {
+	day := func(month time.Month, d int) TransactionRow {
+		return BuildTransactionRow(purchase(fmt.Sprintf("%d-%d", month, d), "Shop", 10, month, d))
+	}
+	date := func(month time.Month, d int) string {
+		return time.Date(2026, month, d, 0, 0, 0, 0, time.UTC).Format(time.DateOnly)
 	}
 
-	rows, nearby := memoryContext(txs, memories, []string{"flights", "hotel"}, "japan", time.UTC)
-	require.Len(t, rows, 2)
-	assert.Equal(t, "flights", rows[0].Id, "its own purchases, by date")
+	t.Run("one purchase is its day and either side", func(t *testing.T) {
+		days := nearbyDays([]TransactionRow{day(time.July, 10)}, time.UTC)
+		assert.Equal(t, map[string]bool{date(time.July, 9): true, date(time.July, 10): true, date(time.July, 11): true}, days)
+	})
 
-	var ids []string
-	claimed := map[string]bool{}
-	for _, row := range nearby {
-		ids = append(ids, row.Id)
-		claimed[row.Id] = row.Claimed
-	}
+	t.Run("at the cap, every day from the day before to the day after", func(t *testing.T) {
+		days := nearbyDays([]TransactionRow{day(time.July, 1), day(time.July, 1+nearbyRangeDays)}, time.UTC)
+		assert.Len(t, days, nearbyRangeDays+3)
+		assert.True(t, days[date(time.June, 30)], "the day before")
+		assert.True(t, days[date(time.July, 11)], "a day between")
+		assert.True(t, days[date(time.July, 2+nearbyRangeDays)], "the day after")
+		assert.False(t, days[date(time.June, 29)])
+		assert.False(t, days[date(time.July, 3+nearbyRangeDays)])
+	})
 
-	assert.Contains(t, ids, "taxi")
-	assert.Contains(t, ids, "museum")
-	assert.Contains(t, ids, "claimed")
-	assert.True(t, claimed["claimed"], "already in another memory")
-	assert.NotContains(t, ids, "hotel", "never what the memory already holds")
-	assert.NotContains(t, ids, "far")
-	assert.NotContains(t, ids, "groceries", "only the memory's own days, not the months between")
+	t.Run("a day under the cap is the whole range too", func(t *testing.T) {
+		days := nearbyDays([]TransactionRow{day(time.July, 1), day(time.July, nearbyRangeDays)}, time.UTC)
+		assert.Len(t, days, nearbyRangeDays+2)
+	})
 
-	for i := 1; i < len(nearby); i++ {
-		assert.False(t, nearby[i].Date.Before(nearby[i-1].Date), "listed by date")
-	}
+	t.Run("a day past the cap is only the purchases' own days", func(t *testing.T) {
+		days := nearbyDays([]TransactionRow{day(time.July, 1), day(time.July, 2+nearbyRangeDays)}, time.UTC)
+		assert.Len(t, days, 6)
+		assert.True(t, days[date(time.June, 30)])
+		assert.True(t, days[date(time.July, 2)])
+		assert.False(t, days[date(time.July, 11)], "nothing between")
+		assert.True(t, days[date(time.July, 1+nearbyRangeDays)])
+		assert.True(t, days[date(time.July, 3+nearbyRangeDays)])
+	})
+
+	t.Run("days are counted where the owner is, across a clock change", func(t *testing.T) {
+		// New Zealand's clocks go back an hour on 5 April 2026, which makes
+		// the three weeks either side of it an hour longer than 21 days.
+		auckland, err := time.LoadLocation("Pacific/Auckland")
+		require.NoError(t, err)
+		at := func(month time.Month, d, hour int) TransactionRow {
+			return TransactionRow{Date: time.Date(2026, month, d, hour, 0, 0, 0, auckland)}
+		}
+		days := nearbyDays([]TransactionRow{at(time.March, 20, 9), at(time.April, 10, 9)}, auckland)
+		assert.Len(t, days, nearbyRangeDays+3, "still within the cap")
+		assert.True(t, days[date(time.March, 30)])
+
+		// Late in the evening there is already the next day in UTC.
+		days = nearbyDays([]TransactionRow{at(time.July, 10, 23)}, auckland)
+		assert.True(t, days[date(time.July, 11)])
+		assert.False(t, days[date(time.July, 12)])
+	})
 }
 
 // TestNearbyPurchasesAreDeterministic checks a memory offers the same

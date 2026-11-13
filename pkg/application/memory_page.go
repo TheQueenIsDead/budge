@@ -24,7 +24,8 @@ type MemoryPage struct {
 
 	// Rows are the purchases in the memory, or ticked to start one.
 	Rows []TransactionRow
-	// Nearby is what else was bought on and around their days.
+	// Nearby is what else was bought over their days, or around each of them
+	// for a memory too long to list all of; see nearbyPurchases.
 	Nearby []TimelineContextRow
 
 	// Return is where the page was opened from, to go back to once done.

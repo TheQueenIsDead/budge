@@ -138,9 +138,18 @@ type TimelineMemoryOption struct {
 	end   time.Time
 }
 
-// nearbyLimit caps the purchases offered while editing a memory. A long trip
-// has a lot of days around it, and past this the biggest are what matter.
-const nearbyLimit = 30
+// nearbyLimit caps the purchases offered while editing a memory. Three weeks
+// away can be a hundred small purchases, and past this many the biggest are
+// what matter: the page is to catch a forgotten hotel, not every coffee.
+const nearbyLimit = 50
+
+// nearbyRangeDays is the longest a memory can run, from its first purchase's
+// day to its last's, for everything bought in between to be offered. A
+// weekend or a fortnight away is one stretch, and what was bought in the
+// middle of it likely belongs. A trip whose flights were booked months ahead
+// is not, and the whole span would bury it in months of groceries, so past
+// this only the days its purchases fall on are searched.
+const nearbyRangeDays = 21
 
 // sameDayLimit is how many of a day's other purchases are listed under a
 // notable one. Past a handful the line stops being a hint and becomes a
@@ -804,21 +813,17 @@ func BuildTimeline(transactions []models.Transaction, memories []models.Memory, 
 	return timeline
 }
 
-// nearbyPurchases finds what was bought on the days a memory's purchases fall
-// on, and the day either side of each, that the memory does not already hold.
-// Only those days are searched rather than the whole span: a trip whose
-// flights were booked in March would otherwise drag in four months of
-// groceries. The biggest are kept when there are too many, listed by date.
+// nearbyPurchases finds what was bought around a memory that it does not
+// already hold: everything from the day before its first purchase to the day
+// after its last, or, for a memory longer than nearbyRangeDays, the days its
+// purchases fall on and the day either side of each. The biggest are kept
+// when there are too many, listed by date.
 func nearbyPurchases(memory TimelineEntry, byDay map[string][]models.Transaction, claimed map[string]bool, location *time.Location) []TimelineContextRow {
 	held := map[string]bool{}
-	days := map[string]bool{}
 	for _, row := range memory.Rows {
 		held[row.Id] = true
-		local := row.Date.In(location)
-		for offset := -1; offset <= 1; offset++ {
-			days[local.AddDate(0, 0, offset).Format(time.DateOnly)] = true
-		}
 	}
+	days := nearbyDays(memory.Rows, location)
 
 	// Days in order and every tie broken, by date and then id, so the same
 	// purchases are offered in the same order each time the memory is drawn,
@@ -850,6 +855,35 @@ func nearbyPurchases(memory TimelineEntry, byDay map[string][]models.Transaction
 		rows[i] = TimelineContextRow{TransactionRow: row, Claimed: claimed[tx.Id]}
 	}
 	return rows
+}
+
+// nearbyDays is the days, as dates in location, to look for what else was
+// bought around rows. Dates are counted as calendar days, at midnight UTC, so
+// a change to or from daylight saving doesn't make a day 23 or 25 hours long.
+func nearbyDays(rows []TransactionRow, location *time.Location) map[string]bool {
+	days := map[string]bool{}
+	if len(rows) == 0 {
+		return days
+	}
+	dates := make([]time.Time, len(rows))
+	for i, row := range rows {
+		local := row.Date.In(location)
+		dates[i] = time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC)
+	}
+	first, last := slices.MinFunc(dates, time.Time.Compare), slices.MaxFunc(dates, time.Time.Compare)
+
+	if last.Sub(first) <= nearbyRangeDays*24*time.Hour {
+		for day := first.AddDate(0, 0, -1); !day.After(last.AddDate(0, 0, 1)); day = day.AddDate(0, 0, 1) {
+			days[day.Format(time.DateOnly)] = true
+		}
+		return days
+	}
+	for _, date := range dates {
+		for offset := -1; offset <= 1; offset++ {
+			days[date.AddDate(0, 0, offset).Format(time.DateOnly)] = true
+		}
+	}
+	return days
 }
 
 // TimelinePeriod is a window the timeline can be viewed over: the last twelve
