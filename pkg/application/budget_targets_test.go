@@ -350,6 +350,11 @@ func TestBudgetNote(t *testing.T) {
 			"SetupData": CategorySetupData{HasData: true, Rows: rows, Sections: buildTargetSections(rows, ""), Generous: []string{"Pets"}},
 		})
 		assert.Contains(t, html, "Pets could have a lower target.")
+		tracking := html[strings.Index(html, `b-tracking`):]
+		tracking = tracking[:strings.Index(tracking, `id="budget-periods"`)]
+		assert.Contains(t, tracking, "Pets could have a lower target.", "a row of the overview card")
+		assert.Contains(t, tracking, `class="d-flex align-items-center gap-3 b-tracking-row"`)
+		assert.Contains(t, tracking, `href="#budget-setup">Review targets</a>`)
 		assert.NotContains(t, html, "Could be lower")
 		assert.NotContains(t, html, "Small categories")
 	})

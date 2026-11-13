@@ -2103,14 +2103,12 @@ a.b-acct:focus-visible {
     height: 160px;
 }
 
-/* What the budget could tidy, under its headline: a quiet line, not a card. */
-.b-budget-note {
-    display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
-    margin: -0.25rem 0 1rem;
-    color: var(--b-ink-2);
-    font-size: 0.85rem;
+/* A further row of the budget's headline card, set off from the one above
+   as rows in a list are. */
+.b-tracking-row {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--b-border);
 }
 
 /* The budget page's headline: overall spend against targets. */
