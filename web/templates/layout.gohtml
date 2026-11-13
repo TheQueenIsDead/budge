@@ -298,6 +298,21 @@
 
             initTooltips();
             document.body.addEventListener('htmx:afterSettle', initTooltips);
+
+            // A tooltip open on something a swap replaces, such as a filter
+            // toggle just clicked, would otherwise be left floating over the
+            // new page, its element gone from under it.
+            document.body.addEventListener('htmx:beforeSwap', function (evt) {
+                if (!evt.detail.shouldSwap || swapStyle(evt).startsWith('none')) {
+                    return;
+                }
+                evt.detail.target.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+                    const tip = bootstrap.Tooltip.getInstance(el);
+                    if (tip) {
+                        tip.dispose();
+                    }
+                });
+            });
         </script>
     </body>
 
