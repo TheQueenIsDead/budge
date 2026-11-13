@@ -1125,23 +1125,6 @@ a.b-acct:focus-visible {
     border-radius: var(--b-radius-sm);
 }
 
-.b-sched .form-check-input:checked {
-    background-color: var(--b-primary);
-    border-color: var(--b-primary);
-}
-
-.btn-outline-danger {
-    border-color: var(--b-negative);
-    color: var(--b-negative);
-}
-
-.btn-outline-danger:hover,
-.btn-outline-danger:focus {
-    background-color: var(--b-negative);
-    border-color: var(--b-negative);
-    color: var(--b-on-accent);
-}
-
 /* ==========================================================================
    Badges
    ========================================================================== */
@@ -1218,28 +1201,6 @@ a.b-acct:focus-visible {
     to {
         transform: rotate(360deg);
     }
-}
-
-.btn-primary {
-    background-color: var(--b-primary);
-    border-color: var(--b-primary);
-}
-
-.btn-primary:hover,
-.btn-primary:focus {
-    background-color: var(--b-primary-ink);
-    border-color: var(--b-primary-ink);
-}
-
-.btn-outline-secondary {
-    border-color: var(--b-border-strong);
-    color: var(--b-ink-2);
-}
-
-.btn-outline-secondary:hover {
-    background-color: var(--b-surface-3);
-    border-color: var(--b-border-strong);
-    color: var(--b-ink);
 }
 
 /* ==========================================================================
@@ -1768,7 +1729,7 @@ a.b-acct:focus-visible {
 .b-tx-feed:has(.b-tl-select:checked) .b-tx-pick:has(:checked) .b-chip {
     background: var(--b-primary);
     border-color: var(--b-primary);
-    color: var(--b-surface);
+    color: var(--b-on-accent);
 }
 
 .b-tx-pick:has(:checked) .b-tx-pick-tick {

@@ -193,6 +193,37 @@
     --bs-alert-border-color: var(--b-warning-soft);
 }
 
+/* Buttons read their colours from variables per state, so setting the
+   variables, rather than the properties, carries the palette into hover,
+   pressed, focused and disabled alike. */
+.btn-primary {
+    --bs-btn-color: var(--b-on-accent);
+    --bs-btn-bg: var(--b-primary);
+    --bs-btn-border-color: var(--b-primary);
+    --bs-btn-hover-color: var(--b-on-accent);
+    --bs-btn-hover-bg: var(--b-primary-ink);
+    --bs-btn-hover-border-color: var(--b-primary-ink);
+    --bs-btn-active-color: var(--b-on-accent);
+    --bs-btn-active-bg: var(--b-primary-ink);
+    --bs-btn-active-border-color: var(--b-primary-ink);
+    --bs-btn-disabled-color: var(--b-on-accent);
+    --bs-btn-disabled-bg: var(--b-primary);
+    --bs-btn-disabled-border-color: var(--b-primary);
+}
+
+.btn-outline-secondary {
+    --bs-btn-color: var(--b-ink-2);
+    --bs-btn-border-color: var(--b-border-strong);
+    --bs-btn-hover-color: var(--b-ink);
+    --bs-btn-hover-bg: var(--b-surface-3);
+    --bs-btn-hover-border-color: var(--b-border-strong);
+    --bs-btn-active-color: var(--b-on-accent);
+    --bs-btn-active-bg: var(--b-muted);
+    --bs-btn-active-border-color: var(--b-muted);
+    --bs-btn-disabled-color: var(--b-ink-2);
+    --bs-btn-disabled-border-color: var(--b-border-strong);
+}
+
 .btn-outline-danger {
     --bs-btn-color: var(--b-negative);
     --bs-btn-border-color: var(--b-negative);
