@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/TheQueenIsDead/budge/pkg/clock"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v5"
 )
@@ -103,7 +104,7 @@ func (app *Application) memoryPage(c *echo.Context, memory models.Memory, ids []
 	if err != nil {
 		return MemoryPage{}, err
 	}
-	rows, nearby := memoryContext(transactions, memories, ids, memory.Id, time.Now().Location())
+	rows, nearby := memoryContext(transactions, memories, ids, memory.Id, clock.Now().Location())
 	return MemoryPage{
 		Memory: memory,
 		New:    memory.Id == "",

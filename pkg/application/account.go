@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/TheQueenIsDead/budge/pkg/clock"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v5"
 	"golang.org/x/text/cases"
@@ -281,7 +282,7 @@ func (app *Application) Portfolio(c *echo.Context) error {
 		slog.ErrorContext(ctx, "request failed", "error", err)
 	}
 
-	cutoff := time.Now().AddDate(0, 0, -30)
+	cutoff := clock.Now().AddDate(0, 0, -30)
 	recent := make([]models.Transaction, 0, len(transactions))
 	hasTransactions := make(map[string]bool)
 	for _, tx := range transactions {
@@ -308,7 +309,7 @@ func (app *Application) Portfolio(c *echo.Context) error {
 		Assets:        assets,
 		AssetTotals:   BuildAssetPortfolio(assets),
 		AssetTypes:    assetTypes,
-		Today:         time.Now().Format("2006-01-02"),
+		Today:         clock.Now().Format("2006-01-02"),
 	})
 }
 
@@ -326,12 +327,12 @@ func (app *Application) Account(c *echo.Context) error {
 	if year != "" {
 		y, err := strconv.Atoi(year)
 		if err != nil {
-			viewDate = time.Now()
+			viewDate = clock.Now()
 		} else {
 			viewDate = time.Date(y, time.January, 1, 0, 0, 0, 0, time.UTC)
 		}
 	} else {
-		viewDate = time.Now()
+		viewDate = clock.Now()
 	}
 
 	graphData, statistics, err := app.accountBalance(c, account, viewDate)
@@ -346,7 +347,7 @@ func (app *Application) Account(c *echo.Context) error {
 		Statistics:    statistics,
 		HasData:       len(graphData.Data) > 0,
 		Date:          viewDate,
-		IsCurrentYear: viewDate.Year() == time.Now().Year(),
+		IsCurrentYear: viewDate.Year() == clock.Now().Year(),
 		PrevYear:      viewDate.AddDate(-1, 0, 0).Year(),
 		NextYear:      viewDate.AddDate(1, 0, 0).Year(),
 	}

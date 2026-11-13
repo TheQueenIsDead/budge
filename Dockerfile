@@ -40,7 +40,10 @@ FROM source AS build
 # build.
 ARG VERSION=""
 ARG REVISION=""
-RUN CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION} -X github.com/TheQueenIsDead/budge/pkg/telemetry.stampedRevision=${REVISION}" -o /go/bin/budge ./cmd/budge/...
+# Build tags. The browser tests' image is built with e2e, which stops budge's
+# clock on a fixed day (see pkg/clock); a release is built with none.
+ARG TAGS=""
+RUN CGO_ENABLED=0 go build -tags "${TAGS}" -ldflags "-X main.version=${VERSION} -X github.com/TheQueenIsDead/budge/pkg/telemetry.stampedRevision=${REVISION}" -o /go/bin/budge ./cmd/budge/...
 
 FROM gcr.io/distroless/static-debian12
 

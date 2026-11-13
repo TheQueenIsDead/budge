@@ -27,7 +27,10 @@ jobs:
           context: .
           load: true
           tags: budge:e2e
+          # e2e stops budge's clock on the day the tests seed their data as
+          # of, so pages draw the same on any day; see pkg/clock.
           build-args: |
+            TAGS=e2e
             GO_VERSION=${{ steps.versions.outputs.go }}
             PNPM_VERSION=${{ steps.versions.outputs.pnpm }}
           cache-from: type=gha

@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/TheQueenIsDead/budge/pkg/clock"
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/test"
 	"github.com/chromedp/chromedp"
@@ -61,7 +62,9 @@ func run(m *testing.M) int {
 	}
 
 	var err error
-	if seeded, err = seed(time.Now()); err != nil {
+	// Seeded as of the e2e build's stopped clock, which the budge under test
+	// is built with too, so both agree on what today is, on any day.
+	if seeded, err = seed(clock.Now()); err != nil {
 		return fail("seeding a database", err)
 	}
 

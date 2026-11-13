@@ -89,12 +89,13 @@ func Seed(ctx context.Context, store *database.Store, now time.Time) error {
 
 	// Targets for two categories, so the budget has periods to fill, and a
 	// salary to weigh them against. Transport's is well above what the fuel
-	// comes to, so the budget has a target to suggest lowering.
+	// comes to, more than twice it, so the budget has a target to suggest
+	// lowering whichever weeks the windows catch.
 	for _, target := range []struct {
 		key       string
 		amount    float64
 		frequency string
-	}{{"groceries", 200, "weekly"}, {"transport", 600, "monthly"}} {
+	}{{"groceries", 200, "weekly"}, {"transport", 800, "monthly"}} {
 		category, _ := models.BudgetCategoryByKey(target.key)
 		if err := store.CreateBudgetItem(ctx, models.BudgetItem{
 			ID: "budget_seed_" + target.key, Name: category.Label, BudgetCategory: target.key,

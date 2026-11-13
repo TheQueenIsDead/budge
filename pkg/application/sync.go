@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/TheQueenIsDead/budge/pkg/clock"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v5"
 	"go.opentelemetry.io/otel/codes"
@@ -141,7 +142,7 @@ func (app *Application) runAkahuSync(ctx context.Context, full bool) error {
 	}
 	if err == nil {
 		// New spending has landed, so this is when a category tips over.
-		app.notifyBudget(ctx, time.Now())
+		app.notifyBudget(ctx, clock.Now())
 	}
 	return err
 }

@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/TheQueenIsDead/budge/pkg/clock"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v5"
 )
@@ -935,7 +936,7 @@ func (app *Application) Timeline(c *echo.Context) error {
 // page load's query string or an action's form, and renders the page.
 func (app *Application) renderTimeline(c *echo.Context) error {
 	ctx := c.Request().Context()
-	now := time.Now()
+	now := clock.Now()
 
 	transactions, err := app.store.ReadTransactions(ctx)
 	if err != nil {

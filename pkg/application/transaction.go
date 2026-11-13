@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/TheQueenIsDead/budge/pkg/clock"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v5"
 )
@@ -127,7 +128,7 @@ func (app *Application) Transactions(c *echo.Context) error {
 
 	// A date range narrows whatever the search matched. It is how a memory on
 	// the timeline opens everything bought around it.
-	from, to, dated := transactionDateRange(c.QueryParam("from"), c.QueryParam("to"), time.Now().Location())
+	from, to, dated := transactionDateRange(c.QueryParam("from"), c.QueryParam("to"), clock.Now().Location())
 	if dated {
 		transactions = slices.DeleteFunc(transactions, func(t models.Transaction) bool {
 			return t.Date.Before(from) || !t.Date.Before(to)
@@ -146,8 +147,8 @@ func (app *Application) Transactions(c *echo.Context) error {
 
 	// Uncategorised spending is counted across everything recent, whatever the
 	// search, so the warning about it is the same wherever the page is opened.
-	since := uncategorisedSince(time.Now())
-	recent, err := app.store.ReadTransactionsByDate(ctx, since, time.Now())
+	since := uncategorisedSince(clock.Now())
+	recent, err := app.store.ReadTransactionsByDate(ctx, since, clock.Now())
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -207,13 +208,13 @@ func (app *Application) Transactions(c *echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	days := GroupTransactionsByDay(page, time.Now().Location())
+	days := GroupTransactionsByDay(page, clock.Now().Location())
 	markMemories(days, held)
 
 	// Built from every match, not the page, so the chart describes the search
 	// rather than the hundred rows under it. The category split only earns its
 	// place once a search has narrowed the results to something coherent.
-	series := BuildTransactionSeries(transactions, transactionSeriesMonths, time.Now())
+	series := BuildTransactionSeries(transactions, transactionSeriesMonths, clock.Now())
 	if search == "" && len(groups) < 2 {
 		series = series.Combined()
 	}

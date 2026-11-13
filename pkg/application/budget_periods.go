@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/TheQueenIsDead/budge/pkg/clock"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/labstack/echo/v5"
 )
@@ -243,7 +244,7 @@ func frequencyOrWeekly(frequency string) string {
 // changes.
 func (app *Application) BudgetPeriods(c *echo.Context) error {
 	ctx := c.Request().Context()
-	now := time.Now()
+	now := clock.Now()
 	txs, err := app.store.ReadTransactionsByDate(ctx, now.AddDate(-1, 0, -1), now)
 	if err != nil {
 		return err

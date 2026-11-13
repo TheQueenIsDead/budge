@@ -12,6 +12,7 @@ import (
 
 	"fmt"
 
+	"github.com/TheQueenIsDead/budge/pkg/clock"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	"github.com/TheQueenIsDead/budge/pkg/integrations/property"
 	"github.com/labstack/echo/v5"
@@ -226,7 +227,7 @@ func BuildAssetSeries(asset models.Asset) AssetSeries {
 func parseAssetDate(raw string) time.Time {
 	parsed, ok := readAssetDate(raw)
 	if !ok {
-		return time.Now()
+		return clock.Now()
 	}
 	return parsed
 }
@@ -344,7 +345,7 @@ func (app *Application) Asset(c *echo.Context) error {
 		Series:  BuildAssetSeries(asset),
 		History: history,
 		Types:   assetTypes,
-		Today:   time.Now().Format("2006-01-02"),
+		Today:   clock.Now().Format("2006-01-02"),
 	})
 }
 
@@ -472,7 +473,7 @@ func (app *Application) AssetRefreshEstimate(c *echo.Context) error {
 
 	valuation := models.AssetValuation{
 		ID:    newID(),
-		Date:  time.Now(),
+		Date:  clock.Now(),
 		Value: result.Average,
 		Note:  strings.Join(sources, " · "),
 	}
@@ -529,7 +530,7 @@ type AssetNewProps struct {
 func (app *Application) AssetNew(c *echo.Context) error {
 	props := AssetNewProps{
 		Types: assetTypes,
-		Today: time.Now().Format("2006-01-02"),
+		Today: clock.Now().Format("2006-01-02"),
 	}
 	if selected, ok := AssetTypeByKey(c.QueryParam("type")); ok {
 		props.Selected = selected

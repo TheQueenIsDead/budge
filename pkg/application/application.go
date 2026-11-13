@@ -18,6 +18,7 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
+	"github.com/TheQueenIsDead/budge/pkg/clock"
 	"github.com/TheQueenIsDead/budge/pkg/database"
 	"github.com/TheQueenIsDead/budge/pkg/integrations"
 	"github.com/TheQueenIsDead/budge/pkg/telemetry"
@@ -76,15 +77,15 @@ func templateFuncs() template.FuncMap {
 			return math.Abs(value) / math.Abs(max) * 100
 		},
 		"fmtRelative": func(date time.Time) string {
-			return humanize.RelTime(date, time.Now(), "ago", "")
+			return humanize.RelTime(date, clock.Now(), "ago", "")
 		},
 		// fmtUntil words a time ahead of now. fmtRelative leaves an empty suffix
 		// for future dates, which reads as "6 days ." in the middle of a sentence.
 		"fmtUntil": func(date time.Time) string {
-			if !date.After(time.Now()) {
+			if !date.After(clock.Now()) {
 				return "shortly"
 			}
-			return "in " + strings.TrimSpace(humanize.RelTime(time.Now(), date, "", ""))
+			return "in " + strings.TrimSpace(humanize.RelTime(clock.Now(), date, "", ""))
 		},
 		// fmtDuration words a timing at the precision it deserves: a bolt read
 		// in microseconds, a request in milliseconds, a sync in seconds.
