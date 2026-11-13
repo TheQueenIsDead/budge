@@ -185,6 +185,12 @@ func TestRenderSettingsPage(t *testing.T) {
 		}
 	})
 
+	t.Run("has one schedule to swap", func(t *testing.T) {
+		// The form swaps #schedule by its outerHTML. A wrapper with the same id
+		// gave the page two, and the swap whichever came first.
+		assert.Equal(t, 1, strings.Count(page, `id="schedule"`))
+	})
+
 	t.Run("shows the accounts it has connected", func(t *testing.T) {
 		assert.Contains(t, page, "Main Account")
 		assert.Contains(t, page, "Kiwibank")

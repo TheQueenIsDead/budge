@@ -60,8 +60,9 @@
         </form>
     </div>
 
-    <!-- What runs by itself -->
-    <div id="schedule">{{ template "settings.schedule" .schedule }}</div>
+    <!-- What runs by itself. The card carries its own id, as it is the
+         target its form swaps out. -->
+    {{ template "settings.schedule" .schedule }}
 
     <!-- Categories, and the rules that file transactions under them -->
     {{ template "settings.categories" .categories }}
