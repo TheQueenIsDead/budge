@@ -102,5 +102,14 @@ The image is built with the `e2e` tag, which stops budge's clock on a fixed
 day, the day the tests' data is seeded as of, so every page draws the same
 whenever the tests run.
 
+`TestScreenshots` draws every page, at a desktop's width and a phone's, into
+`e2e/testdata/screenshots`, replacing the pictures of any that changed. It
+runs only when asked, as CI does on a pull request that could change a page,
+committing what changed so the pull request shows each page that moved:
+
+```shell
+go test -tags e2e -run TestScreenshots ./e2e/... -screenshots
+```
+
 Add `-artifacts` to keep a screenshot and the HTML of each page a failed test
 was on, in `_artifacts`.
