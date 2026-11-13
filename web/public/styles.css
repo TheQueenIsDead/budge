@@ -12,6 +12,9 @@
     --b-radius-pill: 999px;
     --b-shadow: 0 1px 2px var(--b-shadow-faint);
     --b-shadow-lift: 0 2px 10px var(--b-shadow-soft);
+    /* The one ring anything a keyboard reaches wears, drawn as a shadow so it
+       follows the element's corners. */
+    --b-focus-ring: 0 0 0 3px var(--b-primary-ring);
 
     /* Height of the mobile tab bar, so page padding can stay in step with it */
     --b-tabbar: 64px;
@@ -315,6 +318,10 @@ main.container {
     color: inherit;
 }
 
+.b-highlight:focus-visible {
+    box-shadow: var(--b-focus-ring), var(--b-shadow-lift);
+}
+
 .b-highlight-head {
     display: flex;
     align-items: center;
@@ -382,11 +389,6 @@ main.container {
 .b-rank-link:focus-visible {
     background: var(--b-surface-2);
     color: inherit;
-}
-
-.b-rank-link:focus-visible {
-    outline: 2px solid var(--b-primary);
-    outline-offset: 1px;
 }
 
 .b-rank-go {
@@ -481,7 +483,9 @@ main.container {
     display: flex;
     gap: 0.5rem;
     overflow-x: auto;
-    padding: 0.125rem 0 0.5rem;
+    /* The scrolling row clips what overflows it, so it leaves room above
+       for a focused pill's ring. */
+    padding: 0.25rem 0 0.5rem;
     /* Let the row bleed to the screen edge on a phone so the last pill does
        not look clipped by the container gutter. */
     margin-inline: -0.75rem;
@@ -773,12 +777,6 @@ main.container {
     padding: 0.5rem 0.75rem;
 }
 
-.b-filters .form-control:focus,
-.b-filters .form-select:focus {
-    border-color: var(--b-primary);
-    box-shadow: 0 0 0 3px var(--b-primary-soft);
-}
-
 .b-summary-bar {
     display: flex;
     flex-wrap: wrap;
@@ -866,11 +864,6 @@ a.b-acct:focus-visible {
     cursor: default;
 }
 
-.b-acct:focus-visible {
-    outline: 2px solid var(--b-primary);
-    outline-offset: -2px;
-}
-
 .b-acct-body {
     flex: 1 1 auto;
     min-width: 0;
@@ -929,12 +922,6 @@ a.b-acct:focus-visible {
     border-color: var(--b-border);
     border-radius: var(--b-radius-sm);
     font-size: 16px;
-}
-
-.b-card .form-control:focus,
-.b-card .form-select:focus {
-    border-color: var(--b-primary);
-    box-shadow: 0 0 0 3px var(--b-primary-soft);
 }
 
 .b-card .input-group-text {
@@ -1001,6 +988,10 @@ a.b-acct:focus-visible {
     box-shadow: var(--b-shadow-lift);
     transform: translateY(-1px);
     color: inherit;
+}
+
+.b-choice:focus-visible {
+    box-shadow: var(--b-focus-ring), var(--b-shadow-lift);
 }
 
 .b-choice-body {
@@ -1153,6 +1144,7 @@ a.b-acct:focus-visible {
     gap: 0.4rem;
     border-radius: var(--b-radius-sm);
     font-weight: 600;
+    --bs-btn-focus-box-shadow: var(--b-focus-ring);
 }
 
 /* A refresh icon doubles as its own loading indicator while the request it
@@ -1704,10 +1696,6 @@ a.b-acct:focus-visible {
     display: inline;
 }
 
-.b-tx-pick:has(:focus-visible) .b-chip {
-    box-shadow: 0 0 0 3px var(--b-primary-ring);
-}
-
 /* The selection bar's fields are redrawn as one piece, but lay out as if they
    sat straight in the bar. */
 .b-tl-new-wrap {
@@ -1929,12 +1917,6 @@ a.b-acct:focus-visible {
     color: var(--b-primary);
 }
 
-.b-target-goto:focus-visible,
-.b-target-mode:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 3px var(--b-primary-ring);
-}
-
 /* A category's spending split by subcategory, inside its opened row. */
 .b-target-subs {
     list-style: none;
@@ -1978,10 +1960,12 @@ a.b-acct:focus-visible {
     border-radius: var(--b-radius-pill);
     background: var(--b-surface-2);
     font-size: 0.75rem;
-    overflow: hidden;
 }
 
+/* The link takes the pill's corners, so its hover fills the pill without
+   the pill clipping it, which would clip its focus ring too. */
 .b-merchant a {
+    border-radius: inherit;
     padding: 0.15rem 0.5rem;
     color: var(--b-ink-2);
     text-decoration: none;
@@ -2158,10 +2142,6 @@ a.b-acct:focus-visible {
     border-color: var(--b-primary);
 }
 
-.b-kind-pick:has(:focus-visible) {
-    box-shadow: 0 0 0 3px var(--b-primary-ring);
-}
-
 /* A memory's page lines everything up on one edge: the header card, the
    section headings and the rows all start their content where a row does,
    inside its padding and border. */
@@ -2215,11 +2195,6 @@ a.b-acct:focus-visible {
 .b-accent-pick:has(:checked),
 .b-icon-pick:has(:checked) {
     border-color: var(--b-primary);
-}
-
-.b-accent-pick:has(:focus-visible),
-.b-icon-pick:has(:focus-visible) {
-    box-shadow: 0 0 0 3px var(--b-primary-ring);
 }
 
 .b-swatch {
@@ -2593,4 +2568,33 @@ a.b-acct:focus-visible {
     overflow: auto;
     font-size: 0.6875rem;
     white-space: pre;
+}
+
+/* ==========================================================================
+   Focus
+
+   One ring for everything a keyboard can reach, last in the file so it
+   wins over a component's own shadow of the same weight. Controls that hide
+   their input inside a label, the pickers and a row's tick box, ring the
+   label or its chip while the input has the focus.
+   ========================================================================== */
+
+:focus-visible,
+.b-segment a:focus-visible,
+.b-nav-link:focus-visible,
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus,
+.b-kind-pick:has(:focus-visible),
+.b-accent-pick:has(:focus-visible),
+.b-icon-pick:has(:focus-visible),
+.b-tx-pick:has(:focus-visible) .b-chip {
+    outline: 0;
+    box-shadow: var(--b-focus-ring);
+}
+
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+    border-color: var(--b-primary);
 }
