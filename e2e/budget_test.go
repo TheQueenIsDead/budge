@@ -38,6 +38,24 @@ func TestBudgetTarget(t *testing.T) {
 	assert.Contains(t, p.text(row), "of $40", "the target is saved")
 }
 
+// TestBudgetSuggestsALowerTarget finds the seeded transport target, well
+// above what the fuel comes to, raised as a row of the overview card, which
+// leads to the targets.
+func TestBudgetSuggestsALowerTarget(t *testing.T) {
+	p := open(t)
+	p.visit("/budget")
+
+	row := ".b-tracking .b-tracking-row"
+	p.eventually(p.contains(row, "Transport could have a lower target."))
+	p.clickText(row+" a", "Review targets")
+	p.eventually(func() error {
+		if hash := eval[string](p, `location.hash`); hash != "#budget-setup" {
+			return fmt.Errorf("the browser is at %q, not the targets", hash)
+		}
+		return nil
+	})
+}
+
 // TestIncomeKeepsTheSavingsGoal sets a savings goal, then changes the salary.
 // The two are saved from separate forms into one record, and saving the salary
 // once wiped the goal.

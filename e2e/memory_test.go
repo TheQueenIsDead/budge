@@ -19,25 +19,14 @@ func TestMakeAMemory(t *testing.T) {
 	p.visit(start)
 
 	id := eval[string](p, `document.querySelector('.b-tx-pick input').value`)
-	p.click(".b-tx-pick")
-	p.clickText("#tx-group button", "New memory")
-	p.settle()
-	p.eventually(func() error {
-		if at := eval[string](p, `location.pathname`); at != "/memories/new" {
-			return fmt.Errorf("the browser is at %s, not the new memory's page", at)
-		}
-		return nil
-	})
+	startMemory(p)
 	assert.Equal(t, 1, eval[int](p, `document.querySelectorAll('input[name=tx]:checked').length`), "what was ticked is in it")
 	nearby := eval[int](p, `document.querySelectorAll('input[name=tx]:not(:checked)').length`)
 	if nearby > 0 {
 		p.click("input[name=tx]:not(:checked)")
 	}
 
-	p.click("#memory-title")
-	p.typeText("Road trip")
-	p.clickText("button.btn-primary", "Make memory")
-	p.settle()
+	name(p, "Road trip")
 	p.eventually(p.at(start))
 
 	// Its bookmark, filled now, opens the memory.
@@ -52,7 +41,9 @@ func TestMakeAMemory(t *testing.T) {
 	p.eventually(p.is("#memory-title", "Road trip", p.value))
 
 	// Nothing changed yet, so nothing to save.
-	saveable := func() bool { return !eval[bool](p, `document.querySelector('form.b-memory button.btn-primary').disabled`) }
+	saveable := func() bool {
+		return !eval[bool](p, `document.querySelector('form.b-memory button.btn-primary').disabled`)
+	}
 	assert.False(t, saveable(), "Save waits for a change")
 	p.click("#memory-note")
 	p.typeText("Mostly petrol")
@@ -74,4 +65,54 @@ func TestMakeAMemory(t *testing.T) {
 	purchases := p.text(".b-tl-memory .b-tl-rows summary")
 	want := fmt.Sprintf("%d purchase", 1+min(nearby, 1))
 	assert.True(t, strings.HasPrefix(purchases, want), "%q, not %q", purchases, want)
+}
+
+// TestDeleteAMemory deletes a memory from its page, opened from the timeline,
+// and comes back to the timeline without it.
+func TestDeleteAMemory(t *testing.T) {
+	p := open(t)
+	p.visit("/transactions?search=Z%20Energy")
+	startMemory(p)
+	name(p, "Road trip")
+
+	p.visit("/timeline?view=memories")
+	p.click(".b-tl-open")
+	p.settle()
+	p.eventually(p.is("#memory-title", "Road trip", p.value))
+
+	// hx-confirm asks first, as a browser dialog, which is agreed to here.
+	eval[bool](p, `(window.confirm = () => true, true)`)
+	p.clickText("form.b-memory button", "Delete")
+	p.settle()
+	p.eventually(func() error {
+		if at := eval[string](p, `location.pathname`); at != "/timeline" {
+			return fmt.Errorf("the browser is at %s, not back on the timeline", at)
+		}
+		return nil
+	})
+	p.eventually(p.contains("#main", "No memories yet"))
+}
+
+// startMemory ticks the first transaction listed and opens a new memory's
+// page with it.
+func startMemory(p *page) {
+	p.t.Helper()
+	p.click(".b-tx-pick")
+	p.clickText("#tx-group button", "New memory")
+	p.settle()
+	p.eventually(func() error {
+		if at := eval[string](p, `location.pathname`); at != "/memories/new" {
+			return fmt.Errorf("the browser is at %s, not the new memory's page", at)
+		}
+		return nil
+	})
+}
+
+// name names the memory on the page and makes it.
+func name(p *page, title string) {
+	p.t.Helper()
+	p.click("#memory-title")
+	p.typeText(title)
+	p.clickText("button.btn-primary", "Make memory")
+	p.settle()
 }
