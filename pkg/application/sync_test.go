@@ -97,8 +97,8 @@ func TestCloseWaitsForSyncsInTheBackground(t *testing.T) {
 	closed := make(chan error)
 	go func() { closed <- app.Close() }()
 	select {
-	case <-closed:
-		t.Fatal("Close returned with a sync still running")
+	case err := <-closed:
+		t.Fatalf("Close returned (%v) with a sync still running", err)
 	case <-time.After(100 * time.Millisecond):
 	}
 	close(release)

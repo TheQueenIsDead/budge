@@ -13,6 +13,7 @@ import (
 	"github.com/TheQueenIsDead/budge/pkg/database/buckets"
 	"github.com/TheQueenIsDead/budge/pkg/database/models"
 	bolt "go.etcd.io/bbolt"
+	berrors "go.etcd.io/bbolt/errors"
 )
 
 /* Accounts */
@@ -684,7 +685,7 @@ func (s *Store) changeAkahuSettings(ctx context.Context, change func(*models.Int
 func (s *Store) DeleteSynced(ctx context.Context) error {
 	return update(ctx, s.db, "synced", func(tx *bolt.Tx) error {
 		for _, bucket := range [][]byte{buckets.AccountBucket, buckets.MerchantBucket, buckets.TransactionBucket} {
-			if err := tx.DeleteBucket(bucket); err != nil && !errors.Is(err, bolt.ErrBucketNotFound) {
+			if err := tx.DeleteBucket(bucket); err != nil && !errors.Is(err, berrors.ErrBucketNotFound) {
 				return err
 			}
 			if _, err := tx.CreateBucket(bucket); err != nil {
