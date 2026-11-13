@@ -309,19 +309,21 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	// Timeline: the purchases worth remembering, and the memories made of them.
 	app.http.GET("/timeline", app.Timeline)
 	app.http.POST("/timeline/memories", app.TimelineSaveMemory)
-	app.http.PUT("/timeline/memories/:id", app.TimelineUpdateMemory)
 	app.http.DELETE("/timeline/memories/:id", app.TimelineDeleteMemory)
 	app.http.DELETE("/timeline/memories/:id/transactions/:tx", app.TimelineRemoveFromMemory)
 	app.http.POST("/timeline/hide", app.TimelineHide)
+	app.http.GET("/memories/new", app.MemoryNew)
+	app.http.POST("/memories", app.MemoryCreate)
+	app.http.GET("/memories/:id/edit", app.MemoryEdit)
+	app.http.POST("/memories/:id", app.MemoryUpdate)
+	app.http.DELETE("/memories/:id", app.MemoryDelete)
 	app.http.POST("/timeline/restore", app.TimelineRestore)
 
 	// Adding transactions to a memory from the transactions list, one at a
 	// time or every ticked row at once, and taking them back out.
 	app.http.POST("/transactions/category", app.TransactionsSetCategory)
 	app.http.POST("/transactions/memory", app.TransactionsAddToMemory)
-	app.http.DELETE("/transactions/memory", app.TransactionsRemoveFromMemory)
 	app.http.POST("/transactions/:id/memory", app.TransactionAddToMemory)
-	app.http.DELETE("/transactions/:id/memory", app.TransactionRemoveFromMemory)
 	app.http.GET("/transactions/:id/category", app.TransactionCategoryForm)
 	app.http.POST("/transactions/:id/category", app.TransactionSetCategory)
 

@@ -572,7 +572,7 @@ func TestRenderTimelineMemoryActions(t *testing.T) {
 	})
 
 	t.Run("a memory can be edited and trimmed", func(t *testing.T) {
-		assert.Contains(t, page, `hx-put="/timeline/memories/engaged"`)
+		assert.Contains(t, page, `href="/memories/engaged/edit?return=`, "on a page of its own")
 		assert.Contains(t, page, `hx-delete="/timeline/memories/engaged/transactions/ring"`)
 		assert.Contains(t, page, `<details class="b-tl-rows" open>`, "the memory being trimmed stays open")
 	})
@@ -611,19 +611,6 @@ func TestTimelineMemoryEditing(t *testing.T) {
 		assert.Equal(t, "Japan", memory.Title, "adding does not rename")
 	})
 
-	t.Run("a memory can be edited", func(t *testing.T) {
-		c, _ := postForm(t, app, url.Values{"title": {"Japan 2026"}, "kind": {"experience"}, "note": {"Cherry blossoms"}})
-		c.SetPathValues(echo.PathValues{{Name: "id", Value: id}})
-		require.NoError(t, app.TimelineUpdateMemory(c))
-
-		memory, err := app.store.GetMemory(t.Context(), id)
-		require.NoError(t, err)
-		assert.Equal(t, "Japan 2026", memory.Title)
-		assert.Equal(t, "experience", memory.Kind)
-		assert.Equal(t, "Cherry blossoms", memory.Note)
-		assert.Len(t, memory.TransactionIDs, 3, "editing keeps the purchases")
-	})
-
 	t.Run("purchases can be taken out, and the last takes the memory", func(t *testing.T) {
 		remove := func(tx string) {
 			c, _ := postForm(t, app, url.Values{})
@@ -649,7 +636,7 @@ func TestTimelineMemoryEditing(t *testing.T) {
 	})
 }
 
-func TestBuildTimelineNearbyPurchases(t *testing.T) {
+func TestMemoryContext(t *testing.T) {
 	flights := purchase("flights", "Air NZ", 1400, time.March, 1)
 	txs := append(ordinaryYear(),
 		flights,
@@ -665,19 +652,13 @@ func TestBuildTimelineNearbyPurchases(t *testing.T) {
 		{Id: "gifts", Title: "Gifts", TransactionIDs: []string{"claimed"}},
 	}
 
-	timeline := BuildTimeline(txs, memories, models.TimelinePreferences{}, timelineStart, timelineEnd)
-
-	var japan TimelineEntry
-	for _, memory := range timeline.Memories {
-		if memory.Key == "japan" {
-			japan = memory
-		}
-	}
-	require.Equal(t, "japan", japan.Key)
+	rows, nearby := memoryContext(txs, memories, []string{"flights", "hotel"}, "japan", time.UTC)
+	require.Len(t, rows, 2)
+	assert.Equal(t, "flights", rows[0].Id, "its own purchases, by date")
 
 	var ids []string
 	claimed := map[string]bool{}
-	for _, row := range japan.Nearby {
+	for _, row := range nearby {
 		ids = append(ids, row.Id)
 		claimed[row.Id] = row.Claimed
 	}
@@ -690,10 +671,18 @@ func TestBuildTimelineNearbyPurchases(t *testing.T) {
 	assert.NotContains(t, ids, "far")
 	assert.NotContains(t, ids, "groceries", "only the memory's own days, not the months between")
 
-	for i := 1; i < len(japan.Nearby); i++ {
-		assert.False(t, japan.Nearby[i].Date.Before(japan.Nearby[i-1].Date), "listed by date")
+	for i := 1; i < len(nearby); i++ {
+		assert.False(t, nearby[i].Date.Before(nearby[i-1].Date), "listed by date")
 	}
 
+	timeline := BuildTimeline(txs, memories, models.TimelinePreferences{}, timelineStart, timelineEnd)
+	var japan TimelineEntry
+	for _, memory := range timeline.Memories {
+		if memory.Key == "japan" {
+			japan = memory
+		}
+	}
+	require.Equal(t, "japan", japan.Key)
 	assert.Equal(t, "/transactions?from=2026-02-28&to=2026-07-11", japan.TransactionsLink())
 }
 
@@ -729,7 +718,7 @@ func TestNearbyPurchasesAreDeterministic(t *testing.T) {
 	}
 }
 
-func TestRenderTimelineMemoryEditShowsNearby(t *testing.T) {
+func TestRenderTimelineMemoryLinksToItsPage(t *testing.T) {
 	txs := append(ordinaryYear(),
 		purchase("ring", "Jeweller", 3000, time.September, 9),
 		purchase("dinner", "Restaurant", 180, time.September, 9),
@@ -741,15 +730,11 @@ func TestRenderTimelineMemoryEditShowsNearby(t *testing.T) {
 		Timeline: timeline,
 		Months:   timeline.Months(TimelineViewMemories, time.UTC),
 		View:     TimelineViewMemories,
+		Period:   TimelinePeriod{Key: "2026"},
 		Kinds:    models.MemoryKinds,
-		Editing:  "engaged",
 	})
 
-	assert.Contains(t, page, "Bought around then")
-	assert.Contains(t, page, `class="form-check-input b-tl-pick" name="tx" value="dinner"`)
-	assert.Contains(t, page, `name="memory" value="engaged"`)
-	assert.Contains(t, page, `<details class="b-tl-tag" open>`, "the memory being edited stays open")
+	assert.Contains(t, page, `href="/memories/engaged/edit?return=%2ftimeline%3fperiod%3d2026%26view%3dmemories"`)
+	assert.NotContains(t, page, "Bought around then", "what was bought around it is on the memory's page alone")
 	assert.Contains(t, page, `href="/transactions?from=2026-09-08&amp;to=2026-09-10"`)
-	// Nearby ticks must not summon the floating group bar.
-	assert.NotContains(t, page, `class="form-check-input b-tl-select" name="tx" value="dinner"`)
 }

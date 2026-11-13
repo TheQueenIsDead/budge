@@ -92,50 +92,24 @@ func (app *Application) addToMemory(c *echo.Context, ids []string) (models.Memor
 	if err := app.store.SaveMemory(ctx, memory); err != nil {
 		return memory, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+	return memory, app.unhide(c, ids)
+}
 
+// unhide brings purchases put in a memory back onto the timeline, if they
+// were hidden from it: they are in a memory to be remembered.
+func (app *Application) unhide(c *echo.Context, ids []string) error {
+	ctx := c.Request().Context()
 	prefs, err := app.store.GetTimelinePreferences(ctx)
 	if err != nil {
-		return memory, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	prefs.HiddenTransactions = slices.DeleteFunc(prefs.HiddenTransactions, func(id string) bool {
 		return slices.Contains(ids, id)
 	})
 	if err := app.store.SaveTimelinePreferences(ctx, prefs); err != nil {
-		return memory, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	return memory, nil
-}
-
-// removeFromMemories takes transactions back out of whichever memories hold
-// them, returning the titles of the memories touched. A memory left empty is
-// removed, as on the timeline, since it has no date to sit at.
-func (app *Application) removeFromMemories(ctx context.Context, ids []string) ([]string, error) {
-	memories, err := app.store.ReadMemories(ctx)
-	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	var touched []string
-	for _, memory := range memories {
-		before := len(memory.TransactionIDs)
-		memory.TransactionIDs = slices.DeleteFunc(memory.TransactionIDs, func(id string) bool {
-			return slices.Contains(ids, id)
-		})
-		if len(memory.TransactionIDs) == before {
-			continue
-		}
-		touched = append(touched, memory.Title)
-
-		if len(memory.TransactionIDs) == 0 {
-			err = app.store.DeleteMemory(ctx, memory.Id)
-		} else {
-			err = app.store.SaveMemory(ctx, memory)
-		}
-		if err != nil {
-			return touched, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
-	}
-	return touched, nil
+	return nil
 }
 
 // transactionMemoryLayouts are the two places a transaction is drawn: the
@@ -215,25 +189,6 @@ func (app *Application) TransactionAddToMemory(c *echo.Context) error {
 	return app.renderMemoryControls(c, []string{id}, usedLayout(c))
 }
 
-// TransactionRemoveFromMemory takes one transaction back out of its memory.
-func (app *Application) TransactionRemoveFromMemory(c *echo.Context) error {
-	ctx := c.Request().Context()
-	id := c.Param("id")
-	if id == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "Pick a transaction to remove.")
-	}
-
-	touched, err := app.removeFromMemories(ctx, []string{id})
-	if err != nil {
-		return err
-	}
-
-	if len(touched) > 0 {
-		app.Toast(c, "Removed", "Taken out of “"+touched[0]+"”.")
-	}
-	return app.renderMemoryControls(c, []string{id}, usedLayout(c))
-}
-
 // selectedTransactions reads the transactions ticked in the list.
 func selectedTransactions(c *echo.Context) ([]string, error) {
 	form, err := c.FormValues()
@@ -263,30 +218,5 @@ func (app *Application) TransactionsAddToMemory(c *echo.Context) error {
 	}
 
 	app.Toast(c, "Saved", fmt.Sprintf("Added %d to “%s”.", len(ids), memory.Title))
-	return app.renderMemoryControls(c, ids, "")
-}
-
-// TransactionsRemoveFromMemory takes every ticked transaction out of whichever
-// memory holds it.
-func (app *Application) TransactionsRemoveFromMemory(c *echo.Context) error {
-	ctx := c.Request().Context()
-	ids, err := selectedTransactions(c)
-	if err != nil {
-		return err
-	}
-
-	touched, err := app.removeFromMemories(ctx, ids)
-	if err != nil {
-		return err
-	}
-
-	switch len(touched) {
-	case 0:
-		app.Toast(c, "Nothing to remove", "None of those are in a memory.")
-	case 1:
-		app.Toast(c, "Removed", "Taken out of “"+touched[0]+"”.")
-	default:
-		app.Toast(c, "Removed", fmt.Sprintf("Taken out of %d memories.", len(touched)))
-	}
 	return app.renderMemoryControls(c, ids, "")
 }

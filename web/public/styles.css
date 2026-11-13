@@ -1639,26 +1639,13 @@ a.b-acct:focus-visible {
     color: var(--b-muted);
 }
 
-/* A click takes it out of the memory, so hovering shows the cross first. */
+/* A link to the memory's page. */
 .b-txmem-in {
-    padding: 0;
-    background: none;
-    border: 0;
-}
-
-.b-txmem-drop,
-.b-txmem-in:hover .b-txmem-held,
-.b-txmem-in:focus-visible .b-txmem-held {
-    display: none;
-}
-
-.b-txmem-in:hover .b-txmem-drop,
-.b-txmem-in:focus-visible .b-txmem-drop {
-    display: inline;
+    text-decoration: none;
 }
 
 .b-txmem-in:hover {
-    color: var(--b-brick);
+    color: var(--b-ink-2);
 }
 
 .b-txmem-form {

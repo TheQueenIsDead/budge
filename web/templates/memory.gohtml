@@ -1,0 +1,92 @@
+{{/* A memory on a page of its own, to make one or change one. Every purchase
+     is a tick box, in the one form with the name, so the memory holds what is
+     ticked when it is saved: untick one to take it out, tick one bought around
+     then to add it. Saving goes back to wherever the page was opened from. */}}
+{{ define "memory" }}
+
+    <div class="b-page-head">
+        <h2>{{ if .New }}New memory{{ else }}{{ .Memory.Title }}{{ end }}</h2>
+        <p class="b-page-sub">
+            {{ if .New }}What the ticked purchases were for, and anything else that went with them.
+            {{ else }}Its name, and the purchases that went into it.{{ end }}
+        </p>
+    </div>
+
+    <form class="b-card b-card-pad mb-3" hx-swap="none"
+          {{ if .New }}hx-post="/memories"{{ else }}hx-post="/memories/{{ .Memory.Id }}"{{ end }}>
+        <input type="hidden" name="return" value="{{ .Return }}">
+
+        <div class="row g-2 mb-3">
+            <div class="col-12 col-md-5">
+                <label class="b-field-label" for="memory-title">Name</label>
+                <input class="form-control form-control-sm" id="memory-title" name="title" value="{{ .Memory.Title }}"
+                       placeholder="Japan, the new deck, an engagement" {{ if not .New }}required{{ end }}>
+            </div>
+            <div class="col-12 col-md-3">
+                <span class="b-field-label">Kind</span>
+                {{ template "timeline.kinds" (dict "Kinds" .Kinds "Selected" .Memory.Kind) }}
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="b-field-label" for="memory-note">Note</label>
+                <input class="form-control form-control-sm" id="memory-note" name="note" value="{{ .Memory.Note }}"
+                       placeholder="A note, if you like">
+            </div>
+        </div>
+
+        <div class="b-card-head">
+            <h3 class="b-card-title">In this memory</h3>
+            <span class="b-num fw-semibold">{{ .Total | fmtCurrency }}</span>
+        </div>
+        <ul class="b-tl-sameday mb-3" aria-label="In this memory">
+            {{ range .Rows }}
+                <li>
+                    <label class="b-tl-ctx">
+                        <input type="checkbox" class="form-check-input b-tl-pick" name="tx" value="{{ .Id }}" checked
+                               aria-label="Keep {{ .Title }}">
+                        <span class="b-tl-ctx-date">{{ .Date.Format "2 Jan 2006" }}</span>
+                        <span class="b-tl-ctx-name">{{ .Title }}</span>
+                        <span class="b-num {{ if gt .Amount 0.0 }}text-success{{ end }}">{{ .Amount | fmtCurrencyAbs }}</span>
+                    </label>
+                </li>
+            {{ end }}
+        </ul>
+
+        {{ if .Nearby }}
+            <div class="b-card-head">
+                <h3 class="b-card-title">Bought around then</h3>
+            </div>
+            <p class="b-card-sub">The days either side of each purchase, in case anything went with them.</p>
+            <ul class="b-tl-sameday mb-3" aria-label="Bought around then">
+                {{ range .Nearby }}
+                    <li>
+                        <label class="b-tl-ctx{{ if .Claimed }} b-tl-ctx-claimed{{ end }}"
+                               {{ if .Claimed }}title="Already in another memory"{{ end }}>
+                            {{ if .Claimed }}
+                                <i class="bi bi-bookmark-check b-tl-ctx-mark"></i>
+                            {{ else }}
+                                <input type="checkbox" class="form-check-input b-tl-pick" name="tx" value="{{ .Id }}"
+                                       aria-label="Add {{ .Title }}">
+                            {{ end }}
+                            <span class="b-tl-ctx-date">{{ .Date.Format "2 Jan" }}</span>
+                            <span class="b-tl-ctx-name">{{ .Title }}</span>
+                            <span class="b-num">{{ .Amount | fmtCurrencyAbs }}</span>
+                        </label>
+                    </li>
+                {{ end }}
+            </ul>
+        {{ end }}
+
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <button class="btn btn-sm btn-primary">{{ if .New }}Make memory{{ else }}Save{{ end }}</button>
+            <a class="btn btn-sm btn-outline-secondary" href="{{ .Return }}" hx-boost="true" hx-target="#main">Cancel</a>
+            {{ if not .New }}
+                <button type="button" class="btn btn-sm btn-link text-muted ms-auto"
+                        hx-delete="/memories/{{ .Memory.Id }}" hx-vals='{{ dict "return" .Return | toJSON }}'
+                        hx-confirm="Delete “{{ .Memory.Title }}”? Its purchases go back on the timeline.">
+                    <i class="bi bi-trash"></i>Delete
+                </button>
+            {{ end }}
+        </div>
+    </form>
+
+{{ end }}

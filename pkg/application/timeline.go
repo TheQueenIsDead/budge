@@ -121,10 +121,6 @@ type TimelineEntry struct {
 	// 10 the same afternoon, was the deck. SameDayMore counts what did not fit.
 	SameDay     []TimelineContextRow
 	SameDayMore int
-
-	// Nearby is what else was bought on and around a memory's days, offered
-	// while editing it so whatever was missed can be added.
-	Nearby []TimelineContextRow
 }
 
 // TimelineContextRow is a purchase shown for context. Claimed marks one that
@@ -705,10 +701,6 @@ func BuildTimeline(transactions []models.Transaction, memories []models.Memory, 
 		}
 	}
 
-	for i := range timeline.Memories {
-		timeline.Memories[i].Nearby = nearbyPurchases(timeline.Memories[i], byDay, claimed, location)
-	}
-
 	var spend, pool []models.Transaction
 	for _, tx := range transactions {
 		if !timelineSpend(tx) || tx.Date.Before(start) || !tx.Date.Before(end) {
@@ -924,11 +916,8 @@ type TimelineData struct {
 	Kinds   []models.MemoryKind
 
 	// Open is the memory whose purchases stay unfolded after a re-render, so
-	// taking several out of one does not mean reopening it each time. Editing
-	// does the same for the memory being edited, so adding a few nearby
-	// purchases one after another keeps the list in view.
-	Open    string
-	Editing string
+	// taking several out of one does not mean reopening it each time.
+	Open string
 }
 
 // State carries the current view and period through every action on the page,
@@ -984,7 +973,6 @@ func (app *Application) renderTimeline(c *echo.Context) error {
 		Periods:  periods,
 		Kinds:    models.MemoryKinds,
 		Open:     c.FormValue("open"),
-		Editing:  c.FormValue("editing"),
 	})
 }
 
@@ -1007,26 +995,6 @@ func (app *Application) TimelineSaveMemory(c *echo.Context) error {
 	}
 
 	app.Toast(c, "Saved", "Added to “"+memory.Title+"”.")
-	return app.renderTimeline(c)
-}
-
-// TimelineUpdateMemory renames a memory, or changes its kind or note.
-func (app *Application) TimelineUpdateMemory(c *echo.Context) error {
-	ctx := c.Request().Context()
-	memory, err := app.store.GetMemory(ctx, c.Param("id"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "That memory no longer exists.")
-	}
-
-	memory.Kind = models.MemoryKindByKey(c.FormValue("kind")).Key
-	memory.Note = strings.TrimSpace(c.FormValue("note"))
-	if title := strings.TrimSpace(c.FormValue("title")); title != "" {
-		memory.Title = title
-	}
-
-	if err := app.store.SaveMemory(ctx, memory); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
 	return app.renderTimeline(c)
 }
 

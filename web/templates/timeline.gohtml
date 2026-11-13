@@ -153,47 +153,11 @@
                                 {{ if .Note }}<p class="b-tl-note">{{ .Note }}</p>{{ end }}
                                 <div class="b-tl-actions">
                                     {{ template "timeline.rows" (dict "Entry" . "Removable" true "Open" (eq $.Open .Key)) }}
-                                    <details class="b-tl-tag"{{ if eq $.Editing .Key }} open{{ end }}>
-                                        <summary class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i>Edit</summary>
-                                        <form class="b-tl-form" hx-put="/timeline/memories/{{ .Key }}">
-                                            <input class="form-control form-control-sm" name="title" value="{{ .Title }}"
-                                                   aria-label="Memory name" required>
-                                            {{ template "timeline.kinds" (dict "Kinds" $.Kinds "Selected" .Kind.Key) }}
-                                            <input class="form-control form-control-sm" name="note" value="{{ .Note }}"
-                                                   placeholder="A note, if you like" aria-label="Note">
-                                            <button class="btn btn-sm btn-primary">Save</button>
-                                        </form>
-
-                                        <!-- What else was bought around it, to add whatever was
-                                             missed. A form of its own: the edit above saves the
-                                             name, this adds purchases. -->
-                                        {{ if .Nearby }}
-                                            <form class="b-tl-nearby" hx-post="/timeline/memories"
-                                                  hx-vals='{{ dict "editing" .Key "open" .Key | toJSON }}'>
-                                                <input type="hidden" name="memory" value="{{ .Key }}">
-                                                <ul class="b-tl-sameday">
-                                                    <li class="b-tl-sameday-label">Bought around then</li>
-                                                    {{ range .Nearby }}
-                                                        <li>
-                                                            <label class="b-tl-ctx{{ if .Claimed }} b-tl-ctx-claimed{{ end }}"
-                                                                   {{ if .Claimed }}title="Already in a memory"{{ end }}>
-                                                                {{ if .Claimed }}
-                                                                    <i class="bi bi-bookmark-check b-tl-ctx-mark"></i>
-                                                                {{ else }}
-                                                                    <input type="checkbox" class="form-check-input b-tl-pick" name="tx" value="{{ .Id }}"
-                                                                           aria-label="Add {{ .Title }}">
-                                                                {{ end }}
-                                                                <span class="b-tl-ctx-date">{{ .Date.Format "2 Jan" }}</span>
-                                                                <span class="b-tl-ctx-name">{{ .Title }}</span>
-                                                                <span class="b-num">{{ .Amount | fmtCurrencyAbs }}</span>
-                                                            </label>
-                                                        </li>
-                                                    {{ end }}
-                                                </ul>
-                                                <button class="btn btn-sm btn-outline-secondary mt-2"><i class="bi bi-plus-lg"></i>Add ticked</button>
-                                            </form>
-                                        {{ end }}
-                                    </details>
+                                    <!-- Changing a memory, and adding whatever else was bought
+                                         around it, has a page of its own, which comes back here. -->
+                                    <a class="btn btn-sm btn-outline-secondary"
+                                       href="/memories/{{ .Key }}/edit?return={{ printf "/timeline?period=%s&view=%s" $.Period.Key $.View }}"
+                                       hx-boost="true" hx-params="none"><i class="bi bi-pencil"></i>Edit</a>
                                     <a class="btn btn-sm btn-link text-muted" href="{{ .TransactionsLink }}"
                                        hx-boost="true" hx-params="none" title="Everything bought over these days">
                                         <i class="bi bi-list-ul"></i>View in transactions

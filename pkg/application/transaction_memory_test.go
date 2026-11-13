@@ -1,8 +1,6 @@
 package application
 
 import (
-	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -71,48 +69,6 @@ func TestTransactionAddToMemory(t *testing.T) {
 	})
 }
 
-// deleteQuery builds a DELETE the way htmx 2 sends one, with its values in
-// the query string rather than a body.
-func deleteQuery(app *Application, values url.Values) (*echo.Context, *httptest.ResponseRecorder) {
-	req := httptest.NewRequest(http.MethodDelete, "/?"+values.Encode(), nil)
-	rec := httptest.NewRecorder()
-	return app.http.NewContext(req, rec), rec
-}
-
-func TestTransactionRemoveFromMemory(t *testing.T) {
-	app := newTestApp(t)
-	require.NoError(t, app.store.SaveMemory(t.Context(), models.Memory{Id: "wgtn", Title: "Wellington weekend", TransactionIDs: []string{"museum", "ferry"}}))
-
-	remove := func(tx string) string {
-		t.Helper()
-		c, rec := deleteQuery(app, url.Values{"layout": {"d"}})
-		c.SetPathValues(echo.PathValues{{Name: "id", Value: tx}})
-		require.NoError(t, app.TransactionRemoveFromMemory(c))
-		return rec.Body.String()
-	}
-
-	t.Run("takes one transaction out, leaving the rest", func(t *testing.T) {
-		body := remove("ferry")
-
-		memory, err := app.store.GetMemory(t.Context(), "wgtn")
-		require.NoError(t, err)
-		assert.Equal(t, []string{"museum"}, memory.TransactionIDs)
-
-		assert.Contains(t, body, `id="txmem-d-ferry"`)
-		assert.Contains(t, body, `id="txmem-m-ferry" hx-swap-oob="true"`)
-		assert.Contains(t, body, "bi-bookmark-plus", "the control goes back to offering to add it")
-		assert.NotContains(t, body, `id="tx-group-fields"`, "a single row leaves the selection bar alone")
-	})
-
-	t.Run("taking out the last one removes the memory", func(t *testing.T) {
-		remove("museum")
-
-		memories, err := app.store.ReadMemories(t.Context())
-		require.NoError(t, err)
-		assert.Empty(t, memories)
-	})
-}
-
 func TestTransactionsMemoryInBulk(t *testing.T) {
 	app := newTestApp(t)
 	require.NoError(t, app.store.SaveMemory(t.Context(), models.Memory{Id: "bach", Title: "Bach", TransactionIDs: []string{"groceries"}}))
@@ -137,15 +93,6 @@ func TestTransactionsMemoryInBulk(t *testing.T) {
 		}
 		assert.Contains(t, body, `id="tx-group-fields" class="b-tl-new-wrap" hx-swap-oob="true"`)
 		assert.NotContains(t, body, `<option value="bach">`, "a memory emptied by the move is no longer offered")
-	})
-
-	t.Run("takes every ticked transaction out of its memory", func(t *testing.T) {
-		c, _ := deleteQuery(app, url.Values{"tx": {"museum", "ferry"}})
-		require.NoError(t, app.TransactionsRemoveFromMemory(c))
-
-		memory, err := app.store.GetMemory(t.Context(), "wgtn")
-		require.NoError(t, err)
-		assert.Equal(t, []string{"hotel", "groceries"}, memory.TransactionIDs)
 	})
 
 	t.Run("nothing ticked is an error", func(t *testing.T) {
@@ -196,14 +143,14 @@ func TestRenderTransactionsMemoryControls(t *testing.T) {
 
 	t.Run("a row already in a memory says which", func(t *testing.T) {
 		assert.Contains(t, page, "bi-bookmark-check-fill")
-		assert.Contains(t, page, `title="In “Wellington weekend”. Click to take it out"`)
+		assert.Contains(t, page, `title="In “Wellington weekend”"`)
 	})
 
-	t.Run("a row already in a memory is taken out with one click", func(t *testing.T) {
+	t.Run("a row already in a memory opens it", func(t *testing.T) {
 		control := page[indexOf(t, page, `id="txmem-d-museum"`):]
-		control = control[:indexOf(t, control, "</button>")]
-		assert.Contains(t, control, `hx-delete="/transactions/museum/memory"`)
-		assert.NotContains(t, control, "<select", "nothing to fill in first")
+		control = control[:indexOf(t, control, "</a>")]
+		assert.Contains(t, control, `hx-get="/memories/wgtn/edit"`, "on its own page, where it is taken out too")
+		assert.NotContains(t, control, "hx-delete", "not taken out from the list")
 
 		other := page[indexOf(t, page, `id="txmem-d-coffee"`):]
 		other = other[:indexOf(t, other, "</details>")]
@@ -214,7 +161,8 @@ func TestRenderTransactionsMemoryControls(t *testing.T) {
 		assert.Equal(t, 4, strings.Count(page, `form="tx-group"`), "two rows, each drawn twice")
 		assert.Equal(t, 4, strings.Count(page, `<label class="b-tx-pick"`), "the icon is the tick box")
 		assert.Contains(t, page, `<form id="tx-group"`)
-		assert.Contains(t, page, `hx-delete="/transactions/memory"`)
+		assert.NotContains(t, page, `hx-delete="/transactions/memory"`, "taking out is done on the memory's page")
+		assert.Equal(t, 1, strings.Count(page, `hx-get="/memories/new"`), "a new memory from the ticked rows, on its own page")
 	})
 
 	t.Run("only the filters reload the list", func(t *testing.T) {

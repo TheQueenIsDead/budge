@@ -343,16 +343,15 @@
      row, so the id carries the layout to keep the two copies apart. */}}
 {{ define "transactions.memory" }}
 {{ if .MemoryID }}
-    {{/* Already in a memory: one click takes it back out. The bookmark turns
-         to a cross on hover, so the click is not a surprise. */}}
-    <button type="button" class="b-txmem b-txmem-toggle b-txmem-in" id="txmem-{{ .Layout }}-{{ .ID }}"{{ if .OOB }} hx-swap-oob="true"{{ end }}
-            hx-delete="/transactions/{{ .ID }}/memory" hx-vals='{{ dict "layout" .Layout | toJSON }}'
-            hx-target="this" hx-swap="outerHTML"
-            title="In “{{ .MemoryTitle }}”. Click to take it out"
-            aria-label="Remove from memory “{{ .MemoryTitle }}”">
-        <i class="bi bi-bookmark-check-fill b-txmem-held"></i>
-        <i class="bi bi-bookmark-x-fill b-txmem-drop"></i>
-    </button>
+    {{/* Already in a memory: it opens the memory's page, which comes back to
+         this list. Taking it out is done there, with the rest of the memory. */}}
+    <a class="b-txmem b-txmem-toggle b-txmem-in" id="txmem-{{ .Layout }}-{{ .ID }}"{{ if .OOB }} hx-swap-oob="true"{{ end }}
+       href="/memories/{{ .MemoryID }}/edit" hx-get="/memories/{{ .MemoryID }}/edit"
+       hx-vals='js:{"return": location.pathname + location.search}'
+       hx-target="#main" hx-swap="innerHTML show:window:top" hx-push-url="true"
+       title="In “{{ .MemoryTitle }}”" aria-label="Open the memory “{{ .MemoryTitle }}”">
+        <i class="bi bi-bookmark-check-fill"></i>
+    </a>
 {{ else }}
     {{/* Picking a memory saves straight away. New memories are made on the
          timeline, so this stays one small dropdown. */}}
@@ -485,10 +484,15 @@
             {{ end }}
         {{ end }}
     </select>
-    {{ template "transactions.memory.pick" . }}
-    <button type="button" class="btn btn-sm btn-outline-secondary" hx-delete="/transactions/memory"
-            title="Take the ticked transactions out of their memories">
-        <i class="bi bi-bookmark-x"></i> Remove
+    {{ if .Options }}{{ template "transactions.memory.pick" . }}{{ end }}
+    {{/* A new memory has a page of its own, opened with the ticked
+         transactions and what was bought around them, which comes back to
+         this list once it is made. It swaps the page in, where the bar's
+         own form swaps nothing. */}}
+    <button type="button" class="btn btn-sm btn-outline-secondary" hx-get="/memories/new"
+            hx-include="[form=tx-group]:checked" hx-vals='js:{"return": location.pathname + location.search}'
+            hx-target="#main" hx-swap="innerHTML show:window:top" hx-push-url="true">
+        <i class="bi bi-bookmark-plus"></i> New memory
     </button>
 </span>
 {{ end }}
