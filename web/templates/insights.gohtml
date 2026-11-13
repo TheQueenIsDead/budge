@@ -16,10 +16,8 @@
             <!-- Category selector -->
             <div class="b-pills">
                 {{ range .Groups }}
-                    <a class="b-pill b-accent-{{ .Accent }}{{ if eq .Key $.Selected.Key }} b-pill-active{{ end }}"
-                       href="/insights?group={{ .Key }}&cadence={{ .Cadence }}">
-                        <i class="bi {{ .Icon }}"></i>{{ .Label }}
-                    </a>
+                    {{ template "pill" (dict "Href" (printf "/insights?group=%s&cadence=%s" .Key .Cadence)
+                        "Label" .Label "Icon" .Icon "Accent" .Accent "Active" (eq .Key $.Selected.Key)) }}
                 {{ end }}
             </div>
 
@@ -29,12 +27,9 @@
                 <div class="b-card-head flex-wrap">
                     {{ template "cardTitle" (dict "Title" .Selected.Label "Sub" .Selected.Blurb "Chip" .Selected.Icon) }}
 
-                    <div class="b-segment">
-                        <a href="/insights?group={{ .Selected.Key }}&cadence=weekly"
-                           class="{{ if eq .Cadence "weekly" }}active{{ end }}">Weekly</a>
-                        <a href="/insights?group={{ .Selected.Key }}&cadence=monthly"
-                           class="{{ if eq .Cadence "monthly" }}active{{ end }}">Monthly</a>
-                    </div>
+                    {{ template "segment" (dict "Items" (list
+                        (dict "Href" (printf "/insights?group=%s&cadence=weekly" .Selected.Key) "Label" "Weekly" "Active" (eq .Cadence "weekly"))
+                        (dict "Href" (printf "/insights?group=%s&cadence=monthly" .Selected.Key) "Label" "Monthly" "Active" (eq .Cadence "monthly")))) }}
                 </div>
 
                 <!-- The three numbers worth knowing: now, last, and typical. -->

@@ -343,3 +343,37 @@
     {{- end }}
 </select>
 {{ end }}
+
+{{/* A segmented control: two to four links, one of them the view on show,
+     raised out of the track. They are links, not buttons, so each view has
+     an address of its own, and the one on show says so to a screen reader.
+
+     Items  a list of dicts, each one link: Href, Label, and Active for the
+            view on show. A control drawn from a page's own data ranges
+            over it and draws each with segment.item, inside a .b-segment. */}}
+{{ define "segment" }}
+<div class="b-segment">
+    {{- range .Items }}{{ template "segment.item" . }}{{ end }}
+</div>
+{{ end }}
+
+{{/* One link of a segmented control, taking an item's keys. */}}
+{{ define "segment.item" }}
+<a href="{{ .Href }}"{{ if .Active }} class="active" aria-current="page"{{ end }}>{{ .Label }}</a>
+{{- end }}
+
+{{/* One pill in a row of them, inside a .b-pills, for choosing what a page
+     is about: a category, a period, a tab. The one chosen is filled, in its
+     accent where it has one, and says so to a screen reader.
+
+     Href    where it leads.
+     Label   its name.
+     Icon    an icon before the name, in the accent.
+     Accent  its colour, such as sage.
+     Active  true for the one chosen. */}}
+{{ define "pill" }}
+<a class="b-pill{{ with .Accent }} b-accent-{{ . }}{{ end }}{{ if .Active }} b-pill-active{{ end }}" href="{{ .Href }}"
+   {{- if .Active }} aria-current="page"{{ end }}>
+    {{- with .Icon }}<i class="bi {{ . }}" aria-hidden="true"></i>{{ end }}{{ .Label -}}
+</a>
+{{- end }}

@@ -7,8 +7,8 @@
     <div hx-boost="true" hx-target="#main">
         <div class="b-pills">
             {{ range .Periods }}
-                <a class="b-pill{{ if eq .Key $.Period.Key }} b-pill-active{{ end }}"
-                   href="/timeline?period={{ .Key }}&view={{ $.View }}">{{ .Label }}</a>
+                {{ template "pill" (dict "Href" (printf "/timeline?period=%s&view=%s" .Key $.View) "Label" .Label
+                    "Active" (eq .Key $.Period.Key)) }}
             {{ end }}
         </div>
     </div>
@@ -34,14 +34,10 @@
     </div>
 
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2" hx-boost="true" hx-target="#main">
-        <div class="b-segment">
-            <a href="/timeline?period={{ .Period.Key }}&view=all"
-               class="{{ if eq .View "all" }}active{{ end }}">Everything</a>
-            <a href="/timeline?period={{ .Period.Key }}&view=memories"
-               class="{{ if eq .View "memories" }}active{{ end }}">Memories</a>
-            <a href="/timeline?period={{ .Period.Key }}&view=hidden"
-               class="{{ if eq .View "hidden" }}active{{ end }}">Hidden</a>
-        </div>
+        {{ template "segment" (dict "Items" (list
+            (dict "Href" (printf "/timeline?period=%s&view=all" .Period.Key) "Label" "Everything" "Active" (eq .View "all"))
+            (dict "Href" (printf "/timeline?period=%s&view=memories" .Period.Key) "Label" "Memories" "Active" (eq .View "memories"))
+            (dict "Href" (printf "/timeline?period=%s&view=hidden" .Period.Key) "Label" "Hidden" "Active" (eq .View "hidden")))) }}
         {{ if eq .View "all" }}
             <span class="b-delta-note">Notable means {{ .Threshold | fmtCurrency }} or more, excluding regular bills</span>
         {{ end }}

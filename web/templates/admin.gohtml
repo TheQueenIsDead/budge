@@ -26,9 +26,7 @@
         <div id="admin-panel">
             <div class="b-pills">
                 {{ range .Tabs }}
-                    <a class="b-pill{{ if eq .Key $.Tab }} b-pill-active{{ end }}" href="/admin?tab={{ .Key }}">
-                        <i class="bi {{ .Icon }}"></i>{{ .Label }}
-                    </a>
+                    {{ template "pill" (dict "Href" (printf "/admin?tab=%s" .Key) "Label" .Label "Icon" .Icon "Active" (eq .Key $.Tab)) }}
                 {{ end }}
             </div>
 
@@ -49,9 +47,9 @@
 
         <div class="b-actions mb-2">
             <div class="b-segment">
-                {{ range .Ranges }}
-                    <a href="/admin?tab=overview&range={{ .Key }}" class="{{ if eq .Key $.Range.Key }}active{{ end }}">{{ .Key }}</a>
-                {{ end }}
+                {{- range .Ranges }}
+                    {{- template "segment.item" (dict "Href" (printf "/admin?tab=overview&range=%s" .Key) "Label" .Key "Active" (eq .Key $.Range.Key)) }}
+                {{- end }}
             </div>
         </div>
 
@@ -507,9 +505,9 @@
             {{ with .Search }}{{ $matching = printf " matching “%s”" . }}{{ end }}
             {{ template "cardTitle" (dict "Title" "Logs" "Sub" (printf "%s at %s or above%s, across everything kept." $shown .Level $matching)) }}
             <div class="b-segment">
-                {{ range .Levels }}
-                    <a href="/admin?tab=logs&level={{ . }}&q={{ $.Search }}" class="{{ if eq . $.Level }}active{{ end }}">{{ . | fmtTitle }}</a>
-                {{ end }}
+                {{- range .Levels }}
+                    {{- template "segment.item" (dict "Href" (printf "/admin?tab=logs&level=%s&q=%s" . (urlquery $.Search)) "Label" (fmtTitle .) "Active" (eq . $.Level)) }}
+                {{- end }}
             </div>
         </div>
         <form class="mb-3" hx-get="/admin" hx-trigger="input changed delay:300ms from:input, submit"
