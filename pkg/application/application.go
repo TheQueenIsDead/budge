@@ -320,7 +320,6 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 	// Timeline: the purchases worth remembering, and the memories made of them.
 	app.http.GET("/timeline", app.Timeline)
 	app.http.POST("/timeline/memories", app.TimelineSaveMemory)
-	app.http.DELETE("/timeline/memories/:id/transactions/:tx", app.TimelineRemoveFromMemory)
 	app.http.POST("/timeline/hide", app.TimelineHide)
 	app.http.GET("/memories/new", app.MemoryNew)
 	app.http.POST("/memories", app.MemoryCreate)

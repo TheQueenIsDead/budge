@@ -2,7 +2,6 @@ package application
 
 import (
 	"fmt"
-	"github.com/labstack/echo/v5"
 	"net/url"
 	"testing"
 	"time"
@@ -302,6 +301,14 @@ func TestRenderTimeline(t *testing.T) {
 		assert.Contains(t, page, "Suggested")
 		assert.Contains(t, page, `name="tx" value="flights"`)
 		assert.Contains(t, page, "Not a trip")
+		assert.Contains(t, page, `<details class="b-tl-rows">`, "with its purchases to look over before saving")
+	})
+
+	t.Run("a memory's card is its header and note, its purchases on its page", func(t *testing.T) {
+		memoriesOnly := render(TimelineViewMemories)
+		assert.Contains(t, memoriesOnly, "She said yes")
+		assert.NotContains(t, memoriesOnly, "b-tl-rows")
+		assert.NotContains(t, memoriesOnly, "b-tl-actions")
 	})
 
 	t.Run("flags outliers and offers to tag, hide or group", func(t *testing.T) {
@@ -560,7 +567,6 @@ func TestRenderTimelineMemoryActions(t *testing.T) {
 		Months:   timeline.Months(TimelineViewAll, time.UTC),
 		View:     TimelineViewAll,
 		Kinds:    models.MemoryKinds,
-		Open:     "engaged",
 	})
 
 	t.Run("one verb for adding, alone or together", func(t *testing.T) {
@@ -571,10 +577,11 @@ func TestRenderTimelineMemoryActions(t *testing.T) {
 		assert.Contains(t, page, `<option value="engaged">Engaged! · Sep 2026</option>`)
 	})
 
-	t.Run("a memory can be edited and trimmed", func(t *testing.T) {
+	t.Run("a memory is changed on its own page alone", func(t *testing.T) {
 		assert.Contains(t, page, `href="/memories/engaged/edit?return=`, "on a page of its own")
-		assert.Contains(t, page, `hx-delete="/timeline/memories/engaged/transactions/ring"`)
-		assert.Contains(t, page, `<details class="b-tl-rows" open>`, "the memory being trimmed stays open")
+		assert.NotContains(t, page, `/transactions/ring"`, "its purchases aren't taken out here")
+		assert.NotContains(t, page, "b-tl-rows", "nor listed, with only a memory and no suggestion")
+		assert.NotContains(t, page, "View in transactions")
 	})
 
 	t.Run("shows the rest of the day and links the store", func(t *testing.T) {
@@ -609,25 +616,6 @@ func TestTimelineMemoryEditing(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, []string{"flights", "hotel", "tour"}, memory.TransactionIDs)
 		assert.Equal(t, "Japan", memory.Title, "adding does not rename")
-	})
-
-	t.Run("purchases can be taken out, and the last takes the memory", func(t *testing.T) {
-		remove := func(tx string) {
-			c, _ := postForm(t, app, url.Values{})
-			c.SetPathValues(echo.PathValues{{Name: "id", Value: id}, {Name: "tx", Value: tx}})
-			require.NoError(t, app.TimelineRemoveFromMemory(c))
-		}
-
-		remove("hotel")
-		memory, err := app.store.GetMemory(t.Context(), id)
-		require.NoError(t, err)
-		assert.Equal(t, []string{"flights", "tour"}, memory.TransactionIDs)
-
-		remove("flights")
-		remove("tour")
-		memories, err := app.store.ReadMemories(t.Context())
-		require.NoError(t, err)
-		assert.Empty(t, memories)
 	})
 
 	t.Run("adding to a memory that has gone is an error", func(t *testing.T) {
@@ -674,16 +662,6 @@ func TestMemoryContext(t *testing.T) {
 	for i := 1; i < len(nearby); i++ {
 		assert.False(t, nearby[i].Date.Before(nearby[i-1].Date), "listed by date")
 	}
-
-	timeline := BuildTimeline(txs, memories, models.TimelinePreferences{}, timelineStart, timelineEnd)
-	var japan TimelineEntry
-	for _, memory := range timeline.Memories {
-		if memory.Key == "japan" {
-			japan = memory
-		}
-	}
-	require.Equal(t, "japan", japan.Key)
-	assert.Equal(t, "/transactions?from=2026-02-28&to=2026-07-11", japan.TransactionsLink())
 }
 
 // TestNearbyPurchasesAreDeterministic checks a memory offers the same
@@ -737,5 +715,6 @@ func TestRenderTimelineMemoryLinksToItsPage(t *testing.T) {
 	assert.Contains(t, page, `href="/memories/engaged/edit?return=%2ftimeline%3fperiod%3d2026%26view%3dmemories"`)
 	assert.NotContains(t, page, "Bought around then", "what was bought around it is on the memory's page alone")
 	assert.NotContains(t, page, `hx-delete="/timeline/memories/engaged"`, "deleting is on the memory's page too")
-	assert.Contains(t, page, `href="/transactions?from=2026-09-08&amp;to=2026-09-10"`)
+	assert.NotContains(t, page, `href="/transactions?from=`, "nor a way out to the transactions")
+	assert.NotContains(t, page, "b-tl-actions", "a card with nothing to do holds no empty bar")
 }

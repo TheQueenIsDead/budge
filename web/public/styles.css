@@ -1581,11 +1581,6 @@ a.b-acct:focus-visible,
     flex: 1 1 12rem;
 }
 
-.b-tl-rows li .btn {
-    flex: 0 0 auto;
-    line-height: 1;
-}
-
 /* The purchase name opens everything from that merchant. */
 .b-tl-link {
     display: block;

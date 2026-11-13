@@ -852,13 +852,6 @@ func nearbyPurchases(memory TimelineEntry, byDay map[string][]models.Transaction
 	return rows
 }
 
-// TransactionsLink opens the transactions list over the days a memory spans,
-// to look through everything around it.
-func (e TimelineEntry) TransactionsLink() string {
-	return "/transactions?from=" + e.Start.AddDate(0, 0, -1).Format(time.DateOnly) +
-		"&to=" + e.End.AddDate(0, 0, 1).Format(time.DateOnly)
-}
-
 // TimelinePeriod is a window the timeline can be viewed over: the last twelve
 // months, or a calendar year.
 type TimelinePeriod struct {
@@ -915,10 +908,6 @@ type TimelineData struct {
 	Period  TimelinePeriod
 	Periods []TimelinePeriod
 	Kinds   []models.MemoryKind
-
-	// Open is the memory whose purchases stay unfolded after a re-render, so
-	// taking several out of one does not mean reopening it each time.
-	Open string
 }
 
 // State carries the current view and period through every action on the page,
@@ -973,7 +962,6 @@ func (app *Application) renderTimeline(c *echo.Context) error {
 		Period:   period,
 		Periods:  periods,
 		Kinds:    models.MemoryKinds,
-		Open:     c.FormValue("open"),
 	})
 }
 
@@ -996,30 +984,6 @@ func (app *Application) TimelineSaveMemory(c *echo.Context) error {
 	}
 
 	app.Toast(c, "Saved", "Added to “"+memory.Title+"”.")
-	return app.renderTimeline(c)
-}
-
-// TimelineRemoveFromMemory takes one purchase back out of a memory, returning
-// it to the timeline. Taking out the last one removes the memory, since an
-// empty memory has no date to sit at.
-func (app *Application) TimelineRemoveFromMemory(c *echo.Context) error {
-	ctx := c.Request().Context()
-	memory, err := app.store.GetMemory(ctx, c.Param("id"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "That memory no longer exists.")
-	}
-
-	tx := c.Param("tx")
-	memory.TransactionIDs = slices.DeleteFunc(memory.TransactionIDs, func(id string) bool { return id == tx })
-
-	if len(memory.TransactionIDs) == 0 {
-		err = app.store.DeleteMemory(ctx, memory.Id)
-	} else {
-		err = app.store.SaveMemory(ctx, memory)
-	}
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
 	return app.renderTimeline(c)
 }
 

@@ -4,7 +4,6 @@ package e2e
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -54,17 +53,17 @@ func TestMakeAMemory(t *testing.T) {
 		return nil
 	})
 
+	// On the timeline the memory is just its header, which opens it, with
+	// what it holds on its page.
 	p.visit("/timeline?view=memories")
 	p.eventually(p.contains("#main", "Road trip"))
-	defer func() {
-		// The memory's header opens it.
-		p.click(".b-tl-open")
-		p.settle()
-		p.eventually(p.is("#memory-title", "Road trip", p.value))
-	}()
-	purchases := p.text(".b-tl-memory .b-tl-rows summary")
-	want := fmt.Sprintf("%d purchase", 1+min(nearby, 1))
-	assert.True(t, strings.HasPrefix(purchases, want), "%q, not %q", purchases, want)
+	assert.False(t, eval[bool](p, `!!document.querySelector('.b-tl-memory .b-tl-rows, .b-tl-memory .b-tl-actions')`),
+		"the card lists nothing and offers nothing past its header")
+	p.click(".b-tl-open")
+	p.settle()
+	p.eventually(p.is("#memory-title", "Road trip", p.value))
+	held := eval[int](p, `document.querySelectorAll('input[name=tx]:checked').length`)
+	assert.Equal(t, 1+min(nearby, 1), held, "what was ticked, and the purchase added from around then")
 }
 
 // TestDeleteAMemory deletes a memory from its page, opened from the timeline,
