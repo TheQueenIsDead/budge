@@ -28,7 +28,7 @@
                                value="{{ .search }}">
                     </div>
                 </div>
-                <div class="col-7 col-sm-4">
+                <div class="col">
                     <select id="account" name="account" class="form-select">
                         <option value="">All accounts</option>
                         {{ range .accounts }}
@@ -37,13 +37,22 @@
                     </select>
                 </div>
                 {{/* Only what nothing has filed yet, however old, alongside the
-                     other filters. */}}
-                <div class="col-5 col-sm-2">
+                     other filters. The box is what the form sends and what the
+                     form listens to; its label is drawn as a square button the
+                     height of the fields beside it, which reads as pressed while
+                     the box is ticked. Ticking it marks it pressed at once, ahead
+                     of the list coming back. */}}
+                <div class="col-auto">
                     <input type="checkbox" class="btn-check" id="uncategorised" name="uncategorised" value="1"
+                           role="button" aria-pressed="{{ if .uncategorisedOnly }}true{{ else }}false{{ end }}"
+                           aria-label="Show only transactions with no category"
+                           hx-on:change="this.setAttribute('aria-pressed', this.checked)"
                            autocomplete="off"{{ if .uncategorisedOnly }} checked{{ end }}>
-                    <label class="btn btn-outline-secondary w-100 b-filter-toggle" for="uncategorised"
-                           title="Show only transactions with no category">
-                        <i class="bi bi-question-circle"></i>Uncategorised
+                    <label class="btn b-icon-toggle" for="uncategorised"
+                           data-bs-toggle="tooltip" data-bs-placement="bottom"
+                           title="{{ if .uncategorisedOnly }}Show everything{{ else }}Show only transactions with no category{{ end }}">
+                        <i class="bi bi-funnel b-icon-toggle-off" aria-hidden="true"></i>
+                        <i class="bi bi-funnel-fill b-icon-toggle-on" aria-hidden="true"></i>
                     </label>
                 </div>
             </div>
@@ -79,23 +88,16 @@
     {{/* Uncategorised spending all counts as unbudgeted, so it is called out
          until it is filed, with a way straight to it. */}}
     {{ if .uncategorisedOnly }}
-        {{/* Written out rather than drawn with notice, for the tag button
-             it shows inline. */}}
-        <div class="alert alert-warning d-flex align-items-start gap-2 mb-3" role="status">
-            <i class="bi bi-funnel" aria-hidden="true"></i>
-            <div class="flex-grow-1">
-                Showing only spending with no category.
-                Tap the icons of several to file them together, or use
-                <i class="bi bi-tag" aria-hidden="true"></i><span class="visually-hidden">the tag button</span>
-                on one to file everything like it with a rule.
-            </div>
-            <a class="text-nowrap" href="/transactions" hx-boost="true" hx-target="#main">Show everything</a>
-        </div>
+        {{ template "overviewRow" (dict "Card" true "Role" "status" "Icon" "bi-funnel-fill" "Accent" "slate"
+            "Title" "Showing only spending with no category"
+            "Sub" "Tick several by their icons to file them together, or use the tag button on one to file everything like it with a rule."
+            "LinkHref" "/transactions" "LinkLabel" "Show everything") }}
     {{ else if .uncategorisedCount }}
-        {{ $lead := printf "%d payments in the last %d weeks have no category" .uncategorisedCount .uncategorisedWeeks }}
-        {{ if eq .uncategorisedCount 1 }}{{ $lead = printf "1 payment in the last %d weeks has no category" .uncategorisedWeeks }}{{ end }}
-        {{ template "notice" (dict "Icon" "bi-exclamation-triangle" "Lead" $lead
-            "Text" (printf ", %s in all. Until they are filed, the budget can only lump them together under Uncategorised." (fmtWhole .uncategorisedTotal))
+        {{ $title := printf "%d payments in the last %d weeks have no category" .uncategorisedCount .uncategorisedWeeks }}
+        {{ if eq .uncategorisedCount 1 }}{{ $title = printf "1 payment in the last %d weeks has no category" .uncategorisedWeeks }}{{ end }}
+        {{ template "overviewRow" (dict "Card" true "Role" "status" "Icon" "bi-question-circle" "Accent" "clay"
+            "Title" $title
+            "Sub" (printf "%s in all. Until they're filed, the budget lumps them together under Uncategorised." (fmtWhole .uncategorisedTotal))
             "LinkHref" "/transactions?uncategorised=1" "LinkLabel" "Show them") }}
     {{ end }}
 
@@ -223,7 +225,7 @@
 
     {{ else }}
         {{ $why := "Sync an account from settings to see your transactions here." }}
-        {{ if or .search .account .dated }}{{ $why = "Nothing matches those filters. Try a broader search." }}{{ end }}
+        {{ if or .search .account .dated .groups .uncategorisedOnly }}{{ $why = "Nothing matches those filters. Try a broader search." }}{{ end }}
         {{ template "empty" (dict "Icon" "bi-search" "Title" "No transactions found" "Text" $why) }}
     {{ end }}
 

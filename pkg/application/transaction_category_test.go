@@ -140,21 +140,25 @@ func TestTransactionsWarnAboutUncategorisedSpend(t *testing.T) {
 	}
 
 	page := get("")
-	assert.Regexp(t, `1 payment in the last 13 weeks\s+has no category</span>, \$1,200 in all`, page,
+	assert.Contains(t, page, `<div class="b-card-title">1 payment in the last 13 weeks has no category</div>`,
 		"only recent money out with no category counts: not old spend, money in, transfers, cash or categorised spend")
-	assert.Contains(t, page, `href="/transactions?uncategorised=1"`)
+	assert.Contains(t, page, `<div class="b-card-sub">$1,200 in all.`)
+	assert.Contains(t, page, `href="/transactions?uncategorised=1" hx-boost="true" hx-target="#main">Show them</a>`)
+	assert.NotContains(t, page, "alert-warning", "it is a row like the budget's overview, not an alert")
 
-	assert.Regexp(t, `id="uncategorised" name="uncategorised" value="1"\s+autocomplete="off">`, page, "the toggle is off")
+	assert.Regexp(t, `id="uncategorised" name="uncategorised" value="1"\s+role="button" aria-pressed="false"[^>]*autocomplete="off">`, page,
+		"the toggle is off")
 	assert.Contains(t, page, `change from:#uncategorised`, "and reloads the list when switched, with the other filters")
 
 	filtered := get("uncategorised=1")
-	assert.Contains(t, filtered, "Showing only spending with no category")
+	assert.Contains(t, filtered, `<div class="b-card-title">Showing only spending with no category</div>`)
+	assert.Contains(t, filtered, `href="/transactions" hx-boost="true" hx-target="#main">Show everything</a>`)
 	assert.Contains(t, filtered, "PAY The Cylinder Guy Limited")
 	assert.Contains(t, filtered, "PAY Someone Long Ago", "however old, so every one can be found and filed")
 	for _, other := range []string{"Countdown", "TO SAVINGS", "Employer Contributions", "ATM W/D"} {
 		assert.NotContains(t, filtered, other)
 	}
-	assert.Regexp(t, `id="uncategorised" name="uncategorised" value="1"\s+autocomplete="off" checked>`, filtered,
+	assert.Regexp(t, `id="uncategorised" name="uncategorised" value="1"\s+role="button" aria-pressed="true"[^>]*autocomplete="off" checked>`, filtered,
 		"the toggle is on, and searching keeps it")
 
 	setCategory(t, app, "cylinder", url.Values{"category": {"trades"}})
