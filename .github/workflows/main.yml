@@ -15,6 +15,15 @@ jobs:
       contents: read
     uses: ./.github/workflows/_e2e.yml
 
+  # Known vulnerabilities in what the image is built from. Release Please
+  # doesn't wait on it: a vulnerability with no fix yet shouldn't hold back a
+  # release of everything else, and its fix arrives as a fix(deps) PR from
+  # Renovate, which this then passes.
+  vulns:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/_vulns.yml
+
   # The same lint as on a PR, so a commit that reaches main another way, or a
   # finding only main's code has, still fails here. Kept as a job of its own
   # rather than shared with pr.yml: a shared one would report as "<caller> /

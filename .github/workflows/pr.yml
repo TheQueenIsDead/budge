@@ -17,6 +17,12 @@ jobs:
       contents: read
     uses: ./.github/workflows/_e2e.yml
 
+  # Known vulnerabilities in what the image is built from.
+  vulns:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/_vulns.yml
+
   lint:
     permissions:
       contents: read

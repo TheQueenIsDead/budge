@@ -1,0 +1,37 @@
+# Looks for known vulnerabilities in what the image is built from: Go modules
+# whose vulnerable code budge calls, and the page's libraries, which the
+# binary embeds and every browser runs.
+name: _vulns
+
+on:
+  workflow_call:
+
+jobs:
+  vulns:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+      # govulncheck builds the code, which embeds the page's libraries.
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: web/package.json
+      - name: Install the page's libraries
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      # Only a vulnerability in code budge can reach fails, so a module that
+      # has one in a part budge never calls doesn't stop a PR.
+      - name: Go modules
+        env:
+          # renovate: datasource=go depName=golang.org/x/vuln
+          version: v1.9.0
+        run: go run "golang.org/x/vuln/cmd/govulncheck@$version" -tags e2e ./...
+
+      # Only the libraries shipped to the page, not the tools that install
+      # them, and only from high severity up.
+      - name: Page libraries
+        working-directory: web
+        run: pnpm audit --prod --audit-level high
