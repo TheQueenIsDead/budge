@@ -125,7 +125,10 @@ func TestShowOnlyUncategorised(t *testing.T) {
 
 	p.click(`label[for="uncategorised"]`)
 	filtered()
-	assert.Zero(t, eval[int](p, `document.querySelectorAll('.tooltip').length`), "no tooltip is left floating")
+	// The toggle's own tooltip may show again over the redrawn toggle, as the
+	// mouse is still on it; one left behind by the toggle the swap replaced is
+	// the bug, and its element is gone.
+	assert.Zero(t, eval[int](p, `[...document.querySelectorAll('.tooltip')].filter(tip => !document.querySelector('[aria-describedby="' + tip.id + '"]')).length`), "no tooltip is left floating")
 	p.click(`label[for="uncategorised"]`)
 	unfiltered()
 
