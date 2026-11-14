@@ -13,13 +13,19 @@
 
         <div id="insights-panel">
 
-            <!-- Category selector -->
+            <!-- Category selector, and the recurring payments after them. -->
             <div class="b-pills">
                 {{ range .Groups }}
                     {{ template "pill" (dict "Href" (printf "/insights?group=%s&cadence=%s" .Key .Cadence)
                         "Label" .Label "Icon" .Icon "Accent" .Accent "Active" (eq .Key $.Selected.Key)) }}
                 {{ end }}
+                {{ template "pill" (dict "Href" "/insights?view=recurring" "Label" "Recurring" "Icon" "bi-arrow-repeat"
+                    "Active" (eq .View "recurring")) }}
             </div>
+
+            {{ if eq .View "recurring" }}
+                {{ template "insights.recurring" .Recurring }}
+            {{ else }}
 
             <!-- Selected category -->
             <div class="b-card b-card-pad mb-3 b-accent-{{ .Selected.Accent }}">
@@ -203,7 +209,112 @@
                     chart.$links = links;
                 });
             </script>
+            {{ end }}
         </div>
     </div>
 
+{{ end }}
+
+{{/* The recurring payments: what they come to, what is due soon, each one
+     still going by how often it comes round, and those that have stopped or
+     were hidden. Marking one posts from inside the panel, so the panel comes
+     back with it moved. */}}
+{{ define "insights.recurring" }}
+    {{ if .Empty }}
+        <div class="b-card b-card-pad mb-3">
+            {{ template "empty" (dict "Icon" "bi-arrow-repeat" "Title" "Nothing recurring yet"
+                "Text" "Subscriptions and bills turn up here once they have been paid on a regular cadence a few times.") }}
+        </div>
+    {{ else }}
+        <div class="b-card b-card-pad mb-3">
+            {{ template "cardHead" (dict "Title" "Recurring payments" "Chip" "bi-arrow-repeat"
+                "Sub" "Subscriptions and bills, found by how evenly they are paid.") }}
+            <div class="row g-2">
+                <div class="col-4">
+                    {{ template "stat" (dict "Label" "A year" "Value" (fmtWhole .Yearly) "Note" "estimated") }}
+                </div>
+                <div class="col-4">
+                    {{ template "stat" (dict "Label" "A month" "Value" (fmtWhole .Monthly) "Note" "on average") }}
+                </div>
+                <div class="col-4">
+                    {{ template "stat" (dict "Label" "Active" "Value" .Count "Note" (or (and (eq .Count 1) "payment") "payments")) }}
+                </div>
+            </div>
+        </div>
+
+        {{ if .ComingUp }}
+            <!-- A large payment due within the week has a rail, as it is the
+                 one worth moving money for. -->
+            <div class="b-card mb-3" id="recurring-coming-up">
+                {{ template "listHead" (dict "Title" "Coming up" "Chip" "bi-calendar-event" "Total" (fmtCurrency .ComingUpTotal)) }}
+                <ul class="b-acct-list">
+                    {{ range .ComingUp }}
+                        <li>
+                            {{ template "listRow" (dict "Accent" .Accent "Class" (and .DueSoon "b-rail")
+                                "Chip" .Icon "ChipSm" true "Title" .Name "Link" .Link "LinkTitle" "See these payments"
+                                "Meta" (printf "Due %s" .When) "MetaIcon" "bi-calendar"
+                                "Figure" (fmtCurrency .Usual) "FigureNote" (and (not .Fixed) "varies")) }}
+                        </li>
+                    {{ end }}
+                </ul>
+            </div>
+        {{ end }}
+
+        {{ range .Groups }}
+            <div class="b-card mb-3" id="recurring-{{ .Cadence.Key }}">
+                {{ template "listHead" (dict "Title" .Cadence.Label "Total" (printf "%s a %s" (fmtCurrency .PerPeriod) .Cadence.Noun)) }}
+                <ul class="b-acct-list">
+                    {{ range .Payments }}
+                        <li>
+                            {{ $change := "" }}
+                            {{ if .PriceChanged }}
+                                {{ $change = dict "Value" .Change "Text" (printf "from %s" (fmtCurrency .Previous))
+                                    "Title" "Its price changed at the last payment" "Placement" "left" }}
+                            {{ end }}
+                            {{ template "listRow" (dict "Accent" .Accent "Chip" .Icon "ChipSm" true
+                                "Title" .Name "Link" .Link "LinkTitle" "See these payments" "Meta" .Detail "New" .New
+                                "Figure" (fmtWhole .Yearly) "FigureNote" "a year" "Delta" $change
+                                "Actions" (list
+                                    (dict "Post" "/insights/recurring/mark" "Vals" (dict "merchant" .Key "mark" "cancelled")
+                                        "Icon" "bi-calendar-x" "Title" "Cancelled: stop expecting it"
+                                        "Label" (printf "Mark %s cancelled" .Name))
+                                    (dict "Post" "/insights/recurring/mark" "Vals" (dict "merchant" .Key "mark" "not-recurring")
+                                        "Icon" "bi-x-lg" "Title" "Not recurring: hide it"
+                                        "Label" (printf "Mark %s not recurring" .Name)))) }}
+                        </li>
+                    {{ end }}
+                </ul>
+            </div>
+        {{ end }}
+
+        {{ template "insights.recurring.folded" (dict "ID" "recurring-stopped" "Title" "Stopped" "Payments" .Stopped
+            "Sub" "Gone quiet, or marked cancelled. Not counted.") }}
+        {{ template "insights.recurring.folded" (dict "ID" "recurring-hidden" "Title" "Hidden" "Payments" .Hidden
+            "Sub" "Marked not recurring. Not counted.") }}
+    {{ end }}
+{{ end }}
+
+{{/* A folded list of recurring payments set aside, quieter than those
+     still going, each with an Undo where the owner set it aside. */}}
+{{ define "insights.recurring.folded" }}
+    {{ if .Payments }}
+        <details class="b-card mb-3 b-tsec" id="{{ .ID }}">
+            <summary class="b-tsec-head">
+                <span class="b-card-title">{{ .Title }} <span class="b-tsec-count">{{ len .Payments }}</span></span>
+                <span class="b-card-sub">{{ .Sub }}</span>
+                <i class="bi bi-chevron-down b-tsec-chev" aria-hidden="true"></i>
+            </summary>
+            <ul class="b-acct-list b-tsec-body">
+                {{ range .Payments }}
+                    <li>
+                        {{ template "listRow" (dict "Chip" .Icon "ChipSm" true "ChipAccent" "muted"
+                            "Title" .Name "Link" .Link "LinkTitle" "See these payments" "Meta" .Detail
+                            "Figure" (fmtCurrency .Usual) "FigureTone" "text-muted"
+                            "Action" (and .Mark (dict "Post" "/insights/recurring/undo" "Vals" (dict "merchant" .Key)
+                                "Icon" "bi-arrow-counterclockwise" "Label" "Undo"))) }}
+                    </li>
+                {{ end }}
+            </ul>
+        </details>
+    {{ end }}
 {{ end }}

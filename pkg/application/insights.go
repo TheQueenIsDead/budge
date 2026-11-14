@@ -3,6 +3,7 @@ package application
 import (
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/TheQueenIsDead/budge/pkg/clock"
@@ -26,7 +27,16 @@ type InsightsData struct {
 	// Links open the transactions behind each bar of the chart, oldest first,
 	// so the last two are this period and the one before.
 	Links []string
+
+	// View is InsightsRecurring for the recurring payments, in place of a
+	// category, or empty.
+	View      string
+	Recurring RecurringView
 }
+
+// InsightsRecurring is the view of the recurring payments, one more pill
+// after the categories.
+const InsightsRecurring = "recurring"
 
 // CurrentLink opens the transactions behind the period in progress.
 func (d InsightsData) CurrentLink() string { return d.link(1) }
@@ -53,6 +63,9 @@ func (d InsightsData) link(n int) string {
 const insightsHistory = 14
 
 func (app *Application) Insights(c *echo.Context) error {
+	if c.QueryParam("view") == InsightsRecurring {
+		return app.renderRecurring(c)
+	}
 	ctx := c.Request().Context()
 
 	now := clock.Now()
@@ -99,4 +112,52 @@ func (app *Application) Insights(c *echo.Context) error {
 		WindowEnd:   end,
 		Links:       summary.Links(),
 	})
+}
+
+// renderRecurring draws the Insights page on its recurring payments.
+func (app *Application) renderRecurring(c *echo.Context) error {
+	found, marks, err := app.readRecurring(c.Request().Context(), clock.Now())
+	if err != nil {
+		app.Toast(c, "Error", "Could not load the recurring payments.")
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.Render(http.StatusOK, "insights", InsightsData{
+		Groups:    SpendGroups(),
+		View:      InsightsRecurring,
+		Recurring: BuildRecurringView(found, marks.Marks),
+	})
+}
+
+// InsightsRecurringMark records what the owner says of a recurring payment:
+// that it is not recurring, or has been cancelled. Either leaves it out of
+// the totals and stops it raising anything.
+func (app *Application) InsightsRecurringMark(c *echo.Context) error {
+	mark := c.FormValue("mark")
+	if !models.ValidRecurringMark(mark) {
+		return echo.NewHTTPError(http.StatusBadRequest, "Mark it not recurring, or cancelled.")
+	}
+	return app.updateRecurringMarks(c, func(marks map[string]string, key string) { marks[key] = mark })
+}
+
+// InsightsRecurringUndo takes back what the owner said of a recurring
+// payment, so it is found as its payments say again.
+func (app *Application) InsightsRecurringUndo(c *echo.Context) error {
+	return app.updateRecurringMarks(c, func(marks map[string]string, key string) { delete(marks, key) })
+}
+
+func (app *Application) updateRecurringMarks(c *echo.Context, apply func(marks map[string]string, key string)) error {
+	ctx := c.Request().Context()
+	key := strings.TrimSpace(c.FormValue("merchant"))
+	if key == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Say which payment.")
+	}
+	marks, err := app.store.GetRecurringMarks(ctx)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	apply(marks.Marks, key)
+	if err := app.store.SaveRecurringMarks(ctx, marks); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return app.renderRecurring(c)
 }

@@ -1064,6 +1064,15 @@ a.b-acct:focus-visible,
     font-variant-numeric: tabular-nums;
 }
 
+/* A row's own small buttons, kept apart from each other enough to tap the
+   right one on a phone. */
+.b-acct-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: var(--b-space-3);
+}
+
 /* Form field labels, small and quiet above the control they name. */
 .b-field-label {
     display: block;

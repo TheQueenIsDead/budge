@@ -160,6 +160,10 @@ type RecurringPayment struct {
 	// before.
 	PriceChanged bool
 
+	// DaysAhead is how many days off the next payment is; less than none
+	// for one that is late.
+	DaysAhead int
+
 	New      bool
 	Stopped  bool
 	DueSoon  bool   // a large payment due within the week
@@ -176,6 +180,39 @@ func (p RecurringPayment) Change() float64 {
 		return 0
 	}
 	return (p.Latest - p.Previous) / p.Previous
+}
+
+// When words the day the next payment is expected.
+func (p RecurringPayment) When() string {
+	switch p.DaysAhead {
+	case 0:
+		return "today"
+	case 1:
+		return "tomorrow"
+	}
+	return p.Next.Format("Mon 2 Jan")
+}
+
+// Detail words what it usually costs, how often, and when it is next due,
+// for the line under its name. Each part keeps together, so a narrow line
+// wraps between them rather than splitting a date.
+func (p RecurringPayment) Detail() string {
+	parts := []string{"usual " + fmtCurrency(p.Usual), strings.ToLower(p.Cadence.Label)}
+	if !p.Fixed {
+		parts = append(parts, "varies")
+	}
+	switch {
+	case p.Stopped:
+		parts = append(parts, "last paid "+p.Last.Format("2 Jan 2006"))
+	case p.DaysAhead < 0:
+		parts = append(parts, "expected "+p.Next.Format("2 Jan"))
+	default:
+		parts = append(parts, "next "+p.When())
+	}
+	for i, part := range parts {
+		parts[i] = strings.ReplaceAll(part, " ", "\u00a0")
+	}
+	return strings.Join(parts, " · ")
 }
 
 // Link opens the payments behind it.
@@ -233,6 +270,7 @@ func FindRecurring(transactions []models.Transaction, now time.Time) []Recurring
 		known := !localDay(since, location).After(payment.Cadence.after(payment.First, -1))
 		payment.New = known && !payment.Stopped && daysBetween(payment.Recognised, today) <= payment.Cadence.newDays()
 		ahead := daysBetween(today, payment.Next)
+		payment.DaysAhead = ahead
 		payment.ComingUp = !payment.Stopped && ahead >= 0 && ahead <= recurringComingUpDays
 		large := payment.Usual >= recurringLargeAmount || (payment.Cadence.rare() && payment.Usual >= recurringLargeRareAmount)
 		payment.DueSoon = !payment.Stopped && ahead >= 0 && ahead <= recurringDueSoonDays && large
@@ -431,6 +469,18 @@ type RecurringGroup struct {
 	Cadence  RecurringCadence
 	Payments []RecurringPayment
 	Yearly   float64
+}
+
+// PerPeriod is what the group comes to each period of its cadence.
+func (g RecurringGroup) PerPeriod() float64 { return g.Yearly / g.Cadence.PerYear }
+
+// ComingUpTotal is what is due in the next fortnight.
+func (v RecurringView) ComingUpTotal() float64 {
+	total := 0.0
+	for _, payment := range v.ComingUp {
+		total += payment.Usual
+	}
+	return total
 }
 
 // BuildRecurringView sorts what was found into what the page shows, by the

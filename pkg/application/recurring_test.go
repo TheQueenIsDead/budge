@@ -2,6 +2,7 @@ package application
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -377,4 +378,19 @@ func TestRecurringMarksSilence(t *testing.T) {
 		assert.False(t, marked[0].ComingUp, "%s is not expected", mark)
 	}
 	assert.True(t, found[0].DueSoon, "what was found is left as it was")
+}
+
+func TestRecurringDetail(t *testing.T) {
+	nb := func(s string) string { return strings.ReplaceAll(s, " ", "\u00a0") }
+	power := RecurringPayment{Usual: 148.5, Cadence: recurringCadences[2], Next: days(30), DaysAhead: 30}
+	assert.Equal(t, nb("usual $148.50")+" · monthly · varies · "+nb("next Wed 15 Jul"), power.Detail(), "each part keeps together")
+
+	power.Fixed, power.DaysAhead = true, 1
+	assert.Equal(t, nb("usual $148.50")+" · monthly · "+nb("next tomorrow"), power.Detail())
+
+	power.DaysAhead, power.Next = -3, days(-3)
+	assert.Equal(t, nb("usual $148.50")+" · monthly · "+nb("expected 12 Jun"), power.Detail(), "a late one says when it was expected")
+
+	power.Stopped, power.Last = true, days(-100)
+	assert.Equal(t, nb("usual $148.50")+" · monthly · "+nb("last paid 7 Mar 2026"), power.Detail())
 }

@@ -202,6 +202,9 @@
      being one.
 
      Href       where the row leads; a link with a chevron when given.
+     Link       where its name leads, for a row with buttons of its own,
+                which cannot all be one link; it opens as a page of its
+                own, with LinkTitle saying what is there.
      Accent     the row's colour; Class any further classes for it.
      Chip       an icon in its chip, or ChipText a letter; ChipSm for the
                 small chip, ChipAccent for a colour of its own.
@@ -214,11 +217,15 @@
                 its tooltip.
      New        true to mark the row as not seen yet.
      Figure     the figure on the right, already formatted, in FigureTone.
-     Delta      a dict for a delta pill under the figure.
+     Delta      a dict for a delta pill under the figure, or FigureNote a
+                line of text under it.
      Remove     a dict to take the row out of its list with a cross: URL to
                 delete, Label for a screen reader, Title, Confirm to ask
                 first, and Trigger, an event to raise on the page after.
-     Action     a dict for a button on the right: Post, Vals, Icon, Label. */}}
+     Action     a dict for a button on the right: Post, Vals, Icon, Label.
+     Actions    a list of dicts, each a small icon button on the right with
+                a tooltip: Post, Vals, Icon, Title, and Label for a screen
+                reader. */}}
 {{ define "listRow" }}
 {{- if .Href }}
 <a class="b-acct{{ with .Accent }} b-accent-{{ . }}{{ end }}{{ with .Class }} {{ . }}{{ end }}" href="{{ .Href }}" hx-boost="true" hx-target="#main">
@@ -233,7 +240,10 @@
     </span>
     {{- end }}
     <div class="b-acct-body">
-        <div class="b-acct-name">{{ .Title }}</div>
+        <div class="b-acct-name">
+            {{- with .Link }}<a class="b-tl-link" href="{{ . }}" hx-boost="false"{{ with $.LinkTitle }} title="{{ . }}"{{ end }}>{{ $.Title }}</a>
+            {{- else }}{{ .Title }}{{ end -}}
+        </div>
         {{- with .Message }}
         <div class="b-note-message">{{ . }}</div>
         {{- end }}
@@ -251,7 +261,7 @@
         {{- with .Figure }}
         <div class="b-acct-balance{{ with $.FigureTone }} {{ . }}{{ end }}">{{ . }}</div>
         {{- end }}
-        {{- with .Delta }}{{ template "delta" . }}{{ end }}
+        {{- with .Delta }}{{ template "delta" . }}{{ else with .FigureNote }}<div class="b-delta-note">{{ . }}</div>{{ end }}
     </div>
     {{- end }}
     {{- with .Remove }}
@@ -262,6 +272,17 @@
             title="{{ or .Title .Label }}" aria-label="{{ .Label }}">
         <i class="bi bi-x-lg" aria-hidden="true"></i>
     </button>
+    {{- end }}
+    {{- with .Actions }}
+    <div class="b-acct-actions">
+        {{- range . }}
+        <button class="btn btn-sm btn-link text-muted p-0"
+                hx-post="{{ .Post }}"{{ with .Vals }} hx-vals='{{ . | toJSON }}'{{ end }}
+                title="{{ .Title }}" aria-label="{{ .Label }}">
+            <i class="bi {{ .Icon }}" aria-hidden="true"></i>
+        </button>
+        {{- end }}
+    </div>
     {{- end }}
     {{- with .Action }}
     <button class="btn btn-sm btn-outline-secondary flex-shrink-0"
