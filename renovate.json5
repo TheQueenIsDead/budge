@@ -1,0 +1,86 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'config:recommended',
+    // Every action is pinned to a commit, with its version in a comment, as
+    // a tag can be moved to other code; Renovate moves the pins on with each
+    // release.
+    'helpers:pinGitHubActionDigests',
+  ],
+  osvVulnerabilityAlerts: true,
+  // Security fixes are committed as fix(deps), whatever the dependency, so
+  // Release Please cuts a release that carries them. Otherwise an indirect
+  // dependency's fix is a chore and waits for the next release. They are
+  // proposed at once, rather than after the few days other releases wait,
+  // which Renovate does by default and is said here so that it stays so.
+  vulnerabilityAlerts: {
+    semanticCommitType: 'fix',
+    minimumReleaseAge: null,
+  },
+  postUpdateOptions: ['gomodTidy'],
+  customManagers: [
+    {
+      // Images Go code runs, such as the Chrome the browser tests drive,
+      // named in a string under a renovate comment.
+      customType: 'regex',
+      managerFilePatterns: ['/\\.go$/'],
+      matchStrings: [
+        '// renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n[^\\n]*"[^"]+:(?<currentValue>[^"]+)"',
+      ],
+    },
+    {
+      // Tools workflows install by version, such as the linter, named on the
+      // line under a renovate comment.
+      customType: 'regex',
+      managerFilePatterns: ['/^\\.github/workflows/[^/]+\\.ya?ml$/'],
+      matchStrings: [
+        '# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n\\s*version: (?<currentValue>\\S+)',
+      ],
+    },
+  ],
+  packageRules: [
+    {
+      // Minor and patch updates merge themselves, by GitHub's auto-merge,
+      // once the checks main requires have passed, the browser tests among
+      // them.
+      matchUpdateTypes: ['minor', 'patch'],
+      automerge: true,
+    },
+    {
+      // A moved pin of an action's version merges itself as well.
+      matchUpdateTypes: ['pin', 'pinDigest', 'digest'],
+      automerge: true,
+    },
+    {
+      // echo-otel's major version tracks Echo's, so the two move together in
+      // one PR, whatever their major version.
+      matchDatasources: ['go'],
+      matchPackageNames: [
+        '/^github\\.com/labstack/echo/v\\d+$/',
+        '/^github\\.com/labstack/echo-otel/v\\d+$/',
+      ],
+      groupName: 'echo',
+    },
+    {
+      // A release must be a few days old before it is proposed, long enough
+      // for most hijacked ones to be caught and pulled, as minor and patch
+      // updates merge themselves. pnpm refuses younger libraries too; see
+      // web/pnpm-workspace.yaml. Security fixes are proposed at once.
+      matchPackageNames: ['*'],
+      minimumReleaseAge: '3 days',
+    },
+    {
+      // Alpine's morph plugin must match Alpine's own version, so the two
+      // move together in one PR.
+      matchPackageNames: ['alpinejs', '@alpinejs/morph'],
+      groupName: 'alpinejs',
+    },
+    {
+      // htmx 4 is a rewrite, with new event names and a new extension API,
+      // which the morph extension in layout.gohtml is written against.
+      // Moving to it is a piece of work, not an update.
+      matchPackageNames: ['htmx.org'],
+      allowedVersions: '<3',
+    },
+  ],
+}

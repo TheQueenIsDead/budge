@@ -10,7 +10,7 @@ tmp/
 .gitignore
 .release-please-manifest.json
 release-please-config.json
-renovate.json
+renovate.json5
 *.db
 *.db.bak-*
 *.exe
