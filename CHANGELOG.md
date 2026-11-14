@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.22.0](https://github.com/TheQueenIsDead/budge/compare/v1.21.0...v1.22.0) (2026-11-14)
+
+
+### Features
+
+* **budget:** say what the targets could tidy as a row of the overview card ([5937960](https://github.com/TheQueenIsDead/budge/commit/59379605f429e6eacca699e136118ca92c5922ab))
+* file money coming in as Income ([9334205](https://github.com/TheQueenIsDead/budge/commit/933420547ce7b508843b080360ca2887fb048bd0))
+* give memories a page of their own ([eee7da4](https://github.com/TheQueenIsDead/budge/commit/eee7da450ae6d3312030c4d2ae5f678949369963))
+* grey out a memory's Save until something changes ([83190e4](https://github.com/TheQueenIsDead/budge/commit/83190e4f259a0a3bd5adc8fa75cf4001133ec0e2))
+* lay a memory's page out as the timeline and transactions are ([d9ef0a8](https://github.com/TheQueenIsDead/budge/commit/d9ef0a880d1bd8082b8d1508a781df0d6b8c5c65))
+* **memories:** offer everything bought over a memory's days ([38f006b](https://github.com/TheQueenIsDead/budge/commit/38f006b6fa2b0ba9c953fb3177e4ecf4309af848))
+* **timeline:** a memory's card is its header and note ([6a9df0e](https://github.com/TheQueenIsDead/budge/commit/6a9df0eb998e0e80585609028b34870a916d7476))
+* **timeline:** grey a memory's header on hover, as Insights' rows do ([02fc3dc](https://github.com/TheQueenIsDead/budge/commit/02fc3dcb1863dac1c8adc727477a3f9c168e5c58))
+* **timeline:** open a memory from its card ([5e3c20a](https://github.com/TheQueenIsDead/budge/commit/5e3c20af0d561c34b79bff8bae144f4266c18f21))
+* UI consistency ([#129](https://github.com/TheQueenIsDead/budge/issues/129)) ([384650b](https://github.com/TheQueenIsDead/budge/commit/384650bfd071503c6b7effafd82ed02b73bbcd83))
+
+
+### Bug Fixes
+
+* clear the two lint findings blocking every PR ([bf21bc3](https://github.com/TheQueenIsDead/budge/commit/bf21bc38a7f2514a54c27d62d7bcaddeb0d1e8e1))
+* **deps:** update module github.com/chromedp/cdproto to v0.159.3 ([#124](https://github.com/TheQueenIsDead/budge/issues/124)) ([5c05eab](https://github.com/TheQueenIsDead/budge/commit/5c05eab72b61fbcd336f66aaa828688e67b63968))
+* keep a toast's quotes and accents intact ([befd02e](https://github.com/TheQueenIsDead/budge/commit/befd02ecf1f494b75076b705198139cfd2a504e0))
+* round a memory kind's ring with its icon, not as a pill ([d26c066](https://github.com/TheQueenIsDead/budge/commit/d26c06675dc9515ff6b3f27ffa3876744acea39f))
+* **settings:** put the actions on the right, and what they report on the left ([76e76e2](https://github.com/TheQueenIsDead/budge/commit/76e76e2be5d0d7bf96fd4242d186af2616e4ecb9))
+* stop images reporting their commit as modified ([213c0c5](https://github.com/TheQueenIsDead/budge/commit/213c0c55732cf33d65c77009033e9f4eda26a91d))
+* **web:** redraw a kept chart once its swap is done ([77bcb28](https://github.com/TheQueenIsDead/budge/commit/77bcb28c6a23524393f4ea4e8d4e42c87fb7fede))
+
 ## [1.21.0](https://github.com/TheQueenIsDead/budge/compare/v1.20.1...v1.21.0) (2026-11-12)
 
 
