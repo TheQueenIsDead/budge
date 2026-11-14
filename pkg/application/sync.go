@@ -141,8 +141,11 @@ func (app *Application) runAkahuSync(ctx context.Context, full bool) error {
 		span.SetStatus(codes.Error, err.Error())
 	}
 	if err == nil {
-		// New spending has landed, so this is when a category tips over.
-		app.notifyBudget(ctx, clock.Now())
+		// New spending has landed, so this is when a category tips over,
+		// and when a recurring payment changes or turns up.
+		now := clock.Now()
+		app.notifyBudget(ctx, now)
+		app.notifyRecurring(ctx, now)
 	}
 	return err
 }

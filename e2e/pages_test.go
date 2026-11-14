@@ -20,6 +20,7 @@ func TestPagesLoadClean(t *testing.T) {
 	}{
 		{"dashboard", "/", 1},
 		{"insights", "/insights", 1},
+		{"recurring", "/insights?view=recurring", 0},
 		{"budget", "/budget", 1},
 		{"income", "/budget/income", 0},
 		{"transactions", "/transactions", 1},

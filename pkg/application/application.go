@@ -41,14 +41,7 @@ import (
 // live store.
 func templateFuncs() template.FuncMap {
 	return template.FuncMap{
-		// The sign belongs in front of the symbol: "-$40.51", not "$-40.51".
-		"fmtCurrency": func(number float64) string {
-			p := message.NewPrinter(language.English)
-			if number < 0 {
-				return p.Sprintf("-$%.2f", math.Abs(number))
-			}
-			return p.Sprintf("$%.2f", number)
-		},
+		"fmtCurrency": fmtCurrency,
 		// fmtCurrencyAbs drops the sign, for places where an adjacent label
 		// ("deficit", "over-allocated") already carries the direction.
 		// fmtWhole rounds to whole dollars, for figures read at a glance where
@@ -313,6 +306,8 @@ func NewApplication(store *database.Store, integrations *integrations.Integratio
 
 	// Insights
 	app.http.GET("/insights", app.Insights)
+	app.http.POST("/insights/recurring/mark", app.InsightsRecurringMark)
+	app.http.POST("/insights/recurring/undo", app.InsightsRecurringUndo)
 
 	// Transactions
 	app.http.GET("/transactions", app.Transactions)
@@ -589,6 +584,16 @@ func triggerJSON(event any) (string, error) {
 		}
 	}
 	return b.String(), nil
+}
+
+// fmtCurrency words an amount to the cent. The sign belongs in front of the
+// symbol: "-$40.51", not "$-40.51".
+func fmtCurrency(number float64) string {
+	p := message.NewPrinter(language.English)
+	if number < 0 {
+		return p.Sprintf("-$%.2f", math.Abs(number))
+	}
+	return p.Sprintf("$%.2f", number)
 }
 
 // fmtWhole rounds to whole dollars, for figures read at a glance where cents

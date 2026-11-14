@@ -195,6 +195,26 @@ func (s *Store) SaveNotificationLog(ctx context.Context, log models.Notification
 	return Update[models.NotificationLog](ctx, s.db, log)
 }
 
+/* Recurring payments */
+
+// GetRecurringMarks reads what the owner has said about the recurring
+// payments. Nothing saved yet means nothing marked; marks that cannot be read
+// are an error, rather than none, which the next mark would save over.
+func (s *Store) GetRecurringMarks(ctx context.Context) (models.RecurringMarks, error) {
+	marks, _, err := GetOptional[models.RecurringMarks](ctx, s.db, models.RecurringMarks{}.Key())
+	if err != nil {
+		return models.RecurringMarks{}, fmt.Errorf("reading recurring marks: %w", err)
+	}
+	if marks.Marks == nil {
+		marks.Marks = map[string]string{}
+	}
+	return marks, nil
+}
+
+func (s *Store) SaveRecurringMarks(ctx context.Context, marks models.RecurringMarks) error {
+	return Update[models.RecurringMarks](ctx, s.db, marks)
+}
+
 // CreateNotification records a notification and drops the oldest once the log
 // is over its cap.
 func (s *Store) CreateNotification(ctx context.Context, notification models.Notification) error {
@@ -297,6 +317,9 @@ func (s *Store) ExportBackup(ctx context.Context) (models.Backup, error) {
 	if backup.BudgetCategories, err = exported[models.BudgetCategorySettings](ctx, s); err != nil {
 		return backup, err
 	}
+	if backup.Recurring, err = exported[models.RecurringMarks](ctx, s); err != nil {
+		return backup, err
+	}
 	return backup, nil
 }
 
@@ -350,6 +373,22 @@ func (s *Store) ImportBackup(ctx context.Context, backup models.Backup) error {
 		list = append(list, *backup.BudgetCategories)
 	}
 
+	// Marks merge as hidden merchants do: the backup's word on a payment
+	// overwrites this one's, and payments it does not mention keep theirs.
+	var recurring []models.RecurringMarks
+	if backup.Recurring != nil {
+		current, err := s.GetRecurringMarks(ctx)
+		if err != nil {
+			return err
+		}
+		for key, mark := range backup.Recurring.Marks {
+			if models.ValidRecurringMark(mark) {
+				current.Marks[key] = mark
+			}
+		}
+		recurring = append(recurring, current)
+	}
+
 	err = update(ctx, s.db, "backup", func(tx *bolt.Tx) error {
 		return errors.Join(
 			putAll(tx, backup.Memories),
@@ -360,6 +399,7 @@ func (s *Store) ImportBackup(ctx context.Context, backup models.Backup) error {
 			putAll(tx, schedule),
 			putAll(tx, categories),
 			putAll(tx, list),
+			putAll(tx, recurring),
 		)
 	})
 	if err == nil && len(list) > 0 {
