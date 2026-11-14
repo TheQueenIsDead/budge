@@ -29,6 +29,10 @@ type Backup struct {
 	Categories *CategorySettings `json:"categories,omitempty"`
 
 	BudgetCategories *BudgetCategorySettings `json:"budget_categories,omitempty"`
+
+	// Recurring came after version 1 was first written. A backup from before
+	// it has none, which imports as nothing marked, so the version stands.
+	Recurring *RecurringMarks `json:"recurring,omitempty"`
 }
 
 // BackupCounts says what a backup holds, for telling the owner what an import

@@ -110,3 +110,25 @@ func TestPutAllReportsAMissingBucket(t *testing.T) {
 	})
 	assert.ErrorContains(t, err, "not found", "an error, not a panic")
 }
+
+func TestRecurringMarks(t *testing.T) {
+	store := tempStore(t)
+	marks, err := store.GetRecurringMarks(t.Context())
+	require.NoError(t, err, "a fresh instance has no marks, which is not an error")
+	assert.Empty(t, marks.Marks)
+	assert.NotNil(t, marks.Marks, "and can be marked straight away")
+
+	marks.Marks["neon"] = models.RecurringCancelled
+	require.NoError(t, store.SaveRecurringMarks(t.Context(), marks))
+	marks, err = store.GetRecurringMarks(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{"neon": models.RecurringCancelled}, marks.Marks)
+
+	t.Run("marks that cannot be read are an error", func(t *testing.T) {
+		require.NoError(t, store.db.Update(func(tx *bolt.Tx) error {
+			return tx.Bucket(models.RecurringMarks{}.Bucket()).Put(models.RecurringMarks{}.Key(), []byte("{not json"))
+		}))
+		_, err := store.GetRecurringMarks(t.Context())
+		assert.Error(t, err)
+	})
+}

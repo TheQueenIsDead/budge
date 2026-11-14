@@ -23,6 +23,7 @@ func configured(t *testing.T) *Store {
 	require.NoError(t, store.SaveBudgetSalary(t.Context(), models.BudgetSalary{Salary: 100000, SalaryFrequency: "yearly", SavingsGoal: 250}))
 	require.NoError(t, store.SaveScheduleSettings(t.Context(), models.ScheduleSettings{AkahuEnabled: true, AkahuInterval: "6h", AkahuLastRun: time.Now()}))
 	require.NoError(t, store.SaveCategorySettings(t.Context(), models.CategorySettings{Rules: []models.CategoryRule{{ID: "loan", Contains: "LOAN INTEREST", Broad: "General", Specific: "Housing"}}}))
+	require.NoError(t, store.SaveRecurringMarks(t.Context(), models.RecurringMarks{Marks: map[string]string{"neon": models.RecurringCancelled}}))
 	require.NoError(t, store.UpdateAkahuSettings(t.Context(), models.IntegrationAkahuSettings{AppToken: "app_x", UserToken: "user_y", LastSync: time.Now()}))
 	return store
 }
@@ -65,6 +66,10 @@ func TestBackupRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, categories.Rules, 1)
 	assert.Equal(t, "Housing", categories.Rules[0].Specific)
+
+	marks, err := fresh.GetRecurringMarks(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{"neon": models.RecurringCancelled}, marks.Marks)
 }
 
 func TestBackupLeavesTokensOut(t *testing.T) {
@@ -104,9 +109,45 @@ func TestBackupImportMerges(t *testing.T) {
 	assert.Equal(t, []string{"NZTA", "Fisher Funds"}, prefs.HiddenMerchants)
 }
 
+func TestBackupImportMergesRecurringMarks(t *testing.T) {
+	backup, err := configured(t).ExportBackup(t.Context())
+	require.NoError(t, err)
+	backup.Recurring.Marks["bogus"] = "whatever"
+
+	target := tempStore(t)
+	require.NoError(t, target.SaveRecurringMarks(t.Context(), models.RecurringMarks{Marks: map[string]string{
+		"little bird cafe": models.RecurringNotRecurring,
+		"neon":             models.RecurringNotRecurring,
+	}}))
+	require.NoError(t, target.ImportBackup(t.Context(), backup))
+
+	marks, err := target.GetRecurringMarks(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{
+		"little bird cafe": models.RecurringNotRecurring,
+		"neon":             models.RecurringCancelled,
+	}, marks.Marks, "the backup's word overwrites, anything else is kept, and a mark budge does not know is dropped")
+}
+
+func TestBackupFromBeforeRecurringMarks(t *testing.T) {
+	// A version 1 file written before marks were kept has no field for them.
+	var backup models.Backup
+	require.NoError(t, json.Unmarshal([]byte(`{"version": 1, "memories": []}`), &backup))
+	assert.Nil(t, backup.Recurring)
+
+	store := tempStore(t)
+	require.NoError(t, store.SaveRecurringMarks(t.Context(), models.RecurringMarks{Marks: map[string]string{"neon": models.RecurringCancelled}}))
+	require.NoError(t, store.ImportBackup(t.Context(), backup))
+
+	marks, err := store.GetRecurringMarks(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{"neon": models.RecurringCancelled}, marks.Marks, "marks already here are untouched")
+}
+
 func TestBackupLeavesOutSettingsNeverSaved(t *testing.T) {
 	backup, err := tempStore(t).ExportBackup(t.Context())
 	require.NoError(t, err)
 	assert.Nil(t, backup.BudgetSalary)
 	assert.Nil(t, backup.Schedule)
+	assert.Nil(t, backup.Recurring)
 }
