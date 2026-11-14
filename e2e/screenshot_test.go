@@ -46,6 +46,7 @@ func TestScreenshots(t *testing.T) {
 	pages := []struct{ name, path string }{
 		{"dashboard", "/"},
 		{"insights", "/insights"},
+		{"recurring", "/insights?view=recurring"},
 		{"budget", "/budget"},
 		{"income", "/budget/income"},
 		{"transactions", "/transactions"},
