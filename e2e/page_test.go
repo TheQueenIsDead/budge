@@ -37,6 +37,11 @@ type page struct {
 	problems []string
 }
 
+// slow runs the tests in a tab with its processor slowed four times, as a
+// busy CI runner can be, to bring out a test that only passes because the
+// page is quick: one that acts before what it waits on is done.
+var slow = flag.Bool("slow", false, "slow each tab's processor fourfold, to find tests that race the page")
+
 // open starts a budge for the test and opens a tab on it.
 func open(t *testing.T) *page {
 	t.Helper()
@@ -93,6 +98,11 @@ func openOn(t *testing.T, base string) *page {
 	})
 	if err != nil {
 		t.Fatalf("opening a tab: %v", err)
+	}
+	if *slow {
+		if _, err := chromedp.Call(ctx, emulation.SetCPUThrottlingRate, emulation.SetCPUThrottlingRateParams{Rate: 4}); err != nil {
+			t.Fatalf("slowing the tab: %v", err)
+		}
 	}
 	if _, err := chromedp.Call(ctx, emulation.SetDeviceMetricsOverride, emulation.SetDeviceMetricsOverrideParams{
 		Width: 1280, Height: 800, DeviceScaleFactor: 1,
@@ -163,14 +173,16 @@ func (p *page) visit(path string) {
 	}
 }
 
-// settle waits until no htmx request is under way and the page's fonts are in.
-// A page a link is loading is waited for too.
+// settle waits until no htmx request is under way, no swap is still being
+// put in or settled, and the page's fonts are in. A swap scrolls the page,
+// as show: asks, only once it settles. A page a link is loading is waited
+// for too.
 func (p *page) settle() {
 	p.t.Helper()
 	ctx, cancel := context.WithTimeout(p.ctx, 30*time.Second)
 	defer cancel()
 	for {
-		err := chromedp.Do(ctx, chromedp.Poll[chromedp.Void](`document.readyState === 'complete' && !document.querySelector('.htmx-request') && document.fonts.status === 'loaded'`))
+		err := chromedp.Do(ctx, chromedp.Poll[chromedp.Void](`document.readyState === 'complete' && !document.querySelector('.htmx-request, .htmx-swapping, .htmx-settling, .htmx-added') && document.fonts.status === 'loaded'`))
 		if gone(err) {
 			continue
 		}
@@ -215,6 +227,9 @@ func (p *page) click(sel string) {
 // holds text.
 func (p *page) clickText(sel, text string) {
 	p.t.Helper()
+	// Where an element is is read, then clicked, so a page still being swapped
+	// in, or about to scroll once it settles, would take the click elsewhere.
+	p.settle()
 	rect := eval[struct{ X, Y, Width, Height float64 }](p, fmt.Sprintf(`(() => {
 		const el = [...document.querySelectorAll(%s)].find(e => e.getBoundingClientRect().width > 0 && e.textContent.includes(%s));
 		if (!el) throw new Error('nothing visible matches ' + %[1]s + ' holding ' + %[2]s);

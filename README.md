@@ -111,5 +111,8 @@ committing what changed so the pull request shows each page that moved:
 go test -tags e2e -run TestScreenshots ./e2e/... -screenshots
 ```
 
+Add `-slow` to run every tab with its processor slowed fourfold, as a busy
+CI runner can be, to find a test that only passes because the page is quick.
+
 Add `-artifacts` to keep a screenshot and the HTML of each page a failed test
 was on, in `_artifacts`.
