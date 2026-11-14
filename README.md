@@ -29,6 +29,13 @@ docker pull ghcr.io/thequeenisdead/budge:1.12.0
 Images are tagged with the full version (`1.12.0`), the major and minor version
 (`1.12`), the major version (`1`), and `latest`.
 
+Each image carries an SBOM, and a signed attestation that this repository's
+release workflow built it, which can be checked before running it:
+
+```shell
+gh attestation verify oci://ghcr.io/thequeenisdead/budge:latest --repo TheQueenIsDead/budge
+```
+
 ### Configuration
 
 Budge is configured with environment variables, all optional.

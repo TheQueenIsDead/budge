@@ -76,6 +76,10 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # To sign the image's provenance, by Sigstore with the run's identity,
+      # and keep it in GitHub.
+      id-token: write
+      attestations: write
     uses: ./.github/workflows/_build.yml
     with:
       push: true
