@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.22.1](https://github.com/TheQueenIsDead/budge/compare/v1.22.0...v1.22.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* **deps:** update dependency bootstrap to v5.3.9 ([#132](https://github.com/TheQueenIsDead/budge/issues/132)) ([63f3f44](https://github.com/TheQueenIsDead/budge/commit/63f3f4496463181803111922b3fa6f5a195db3dc))
+
 ## [1.22.0](https://github.com/TheQueenIsDead/budge/compare/v1.21.0...v1.22.0) (2026-11-14)
 
 
