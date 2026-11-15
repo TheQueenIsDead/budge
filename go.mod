@@ -7,7 +7,7 @@ require (
 	github.com/chromedp/chromedp v0.23.0
 	github.com/dustin/go-humanize v1.1.0
 	github.com/labstack/echo-otel/v5 v5.0.0
-	github.com/labstack/echo/v5 v5.4.4
+	github.com/labstack/echo/v5 v5.4.5
 	github.com/stretchr/testify v1.12.1
 	github.com/testcontainers/testcontainers-go v0.45.0
 	go.etcd.io/bbolt v1.5.0
