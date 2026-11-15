@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.23.0](https://github.com/TheQueenIsDead/budge/compare/v1.22.0...v1.23.0) (2026-11-15)
+
+
+### Features
+
+* **insights:** show the recurring payments, after the categories ([6c842ff](https://github.com/TheQueenIsDead/budge/commit/6c842ff8570d7d8f111002d6709f43100628d269))
+* **recurring:** find the payments that come round on their own ([71c942b](https://github.com/TheQueenIsDead/budge/commit/71c942b91ad312ce8a89e00348869e9676e80ef1))
+* **recurring:** keep what the owner says about each recurring payment ([ee94396](https://github.com/TheQueenIsDead/budge/commit/ee9439674b7213c74d035d29146e8010895fb064))
+* **recurring:** tell the owner of a price change, a new one, or a large one due ([0998fea](https://github.com/TheQueenIsDead/budge/commit/0998feacdc98b3eaffeb51b708b55517bdbba8e0))
+
+
+### Bug Fixes
+
+* **deps:** update dependency bootstrap to v5.3.9 ([#132](https://github.com/TheQueenIsDead/budge/issues/132)) ([63f3f44](https://github.com/TheQueenIsDead/budge/commit/63f3f4496463181803111922b3fa6f5a195db3dc))
+* **deps:** update module github.com/chromedp/cdproto to v0.160.0 ([#138](https://github.com/TheQueenIsDead/budge/issues/138)) ([d9a22ed](https://github.com/TheQueenIsDead/budge/commit/d9a22ed137217719e06576b2f1086eaad2681c4c))
+* **deps:** update module github.com/labstack/echo/v5 to v5.4.5 ([#137](https://github.com/TheQueenIsDead/budge/issues/137)) ([dc52653](https://github.com/TheQueenIsDead/budge/commit/dc526531f27211a64708330d15a0c7a02e344326))
+
 ## [1.22.0](https://github.com/TheQueenIsDead/budge/compare/v1.21.0...v1.22.0) (2026-11-14)
 
 
