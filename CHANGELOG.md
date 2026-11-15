@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.23.1](https://github.com/TheQueenIsDead/budge/compare/v1.23.0...v1.23.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **deps:** build with go 1.27.4, for the standard library's security fixes ([3729cf2](https://github.com/TheQueenIsDead/budge/commit/3729cf2bf39fe3deadff15b57fd2022edf4e1331))
+
 ## [1.23.0](https://github.com/TheQueenIsDead/budge/compare/v1.22.0...v1.23.0) (2026-11-15)
 
 
