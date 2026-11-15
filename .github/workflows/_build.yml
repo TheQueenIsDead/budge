@@ -22,7 +22,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # The Dockerfile builds with the Go go.mod names and the pnpm
       # web/package.json names, read here to pass in as build args, along
@@ -33,17 +33,17 @@ jobs:
           echo "pnpm=$(jq -r '.packageManager | ltrimstr("pnpm@") | split("+")[0]' web/package.json)" >> "$GITHUB_OUTPUT"
           echo "image=${IMAGE_NAME,,}" >> "$GITHUB_OUTPUT"
 
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - if: ${{ inputs.push }}
-        uses: docker/login-action@v4
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - id: meta
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           # A release runs on refs/heads/main, not on the release tag, so semver
@@ -58,7 +58,7 @@ jobs:
       # The Dockerfile's test stage runs the tests on the code the image is
       # built from, sharing its modules, libraries and cache.
       - name: Test
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           target: test
@@ -72,7 +72,7 @@ jobs:
       # inspect` to read.
       - name: Build
         id: build
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           push: ${{ inputs.push }}
@@ -93,7 +93,7 @@ jobs:
       # with `gh attestation verify oci://ghcr.io/thequeenisdead/budge:<tag>
       # --repo TheQueenIsDead/budge`. The image's name must be lowercase.
       - if: ${{ inputs.push }}
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
         with:
           subject-name: ${{ env.REGISTRY }}/${{ steps.versions.outputs.image }}
           subject-digest: ${{ steps.build.outputs.digest }}
