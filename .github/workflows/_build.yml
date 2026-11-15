@@ -91,9 +91,10 @@ jobs:
       # A signed statement, kept in GitHub and pushed next to the image, that
       # this workflow built the image from this commit, for anyone to check
       # with `gh attestation verify oci://ghcr.io/thequeenisdead/budge:<tag>
-      # --repo TheQueenIsDead/budge`. The image's name must be lowercase.
+      # --repo TheQueenIsDead/budge`. Given no predicate, actions/attest makes
+      # it SLSA build provenance. The image's name must be lowercase.
       - if: ${{ inputs.push }}
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-name: ${{ env.REGISTRY }}/${{ steps.versions.outputs.image }}
           subject-digest: ${{ steps.build.outputs.digest }}
