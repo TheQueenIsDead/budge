@@ -111,7 +111,8 @@ func TestReturnPathStaysInBudge(t *testing.T) {
 	for _, ok := range []string{"/transactions?search=hotel&account=a", "/timeline?view=memories", "/"} {
 		assert.Equal(t, ok, returnPath(ok))
 	}
-	for _, away := range []string{"", "https://evil.example/", "//evil.example/", "/\\evil.example", "javascript:alert(1)", "transactions"} {
+	for _, away := range []string{"", "https://evil.example/", "//evil.example/", "/\\evil.example", "javascript:alert(1)", "transactions",
+		"/\t/evil.example", "/\n/evil.example", "/x\\..\\\\evil.example"} {
 		assert.Equal(t, memoriesHome, returnPath(away), away)
 	}
 }

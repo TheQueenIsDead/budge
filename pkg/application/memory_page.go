@@ -70,10 +70,16 @@ const memoriesHome = "/timeline?view=memories"
 
 // returnPath is the page to go back to: the one named, so long as it is one
 // of budge's own, so a link can't send the owner off to another site.
+//
+// A browser reads "//host" and "/\host" alike as another site, so a path's
+// second character is checked, as well as its first. A tab or newline,
+// which a browser drops to make "/<tab>/host" into "//host", fails to parse.
 func returnPath(raw string) string {
+	if raw == "" || raw[0] != '/' || len(raw) > 1 && (raw[1] == '/' || raw[1] == '\\') {
+		return memoriesHome
+	}
 	u, err := url.Parse(raw)
-	if err != nil || raw == "" || u.Scheme != "" || u.Host != "" || u.User != nil ||
-		!strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "//") || strings.ContainsRune(raw, '\\') {
+	if err != nil || u.Scheme != "" || u.Host != "" || u.User != nil || strings.ContainsRune(raw, '\\') {
 		return memoriesHome
 	}
 	return raw
