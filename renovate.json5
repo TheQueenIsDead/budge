@@ -40,6 +40,16 @@
   ],
   packageRules: [
     {
+      // go.mod's go line is the Go the image is built with, as CI and the
+      // Dockerfile read it, and the standard library's security fixes come
+      // in its patch releases. Renovate leaves it alone unless told to, as a
+      // library would keep it low; budge is not one.
+      matchManagers: ['gomod'],
+      matchDepNames: ['go'],
+      matchDepTypes: ['golang'],
+      rangeStrategy: 'bump',
+    },
+    {
       // Minor and patch updates merge themselves, by GitHub's auto-merge,
       // once the checks main requires have passed, the browser tests among
       // them.
