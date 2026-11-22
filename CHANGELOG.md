@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.23.2](https://github.com/TheQueenIsDead/budge/compare/v1.23.1...v1.23.2) (2026-11-21)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/chromedp/cdproto to v0.160.1 ([#141](https://github.com/TheQueenIsDead/budge/issues/141)) ([7f50f07](https://github.com/TheQueenIsDead/budge/commit/7f50f079955b3ae5b7f870e7ec1ae726aece2290))
+* **deps:** update module github.com/chromedp/cdproto to v0.160.2 ([#144](https://github.com/TheQueenIsDead/budge/issues/144)) ([d6383df](https://github.com/TheQueenIsDead/budge/commit/d6383df4105c260455f68e99af5ae4c3cbbbcb68))
+* **deps:** update module github.com/chromedp/cdproto to v0.160.3 ([#146](https://github.com/TheQueenIsDead/budge/issues/146)) ([7200532](https://github.com/TheQueenIsDead/budge/commit/7200532ffc03e4212792827e4cb0d670dbcf70c6))
+* **deps:** update module github.com/chromedp/cdproto to v0.160.4 ([#148](https://github.com/TheQueenIsDead/budge/issues/148)) ([64f66e8](https://github.com/TheQueenIsDead/budge/commit/64f66e82c11897c08edfc7dcff0653b640a1cd87))
+* **deps:** update module github.com/chromedp/cdproto to v0.160.5 ([#152](https://github.com/TheQueenIsDead/budge/issues/152)) ([8f91ccb](https://github.com/TheQueenIsDead/budge/commit/8f91ccbd99731d3d59e67fee54345c73e0a4618c))
+* **deps:** update module github.com/chromedp/chromedp to v0.23.1 ([#143](https://github.com/TheQueenIsDead/budge/issues/143)) ([9af1241](https://github.com/TheQueenIsDead/budge/commit/9af12410d8a9c7d7e99f6c446eed326bf0105f64))
+* **deps:** update module github.com/chromedp/chromedp to v0.24.0 ([#151](https://github.com/TheQueenIsDead/budge/issues/151)) ([1acdab5](https://github.com/TheQueenIsDead/budge/commit/1acdab5152c415fa5b1c14cf5f09e88156f443ef))
+* **deps:** update module github.com/labstack/echo/v5 to v5.4.6 ([#145](https://github.com/TheQueenIsDead/budge/issues/145)) ([01e2bcf](https://github.com/TheQueenIsDead/budge/commit/01e2bcfd9165ee501bd1145dfac6015cbb59cb2b))
+* **memories:** check a return path's second character as browsers read it ([56ff0bc](https://github.com/TheQueenIsDead/budge/commit/56ff0bc059af57eee83bed1c2f81b01b08e968bf))
+
 ## [1.23.1](https://github.com/TheQueenIsDead/budge/compare/v1.23.0...v1.23.1) (2026-11-15)
 
 
