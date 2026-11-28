@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.23.3](https://github.com/TheQueenIsDead/budge/compare/v1.23.2...v1.23.3) (2026-11-28)
+
+
+### Bug Fixes
+
+* **deps:** update dependency chart.js to v4.6.2 ([#162](https://github.com/TheQueenIsDead/budge/issues/162)) ([fcaa75c](https://github.com/TheQueenIsDead/budge/commit/fcaa75c20ce0ce1d304a679e17d0f476cbfd97ba))
+* **deps:** update module github.com/chromedp/cdproto to v0.160.6 ([#153](https://github.com/TheQueenIsDead/budge/issues/153)) ([465e8ee](https://github.com/TheQueenIsDead/budge/commit/465e8ee6794faeeb858c04e4786061834ee72971))
+* **deps:** update module github.com/chromedp/cdproto to v0.160.7 ([#156](https://github.com/TheQueenIsDead/budge/issues/156)) ([736823f](https://github.com/TheQueenIsDead/budge/commit/736823f9792ed55b6736073e2086154371f92111))
+* **deps:** update module github.com/chromedp/cdproto to v0.160.8 ([#159](https://github.com/TheQueenIsDead/budge/issues/159)) ([e586596](https://github.com/TheQueenIsDead/budge/commit/e586596f4c51cf5c3cb8a1ad4e495d2c128695d7))
+* **deps:** update module github.com/chromedp/cdproto to v0.160.9 ([#163](https://github.com/TheQueenIsDead/budge/issues/163)) ([47663c2](https://github.com/TheQueenIsDead/budge/commit/47663c2f595dcc9d3089405aa465bfb8c284ccbf))
+* **deps:** update module github.com/labstack/echo/v5 to v5.4.7 ([#158](https://github.com/TheQueenIsDead/budge/issues/158)) ([5f9c0cc](https://github.com/TheQueenIsDead/budge/commit/5f9c0cc38ffedf499315237241976c5cc2880548))
+
 ## [1.23.2](https://github.com/TheQueenIsDead/budge/compare/v1.23.1...v1.23.2) (2026-11-21)
 
 
